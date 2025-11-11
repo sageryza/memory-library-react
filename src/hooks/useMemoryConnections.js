@@ -47,12 +47,13 @@ export function useMemoryConnections(userId) {
   }, [getMemoryConnections]);
 
   /**
-   * Navigate to a specific constellation board
-   * Update this path based on where your constellation view is routed
+   * Navigate to the Conspiracy Board where constellations can be viewed
+   * Note: Constellations are managed within the main board's constellation mode
    */
   const navigateToBoard = useCallback((boardId) => {
-    // TODO: Update this route when constellation board view is implemented
-    window.location.href = `/constellation/${boardId}`;
+    // Navigate to the main Conspiracy Board
+    // User can then enter constellation mode and load the desired constellation
+    window.location.href = `/`;
   }, []);
 
   return {
