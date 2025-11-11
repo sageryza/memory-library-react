@@ -1,0 +1,144 @@
+import { useState } from 'react'
+import './AdvancedSearch.css'
+
+export default function AdvancedSearch({ isOpen, memories, onFilter }) {
+  const [andTerms, setAndTerms] = useState(['', ''])
+  const [orTerms, setOrTerms] = useState(['', ''])
+  const [excludeTerm, setExcludeTerm] = useState('')
+
+  const updateAndTerm = (index, value) => {
+    const newTerms = [...andTerms]
+    newTerms[index] = value
+    setAndTerms(newTerms)
+    applyFilter(newTerms, orTerms, excludeTerm)
+  }
+
+  const updateOrTerm = (index, value) => {
+    const newTerms = [...orTerms]
+    newTerms[index] = value
+    setOrTerms(newTerms)
+    applyFilter(andTerms, newTerms, excludeTerm)
+  }
+
+  const updateExcludeTerm = (value) => {
+    setExcludeTerm(value)
+    applyFilter(andTerms, orTerms, value)
+  }
+
+  const addAndTerm = () => {
+    setAndTerms([...andTerms, ''])
+  }
+
+  const addOrTerm = () => {
+    setOrTerms([...orTerms, ''])
+  }
+
+  const applyFilter = (ands, ors, exclude) => {
+    // Get non-empty terms
+    const andFilters = ands.filter(t => t.trim())
+    const orFilters = ors.filter(t => t.trim())
+    const excludeFilter = exclude.trim()
+
+    // If no filters, show all
+    if (andFilters.length === 0 && orFilters.length === 0 && !excludeFilter) {
+      onFilter(null)
+      return
+    }
+
+    // Filter memories
+    let filtered = memories.filter(memory => {
+      const searchableText = `${memory.title || ''} ${memory.content || ''}`.toLowerCase()
+
+      // AND logic - all terms must be present
+      const andMatch = andFilters.length === 0 ||
+        andFilters.every(term => searchableText.includes(term.toLowerCase()))
+
+      // OR logic - at least one term must be present
+      const orMatch = orFilters.length === 0 ||
+        orFilters.some(term => searchableText.includes(term.toLowerCase()))
+
+      // Exclude logic - term must NOT be present
+      const excludeMatch = !excludeFilter ||
+        !searchableText.includes(excludeFilter.toLowerCase())
+
+      return andMatch && orMatch && excludeMatch
+    })
+
+    onFilter(filtered)
+  }
+
+  const handleClear = () => {
+    setAndTerms(['', ''])
+    setOrTerms(['', ''])
+    setExcludeTerm('')
+    onFilter(null)
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="sidebar-advanced-search">
+      <div className="visual-boolean-section">
+        {/* AND Terms Row */}
+        <div className="boolean-row">
+          <div className="boolean-terms-container">
+            {andTerms.map((term, index) => (
+              <span key={`and-${index}`}>
+                <input
+                  type="text"
+                  className="term-input"
+                  value={term}
+                  onChange={(e) => updateAndTerm(index, e.target.value)}
+                  placeholder="term"
+                />
+                {index < andTerms.length - 1 && (
+                  <span className="boolean-connector">AND</span>
+                )}
+              </span>
+            ))}
+            <button className="add-term-btn" onClick={addAndTerm}>+</button>
+          </div>
+        </div>
+
+        {/* OR Terms Row */}
+        <div className="boolean-row">
+          <div className="boolean-terms-container">
+            {orTerms.map((term, index) => (
+              <span key={`or-${index}`}>
+                <input
+                  type="text"
+                  className="term-input"
+                  value={term}
+                  onChange={(e) => updateOrTerm(index, e.target.value)}
+                  placeholder="term"
+                />
+                {index < orTerms.length - 1 && (
+                  <span className="boolean-connector">OR</span>
+                )}
+              </span>
+            ))}
+            <button className="add-term-btn" onClick={addOrTerm}>+</button>
+          </div>
+        </div>
+
+        {/* Exclude Terms Row */}
+        <div className="boolean-row exclude-row">
+          <label className="exclude-label">Exclude:</label>
+          <input
+            type="text"
+            className="term-input exclude-input"
+            value={excludeTerm}
+            onChange={(e) => updateExcludeTerm(e.target.value)}
+            placeholder="excluded term"
+          />
+        </div>
+      </div>
+
+      <div className="sidebar-search-actions">
+        <button className="btn-secondary" onClick={handleClear}>
+          Clear
+        </button>
+      </div>
+    </div>
+  )
+}

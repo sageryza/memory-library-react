@@ -1,0 +1,104 @@
+/* ===== CONSTELLATION FEATURE STYLES ===== */
+
+/* Icon wrapper positioned in top-right corner of memory cards */
+.constellation-icon-wrapper {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+/* The constellation icon with glowing effect */
+.constellation-icon {
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 1;
+    filter:
+        drop-shadow(0 0 1px #2c3e50)
+        drop-shadow(0 0 2px #34495e)
+        drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+    text-shadow: 0 0 1px #2c3e50;
+}
+
+.constellation-icon:hover {
+    color: #fff;
+    transform: scale(1.1);
+    opacity: 1;
+    filter:
+        drop-shadow(0 0 1px #2c3e50)
+        drop-shadow(0 0 2px #34495e)
+        drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+    text-shadow: 0 0 1px #2c3e50;
+}
+
+.constellation-icon.active {
+    color: #fff;
+    filter:
+        drop-shadow(0 0 1px #2c3e50)
+        drop-shadow(0 0 2px #34495e)
+        drop-shadow(0 0 12px rgba(255, 255, 255, 1));
+    transform: scale(1.15);
+    text-shadow: 0 0 1px #2c3e50;
+}
+
+/* Tooltip container */
+.constellation-tooltip {
+    background: #fff;
+    border: 1px solid #e8e6d5;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    z-index: 999998; /* Increased z-index to ensure tooltip is visible */
+    max-width: 320px;
+}
+
+/* Individual mini-map container */
+.constellation-map-container {
+    background: #faf8e9;
+    border: 1px solid #e8e6d5;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.constellation-map-container:hover {
+    background: #f5f3e4;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* SVG mini-map visualization */
+.constellation-minimap {
+    display: block;
+    width: 100px;
+    height: 100px;
+    background: #fff;
+    border-radius: 4px;
+}
+
+/* Board name label below mini-map */
+.constellation-map-label {
+    font-size: 11px;
+    text-align: center;
+    margin-top: 6px;
+    color: #666;
+    font-family: 'Courier Prime', monospace;
+}
+
+/* Pulsing glow animation for current memory star */
+.current-memory-star {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}

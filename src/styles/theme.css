@@ -1,0 +1,81 @@
+/* Design System Theme Variables */
+/* 📖 DOCUMENTATION: See /STYLING-GUIDE.md for complete usage guide */
+/* ⚠️  ALWAYS use these CSS variables instead of hardcoded values */
+
+:root {
+  /* ===== Color Palette ===== */
+
+  /* Primary Colors */
+  --color-primary: #800020;        /* Maroon - CTAs, active states, primary buttons */
+  --color-primary-hover: #A0001C;  /* Light maroon - hover states */
+  --color-primary-light: #b88585;  /* Lighter maroon - active toggles on hover */
+
+  /* Accent Colors */
+  --color-accent-gold: #FFD700;    /* Gold - constellation features, special highlights */
+  --color-accent-crimson: #dc143c; /* Crimson red - connections */
+  --color-accent-orange: #ff4500;  /* Orange - connection hovers */
+
+  /* Background Colors */
+  --color-bg-white: #FFFFFF;       /* Pure white backgrounds */
+  --color-bg-tan: #faf8ea;         /* Tan - modal headers, highlighted sections */
+  --color-bg-card: #faf8e9;        /* Card backgrounds, memory pins */
+  --color-bg-light: #f0f0f0;       /* Light gray - active button states */
+  --color-bg-overlay: rgba(0, 0, 0, 0.5); /* Modal overlay backdrop */
+
+  /* Border Colors */
+  --color-border-primary: #e8e6d5; /* Primary borders - cards, subtle dividers */
+  --color-border-light: #c0beac;   /* Light borders - inactive buttons */
+  --color-border-muted: #ce9c9c;   /* Muted rose borders */
+  --color-border-standard: #ddd;   /* Standard gray borders */
+  --color-border-divider: #e5e5e5; /* Section dividers */
+
+  /* Text Colors */
+  --color-text-primary: #2F4F4F;   /* Dark slate - headings, primary text */
+  --color-text-secondary: #666;     /* Medium gray - secondary text */
+  --color-text-muted: #999;         /* Light gray - muted text, placeholders */
+  --color-text-light: #333;         /* Darker gray for emphasis */
+  --color-text-white: #FFFFFF;      /* White text on dark backgrounds */
+
+  /* State Colors */
+  --color-success: #28a745;         /* Success states */
+  --color-error: #dc3545;           /* Error states */
+  --color-warning: #ffc107;         /* Warning states */
+  --color-info: #17a2b8;            /* Info states */
+
+  /* ===== Spacing System ===== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* ===== Border Radius ===== */
+  --radius-small: 4px;
+  --radius-medium: 6px;
+  --radius-large: 8px;
+
+  /* ===== Typography ===== */
+  --font-family-primary: 'Crimson Text', serif;
+  --font-size-base: 14px;
+  --font-size-small: 12px;
+  --font-size-medium: 16px;
+  --font-size-large: 18px;
+  --font-size-xlarge: 24px;
+
+  /* ===== Shadows ===== */
+  --shadow-small: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-large: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+  /* ===== Transitions ===== */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ===== Z-Index Scale ===== */
+  --z-dropdown: 100;
+  --z-sidebar: 500;
+  --z-modal-backdrop: 1000;
+  --z-modal: 1001;
+  --z-tooltip: 2000;
+}

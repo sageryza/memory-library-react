@@ -1,0 +1,130 @@
+import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import MemoryCard from '../shared/MemoryCard'
+import AdvancedSearch from '../shared/AdvancedSearch'
+
+function DraggableMemoryCard({ memory, onDoubleClick }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: memory.id,
+    data: memory,
+  })
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : undefined
+
+  const handleDoubleClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onDoubleClick(memory)
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`draggable-memory ${isDragging ? 'dragging' : ''}`}
+      onDoubleClick={handleDoubleClick}
+    >
+      <MemoryCard memory={memory} />
+    </div>
+  )
+}
+
+export default function Sidebar({
+  memories,
+  droppedMemories = [],
+  onRandomlyPlaceMemory,
+  showSearch = false
+}) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  const [filteredByAdvanced, setFilteredByAdvanced] = useState(null)
+
+  // First filter out memories that are already on the canvas
+  const droppedMemoryIds = new Set(droppedMemories.map(m => m.id))
+  const availableMemories = memories.filter(memory => !droppedMemoryIds.has(memory.id))
+
+  // Apply advanced filter if active, otherwise use search filter
+  let filteredMemories
+  if (filteredByAdvanced) {
+    // Use advanced search results, but still exclude dropped memories
+    filteredMemories = filteredByAdvanced.filter(memory => !droppedMemoryIds.has(memory.id))
+  } else {
+    // Use regular search
+    filteredMemories = availableMemories.filter(memory => {
+      const searchLower = searchTerm.toLowerCase()
+      return (
+        (memory.title || '').toLowerCase().includes(searchLower) ||
+        (memory.content || '').toLowerCase().includes(searchLower) ||
+        (memory.hashtags || []).some(tag => tag.toLowerCase().includes(searchLower))
+      )
+    })
+  }
+
+  return (
+    <div className="sidebar">
+      {/* Search Section (Toggleable) */}
+      {showSearch && (
+        <div className="sidebar-search">
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder="Search memories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+              id="sidebarSearch"
+            />
+            <button
+              className="advanced-search-btn"
+              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+              title="Advanced search"
+            >
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Advanced Search Panel - Inline */}
+          <AdvancedSearch
+            isOpen={showAdvancedSearch}
+            memories={memories}
+            onFilter={(filtered) => {
+              setFilteredByAdvanced(filtered)
+              if (filtered) {
+                setSearchTerm('') // Clear regular search when using advanced
+              }
+            }}
+          />
+        </div>
+      )}
+
+      <div className="memory-list">
+        {filteredMemories.length === 0 ? (
+          <p className="empty-state">
+            {searchTerm ? 'No memories match your search' : 'No memories found'}
+          </p>
+        ) : (
+          filteredMemories.map(memory => (
+            <DraggableMemoryCard
+              key={memory.id}
+              memory={memory}
+              onDoubleClick={onRandomlyPlaceMemory}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}

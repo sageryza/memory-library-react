@@ -1,0 +1,283 @@
+/* ============================================
+   CONSTELLATION MODE
+   ============================================ */
+
+.btn-constellation-mode {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #800020, #b8860b);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-constellation-mode:hover {
+  background: linear-gradient(135deg, #600018, #8b6508);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.constellation-mode-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: white;
+  border: 2px solid #FFD700;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 9500;
+  min-width: 250px;
+}
+
+.constellation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.constellation-header h3 {
+  margin: 0;
+  color: #800020;
+  font-size: 18px;
+}
+
+.btn-exit-constellation {
+  padding: 6px 12px;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-exit-constellation:hover {
+  background: #e0e0e0;
+}
+
+.constellation-info {
+  margin-bottom: 16px;
+}
+
+.constellation-info p {
+  margin: 0 0 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.constellation-visualization {
+  margin: 16px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.constellation-visualization svg {
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.constellation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-select-all,
+.btn-clear-selection {
+  flex: 1;
+  padding: 6px 12px;
+  background: white;
+  color: #800020;
+  border: 1px solid #800020;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-select-all:hover,
+.btn-clear-selection:hover {
+  background: #800020;
+  color: white;
+}
+
+.constellation-export {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.constellation-name-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.btn-export-constellation {
+  width: 100%;
+  padding: 10px 16px;
+  background: #FFD700;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-export-constellation:hover:not(:disabled) {
+  background: #FFC700;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-export-constellation:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.constellation-help {
+  padding: 12px;
+  background: #faf8e9;
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.constellation-help p {
+  margin: 0 0 6px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.constellation-help p:last-child {
+  margin-bottom: 0;
+}
+
+.constellation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 8999;
+}
+
+.constellation-overlay .constellation-node,
+.constellation-overlay .constellation-node-pin {
+  pointer-events: all;
+  transition: all 0.2s;
+}
+
+/* Constellation star styling */
+.constellation-star-svg {
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.6));
+  position: relative;
+}
+
+.constellation-star .star-fill {
+  animation: starPulse 2s ease-in-out infinite;
+}
+
+/* Dazzle effect for stars */
+@keyframes dazzle {
+  0% {
+    opacity: 0;
+    transform: translateX(-150%) translateY(0) rotate(-45deg) scaleX(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) rotate(-45deg) scaleX(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(50%) translateY(0) rotate(-45deg) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(150%) translateY(0) rotate(-45deg) scaleX(0);
+  }
+}
+
+.star-dazzle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  transform-origin: center;
+  animation: dazzle 2.5s ease-in-out infinite;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+.star-dazzle-large {
+  height: 3px;
+  width: 180%;
+}
+
+/* Remove red circle background when pin becomes a star */
+.memory-pin.constellation-star {
+  background: transparent;
+  border: none;
+  width: 60px;
+  height: 60px;
+  position: absolute;
+  /* Position star center at connection point (cardWidth - 8, 7) */
+  /* Star is 60x60, center is at +30, +30 from top-left */
+  /* So top-left should be at (cardWidth - 8 - 30, 7 - 30) = (cardWidth - 38, -23) */
+  /* In 250px card: right = 250 - 212 - 60 = -22 */
+  top: -23px;
+  right: -22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
+}
+
+.memory-pin.constellation-star:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Standalone pins as stars */
+.standalone-pin.constellation-star {
+  width: 60px;
+  height: 60px;
+  /* Adjust position to center on connection point */
+  /* Connection is at pin.x + 10, pin.y + 24 */
+  /* Star center (60x60) is at +30, +30 from top-left */
+  /* So: top-left = (pin.x + 10 - 30, pin.y + 24 - 30) = (pin.x - 20, pin.y - 6) */
+  margin-left: -20px;
+  margin-top: -6px;
+}
+
+@keyframes starPulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.8));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 1));
+  }
+}

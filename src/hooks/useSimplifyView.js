@@ -1,0 +1,76 @@
+import { useState, useEffect } from 'react';
+
+/**
+ * Custom hook for managing simplify/stacked view functionality
+ * Handles title formatting, view toggle, and auto-sizing
+ */
+export default function useSimplifyView() {
+  const [isSimplified, setIsSimplified] = useState(false);
+
+  /**
+   * Toggle between normal and simplified view
+   */
+  const toggleSimplify = () => {
+    setIsSimplified(!isSimplified);
+  };
+
+  /**
+   * Process title input: convert commas to bullets
+   * Called when saving a memory
+   * Example: "dress, peed pants, new clothes" → "dress • peed pants • new clothes"
+   */
+  const processInputTitle = (title) => {
+    if (!title) return '';
+
+    // Convert commas to bullet points (no line breaks added here)
+    return title.replace(/,\s*/g, ' • ');
+  };
+
+  /**
+   * Format title for display based on view mode
+   * Normal view: "phrase1 • phrase2 • phrase3"
+   * Simplified view: "phrase1<br>—<br>phrase2<br>—<br>phrase3" (first 3 only)
+   */
+  const formatTitleForDisplay = (title, simplified = isSimplified) => {
+    if (!title) return 'Untitled';
+
+    if (simplified) {
+      // Simplified view: show first 3 phrases with dashes
+      const cleanTitle = title.replace(/<br>/g, ' ');
+      const phrases = cleanTitle.split(' • ').filter(phrase => phrase.trim() !== '');
+      const threePhrases = phrases.slice(0, 3);
+      return threePhrases.join('<br>—<br>');
+    } else {
+      // Normal view: convert <br> to spaces, keep bullets
+      return title.replace(/<br>/g, ' ');
+    }
+  };
+
+  /**
+   * Auto-adjust font size for simplified title to fit within card
+   * Called after rendering simplified titles
+   * @param {HTMLElement} titleElement - The title element to adjust
+   * @param {number} cardWidth - Available width (default 120px - 16px padding)
+   * @param {number} cardHeight - Available height (default 120px - 16px padding)
+   */
+  const adjustTitleFontSize = (titleElement, cardWidth = 104, cardHeight = 104) => {
+    if (!titleElement) return;
+
+    let fontSize = 16; // Start with default font size
+    titleElement.style.fontSize = fontSize + 'px';
+
+    // Shrink font size until content fits or minimum size reached
+    while ((titleElement.scrollWidth > cardWidth || titleElement.scrollHeight > cardHeight) && fontSize > 7) {
+      fontSize -= 0.5;
+      titleElement.style.fontSize = fontSize + 'px';
+    }
+  };
+
+  return {
+    isSimplified,
+    toggleSimplify,
+    processInputTitle,
+    formatTitleForDisplay,
+    adjustTitleFontSize,
+  };
+}

@@ -1,0 +1,87 @@
+/* ============================================
+   PIN EDIT MODAL
+   ============================================ */
+
+.pin-edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+}
+
+.pin-edit-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  font-family: 'Crimson Text', serif;
+}
+
+.pin-edit-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: #800020;
+  font-weight: normal;
+}
+
+.pin-edit-subtitle {
+  margin: 0 0 15px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.pin-edit-textarea {
+  width: 100%;
+  height: 120px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.pin-edit-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.pin-edit-cancel {
+  padding: 8px 20px;
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  transition: background 0.2s ease;
+}
+
+.pin-edit-cancel:hover {
+  background: #e8e8e8;
+}
+
+.pin-edit-save {
+  padding: 8px 20px;
+  background: #800020;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  transition: background 0.2s ease;
+}
+
+.pin-edit-save:hover {
+  background: #600018;
+}

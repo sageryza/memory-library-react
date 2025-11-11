@@ -1,0 +1,1402 @@
+import { useState, useEffect, useCallback } from 'react'
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
+import Sidebar from './Sidebar'
+import Canvas from './Canvas'
+import Connections from './Connections'
+import StandalonePins from './StandalonePins'
+import VennDiagramModal from './VennDiagramModal'
+import AddMemoryModal from './AddMemoryModal'
+import ConstellationMode from './ConstellationMode'
+import PinEditModal from './PinEditModal'
+import ContextMenu from '../shared/ContextMenu'
+import MemoryPopup from '../shared/MemoryPopup'
+import MemoryCard from '../shared/MemoryCard'
+import useBoardState from '../../hooks/useBoardState'
+import useAuth from '../../hooks/useAuth'
+import useSavedBoards from '../../hooks/useSavedBoards'
+import '../../App.css'
+import './ConspiracyBoard.css'
+
+// Canvas size constants for infinite panning
+// Canvas needs to be large enough to cover all pannable area for dnd-kit collision detection
+const CANVAS_WIDTH = 10000   // ~7 viewports wide (allows ~±3 viewports from center)
+const CANVAS_HEIGHT = 8000   // ~9 viewports tall (allows ~±3 viewports from center)
+const CANVAS_OFFSET_X = 4500 // X offset to center the canvas
+const CANVAS_OFFSET_Y = 3000 // Y offset to center the canvas
+
+function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemory, deleteMemory }) {
+  const [activeId, setActiveId] = useState(null)
+  const [activeTransform, setActiveTransform] = useState(null)
+  const [optimisticPositions, setOptimisticPositions] = useState({})
+  const [selectedPin, setSelectedPin] = useState(null)
+  const [selectedConnection, setSelectedConnection] = useState(null)
+  const [showVennModal, setShowVennModal] = useState(false)
+  const [showAddMemoryModal, setShowAddMemoryModal] = useState(false)
+  const [editingMemory, setEditingMemory] = useState(null)
+  const [isStackedView, setIsStackedView] = useState(false)
+  const [showOpacityFading, setShowOpacityFading] = useState(false)
+  const [showAllInsights, setShowAllInsights] = useState(false)
+  const [isPlacingPin, setIsPlacingPin] = useState(false)
+  const [pinPlacementPosition, setPinPlacementPosition] = useState(null)
+  const [pinIdCounter, setPinIdCounter] = useState(1)
+  const [contextMenu, setContextMenu] = useState(null)
+  const [memoryPopup, setMemoryPopup] = useState(null)
+  const [isConstellationMode, setIsConstellationMode] = useState(false)
+  const [constellationSelectedNodes, setConstellationSelectedNodes] = useState(null)
+  const [showBoardDropdown, setShowBoardDropdown] = useState(false)
+  const [editingPin, setEditingPin] = useState(null)
+  const [showSaveBoardModal, setShowSaveBoardModal] = useState(false)
+  const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
+  const [boardNameInput, setBoardNameInput] = useState('')
+  const [activeBoardName, setActiveBoardName] = useState('Current Board')
+  const [showSearch, setShowSearch] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(null)
+
+  // Pan state
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState(null)
+
+  // Undo system
+  const MAX_UNDO_STATES = 50
+  const [undoHistory, setUndoHistory] = useState([])
+
+  // Get current user
+  const { user } = useAuth()
+
+  // Use saved boards hook
+  const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
+
+  // Make canvas-container droppable
+  const { setNodeRef: setContainerRef } = useDroppable({
+    id: 'canvas-container',
+  })
+
+  // Use Firebase for board state
+  const {
+    boardState,
+    loading: boardStateLoading,
+    error: boardStateError,
+    updateBoardState
+  } = useBoardState(user?.uid)
+
+  const { droppedMemories = [], connections = [], standalonePins = [] } = boardState || {}
+
+  // Clear optimistic positions only on mount (to clean up after page reload)
+  useEffect(() => {
+    setOptimisticPositions({})
+  }, [])
+
+  // Load pan offset from boardState when it changes
+  useEffect(() => {
+    if (boardState?.panOffset) {
+      setPanOffset(boardState.panOffset)
+    }
+  }, [boardState?.panOffset])
+
+  // Auto-save to active board when board state changes
+  useEffect(() => {
+    if (activeBoardName && activeBoardName !== 'Current Board' && boardState && user?.uid) {
+      // Debounce the auto-save to avoid too many writes
+      const timeoutId = setTimeout(() => {
+        saveBoard(activeBoardName, boardState).catch(error => {
+          console.error('Auto-save failed:', error)
+        })
+      }, 1000)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [boardState, activeBoardName, user?.uid, saveBoard])
+
+  // Coordinate conversion helpers (accounts for canvas offset and pan)
+  const screenToCanvas = useCallback((screenX, screenY) => {
+    return {
+      x: screenX - panOffset.x + CANVAS_OFFSET_X,
+      y: screenY - panOffset.y + CANVAS_OFFSET_Y
+    }
+  }, [panOffset])
+
+  const canvasToScreen = useCallback((canvasX, canvasY) => {
+    return {
+      x: canvasX + panOffset.x - CANVAS_OFFSET_X,
+      y: canvasY + panOffset.y - CANVAS_OFFSET_Y
+    }
+  }, [panOffset])
+
+  // Apply optimistic position updates for smooth dragging
+  const displayMemories = droppedMemories.map(memory => {
+    if (optimisticPositions[memory.id]) {
+      return { ...memory, ...optimisticPositions[memory.id] }
+    }
+    return memory
+  })
+
+  // Initialize pin counter based on existing pins
+  useEffect(() => {
+    if (standalonePins && standalonePins.length > 0) {
+      const maxPinId = Math.max(
+        ...standalonePins.map(p => {
+          const match = p.id.match(/pin_(\d+)/)
+          return match ? parseInt(match[1]) : 0
+        })
+      )
+      setPinIdCounter(maxPinId + 1)
+    }
+  }, [standalonePins.length])
+
+  // Save state for undo
+  const saveStateForUndo = useCallback((actionDescription = 'Action') => {
+    const state = {
+      droppedMemories: JSON.parse(JSON.stringify(droppedMemories)),
+      connections: JSON.parse(JSON.stringify(connections)),
+      standalonePins: JSON.parse(JSON.stringify(standalonePins)),
+      timestamp: Date.now(),
+      description: actionDescription
+    }
+
+    setUndoHistory(prev => {
+      const newHistory = [...prev, state]
+      // Limit history size
+      if (newHistory.length > MAX_UNDO_STATES) {
+        newHistory.shift()
+      }
+      return newHistory
+    })
+
+    console.log(`Saved state for undo: ${actionDescription}`)
+  }, [droppedMemories, connections, standalonePins, MAX_UNDO_STATES])
+
+  // Perform undo
+  const performUndo = useCallback(() => {
+    if (undoHistory.length === 0) {
+      console.log('No actions to undo')
+      return
+    }
+
+    const previousState = undoHistory[undoHistory.length - 1]
+    console.log(`Undoing: ${previousState.description}`)
+
+    // Restore the previous state
+    updateBoardState({
+      droppedMemories: previousState.droppedMemories,
+      connections: previousState.connections,
+      standalonePins: previousState.standalonePins
+    })
+
+    // Remove this state from history
+    setUndoHistory(prev => prev.slice(0, -1))
+  }, [undoHistory, updateBoardState])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id)
+    setActiveTransform(null)
+  }
+
+  const handleDragMove = (event) => {
+    const { active, delta } = event
+    if (active) {
+      setActiveTransform({ id: active.id, delta })
+    }
+  }
+
+const handleDragEnd = (event) => {
+  const { active, over, delta } = event
+
+  setActiveId(null)
+  setActiveTransform(null)
+
+  // Check for memory data in both active.data.current and active.data
+  const memoryData = active.data?.current || active.data
+
+  // If dropping on canvas from sidebar (allow drops even if over is null or canvas-container)
+  if (over && (over.id === 'canvas' || over.id === 'canvas-container') && !memoryData?.isOnCanvas && !memoryData?.isStandalonePin) {
+    if (!memoryData || !memoryData.id) {
+      console.error('No valid memory data found for dragged item')
+      return
+    }
+
+    // Get the canvas-container rect (the visible viewport)
+    const containerRect = document.querySelector('.canvas-container').getBoundingClientRect()
+    // Calculate mouse position relative to container
+    const screenX = active.rect?.current?.translated?.left - containerRect.left || 100
+    const screenY = active.rect?.current?.translated?.top - containerRect.top || 100
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToCanvas(screenX, screenY)
+
+    const newDroppedMemory = {
+      ...memoryData,
+      x: canvasPos.x,
+      y: canvasPos.y
+    }
+
+    if (!droppedMemories.find(m => m.id === memoryData.id)) {
+      saveStateForUndo('Drop memory on canvas')
+      updateBoardState({
+        ...boardState,
+        droppedMemories: [...droppedMemories, newDroppedMemory]
+      })
+    }
+  }
+  // If moving memory within canvas
+  else if (memoryData?.isOnCanvas && delta) {
+    const memory = droppedMemories.find(m => m.id === memoryData.id)
+    if (memory) {
+      const newX = memory.x + delta.x
+      const newY = memory.y + delta.y
+
+      // Set optimistic position immediately for smooth transition
+      setOptimisticPositions(prev => ({
+        ...prev,
+        [memoryData.id]: { x: newX, y: newY }
+      }))
+
+      saveStateForUndo('Move memory')
+      updateBoardState({
+        ...boardState,
+        droppedMemories: droppedMemories.map(m => {
+          if (m.id === memoryData.id) {
+            return { ...m, x: newX, y: newY }
+          }
+          return m
+        })
+      }).then(() => {
+        // Clear optimistic position once Firebase confirms
+        setOptimisticPositions(prev => {
+          const newPositions = { ...prev }
+          delete newPositions[memoryData.id]
+          return newPositions
+        })
+      }).catch((error) => {
+        console.error('Failed to update position:', error)
+        // Revert optimistic update on error
+        setOptimisticPositions(prev => {
+          const newPositions = { ...prev }
+          delete newPositions[memoryData.id]
+          return newPositions
+        })
+      })
+    }
+  }
+  // If moving standalone pin
+  else if (memoryData?.isStandalonePin && delta) {
+    saveStateForUndo('Move pin')
+    updateBoardState({
+      ...boardState,
+      standalonePins: standalonePins.map(pin => {
+        if (pin.id === memoryData.id) {
+          return {
+            ...pin,
+            x: pin.x + delta.x,
+            y: pin.y + delta.y
+          }
+        }
+        return pin
+      })
+    })
+  }
+}
+
+  // Pin click handler for connections
+  const handlePinClick = useCallback((memoryId) => {
+    if (!selectedPin) {
+      // Check if this is a standalone pin with connections
+      const pin = standalonePins.find(p => p.id === memoryId)
+      const hasConnections = connections.some(conn =>
+        conn.from === memoryId || conn.to === memoryId
+      )
+
+      if (pin && hasConnections) {
+        // Open edit dialog for standalone pin with connections
+        setEditingPin(pin)
+        return
+      }
+
+      // First pin selected
+      setSelectedPin(memoryId)
+    } else if (selectedPin === memoryId) {
+      // Deselect if clicking same pin
+      setSelectedPin(null)
+      setCursorPosition(null)
+    } else {
+      // Second pin selected - create connection
+      const existingConnection = connections.find(
+        conn => (conn.from === selectedPin && conn.to === memoryId) ||
+                (conn.from === memoryId && conn.to === selectedPin)
+      )
+
+      if (!existingConnection) {
+        saveStateForUndo('Create connection')
+        updateBoardState({
+          ...boardState,
+          connections: [...connections, {
+            from: selectedPin,
+            to: memoryId,
+            timestamp: Date.now(),
+            insight: ''
+          }]
+        })
+      }
+      setSelectedPin(null)
+      setCursorPosition(null)
+    }
+  }, [selectedPin, connections, boardState, updateBoardState, saveStateForUndo, standalonePins])
+
+  // Pin description save handler
+  const handleSavePinDescription = useCallback((pinId, description) => {
+    const updatedPins = standalonePins.map(p =>
+      p.id === pinId ? { ...p, description } : p
+    )
+
+    updateBoardState({
+      ...boardState,
+      standalonePins: updatedPins
+    })
+  }, [standalonePins, boardState, updateBoardState])
+
+  // Connection handlers
+  const handleConnectionClick = (connection) => {
+    setSelectedConnection(connection)
+    setShowVennModal(true)
+  }
+
+  const handleConnectionDelete = (connection) => {
+    saveStateForUndo('Delete connection')
+    updateBoardState({
+      ...boardState,
+      connections: connections.filter(
+        conn => !(conn.from === connection.from && conn.to === connection.to)
+      )
+    })
+  }
+
+  // Board management handlers
+  const handleSaveBoard = async () => {
+    if (!boardNameInput.trim()) {
+      alert('Please enter a board name')
+      return
+    }
+
+    try {
+      await saveBoard(boardNameInput.trim(), boardState)
+      setActiveBoardName(boardNameInput.trim())
+      setBoardNameInput('')
+      setShowSaveBoardModal(false)
+      setShowBoardDropdown(false)
+    } catch (error) {
+      console.error('Error saving board:', error)
+      alert('Failed to save board. Please try again.')
+    }
+  }
+
+  const handleLoadBoardClick = (boardId) => {
+    const boardData = loadBoard(boardId)
+    if (boardData) {
+      updateBoardState(boardData)
+      setActiveBoardName(boardId)
+      setShowLoadBoardModal(false)
+      setShowBoardDropdown(false)
+    }
+  }
+
+  const handleDeleteBoard = async (boardId) => {
+    if (confirm('Delete this saved board?')) {
+      try {
+        await deleteBoard(boardId)
+      } catch (error) {
+        console.error('Error deleting board:', error)
+        alert('Failed to delete board. Please try again.')
+      }
+    }
+  }
+
+  const handleNewBoard = () => {
+    updateBoardState({
+      droppedMemories: [],
+      connections: [],
+      standalonePins: []
+    })
+    setActiveBoardName('Current Board')
+    setShowBoardDropdown(false)
+  }
+
+  const handleSaveInsight = (connection, insight) => {
+    // Update the connection with the insight and timestamp in Firebase
+    const updatedConnections = connections.map(conn => {
+      if (conn.from === connection.from && conn.to === connection.to) {
+        return {
+          ...conn,
+          insight: insight,
+          timestamp: conn.timestamp || Date.now() // Preserve existing timestamp or create new one
+        }
+      }
+      return conn
+    })
+
+    updateBoardState({
+      ...boardState,
+      connections: updatedConnections
+    })
+  }
+
+  // Randomly place a single memory on canvas
+  const randomlyPlaceMemory = useCallback((memory) => {
+    const MEMORY_WIDTH = 200
+    const MEMORY_HEIGHT = 120
+    const MARGIN = 20
+    const EDGE_MARGIN = 50
+
+    // Get canvas dimensions
+    const canvas = document.querySelector('.canvas')
+    if (!canvas) return
+
+    const canvasRect = canvas.getBoundingClientRect()
+    const usableWidth = canvasRect.width - (2 * EDGE_MARGIN) - MEMORY_WIDTH
+    const usableHeight = canvasRect.height - (2 * EDGE_MARGIN) - MEMORY_HEIGHT
+
+    // Track placed memories for collision detection
+    const placedMemories = droppedMemories.map(m => ({
+      x: m.x,
+      y: m.y,
+      width: MEMORY_WIDTH,
+      height: MEMORY_HEIGHT
+    }))
+
+    // Function to check collision
+    const hasCollision = (newMemory, existing) => {
+      return existing.some(ex =>
+        newMemory.x < ex.x + ex.width + MARGIN &&
+        newMemory.x + newMemory.width + MARGIN > ex.x &&
+        newMemory.y < ex.y + ex.height + MARGIN &&
+        newMemory.y + newMemory.height + MARGIN > ex.y
+      )
+    }
+
+    // Try to find a position
+    const MAX_ATTEMPTS = 50
+    let placed = false
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const x = EDGE_MARGIN + Math.random() * Math.max(0, usableWidth)
+      const y = EDGE_MARGIN + Math.random() * Math.max(0, usableHeight)
+
+      const newMemory = {
+        x,
+        y,
+        width: MEMORY_WIDTH,
+        height: MEMORY_HEIGHT
+      }
+
+      if (!hasCollision(newMemory, placedMemories)) {
+        saveStateForUndo('Randomly place memory')
+        updateBoardState({
+          ...boardState,
+          droppedMemories: [...droppedMemories, {
+            ...memory,
+            x,
+            y
+          }]
+        })
+        placed = true
+        break
+      }
+    }
+
+    if (!placed) {
+      console.warn('Could not find position for memory:', memory.title)
+      alert('Canvas is too crowded. Try manually placing or clearing some space.')
+    }
+  }, [droppedMemories, boardState, updateBoardState, saveStateForUndo])
+
+  // Scatter Memories functionality
+  const scatterMemories = useCallback(() => {
+    // Get memories that are not yet on canvas
+    const droppedIds = new Set(droppedMemories.map(m => m.id))
+    const availableMemories = memories.filter(m => !droppedIds.has(m.id))
+
+    if (availableMemories.length === 0) {
+      alert('No memories available to scatter')
+      return
+    }
+
+    const MEMORY_WIDTH = 200
+    const MEMORY_HEIGHT = 120
+    const MARGIN = 20
+    const EDGE_MARGIN = 50
+
+    // Get canvas dimensions
+    const canvas = document.querySelector('.canvas')
+    if (!canvas) return
+
+    const canvasRect = canvas.getBoundingClientRect()
+    const usableWidth = canvasRect.width - (2 * EDGE_MARGIN) - MEMORY_WIDTH
+    const usableHeight = canvasRect.height - (2 * EDGE_MARGIN) - MEMORY_HEIGHT
+
+    // Track placed memories for collision detection
+    const placedMemories = [...droppedMemories.map(m => ({
+      x: m.x,
+      y: m.y,
+      width: MEMORY_WIDTH,
+      height: MEMORY_HEIGHT
+    }))]
+
+    const newDroppedMemories = []
+
+    // Function to check collision
+    const hasCollision = (newMemory, existing) => {
+      return existing.some(ex =>
+        newMemory.x < ex.x + ex.width + MARGIN &&
+        newMemory.x + newMemory.width + MARGIN > ex.x &&
+        newMemory.y < ex.y + ex.height + MARGIN &&
+        newMemory.y + newMemory.height + MARGIN > ex.y
+      )
+    }
+
+    // Place each available memory
+    availableMemories.forEach(memory => {
+      const MAX_ATTEMPTS = 50
+      let placed = false
+
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const x = EDGE_MARGIN + Math.random() * Math.max(0, usableWidth)
+        const y = EDGE_MARGIN + Math.random() * Math.max(0, usableHeight)
+
+        const newMemory = {
+          x,
+          y,
+          width: MEMORY_WIDTH,
+          height: MEMORY_HEIGHT
+        }
+
+        if (!hasCollision(newMemory, placedMemories)) {
+          newDroppedMemories.push({
+            ...memory,
+            x,
+            y
+          })
+          placedMemories.push(newMemory)
+          placed = true
+          break
+        }
+      }
+
+      if (!placed) {
+        console.warn('Could not find position for memory:', memory.title)
+      }
+    })
+
+    // Update board state
+    if (newDroppedMemories.length > 0) {
+      saveStateForUndo('Scatter memories')
+      updateBoardState({
+        ...boardState,
+        droppedMemories: [...droppedMemories, ...newDroppedMemories]
+      })
+    }
+
+    console.log(`Scattered ${newDroppedMemories.length} memories`)
+  }, [memories, droppedMemories, boardState, updateBoardState, saveStateForUndo])
+
+  // Add Memory Modal handlers
+  const handleAddMemory = () => {
+    setEditingMemory(null)
+    setShowAddMemoryModal(true)
+  }
+
+  const handleEditMemory = async (memory) => {
+    // Check if this memory has a valid Firebase ID (not a local timestamp ID)
+    const memoryId = String(memory.id)
+
+    // Firebase IDs are alphanumeric strings, not numeric timestamps
+    if (/^\d+(\.\d+)?$/.test(memoryId)) {
+      // This is a local ID (timestamp), not saved to Firebase yet
+      // Auto-save it to Firebase
+      try {
+        // Save the memory to Firebase first
+        const { x, y, id, ...memoryData } = memory
+        const newMemoryId = await addMemory({
+          ...memoryData,
+          content: memory.content || '',
+          title: memory.title || '',
+          hashtags: memory.hashtags || [],
+          timestamp: memory.timestamp || new Date().toISOString()
+        })
+
+        // Update the memory in the board state with the new Firebase ID
+        const updatedMemory = { ...memory, id: newMemoryId }
+        updateBoardState({
+          ...boardState,
+          droppedMemories: droppedMemories.map(m =>
+            m.id === memory.id ? updatedMemory : m
+          ),
+          connections: connections.map(c => ({
+            ...c,
+            from: c.from === memory.id ? newMemoryId : c.from,
+            to: c.to === memory.id ? newMemoryId : c.to
+          }))
+        })
+
+        // Now open the edit modal with the updated memory
+        setEditingMemory(updatedMemory)
+        setShowAddMemoryModal(true)
+      } catch (error) {
+        console.error('Failed to auto-save memory:', error)
+        alert('Failed to save memory to database. Please try again.')
+      }
+      return
+    }
+
+    setEditingMemory(memory)
+    setShowAddMemoryModal(true)
+  }
+
+  const handleSaveMemories = async (newMemories, isEdit) => {
+    try {
+      if (isEdit && editingMemory) {
+        // Update existing memory in Firestore
+        const { id, x, y, ...updates } = newMemories[0]
+
+        // Clean up the updates to only include valid memory fields
+        const cleanUpdates = {
+          content: String(updates.content || ''),
+          title: String(updates.title || ''),
+          hashtags: Array.isArray(updates.hashtags) ? updates.hashtags.map(tag => String(tag)) : [],
+          additionalContext: String(updates.additionalContext || '')
+          // Remove dateTime from updates - let Firebase handle timestamps
+        }
+
+        // Ensure ID is a string (Firebase requires string IDs)
+        const memoryId = String(id)
+
+        await updateMemory(memoryId, cleanUpdates)
+
+        // Also update the memory in droppedMemories if it's on the canvas
+        const droppedMemory = droppedMemories.find(m => String(m.id) === memoryId)
+        if (droppedMemory) {
+          updateBoardState({
+            ...boardState,
+            droppedMemories: droppedMemories.map(m =>
+              String(m.id) === memoryId ? { ...m, ...cleanUpdates } : m
+            )
+          })
+        }
+      } else {
+        // Add new memories to Firestore
+        for (const memory of newMemories) {
+          // Remove any canvas-specific properties before saving
+          const { x, y, ...memoryData } = memory
+          await addMemory(memoryData)
+        }
+      }
+    } catch (error) {
+      console.error('Error saving memory:', error)
+      alert('Failed to save memory. Please try again.')
+    }
+  }
+
+  // Standalone Pin handlers
+  const handleStartPlacingPin = () => {
+    setIsPlacingPin(true)
+    setPinPlacementPosition(null)
+  }
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    if (isPlacingPin) {
+      const containerRect = document.querySelector('.canvas-container').getBoundingClientRect()
+      // Get mouse position relative to container, then convert to canvas coordinates
+      const screenX = e.clientX - containerRect.left
+      const screenY = e.clientY - containerRect.top
+      const canvasPos = screenToCanvas(screenX, screenY)
+      setPinPlacementPosition(canvasPos)
+    }
+  }, [isPlacingPin, screenToCanvas])
+
+  const handleCanvasClick = useCallback((e) => {
+    // Check if click is on canvas background (not a card or pin)
+    if (e.target.classList.contains('canvas')) {
+      // Cancel connection if one is in progress
+      if (selectedPin) {
+        setSelectedPin(null)
+        setCursorPosition(null)
+        return
+      }
+    }
+
+    if (isPlacingPin && pinPlacementPosition) {
+      const containerRect = document.querySelector('.canvas-container').getBoundingClientRect()
+      // Get mouse position relative to container, then convert to canvas coordinates
+      const screenX = e.clientX - containerRect.left
+      const screenY = e.clientY - containerRect.top
+      const canvasPos = screenToCanvas(screenX, screenY)
+
+      // Create new standalone pin
+      const newPin = {
+        id: `pin_${pinIdCounter}`,
+        x: canvasPos.x - 10, // Center the pin (pin is 20px wide)
+        y: canvasPos.y - 10,
+        description: ''
+      }
+
+      updateBoardState({
+        ...boardState,
+        standalonePins: [...standalonePins, newPin]
+      })
+      setPinIdCounter(pinIdCounter + 1)
+      setIsPlacingPin(false)
+      setPinPlacementPosition(null)
+    }
+  }, [isPlacingPin, pinPlacementPosition, pinIdCounter, boardState, standalonePins, updateBoardState, selectedPin])
+
+  const handleUpdatePinPosition = useCallback((pinId, position) => {
+    updateBoardState({
+      ...boardState,
+      standalonePins: standalonePins.map(pin =>
+        pin.id === pinId ? { ...pin, ...position } : pin
+      )
+    })
+  }, [boardState, standalonePins, updateBoardState])
+
+  // Pan handlers
+  const handlePanStart = useCallback((e) => {
+    // Only pan if clicking on canvas background (not on cards or other elements)
+    if (e.target.classList.contains('canvas') || e.target.classList.contains('canvas-container')) {
+      e.preventDefault()
+      setIsPanning(true)
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y })
+    }
+  }, [panOffset])
+
+  const handlePanMove = useCallback((e) => {
+    if (isPanning && panStart) {
+      e.preventDefault()
+      // Pan bounds match canvas offsets to prevent panning beyond canvas
+      const newOffset = {
+        x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, e.clientX - panStart.x)),
+        y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, e.clientY - panStart.y))
+      }
+      setPanOffset(newOffset)
+    }
+  }, [isPanning, panStart])
+
+  const handlePanEnd = useCallback(() => {
+    if (isPanning) {
+      setIsPanning(false)
+      setPanStart(null)
+      // Save pan offset to Firebase
+      updateBoardState({
+        ...boardState,
+        panOffset
+      })
+    }
+  }, [isPanning, panOffset, boardState, updateBoardState])
+
+  // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isPlacingPin) {
+          setIsPlacingPin(false)
+          setPinPlacementPosition(null)
+        }
+        if (selectedPin) {
+          setSelectedPin(null)
+          setCursorPosition(null)
+        }
+      }
+
+      // Handle Cmd/Ctrl + Z for undo
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        performUndo()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isPlacingPin, selectedPin, performUndo])
+
+  // Track cursor position when a pin is selected
+  useEffect(() => {
+    if (!selectedPin) return
+
+    const handleMouseMove = (e) => {
+      const canvas = document.querySelector('.canvas')
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const canvasPos = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
+      setCursorPosition(canvasPos)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [selectedPin, panOffset])
+
+  // Context Menu handlers
+  const handleContextMenu = useCallback((e, type, data) => {
+    e.preventDefault()
+
+    const items = []
+
+    if (type === 'memory') {
+      items.push(
+        { label: 'Edit Memory', icon: '✏️', onClick: () => handleEditMemory(data) },
+        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) },
+        { separator: true },
+        { label: 'Delete Memory', icon: '🗑️', onClick: () => handleDeleteMemory(data.id) }
+      )
+    } else if (type === 'canvas') {
+      items.push(
+        { label: 'Add Memory', icon: '➕', onClick: handleAddMemory },
+        { label: 'Place Pin', icon: '📍', onClick: handleStartPlacingPin }
+      )
+    } else if (type === 'pin') {
+      items.push(
+        { label: 'Delete Pin', icon: '🗑️', onClick: () => handleDeletePin(data.id) }
+      )
+    }
+
+    setContextMenu({ x: e.clientX, y: e.clientY, items })
+  }, [])  // Add dependencies as needed
+
+  const handleReturnToSidebar = useCallback((memoryId) => {
+    saveStateForUndo('Return memory to sidebar')
+    updateBoardState({
+      ...boardState,
+      droppedMemories: droppedMemories.filter(m => m.id !== memoryId),
+      connections: connections.filter(c => c.from !== memoryId && c.to !== memoryId)
+    })
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo])
+
+  const handleDeleteMemory = useCallback(async (memoryId) => {
+    saveStateForUndo('Delete memory')
+    try {
+      // Remove from Firestore
+      await deleteMemory(memoryId)
+
+      // Remove from board state
+      updateBoardState({
+        ...boardState,
+        droppedMemories: droppedMemories.filter(m => m.id !== memoryId),
+        connections: connections.filter(c => c.from !== memoryId && c.to !== memoryId)
+      })
+    } catch (error) {
+      console.error('Error deleting memory:', error)
+      alert('Failed to delete memory. Please try again.')
+    }
+  }, [deleteMemory, boardState, droppedMemories, connections, updateBoardState, saveStateForUndo])
+
+  const handleDeletePin = useCallback((pinId) => {
+    saveStateForUndo('Delete pin')
+    updateBoardState({
+      ...boardState,
+      standalonePins: standalonePins.filter(p => p.id !== pinId),
+      connections: connections.filter(c => c.from !== pinId && c.to !== pinId)
+    })
+  }, [boardState, standalonePins, connections, updateBoardState, saveStateForUndo])
+
+  const handleClearBoard = useCallback(() => {
+    saveStateForUndo('Clear board')
+    updateBoardState({
+      droppedMemories: [],
+      connections: [],
+      standalonePins: []
+    })
+  }, [updateBoardState, saveStateForUndo])
+
+  const handleMemoryClick = useCallback((e, memory) => {
+    // If a pin is selected, complete the connection
+    if (selectedPin) {
+      e.stopPropagation()
+      handlePinClick(memory.id)
+      return
+    }
+
+    // Disabled: Don't show popup on click
+    // Don't show popup if we're dragging or if there's a modifier key
+    // if (e.shiftKey || e.ctrlKey || e.metaKey) return
+
+    // setMemoryPopup({
+    //   memory,
+    //   x: e.clientX,
+    //   y: e.clientY
+    // })
+  }, [selectedPin, handlePinClick])
+
+  // Reset view to center on canvas origin (0, 0)
+  const handleResetView = useCallback(() => {
+    setPanOffset({ x: 0, y: 0 })
+  }, [])
+
+  const activeMemory = activeId ?
+    memories.find(m => m.id === activeId) ||
+    droppedMemories.find(m => m.id === activeId.replace('canvas-', ''))
+    : null
+
+  // Show loading state while board state or memories are loading
+  if (boardStateLoading || memoriesLoading) {
+    return (
+      <div className="App">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div>Loading board...</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="App">
+        <header className="app-header">
+          <div className="header-left">
+            <a href="/" className="back-btn">
+              <svg width="24" height="24" viewBox="0 0 619.47 633.59">
+                <path fill="#82262a" d="M436.47,117.63c.14.14.37.13.51,0,.06-.06.1-.15.1-.24l.06-78.83c0-.22.02-.44.07-.65l.71-3.13c.04-.16.1-.31.18-.46,2.55-4.58,6.52-6.87,11.91-6.86,31.31.03,49.73.05,55.25.06,5.33,0,9.95,4.21,11.35,9.01.25.87.38,4.34.38,10.41.02,59.81.02,108.32,0,145.55,0,.32.13.63.36.86,30.19,29.72,62.34,61.5,96.45,95.35,5.14,5.11,6.79,10.61,4.94,16.51-.1.32-.22.63-.37.92-2.41,4.83-6.7,7.26-12.85,7.28-15.81.05-31.51.05-47.09,0-.24,0-.43.19-.43.42-.02,77.51.02,178.67.13,303.48,0,7.53-.47,11.48-6.56,14.81-1.41.77-3.68,1.18-6.81,1.22-18.39.25-33.8.32-46.22.21-22.88-.2-34.53.12-53.11-.3-.36,0-.64-.29-.64-.65-.03-63.85-.01-131.44.05-202.78,0-10.06-.49-17.57-1.49-22.52-3.25-16.05-11.06-29.55-23.44-40.48-15.87-14.03-34.2-20.21-54.97-18.54-16.46,1.31-30.78,7.36-42.97,18.15-9.67,8.56-16.56,18.57-20.66,30.04-1.75,4.89-2.99,10.01-3.72,15.37-.57,4.17-.86,9.44-.86,15.82,0,82.98.01,151.31.01,204.99,0,.4-.32.72-.71.72h0c-20.03-.04-30.86-.05-32.5-.04-19.02.13-29.86.2-32.51.19-34.79-.17-86.96-.22-156.5-.16-7.55,0-12.08-3.7-13.6-11.13-.01-.07-.02-.15-.02-.22l-.03-307.94c0-.35-.29-.64-.64-.64-15.57.06-30.81.06-45.72,0-3.24-.02-5.87-.57-7.88-1.64-6.36-3.4-8.24-10.85-5.22-17.31.87-1.84,2.78-4.21,5.75-7.11,100.36-98,153.31-149.72,158.84-155.15,33.37-32.79,74.68-73.29,123.93-121.49,5.23-5.12,9.01-8.15,11.35-9.10,5.55-2.26,11.08-2.15,16.61.32,2.22.99,5.56,3.72,10.03,8.18,34.24,34.13,56.45,56.15,66.63,66.06,14.55,14.16,28.53,27.98,41.92,41.45Z"/>
+              </svg>
+            </a>
+            <h1>Conspiracy</h1>
+          </div>
+          <div className="header-right">
+            {/* Sidebar buttons moved to header */}
+            <button
+              className="scatter-memories-btn"
+              onClick={scatterMemories}
+              title="Scatter memories on canvas"
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-2 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-4 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM2 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM14 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+              </svg>
+            </button>
+
+            <button
+              className="undo-btn"
+              onClick={performUndo}
+              disabled={undoHistory.length === 0}
+              title={undoHistory.length > 0 ? "Undo last action" : "Nothing to undo"}
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+              </svg>
+            </button>
+
+            <button
+              className="reset-view-btn"
+              onClick={handleResetView}
+              title="Reset view to center"
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3zm8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM3 11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM8 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13z"/>
+                <circle cx="8" cy="8" r="2"/>
+              </svg>
+            </button>
+
+            <button
+              className={`constellation-btn ${isConstellationMode ? 'active' : ''}`}
+              onClick={() => setIsConstellationMode(!isConstellationMode)}
+              title="Constellation Mode"
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm9 9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0-9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-9 9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                <path d="M12 3.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm0 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM3 3.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm0 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                <path d="M12.5 3.5 12 3l-.5.5.5.5.5-.5zm0 9-1-1 1 1zm-9 0-1-1 1 1zm0-9-1-1 1 1z"/>
+                <path stroke="currentColor" strokeWidth="0.5" fill="none" d="M3 3.5L12 12.5M12 3.5L3 12.5M7.5 3v10M3 8h10"/>
+                <circle cx="8" cy="8" r="1.5"/>
+                <circle cx="5" cy="8" r="0.5"/>
+                <circle cx="11" cy="8" r="0.5"/>
+                <circle cx="8" cy="5" r="0.5"/>
+                <circle cx="8" cy="11" r="0.5"/>
+              </svg>
+            </button>
+
+            <button
+              className="search-toggle-btn"
+              onClick={() => setShowSearch(!showSearch)}
+              title="Search"
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+              </svg>
+            </button>
+
+            <button
+              className="standalone-pin-btn"
+              onClick={handleStartPlacingPin}
+              title="Place a pin"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16">
+                <circle cx="8" cy="4" r="3" fill="#dc143c"/>
+                <rect x="7.5" y="6.5" width="1" height="7" fill="#999"/>
+              </svg>
+            </button>
+
+            <button
+              className="add-memory-btn-icon"
+              onClick={handleAddMemory}
+              title="Add new memory"
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1 .5.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1-.5-.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5-.5v-5A.5.5 0 0 1 8 2z"/>
+              </svg>
+            </button>
+
+            {/* Original view toggle buttons */}
+            <button
+              className="view-toggle-btn"
+              onClick={() => setIsStackedView(!isStackedView)}
+              title={isStackedView ? "Normal View" : "Condense"}
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                {isStackedView ? (
+                  // When stacked, show "normal view" icon (expanded card)
+                  <path d="M2 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H2zm0 1h12a1 1 0 0 1 1 1v1H1V4a1 1 0 0 1 1-1zm0 4h12v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7z"/>
+                ) : (
+                  // When normal, show "stacked view" icon (grid of squares)
+                  <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                )}
+              </svg>
+            </button>
+
+            {/* Opacity Fading Toggle */}
+            <button
+              className={`opacity-toggle-btn ${showOpacityFading ? 'active' : ''}`}
+              onClick={() => setShowOpacityFading(!showOpacityFading)}
+              title={showOpacityFading ? "Disable opacity fading" : "Enable opacity fading"}
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                {showOpacityFading ? (
+                  // Eye icon (fading enabled)
+                  <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                ) : (
+                  // Eye slash icon (fading disabled)
+                  <>
+                    <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                    <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                    <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                  </>
+                )}
+              </svg>
+            </button>
+
+            {/* Show All Insights Toggle */}
+            <button
+              className={`insights-toggle-btn ${showAllInsights ? 'active' : ''}`}
+              onClick={() => setShowAllInsights(!showAllInsights)}
+              title={showAllInsights ? "Hide all insights" : "Show all insights"}
+            >
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+              </svg>
+            </button>
+
+            <div className="board-dropdown-container">
+              <button
+                className="board-dropdown-btn"
+                id="boardDropdownBtn"
+                onClick={() => setShowBoardDropdown(!showBoardDropdown)}
+              >
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 2h12v12H2V2z"/>
+                  <path d="M3 3h10v2H3zm0 4h10v6H3z"/>
+                </svg>
+                <span className="board-name" id="boardNameDisplay">{activeBoardName}</span>
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" className="dropdown-arrow">
+                  <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                </svg>
+              </button>
+
+              {showBoardDropdown && (
+                <div className="board-dropdown-menu">
+                  <div className="board-dropdown-header">
+                    <h3>Board Management</h3>
+                    <button
+                      className="board-dropdown-close"
+                      onClick={() => setShowBoardDropdown(false)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="board-dropdown-content">
+                    <button
+                      className="board-dropdown-item"
+                      onClick={handleNewBoard}
+                    >
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z"/>
+                      </svg>
+                      New Board
+                    </button>
+                    <button
+                      className="board-dropdown-item"
+                      onClick={() => {
+                        setShowSaveBoardModal(true)
+                        setShowBoardDropdown(false)
+                      }}
+                    >
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
+                      </svg>
+                      Save As New Board
+                    </button>
+                    <button
+                      className="board-dropdown-item"
+                      onClick={() => {
+                        setShowLoadBoardModal(true)
+                        setShowBoardDropdown(false)
+                      }}
+                    >
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
+                      </svg>
+                      Load Board
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="app-layout">
+          <div
+            ref={setContainerRef}
+            className="canvas-container"
+            onMouseDown={handlePanStart}
+            onMouseMove={(e) => {
+              handleCanvasMouseMove(e)
+              handlePanMove(e)
+            }}
+            onMouseUp={handlePanEnd}
+            onMouseLeave={handlePanEnd}
+            onClick={handleCanvasClick}
+            onContextMenu={(e) => handleContextMenu(e, 'canvas')}
+            style={{ cursor: isPanning ? 'grabbing' : 'default' }}
+          >
+            <div
+              className="pan-container"
+              style={{
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                transformOrigin: '0 0',
+                width: `${CANVAS_WIDTH}px`,
+                height: `${CANVAS_HEIGHT}px`,
+                position: 'absolute',
+                left: `-${CANVAS_OFFSET_X}px`,
+                top: `-${CANVAS_OFFSET_Y}px`
+              }}
+            >
+            <Canvas
+              droppedMemories={displayMemories}
+              selectedPin={selectedPin}
+              onPinClick={handlePinClick}
+              isStackedView={isStackedView}
+              onContextMenu={handleContextMenu}
+              onDoubleClick={handleReturnToSidebar}
+              onClick={handleMemoryClick}
+              connections={connections}
+              showOpacityFading={showOpacityFading}
+              constellationSelectedNodes={constellationSelectedNodes}
+            />
+            <StandalonePins
+              standalonePins={standalonePins}
+              selectedPin={selectedPin}
+              onPinClick={handlePinClick}
+              onUpdatePosition={handleUpdatePinPosition}
+              isPlacingPin={isPlacingPin}
+              placementPosition={pinPlacementPosition}
+              showAllInsights={showAllInsights}
+              constellationSelectedNodes={constellationSelectedNodes}
+              panOffset={panOffset}
+            />
+            <Connections
+              connections={connections}
+              droppedMemories={displayMemories}
+              standalonePins={standalonePins}
+              activeTransform={activeTransform}
+              onConnectionClick={handleConnectionClick}
+              onConnectionDelete={handleConnectionDelete}
+              showOpacityFading={showOpacityFading}
+              isStackedView={isStackedView}
+              showAllInsights={showAllInsights}
+              selectedPin={selectedPin}
+              cursorPosition={cursorPosition}
+              constellationSelectedNodes={constellationSelectedNodes}
+              panOffset={panOffset}
+            />
+
+            {isConstellationMode && (
+              <ConstellationMode
+                isActive={isConstellationMode}
+                onToggle={() => setIsConstellationMode(!isConstellationMode)}
+                droppedMemories={droppedMemories}
+                connections={connections}
+                standalonePins={standalonePins}
+                onSelectionChange={setConstellationSelectedNodes}
+                onExport={(constellation) => {
+                  console.log('Constellation exported:', constellation)
+                }}
+              />
+            )}
+            </div>
+          </div>
+          <Sidebar
+            memories={memories}
+            droppedMemories={displayMemories}
+            onRandomlyPlaceMemory={randomlyPlaceMemory}
+            showSearch={showSearch}
+          />
+        </div>
+
+        <VennDiagramModal
+          connection={selectedConnection}
+          memories={[...memories, ...droppedMemories]}
+          isOpen={showVennModal}
+          onClose={() => {
+            setShowVennModal(false)
+            setSelectedConnection(null)
+          }}
+          onSave={handleSaveInsight}
+        />
+
+        <AddMemoryModal
+          isOpen={showAddMemoryModal}
+          onClose={() => {
+            setShowAddMemoryModal(false)
+            setEditingMemory(null)
+          }}
+          onSave={handleSaveMemories}
+          editingMemory={editingMemory}
+        />
+
+        <DragOverlay dropAnimation={null}>
+          {activeMemory ? (
+            <div className="drag-overlay">
+              <MemoryCard memory={activeMemory} />
+            </div>
+          ) : null}
+        </DragOverlay>
+
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={contextMenu.items}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+
+        {editingPin && (
+          <PinEditModal
+            pin={editingPin}
+            onSave={handleSavePinDescription}
+            onClose={() => setEditingPin(null)}
+          />
+        )}
+
+        {showSaveBoardModal && (
+          <div className="board-modal-overlay" onClick={() => setShowSaveBoardModal(false)}>
+            <div className="board-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Save As New Board</h3>
+              <p className="board-modal-subtitle">
+                Enter a name for this board configuration
+              </p>
+              <input
+                type="text"
+                value={boardNameInput}
+                onChange={(e) => setBoardNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveBoard()
+                  } else if (e.key === 'Escape') {
+                    setShowSaveBoardModal(false)
+                  }
+                }}
+                placeholder="Board name..."
+                className="board-modal-input"
+                autoFocus
+              />
+              <div className="board-modal-buttons">
+                <button
+                  className="board-modal-cancel"
+                  onClick={() => setShowSaveBoardModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="board-modal-save"
+                  onClick={handleSaveBoard}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showLoadBoardModal && (
+          <div className="board-modal-overlay" onClick={() => setShowLoadBoardModal(false)}>
+            <div className="board-modal load-board-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Load Board</h3>
+              {savedBoards.length === 0 ? (
+                <p className="board-modal-empty">No saved boards yet. Save your current board to get started.</p>
+              ) : (
+                <div className="saved-boards-list">
+                  {savedBoards.map(board => (
+                    <div key={board.id} className="saved-board-item">
+                      <div className="saved-board-info">
+                        <div className="saved-board-name">{board.name}</div>
+                      </div>
+                      <div className="saved-board-actions">
+                        <button
+                          className="saved-board-load"
+                          onClick={() => handleLoadBoardClick(board.id)}
+                        >
+                          Load
+                        </button>
+                        <button
+                          className="saved-board-delete"
+                          onClick={() => handleDeleteBoard(board.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="board-modal-buttons">
+                <button
+                  className="board-modal-cancel"
+                  onClick={() => setShowLoadBoardModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {memoryPopup && (
+          <MemoryPopup
+            memory={memoryPopup.memory}
+            x={memoryPopup.x}
+            y={memoryPopup.y}
+            onClose={() => setMemoryPopup(null)}
+          />
+        )}
+      </div>
+    </DndContext>
+  )
+}
+
+export default ConspiracyBoard

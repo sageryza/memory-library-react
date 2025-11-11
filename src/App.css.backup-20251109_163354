@@ -1,0 +1,1521 @@
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Navigation */
+.app-navigation {
+  display: none; /* Hidden */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #800020;
+  padding: 12px 24px;
+  gap: 24px;
+  z-index: 10000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  font-family: 'Crimson Text', serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-wrapper {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-wrapper > div {
+  height: 100%;
+}
+
+/* App Layout */
+.App {
+  height: 100vh; /* Full height since navigation is hidden */
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: #faf8e9;
+  overflow: hidden;
+  position: relative;
+  margin-top: 0; /* No margin since navigation is hidden */
+}
+
+.app-header {
+  flex-shrink: 0;
+  padding: 8px 30px;
+  background: #faf8e9;
+  border-bottom: 1px solid #E0E0E0;
+  color: #2F4F4F;
+  box-shadow: none;
+  z-index: 10;
+  min-height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* Header Left Side */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: #800020;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-btn:hover {
+  color: #A0001C;
+  transform: scale(1.05);
+}
+
+/* Header Right Side */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-family: 'Crimson Text', serif;
+  font-size: 24px;
+  color: #800020;
+  font-weight: normal;
+}
+
+/* View Toggle Button */
+.view-toggle-btn {
+  background: #ffffff;
+  color: #ce9c9c;
+  border: 1px solid #ce9c9c;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.view-toggle-btn:hover {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+.view-toggle-btn:focus {
+  outline: none;
+}
+
+.view-toggle-btn svg {
+  opacity: 0.8;
+}
+
+.view-toggle-btn:hover svg {
+  opacity: 1;
+}
+
+/* Opacity and Insights Toggle Buttons */
+.opacity-toggle-btn,
+.insights-toggle-btn {
+  background: #ffffff;
+  color: #ce9c9c;
+  border: 1px solid #ce9c9c;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.opacity-toggle-btn:hover,
+.insights-toggle-btn:hover {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+.opacity-toggle-btn:focus,
+.insights-toggle-btn:focus {
+  outline: none;
+}
+
+.opacity-toggle-btn svg,
+.insights-toggle-btn svg {
+  opacity: 0.8;
+}
+
+.opacity-toggle-btn:hover svg,
+.insights-toggle-btn:hover svg {
+  opacity: 1;
+}
+
+.opacity-toggle-btn.active,
+.insights-toggle-btn.active {
+  background: #CE9C9C;
+  color: #FFFFFF;
+  border-color: #CE9C9C;
+}
+
+.opacity-toggle-btn.active svg,
+.insights-toggle-btn.active svg {
+  opacity: 1;
+}
+
+.opacity-toggle-btn.active:hover,
+.insights-toggle-btn.active:hover {
+  background: #b88585;
+}
+
+/* Board Dropdown Container */
+.board-dropdown-container {
+  position: relative;
+}
+
+.board-dropdown-btn {
+  background: #fff;
+  border: 1px solid #ce9c9c;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2F4F4F;
+  transition: all 0.2s ease;
+  min-width: 160px;
+  justify-content: space-between;
+}
+
+.board-dropdown-btn:hover {
+  background: #faf8e9;
+  border-color: #bbb;
+}
+
+.board-dropdown-btn .board-name {
+  flex: 1;
+  text-align: left;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-dropdown-btn .dropdown-arrow {
+  transition: transform 0.2s ease;
+  opacity: 0.7;
+}
+
+.board-dropdown-btn:hover .dropdown-arrow {
+  opacity: 1;
+}
+
+/* Board Dropdown Menu */
+.board-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 280px;
+  font-family: 'Crimson Text', serif;
+  overflow: hidden;
+}
+
+.board-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #faf8e9;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.board-dropdown-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #800020;
+  font-weight: 600;
+}
+
+.board-dropdown-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.board-dropdown-close:hover {
+  color: #800020;
+}
+
+.board-dropdown-content {
+  padding: 8px 0;
+}
+
+.board-dropdown-item {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  color: #333;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.board-dropdown-item:hover {
+  background: #f8f8f8;
+}
+
+.board-dropdown-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.board-dropdown-item:hover svg {
+  opacity: 1;
+}
+
+.board-dropdown-item.danger {
+  color: #d32f2f;
+}
+
+.board-dropdown-item.danger:hover {
+  background: #ffebee;
+}
+
+.board-dropdown-item.danger svg {
+  color: #d32f2f;
+}
+
+.board-dropdown-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 0;
+}
+
+.app-header p {
+  margin: 5px 0 0 0;
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: #666;
+}
+
+.app-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Canvas styles moved to Canvas.css */
+
+/* Sidebar - RIGHT SIDE */
+.sidebar-wrapper {
+  width: 300px;
+  flex-shrink: 0;
+  position: relative;
+  transition: width 0.3s ease;
+  z-index: 10;
+  overflow: visible;
+}
+
+.sidebar-wrapper.closed {
+  width: 0;
+}
+
+.sidebar {
+  width: 100%;
+  background: #FFFFFF;
+  border-left: 1px solid #E0E0E0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Sidebar Toggle Tab */
+.sidebar-toggle-tab {
+  position: absolute;
+  right: 300px;
+  top: 100px;
+  width: 20px;
+  height: 30px;
+  max-height: 30px;
+  min-height: 30px;
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 11;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: transparent;
+  outline: none !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle-tab svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle-tab * {
+  outline: none !important;
+}
+
+.sidebar-toggle-tab:hover {
+  width: 30px !important;
+  max-width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  max-height: 30px !important;
+  min-height: 30px !important;
+  color: #ccc;
+  outline: none !important;
+  border: 1px solid #E0E0E0;
+  border-right: none;
+  line-height: 1 !important;
+}
+
+.sidebar-toggle-tab:focus {
+  outline: none !important;
+}
+
+.sidebar-toggle-tab:active {
+  outline: none !important;
+}
+
+.sidebar-toggle-tab:focus-visible {
+  outline: none !important;
+}
+
+.sidebar-wrapper.closed .sidebar-toggle-tab {
+  width: 20px;
+  left: -20px;
+  right: auto;
+}
+
+.sidebar-wrapper.closed .sidebar-toggle-tab:hover {
+  width: 30px;
+  left: -30px;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+  padding: 12px 15px;
+  border-bottom: 1px solid #E0E0E0;
+  background: #FAFAFA;
+  color: #2F4F4F;
+}
+
+.sidebar-header h2 {
+  margin: 0 0 5px 0;
+  font-family: 'Crimson Text', serif;
+  font-size: 16px;
+  color: #800020;
+  font-weight: normal;
+}
+
+.memory-count {
+  margin: 0 0 15px 0;
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: #666;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #faf8e9;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.search-input:focus {
+  outline: 2px solid rgba(128, 0, 32, 0.3);
+}
+
+.memory-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 15px;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.empty-state {
+  color: #999;
+  text-align: center;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+
+/* Draggable States */
+.draggable-memory {
+  cursor: grab;
+  user-select: none;
+}
+
+.draggable-memory:active {
+  cursor: grabbing;
+}
+
+.draggable-memory.dragging {
+  opacity: 0.6;
+  transform: rotate(2deg);
+}
+
+.drag-overlay {
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.drag-overlay .memory-card {
+  box-shadow: 0 8px 25px rgba(128, 0, 32, 0.3);
+  border-color: #800020;
+}
+
+/* Canvas Container and Memory Pins moved to Canvas.css */
+
+/* Header Controls */
+.header-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-scatter, .btn-undo, .btn-redo {
+  background: none;
+  border: 1px solid #ce9c9c;
+  color: #ce9c9c;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-scatter:hover, .btn-undo:hover:not(:disabled), .btn-redo:hover:not(:disabled) {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+.btn-undo:disabled, .btn-redo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-scatter svg, .btn-view-toggle svg {
+  fill: #ce9c9c;
+  opacity: 0.8;
+}
+
+.btn-scatter:hover svg, .btn-view-toggle:hover svg {
+  opacity: 1;
+}
+
+.btn-view-toggle {
+  background: none;
+  border: 1px solid #ce9c9c;
+  color: #ce9c9c;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-view-toggle:hover {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+/* Generic Modal Overlay (used by PinEditModal, Archive, etc. - NOT VennDiagram) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: #faf8e9;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #800020;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.modal-close:hover {
+  transform: rotate(90deg);
+}
+
+/* Old venn modal styles removed - now using venn-popup structure from linear.css */
+
+/* Board Manager */
+.board-manager {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: #faf8e9;
+  border: 1px solid #d0cebc;
+  border-radius: 8px;
+  padding: 15px;
+  z-index: 100;
+  max-width: 250px;
+}
+
+.board-actions {
+  margin-bottom: 15px;
+}
+
+.btn-save-board {
+  background: #800020;
+  color: #faf8e9;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.btn-save-board:hover {
+  background: #600018;
+}
+
+.save-dialog {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.save-dialog input {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid #d0cebc;
+  border-radius: 4px;
+}
+
+.save-dialog button {
+  padding: 6px 12px;
+  background: #800020;
+  color: #faf8e9;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.saved-boards h3 {
+  color: #800020;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.boards-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.board-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px;
+  margin-bottom: 5px;
+  background: rgba(128, 0, 32, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.board-item:hover {
+  background: rgba(128, 0, 32, 0.1);
+}
+
+.board-item span {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.delete-board {
+  background: none;
+  border: none;
+  color: #800020;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 5px;
+  transition: transform 0.2s;
+}
+
+.delete-board:hover {
+  transform: scale(1.2);
+}
+
+/* Connection Lines moved to Connections.css */
+
+/* Add Memory Button in Sidebar */
+.add-memory-btn {
+  background: #800020;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.add-memory-btn:hover {
+  background: #600018;
+}
+
+.add-memory-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Complete CSS Updates to Match Original Conspiracy Board */
+/* Add these to your App.css */
+
+/* ============================================
+   BASE STYLES & LAYOUT
+   ============================================ */
+
+/* App Container */
+.App {
+  background: #FFFFFF; /* White background like original */
+  font-family: 'Crimson Text', serif;
+}
+
+/* Header Styling */
+.app-header {
+  background: #faf8e9;
+  padding: 8px 30px;
+  border-bottom: 1px solid #E0E0E0;
+  min-height: auto;
+  box-shadow: none; /* Remove any shadows */
+}
+
+.app-header h1 {
+  font-size: 24px;
+  color: #800020;
+  font-weight: normal;
+}
+
+/* Canvas/Linear Area */
+/* Removed duplicate .canvas definition - using the one defined earlier in the file */
+
+.canvas.drag-over {
+  /* No visual change during drag - keep professional */
+}
+
+/* ============================================
+   SIDEBAR STYLES (Matching Original)
+   ============================================ */
+/* Duplicate sidebar definitions removed - using the one defined earlier in the file */
+
+.sidebar-header {
+  padding: 12px 15px;
+  border-bottom: 1px solid #E0E0E0;
+  background: #FAFAFA;
+  flex-shrink: 0;
+}
+
+.sidebar-header h2,
+.sidebar-header h3 {
+  font-size: 16px;
+  color: #800020;
+  margin-bottom: 5px;
+  font-weight: normal;
+}
+
+.sidebar-header.search-active {
+  padding-bottom: 20px;
+}
+
+/* Sidebar Header Top Button Row */
+.sidebar-header-top {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+/* Sidebar Icon Buttons */
+.scatter-memories-btn,
+.undo-btn,
+.reset-view-btn,
+.constellation-btn,
+.manage-constellations-btn,
+.search-toggle-btn,
+.standalone-pin-btn,
+.add-memory-btn-icon,
+.back-btn-sidebar,
+.view-toggle-btn-sidebar,
+.opacity-toggle-btn-sidebar,
+.insights-toggle-btn-sidebar,
+.board-dropdown-btn-sidebar {
+  background: #ffffff;
+  border: 1px solid #ce9c9c;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #ce9c9c;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  text-decoration: none;
+  outline: none;
+}
+
+.scatter-memories-btn:hover,
+.undo-btn:hover:not(:disabled),
+.reset-view-btn:hover,
+.constellation-btn:hover,
+.manage-constellations-btn:hover,
+.search-toggle-btn:hover,
+.standalone-pin-btn:hover,
+.add-memory-btn-icon:hover,
+.back-btn-sidebar:hover,
+.view-toggle-btn-sidebar:hover,
+.opacity-toggle-btn-sidebar:hover,
+.insights-toggle-btn-sidebar:hover,
+.board-dropdown-btn-sidebar:hover {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+.scatter-memories-btn:focus,
+.undo-btn:focus,
+.reset-view-btn:focus,
+.constellation-btn:focus,
+.manage-constellations-btn:focus,
+.search-toggle-btn:focus,
+.standalone-pin-btn:focus,
+.add-memory-btn-icon:focus,
+.back-btn-sidebar:focus,
+.view-toggle-btn-sidebar:focus,
+.opacity-toggle-btn-sidebar:focus,
+.insights-toggle-btn-sidebar:focus,
+.board-dropdown-btn-sidebar:focus {
+  outline: none;
+}
+
+.scatter-memories-btn:active,
+.undo-btn:active:not(:disabled),
+.reset-view-btn:active,
+.constellation-btn:active,
+.manage-constellations-btn:active,
+.search-toggle-btn:active,
+.standalone-pin-btn:active,
+.add-memory-btn-icon:active,
+.back-btn-sidebar:active,
+.view-toggle-btn-sidebar:active,
+.opacity-toggle-btn-sidebar:active,
+.insights-toggle-btn-sidebar:active,
+.board-dropdown-btn-sidebar:active {
+  background: #f0f0f0;
+  transform: translateY(1px);
+}
+
+/* Active state for toggle buttons */
+.constellation-btn.active,
+.view-toggle-btn-sidebar.active,
+.opacity-toggle-btn-sidebar.active,
+.insights-toggle-btn-sidebar.active,
+.board-dropdown-btn-sidebar.active {
+  background: #CE9C9C;
+  color: white;
+  border-color: #CE9C9C;
+}
+
+.constellation-btn.active:hover,
+.view-toggle-btn-sidebar.active:hover,
+.opacity-toggle-btn-sidebar.active:hover,
+.insights-toggle-btn-sidebar.active:hover,
+.board-dropdown-btn-sidebar.active:hover {
+  background: #b88585;
+}
+
+.scatter-memories-btn svg,
+.undo-btn svg,
+.reset-view-btn svg,
+.constellation-btn svg,
+.manage-constellations-btn svg,
+.search-toggle-btn svg,
+.standalone-pin-btn svg,
+.add-memory-btn-icon svg,
+.back-btn-sidebar svg,
+.view-toggle-btn-sidebar svg,
+.opacity-toggle-btn-sidebar svg,
+.insights-toggle-btn-sidebar svg,
+.board-dropdown-btn-sidebar svg {
+  opacity: 0.8;
+}
+
+.scatter-memories-btn:hover svg,
+.undo-btn:hover:not(:disabled) svg,
+.reset-view-btn:hover svg,
+.constellation-btn:hover svg,
+.manage-constellations-btn:hover svg,
+.search-toggle-btn:hover svg,
+.standalone-pin-btn:hover svg,
+.add-memory-btn-icon:hover svg,
+.back-btn-sidebar:hover svg,
+.view-toggle-btn-sidebar:hover svg,
+.opacity-toggle-btn-sidebar:hover svg,
+.insights-toggle-btn-sidebar:hover svg,
+.board-dropdown-btn-sidebar:hover svg {
+  opacity: 1;
+}
+
+/* Active toggle buttons should have white icons */
+.constellation-btn.active svg,
+.view-toggle-btn-sidebar.active svg,
+.opacity-toggle-btn-sidebar.active svg,
+.insights-toggle-btn-sidebar.active svg,
+.board-dropdown-btn-sidebar.active svg {
+  opacity: 1;
+}
+
+/* Search toggle button - pink color for search icon */
+.search-toggle-btn svg {
+  fill: #ce9c9c;
+}
+
+/* Constellation button active state */
+.constellation-btn.active {
+  background: #CE9C9C;
+  color: white;
+  border-color: #CE9C9C;
+}
+
+.constellation-btn.active svg {
+  fill: white !important;
+  opacity: 1;
+}
+
+/* Undo button disabled state */
+.undo-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.undo-btn:disabled:hover {
+  background: none;
+  border-color: #ce9c9c;
+}
+
+/* Sidebar Search Section */
+.sidebar-search {
+  padding: 12px 15px;
+  border-bottom: 1px solid #E0E0E0;
+  background: #FAFAFA;
+  flex-shrink: 0;
+}
+
+.search-input-container {
+  position: relative;
+  margin-bottom: 0;
+}
+
+.search-input-container input {
+  width: 100%;
+  padding: 8px 35px 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  font-weight: normal;
+  background: #ffffff;
+}
+
+.search-input-container input:focus {
+  outline: none;
+  border-color: #999;
+}
+
+/* Sidebar search button positioning */
+.sidebar .advanced-search-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar .advanced-search-btn:hover {
+  color: #800020;
+}
+
+/* Context Menu */
+.context-menu {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.context-menu-item:hover {
+  background: #f5f5f5;
+}
+
+.context-menu-icon {
+  margin-right: 8px;
+  width: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.context-menu-shortcut {
+  margin-left: auto;
+  color: #999;
+  font-size: 12px;
+  padding-left: 16px;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+
+.memory-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.memory-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 15px;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Scrollbar Styling */
+.memory-list::-webkit-scrollbar,
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.memory-list::-webkit-scrollbar-track,
+.sidebar-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.memory-list::-webkit-scrollbar-thumb,
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.memory-list::-webkit-scrollbar-thumb:hover,
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+
+
+
+
+
+/* Toggle Sidebar Button */
+.toggle-sidebar-btn {
+  background: #800020;
+  color: #FFFFFF;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: 'Crimson Text', serif;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.toggle-sidebar-btn:hover {
+  background: #A0001C;
+}
+
+/* Sidebar Toggle Arrow (Alternative) */
+.sidebar-toggle-arrow {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #800020;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  padding: 12px 4px;
+  cursor: pointer;
+  z-index: 60;
+  transition: all 0.3s ease;
+}
+
+.sidebar-toggle-arrow:hover {
+  background: #A0001C;
+  padding-left: 8px;
+}
+
+.sidebar-toggle-arrow.open {
+  right: 300px;
+}
+
+
+/* Venn Diagram styles moved to VennDiagram.css */
+
+/* ============================================
+   BOARD MANAGEMENT DROPDOWN
+   ============================================ */
+
+.board-dropdown-container {
+  position: relative;
+}
+
+.board-dropdown-btn {
+  background: #fff;
+  border: 1px solid #ce9c9c;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2F4F4F;
+  transition: all 0.2s ease;
+  min-width: 160px;
+  justify-content: space-between;
+}
+
+.board-dropdown-btn:hover {
+  background: #faf8e9;
+  border-color: #bbb;
+}
+
+.board-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: white;
+  border: 1px solid #ce9c9c;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 280px;
+  font-family: 'Crimson Text', serif;
+}
+
+/* ============================================
+   CONSTELLATION MODE
+   ============================================ */
+
+.constellation-btn {
+  background: none;
+  border: 1px solid #ce9c9c;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #ce9c9c;
+  transition: all 0.2s ease;
+}
+
+.constellation-btn:hover {
+  background: #faf8e9;
+  border-color: #800020;
+}
+
+.constellation-btn.active {
+  background: #CE9C9C;
+  color: white;
+  border-color: #CE9C9C;
+}
+
+.constellation-mode-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: white;
+  border: 2px solid #FFD700;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 9500;
+  min-width: 250px;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 6px 15px;
+  }
+
+  .sidebar {
+    width: 280px;
+  }
+}
+
+/* Fix for Sidebar - Add this AFTER the CSS you just pasted */
+
+/* Sidebar override removed - using toggle functionality instead */
+
+/* Board Modal Styles */
+.board-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+}
+
+.board-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  font-family: 'Crimson Text', serif;
+}
+
+.board-modal h3 {
+  margin: 0 0 10px 0;
+  font-size: 20px;
+  color: #800020;
+  font-weight: normal;
+}
+
+.board-modal-subtitle {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.board-modal-input {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  font-family: 'Crimson Text', serif;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.board-modal-input:focus {
+  outline: none;
+  border-color: #800020;
+}
+
+.board-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.board-modal-cancel {
+  padding: 8px 20px;
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  transition: background 0.2s ease;
+}
+
+.board-modal-cancel:hover {
+  background: #e0e0e0;
+}
+
+.board-modal-save {
+  padding: 8px 20px;
+  background: #800020;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  transition: background 0.2s ease;
+}
+
+.board-modal-save:hover {
+  background: #600018;
+}
+
+/* Load Board Modal Styles */
+.load-board-modal {
+  max-width: 600px;
+}
+
+.board-modal-empty {
+  margin: 20px 0;
+  padding: 30px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.saved-boards-list {
+  margin: 20px 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.saved-board-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: #faf8e9;
+  border: 1px solid #e5e3d4;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.saved-board-item:hover {
+  background: #f5f3e4;
+}
+
+.saved-board-info {
+  flex: 1;
+}
+
+.saved-board-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #800020;
+  margin-bottom: 5px;
+}
+
+.saved-board-date {
+  font-size: 12px;
+  color: #666;
+}
+
+.saved-board-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.saved-board-load,
+.saved-board-delete {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.saved-board-load {
+  background: #800020;
+  color: white;
+}
+
+.saved-board-load:hover {
+  background: #600018;
+}
+
+.saved-board-delete {
+  background: white;
+  color: #800020;
+  border: 1px solid #800020;
+}
+
+.saved-board-delete:hover {
+  background: #800020;
+  color: white;
+}
+

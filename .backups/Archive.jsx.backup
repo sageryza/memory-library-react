@@ -1,0 +1,740 @@
+import React, { useState, useEffect } from 'react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2 } from 'lucide-react';
+import Masonry from 'react-masonry-css';
+import useLibraries from '../../hooks/useLibraries';
+import LibrarySidebar from './LibrarySidebar';
+import MemoryModal from '../shared/MemoryModal';
+import './LibrarySidebar.css';
+
+// Memory Card Component
+function MemoryCard({ memory, onView, onHashtagClick, isSelected, onSelect, selectMode, isDragging, onStartDrag, onDragStart, onDragEnd }) {
+  const handleClick = () => {
+    if (selectMode) {
+      onSelect(memory.id);
+    } else {
+      onView(memory);
+    }
+  };
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    onSelect(memory.id);
+  };
+
+  const handleMouseDown = (e) => {
+    if (selectMode && isSelected) {
+      e.preventDefault();
+      if (onStartDrag) {
+        onStartDrag();
+      }
+    }
+  };
+
+  const handleDragStart = (e) => {
+    if (onDragStart) {
+      onDragStart(memory.id);
+    }
+  };
+
+  const handleDragEnd = (e) => {
+    if (onDragEnd) {
+      onDragEnd();
+    }
+  };
+
+  return (
+    <div
+      className={`memory-item ${isSelected ? 'selected' : ''} ${isDragging && isSelected ? 'dragging' : ''}`}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      draggable={selectMode && isSelected}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      style={{ cursor: selectMode ? (isSelected ? 'grab' : 'pointer') : 'pointer' }}
+    >
+      {selectMode && (
+        <div
+          className={`memory-checkbox ${isSelected ? 'checked' : ''}`}
+          onClick={handleCheckboxClick}
+        />
+      )}
+
+      <div className="memory-header">
+        <div className="memory-title">{memory.title || 'Untitled'}</div>
+      </div>
+
+      <div className="memory-content">
+        {memory.content}
+      </div>
+      
+      <div className="memory-footer">
+        {memory.hashtags && memory.hashtags.length > 0 && (
+          <div className="memory-hashtags">
+            {memory.hashtags.slice(0, 3).map((tag, idx) => (
+              <span 
+                key={idx} 
+                className="hashtag"
+                onClick={(e) => {
+                  if (!selectMode) {
+                    e.stopPropagation();
+                    onHashtagClick(tag);
+                  }
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Main App Component
+export default function Archive({ memories = [], memoriesLoading, addMemory, updateMemory, deleteMemory, userId }) {
+  const [filteredMemories, setFilteredMemories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewingMemory, setViewingMemory] = useState(null);
+  const [editingMemory, setEditingMemory] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [draggedMemoryIds, setDraggedMemoryIds] = useState([]);
+
+  // Libraries hook
+  const {
+    libraries,
+    loading: librariesLoading,
+    addMemoryToLibrary,
+    getLibraryMemories
+  } = useLibraries(userId);
+
+  // Filter memories
+  useEffect(() => {
+    let filtered = [...memories];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(memory => {
+        const titleMatch = (memory.title || '').toLowerCase().includes(query);
+        const contentMatch = (memory.content || '').toLowerCase().includes(query);
+        const hashtagMatch = memory.hashtags?.some(tag => 
+          tag.toLowerCase().includes(query.replace('#', ''))
+        );
+        return titleMatch || contentMatch || hashtagMatch;
+      });
+    }
+
+    setFilteredMemories(filtered);
+  }, [searchQuery, memories]);
+
+  const handleSaveMemory = async (memories, isEditing) => {
+    try {
+      if (isEditing) {
+        // Editing existing memory
+        const memory = memories[0]; // Only one memory when editing
+        await updateMemory(memory.id, memory);
+        setEditingMemory(null);
+        setViewingMemory(null);
+      } else {
+        // Creating new memory/memories
+        for (const memory of memories) {
+          await addMemory(memory);
+        }
+        setShowCreateModal(false);
+      }
+    } catch (error) {
+      console.error('Error saving memory:', error);
+      throw error; // Re-throw to let modal know save failed
+    }
+  };
+
+  const handleHashtagClick = (hashtag) => {
+    setSearchQuery(hashtag);
+  };
+
+  const handleEditFromView = (memory) => {
+    setViewingMemory(null);
+    setEditingMemory(memory);
+  };
+
+  const toggleSelectMode = () => {
+    setSelectMode(!selectMode);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelection = (id) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (window.confirm(`Delete ${selectedIds.size} selected memories?`)) {
+      try {
+        await Promise.all(Array.from(selectedIds).map(id => deleteMemory(id)));
+        setSelectedIds(new Set());
+        setSelectMode(false);
+      } catch (error) {
+        console.error('Error deleting memories:', error);
+        alert('Failed to delete some memories. Please try again.');
+      }
+    }
+  };
+
+  // Library sidebar functions
+  const getLibraryMemoryCount = (libraryId) => {
+    const libraryMemories = getLibraryMemories(libraryId, memories);
+    return libraryMemories.length;
+  };
+
+  const handleMemoryDropToLibrary = async (libraryId) => {
+    if (draggedMemoryIds.length === 0) return;
+
+    try {
+      for (const memoryId of draggedMemoryIds) {
+        await addMemoryToLibrary(libraryId, memoryId);
+      }
+      setDraggedMemoryIds([]);
+      alert(`Added ${draggedMemoryIds.length} memory(ies) to library`);
+    } catch (error) {
+      console.error('Error adding memories to library:', error);
+      alert('Failed to add memories to library');
+    }
+  };
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  // Drag & Drop handlers
+  const handleDragStart = (memoryId) => {
+    // Set dragged memory IDs (use selected IDs if in select mode)
+    if (selectMode && selectedIds.has(memoryId)) {
+      setDraggedMemoryIds(Array.from(selectedIds));
+    } else {
+      setDraggedMemoryIds([memoryId]);
+    }
+  };
+
+  const handleDragEnd = () => {
+    // Don't clear draggedMemoryIds here - wait for drop to complete
+  };
+
+  if (memoriesLoading || librariesLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading memories...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      <style>{`
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Crimson Text', serif;
+          background: #FFFFFF;
+          color: #2F4F4F;
+          overflow: hidden;
+        }
+
+        #root {
+          overflow: hidden;
+          height: 100vh;
+        }
+
+        .app-container {
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+          overflow: hidden;
+        }
+
+        .archive-main-layout {
+          display: flex;
+          flex-direction: row;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        .archive-content-area {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          min-width: 0;
+        }
+
+        .filter-bar {
+          background: #FAFAFA;
+          padding: 15px 30px;
+          border-bottom: 1px solid #E0E0E0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+        
+        .filter-bar-left {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+        
+        .page-title {
+          font-size: 24px;
+          color: #800020;
+          font-weight: 600;
+        }
+        
+        .search-section {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          max-width: 400px;
+        }
+        
+        .search-input-container {
+          position: relative;
+          flex: 1;
+        }
+        
+        .search-input-container input {
+          width: 100%;
+          padding: 10px 40px 10px 15px;
+          border: 1px solid #CCC;
+          border-radius: 6px;
+          font-family: 'Crimson Text', serif;
+          font-size: 14px;
+        }
+        
+        .search-input-container input:focus {
+          outline: none;
+          border-color: #800020;
+        }
+        
+        .clear-search-btn {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #999;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+        }
+        
+        .clear-search-btn:hover {
+          color: #666;
+        }
+        
+        .toolbar-buttons {
+          display: flex;
+          gap: 8px;
+        }
+        
+        .btn-primary {
+          background: #800020;
+          color: #FFFFFF;
+          border: none;
+          padding: 8px 15px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-family: 'Crimson Text', serif;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+          background: #A0001C;
+        }
+        
+        .btn-secondary {
+          background: #E8E8E8;
+          color: #666;
+          border: 1px solid #CCC;
+          padding: 8px 15px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-family: 'Crimson Text', serif;
+          font-size: 14px;
+          transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+          background: #DDD;
+        }
+        
+        .btn-secondary.active {
+          background: #800020;
+          color: white;
+          border-color: #800020;
+        }
+        
+        .btn-icon {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #666;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-icon:hover {
+          color: #800020;
+        }
+        
+        .memories-container {
+          padding: 20px 30px;
+          display: flex;
+          margin-left: -15px;
+        }
+
+        .masonry-column {
+          padding-left: 15px;
+          background-clip: padding-box;
+        }
+
+        .memories-container.select-mode .memory-checkbox {
+          display: flex !important;
+        }
+
+        .memory-item {
+          background: #faf8e9;
+          border: 1px solid #E0E0E0;
+          border-radius: 8px;
+          padding: 20px;
+          width: 100%;
+          margin-bottom: 15px;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        
+        .memory-item:hover {
+          background: #f5f2e0;
+          border-color: #CCC;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .memory-item.selected {
+          background: #fdf2f8;
+          border-color: #d9bbc2;
+          box-shadow: 0 4px 12px rgba(128, 0, 32, 0.2);
+        }
+        
+        .memory-checkbox {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 20px;
+          height: 20px;
+          background: white;
+          border: 2px solid #ccc;
+          border-radius: 3px;
+          cursor: pointer;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+        }
+        
+        .memory-checkbox.checked {
+          background: #800020;
+          border-color: #800020;
+        }
+        
+        .memory-checkbox.checked::after {
+          content: '✓';
+          color: white;
+          font-size: 12px;
+          font-weight: bold;
+        }
+        
+        .memory-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: start;
+          margin-bottom: 10px;
+        }
+        
+        .memory-title {
+          font-weight: bold;
+          font-size: 16px;
+          color: #2F4F4F;
+          line-height: 1.3;
+        }
+        
+        .memory-content {
+          font-size: 14px;
+          line-height: 1.4;
+          color: #4A4A4A;
+          margin-bottom: 12px;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+        
+        .memory-footer {
+          margin-top: auto;
+        }
+        
+        .memory-hashtags {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        
+        .hashtag {
+          font-family: 'Courier Prime', monospace;
+          font-size: 10px;
+          color: #800020;
+          background: rgba(220, 20, 60, 0.1);
+          padding: 2px 6px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        
+        .hashtag:hover {
+          background: rgba(220, 20, 60, 0.2);
+          color: #A0001C;
+        }
+        
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        
+        .modal {
+          background: white;
+          border-radius: 8px;
+          max-width: 600px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+          padding: 20px;
+          border-bottom: 1px solid #E0E0E0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .modal-header h2 {
+          color: #800020;
+          font-size: 20px;
+          margin: 0;
+        }
+        
+        .modal-content {
+          padding: 20px;
+        }
+        
+        .memory-main-content {
+          font-size: 15px;
+          line-height: 1.6;
+          color: #2F4F4F;
+          margin-bottom: 15px;
+          white-space: pre-wrap;
+        }
+        
+        .memory-hashtags-section {
+          margin-top: 15px;
+          padding-top: 15px;
+          border-top: 1px solid #E0E0E0;
+        }
+        
+        .form-group {
+          margin-bottom: 15px;
+        }
+        
+        .form-group label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #2F4F4F;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+          width: 100%;
+          border: 1px solid #DDD;
+          border-radius: 4px;
+          padding: 10px;
+          font-family: 'Crimson Text', serif;
+          font-size: 14px;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: #800020;
+        }
+        
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+        
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: #666;
+        }
+        
+        .empty-state h3 {
+          color: #800020;
+          margin-bottom: 10px;
+        }
+      `}</style>
+
+      {/* Header / Filter Bar */}
+      <div className="filter-bar">
+        <div className="filter-bar-left">
+          <h1 className="page-title">Memory Archive</h1>
+        </div>
+        
+        <div className="search-section">
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder="Search memories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button 
+                className="clear-search-btn"
+                onClick={() => setSearchQuery('')}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <div className="toolbar-buttons">
+          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} /> New Memory
+          </button>
+          <button 
+            className={`btn-secondary ${selectMode ? 'active' : ''}`}
+            onClick={toggleSelectMode}
+          >
+            <Check size={16} /> Select
+          </button>
+          {selectMode && selectedIds.size > 0 && (
+            <button className="btn-primary" onClick={handleBulkDelete}>
+              <Trash2 size={16} /> Delete ({selectedIds.size})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Layout - Content + Sidebar */}
+      <div className="archive-main-layout">
+        {/* Main Content */}
+        <div className="archive-content-area">
+          {filteredMemories.length === 0 ? (
+            <div className="empty-state">
+              <h3>No Memories Found</h3>
+              <p>{memories.length === 0 ? 'Start by creating your first memory!' : 'Try adjusting your search filters.'}</p>
+              {memories.length === 0 && (
+                <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                  Create Memory
+                </button>
+              )}
+            </div>
+          ) : (
+            <Masonry
+              breakpointCols={{
+                default: 5,
+                1600: 4,
+                1200: 3,
+                768: 2,
+                480: 1
+              }}
+              className={`memories-container ${selectMode ? 'select-mode' : ''}`}
+              columnClassName="masonry-column"
+            >
+              {filteredMemories.map(memory => (
+                <MemoryCard
+                  key={memory.id}
+                  memory={memory}
+                  onView={setEditingMemory}
+                  onHashtagClick={handleHashtagClick}
+                  isSelected={selectedIds.has(memory.id)}
+                  onSelect={toggleSelection}
+                  selectMode={selectMode}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                />
+              ))}
+            </Masonry>
+          )}
+        </div>
+
+        {/* Library Sidebar */}
+        <LibrarySidebar
+          libraries={libraries}
+          getLibraryMemoryCount={getLibraryMemoryCount}
+          onMemoryDropToLibrary={handleMemoryDropToLibrary}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
+        />
+      </div>
+
+      {/* Modals */}
+      <MemoryModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleSaveMemory}
+        editingMemory={null}
+      />
+
+      <MemoryModal
+        isOpen={!!editingMemory}
+        onClose={() => {
+          setEditingMemory(null);
+          setViewingMemory(null);
+        }}
+        onSave={handleSaveMemory}
+        editingMemory={editingMemory}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,385 @@
+/* ===== MEMORY CARD - COMPLETE VANILLA STYLING ===== */
+
+/* Base Memory Card */
+.memory-item {
+    background: #faf8e9;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 100%; /* Let Masonry handle column widths */
+    margin-bottom: 15px; /* Vertical spacing between items */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    /* Remove fixed height to allow natural content sizing */
+}
+
+/* Hover State */
+.memory-item:hover {
+    background: #f5f2e0;
+    border-color: #CCC;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Selected State */
+.memory-item.selected {
+    background: #fdf2f8;
+    border-color: #d9bbc2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(128, 0, 32, 0.2);
+}
+
+/* Card View (default) */
+.memory-item.card {
+    height: fit-content;
+}
+
+/* ===== MEMORY HEADER ===== */
+.memory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.memory-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: #2F4F4F;
+    line-height: 1.3;
+}
+
+.memory-date {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: #666;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* ===== MEMORY CONTENT ===== */
+.memory-content {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #4A4A4A;
+    margin-bottom: 12px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.memory-content.truncated {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Content expand/collapse styles */
+.content-expand-btn {
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline;
+    margin-left: 4px;
+    font-family: 'Courier Prime', monospace;
+    transition: color 0.2s ease;
+}
+
+.content-expand-btn:hover {
+    color: #800020;
+}
+
+.expand-arrow {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.content-hidden {
+    margin-top: 8px;
+}
+
+/* ===== MEMORY FOOTER ===== */
+.memory-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
+
+.memory-hashtags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.hashtag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: #800020;
+    background: rgba(220, 20, 60, 0.1);
+    padding: 2px 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hashtag:hover {
+    background: rgba(220, 20, 60, 0.2);
+    color: #A0001C;
+}
+
+/* ===== MEMORY ACTIONS (Edit/Delete buttons) ===== */
+.memory-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.memory-item:hover .memory-actions {
+    opacity: 1;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    padding: 4px;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #2F4F4F;
+}
+
+/* ===== MEMORY SELECTION CHECKBOX ===== */
+.memory-checkbox {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: 2px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.memory-checkbox:hover {
+    border-color: #800020;
+    background: #f8f9fa;
+}
+
+.memory-checkbox.checked {
+    background: #800020;
+    border-color: #800020;
+}
+
+.memory-checkbox.checked::after {
+    content: '✓';
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Show checkboxes when select mode is active - always visible, not just on hover */
+.memories-container.select-mode .memory-checkbox {
+    display: flex !important;
+    opacity: 1 !important;
+}
+
+/* ===== ADDITIONAL CONTEXT FIELD ===== */
+.additional-context-group {
+    margin-top: 10px;
+}
+
+.additional-context-header {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 8px;
+    color: #666;
+    font-size: 14px;
+    font-family: 'Crimson Text', serif;
+}
+
+.additional-context-header:hover {
+    color: #333;
+}
+
+.additional-context-label {
+    margin-right: 8px;
+}
+
+.additional-context-arrow {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+    color: #999;
+}
+
+.additional-context-header.expanded .additional-context-arrow {
+    transform: rotate(90deg);
+}
+
+.additional-context-content {
+    margin-top: 8px;
+}
+
+.additional-context-content textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border: 1px solid #DDD;
+    border-radius: 4px;
+    font-family: 'Crimson Text', serif;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #666;
+    background-color: #FFFFFF;
+    resize: vertical;
+}
+
+.additional-context-content textarea:focus {
+    outline: none;
+    border-color: #800020;
+    background-color: #FFF;
+}
+
+.additional-context-content textarea::placeholder {
+    font-family: 'Crimson Text', serif;
+    color: #999;
+}
+
+/* ===== SIMPLIFY VIEW (Mini Card Mode) ===== */
+.memories-container.simplify-view .memory-content {
+    display: none !important;
+}
+
+.memories-container.simplify-view .memory-title {
+    line-height: 1.1;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 16px;
+    word-wrap: break-word;
+    overflow: hidden;
+}
+
+/* Override column layout for simplify view */
+.memories-container.simplify-view {
+    columns: unset;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-content: flex-start;
+}
+
+/* Make cards uniform squares in simplify view */
+.memories-container.simplify-view .memory-item {
+    min-height: 120px;
+    max-height: 120px;
+    padding: 8px;
+    width: 120px;
+    height: 120px;
+    flex: 0 0 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+.memories-container.simplify-view .memory-header {
+    margin-bottom: 0;
+    width: 100%;
+    justify-content: center;
+}
+
+/* Remove the hashtags in simplify view to make it cleaner */
+.memories-container.simplify-view .memory-hashtags {
+    display: none !important;
+}
+
+/* ===== TABLE VIEW ===== */
+.memories-container.table-view {
+    display: block;
+    padding: 0;
+}
+
+.memory-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #FFFFFF;
+}
+
+.memory-table th,
+.memory-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.memory-table th {
+    background: #F5F5DC;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: #800020;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+}
+
+.memory-table tr:hover {
+    background: #faf8e9;
+}
+
+.table-title {
+    font-weight: bold;
+    color: #2F4F4F;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table-date {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: #666;
+    min-width: 100px;
+}
+
+.table-content {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #4A4A4A;
+}
+
+.table-hashtags {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+}

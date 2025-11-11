@@ -1,0 +1,405 @@
+/* ===== PLAYGROUND MODAL OVERLAY ===== */
+.playground-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* ===== MAIN MODAL CONTAINER ===== */
+.playground-modal-content {
+  width: 90vw;
+  height: 80vh;
+  background: white;
+  border: 3px solid #DC143C;
+  outline: 4px solid #f5f5dc;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.playground-header {
+  background: #faf8ea;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.playground-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2F4F4F;
+  font-family: 'Crimson Text', serif;
+}
+
+.playground-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon-btn {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.header-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #800020;
+}
+
+.playground-header .modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.playground-header .modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+/* ===== CANVAS CONTAINER (SCROLLABLE) ===== */
+.playground-canvas-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: white;
+}
+
+/* Custom scrollbar */
+.playground-canvas-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.playground-canvas-container::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.playground-canvas-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.playground-canvas-container::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* ===== CANVAS (1.5X SIZE) ===== */
+.playground-canvas {
+  position: relative;
+  background: white;
+  min-height: 100%;
+}
+
+/* ===== CENTRAL HASHTAG OVAL ===== */
+.central-hashtag {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  border-radius: 50px;
+  padding: 12px 32px;
+
+  border: 3px solid #DC143C;
+  background: rgba(220, 20, 60, 0.15);
+  color: white;
+
+  font-family: 'Crimson Text', serif;
+  font-weight: bold;
+  font-size: 20px;
+  text-align: center;
+
+  cursor: context-menu;
+  z-index: 10;
+  user-select: none;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== PLAYGROUND MEMORY CARD (SMALLER THAN ARCHIVE) ===== */
+.playground-memory-card {
+  position: absolute;
+  width: 200px;
+  background: #faf8e9;
+  border: 0.5px solid #E0E0E0;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: grab;
+  transition: box-shadow 0.2s ease;
+  user-select: none;
+  font-family: 'Crimson Text', serif;
+}
+
+.playground-memory-card:hover:not(.dragging) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  background: #f5f2e0;
+  border-color: #CCC;
+}
+
+.playground-memory-card.dragging {
+  cursor: grabbing;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
+  z-index: 100;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ===== MEMORY CARD CONTENT ===== */
+.playground-memory-card .memory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 8px;
+}
+
+.playground-memory-card .memory-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2F4F4F;
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+
+.playground-memory-card .memory-content {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #4A4A4A;
+  margin-bottom: 10px;
+  word-wrap: break-word;
+}
+
+.playground-memory-card .memory-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.playground-memory-card .memory-hashtags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.playground-memory-card .hashtag {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: #800020;
+  background: rgba(220, 20, 60, 0.1);
+  padding: 2px 6px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+/* ===== CONTEXT MENU ===== */
+.playground-context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 3000;
+  min-width: 180px;
+  font-family: 'Crimson Text', serif;
+}
+
+.context-menu-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2F4F4F;
+  transition: background 0.2s ease;
+}
+
+.context-menu-item:hover {
+  background: #f5f5f5;
+}
+
+.context-menu-item:first-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.context-menu-item:last-child {
+  border-radius: 0 0 4px 4px;
+}
+
+/* ===== ADD PLAYGROUND MEMORY MODAL (NESTED) ===== */
+.add-playground-memory-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.add-playground-memory-modal {
+  background: white;
+  border: 2px solid #800020;
+  border-radius: 8px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+  width: 90%;
+  max-width: 500px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Crimson Text', serif;
+}
+
+.add-playground-memory-modal .modal-header {
+  background: #faf8ea;
+  padding: 16px 20px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.add-playground-memory-modal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2F4F4F;
+}
+
+.add-playground-memory-modal .modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.add-playground-memory-modal .modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.add-playground-memory-modal .modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.add-playground-memory-modal textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background: white;
+  resize: vertical;
+  min-height: 200px;
+  transition: all 0.2s ease;
+}
+
+.add-playground-memory-modal textarea:focus {
+  outline: none;
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.central-hashtag-notice {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.add-playground-memory-modal .modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e5e5;
+  background: white;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.add-playground-memory-modal .btn-save {
+  background: #800020;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', serif;
+}
+
+.add-playground-memory-modal .btn-save:hover {
+  background: #A0001C;
+}
+
+.add-playground-memory-modal .btn-cancel {
+  background: #E8E8E8;
+  color: #666;
+  border: 1px solid #CCC;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', serif;
+}
+
+.add-playground-memory-modal .btn-cancel:hover {
+  background: #DDD;
+  color: #2F4F4F;
+}

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Style Picker - Choose Your Favorites</title>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600&family=Courier+Prime&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Crimson Text', serif;
+      background: #faf8e9;
+      padding: 40px;
+      color: #2F4F4F;
+    }
+
+    h1 {
+      color: #800020;
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      color: #800020;
+      font-size: 24px;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #800020;
+      padding-bottom: 10px;
+    }
+
+    h3 {
+      color: #666;
+      font-size: 18px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+
+    .section {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .button-example {
+      padding: 20px;
+      background: #fafafa;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .button-example p {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .label {
+      display: inline-block;
+      background: #800020;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    /* Button Style 1: Your Favorite Sidebar Icons */
+    .btn-style-1 {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px 12px;
+      cursor: pointer;
+      color: #800020;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      font-family: 'Crimson Text', serif;
+    }
+
+    .btn-style-1:hover {
+      background: #f8f8f8;
+      border-color: #800020;
+    }
+
+    /* Button Style 2: Solid Maroon */
+    .btn-style-2 {
+      background: #800020;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-family: 'Crimson Text', serif;
+    }
+
+    .btn-style-2:hover {
+      background: #600018;
+    }
+
+    /* Button Style 3: Outlined Maroon */
+    .btn-style-3 {
+      background: white;
+      color: #800020;
+      border: 1px solid #800020;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-family: 'Crimson Text', serif;
+    }
+
+    .btn-style-3:hover {
+      background: #800020;
+      color: white;
+    }
+
+    /* Button Style 4: Gray Solid */
+    .btn-style-4 {
+      background: #666;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-style-4:hover {
+      background: #777;
+    }
+
+    .btn-style-4.active {
+      background: #800020;
+    }
+
+    /* Color Swatches */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .color-swatch {
+      text-align: center;
+    }
+
+    .color-box {
+      width: 100%;
+      height: 80px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .color-name {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Courier Prime', monospace;
+    }
+
+    .color-description {
+      font-size: 13px;
+      margin-top: 4px;
+      color: #333;
+    }
+
+    /* Border Radius Examples */
+    .radius-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 20px;
+    }
+
+    .radius-example {
+      text-align: center;
+    }
+
+    .radius-box {
+      width: 100%;
+      height: 80px;
+      background: #800020;
+      margin-bottom: 10px;
+    }
+
+    .radius-label {
+      font-size: 14px;
+      color: #666;
+      font-weight: 600;
+    }
+
+    /* Memory Card Examples */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .memory-card {
+      background: #faf8e9;
+      border: 1px solid #e8e6d5;
+      border-radius: 6px;
+      padding: 15px;
+      position: relative;
+    }
+
+    .memory-card-title {
+      font-size: 16px;
+      color: #2F4F4F;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .memory-card-content {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .memory-card-date {
+      font-family: 'Courier Prime', monospace;
+      font-size: 11px;
+      color: #999;
+    }
+
+    .memory-pin {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 12px;
+      height: 12px;
+      background: #dc143c;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+    }
+
+    .instructions {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .instructions h3 {
+      color: #856404;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .instructions p {
+      color: #856404;
+      line-height: 1.6;
+    }
+
+    .choice-box {
+      background: #e8f5e9;
+      border: 2px solid #4caf50;
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .choice-box h4 {
+      color: #2e7d32;
+      margin-bottom: 8px;
+    }
+
+    .choice-box ul {
+      margin-left: 20px;
+      color: #2e7d32;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎨 Style Picker</h1>
+  <p style="font-size: 18px; color: #666; margin-bottom: 30px;">Choose your favorite styles below. Hover over buttons to see interactions!</p>
+
+  <div class="instructions">
+    <h3>📋 How to Use This</h3>
+    <p><strong>1.</strong> Look at each section below<br>
+    <strong>2.</strong> Try hovering over buttons to see how they react<br>
+    <strong>3.</strong> Note which styles you like best<br>
+    <strong>4.</strong> Tell me your choices and I'll build your design system!</p>
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="section">
+    <h2>🔘 BUTTONS - Which style do you prefer?</h2>
+
+    <div class="button-grid">
+      <div class="button-example">
+        <button class="btn-style-1">Search</button>
+        <button class="btn-style-1">Add Memory</button>
+        <button class="btn-style-1">Undo</button>
+        <p><strong>Style 1: Light Outline</strong></p>
+        <p>Light gray border, transparent background, maroon icon/text. Hover fills with light gray.</p>
+        <span class="label">YOUR FAVORITE</span>
+      </div>
+
+      <div class="button-example">
+        <button class="btn-style-2">Save</button>
+        <button class="btn-style-2">Submit</button>
+        <button class="btn-style-2">Confirm</button>
+        <p><strong>Style 2: Solid Maroon</strong></p>
+        <p>Maroon background, white text. Hover darkens to deeper maroon.</p>
+      </div>
+
+      <div class="button-example">
+        <button class="btn-style-3">Filter</button>
+        <button class="btn-style-3">Export</button>
+        <button class="btn-style-3">Toggle</button>
+        <p><strong>Style 3: Outlined Maroon</strong></p>
+        <p>White background, maroon border & text. Hover fills with maroon, text turns white.</p>
+      </div>
+
+      <div class="button-example">
+        <button class="btn-style-4">👁️</button>
+        <button class="btn-style-4 active">👁️</button>
+        <p><strong>Style 4: Gray Icon (Inactive/Active)</strong></p>
+        <p>Gray background, white icon. Active state turns maroon. (First is inactive, second is active)</p>
+      </div>
+    </div>
+
+    <div class="choice-box">
+      <h4>💡 Make Your Choice:</h4>
+      <ul>
+        <li>Which button style should be used for PRIMARY actions (Save, Submit)?</li>
+        <li>Which for SECONDARY actions (Cancel, Back)?</li>
+        <li>Which for ICON buttons (Search, Add, Toggle)?</li>
+        <li>Should toggle buttons use Style 4, or something else when active?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- COLORS -->
+  <div class="section">
+    <h2>🎨 COLORS - Pick your palette</h2>
+
+    <h3>Maroons (Primary Brand Color)</h3>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-box" style="background: #800020;"></div>
+        <div class="color-name">#800020</div>
+        <div class="color-description">Main Maroon<br>(Used 107 times)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #600018;"></div>
+        <div class="color-name">#600018</div>
+        <div class="color-description">Dark Maroon<br>(Hover state)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #A0001C;"></div>
+        <div class="color-name">#A0001C</div>
+        <div class="color-description">Light Maroon<br>(Rarely used)</div>
+      </div>
+    </div>
+
+    <h3>Reds (Pins & Accents)</h3>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-box" style="background: #dc143c;"></div>
+        <div class="color-name">#dc143c</div>
+        <div class="color-description">Crimson Red<br>(Pins, connections)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #ff4500;"></div>
+        <div class="color-name">#ff4500</div>
+        <div class="color-description">Orange Red<br>(Pin hover)</div>
+      </div>
+    </div>
+
+    <h3>Backgrounds</h3>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-box" style="background: #faf8e9; border: 2px solid #333;"></div>
+        <div class="color-name">#faf8e9</div>
+        <div class="color-description">Beige/Cream<br>(Main background)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #ffffff;"></div>
+        <div class="color-name">#ffffff</div>
+        <div class="color-description">White<br>(Cards, modals)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #f8f8f8;"></div>
+        <div class="color-name">#f8f8f8</div>
+        <div class="color-description">Very Light Gray<br>(Button hover)</div>
+      </div>
+    </div>
+
+    <h3>Grays (Borders & Text)</h3>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-box" style="background: #ddd;"></div>
+        <div class="color-name">#ddd</div>
+        <div class="color-description">Light Gray<br>(Borders - 29 uses)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #e0e0e0;"></div>
+        <div class="color-name">#e0e0e0</div>
+        <div class="color-description">Light Gray 2<br>(16 uses - same?)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #666;"></div>
+        <div class="color-name">#666</div>
+        <div class="color-description">Medium Gray<br>(Text, buttons)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #999;"></div>
+        <div class="color-name">#999</div>
+        <div class="color-description">Mid Gray<br>(Timestamps)</div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-box" style="background: #333;"></div>
+        <div class="color-name">#333</div>
+        <div class="color-description">Dark Gray<br>(Dark text)</div>
+      </div>
+    </div>
+
+    <div class="choice-box">
+      <h4>💡 Make Your Choice:</h4>
+      <ul>
+        <li>Keep #800020 as primary maroon? Or prefer #A0001C?</li>
+        <li>For borders: Use #ddd or #e0e0e0? (They're very similar - pick ONE)</li>
+        <li>For text: Which grays do you like? (#666, #999, #333)</li>
+        <li>Should pins stay #dc143c or match primary maroon?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- BORDER RADIUS -->
+  <div class="section">
+    <h2>📐 BORDER RADIUS - How rounded should corners be?</h2>
+
+    <div class="radius-grid">
+      <div class="radius-example">
+        <div class="radius-box" style="border-radius: 0;"></div>
+        <div class="radius-label">0px<br>Square</div>
+      </div>
+      <div class="radius-example">
+        <div class="radius-box" style="border-radius: 4px;"></div>
+        <div class="radius-label">4px<br>Subtle</div>
+        <span class="label" style="display: block; margin-top: 8px;">MOST COMMON</span>
+      </div>
+      <div class="radius-example">
+        <div class="radius-box" style="border-radius: 6px;"></div>
+        <div class="radius-label">6px<br>Medium</div>
+      </div>
+      <div class="radius-example">
+        <div class="radius-box" style="border-radius: 8px;"></div>
+        <div class="radius-label">8px<br>Rounded</div>
+      </div>
+      <div class="radius-example">
+        <div class="radius-box" style="border-radius: 12px;"></div>
+        <div class="radius-label">12px<br>Very Round</div>
+      </div>
+    </div>
+
+    <div class="choice-box">
+      <h4>💡 Make Your Choice:</h4>
+      <ul>
+        <li>Small elements (buttons, inputs): 4px, 6px, or 8px?</li>
+        <li>Medium elements (cards): 6px, 8px, or 12px?</li>
+        <li>Large elements (modals): 8px, 12px, or more?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MEMORY CARDS -->
+  <div class="section">
+    <h2>💳 MEMORY CARDS - Current style</h2>
+
+    <div class="card-grid">
+      <div class="memory-card">
+        <div class="memory-pin"></div>
+        <div class="memory-card-title">Memory Card Example</div>
+        <div class="memory-card-content">This is what a memory card looks like with beige background, light border, and a red pin in the corner.</div>
+        <div class="memory-card-date">Oct 31, 2025</div>
+      </div>
+
+      <div class="memory-card" style="background: white; border-color: #ddd;">
+        <div class="memory-pin"></div>
+        <div class="memory-card-title">White Background Version</div>
+        <div class="memory-card-content">Same card but with white background instead of beige. Which do you prefer?</div>
+        <div class="memory-card-date">Oct 31, 2025</div>
+      </div>
+    </div>
+
+    <div class="choice-box">
+      <h4>💡 Make Your Choice:</h4>
+      <ul>
+        <li>Beige (#faf8e9) or white background?</li>
+        <li>Keep the red pin (#dc143c)?</li>
+        <li>Border color: Current (#e8e6d5) or something else?</li>
+        <li>Font sizes good? (Title 16px, Content 13px, Date 11px)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <div class="section">
+    <h2>📝 TYPOGRAPHY - Font weights & sizes</h2>
+
+    <div style="margin-bottom: 20px;">
+      <p style="font-size: 24px; font-weight: 600; color: #800020; margin-bottom: 10px;">Heading - Crimson Text 24px, Weight 600</p>
+      <p style="font-size: 18px; font-weight: 600; color: #800020; margin-bottom: 10px;">Subheading - Crimson Text 18px, Weight 600</p>
+      <p style="font-size: 16px; font-weight: 400; margin-bottom: 10px;">Body Text - Crimson Text 16px, Weight 400 (Normal)</p>
+      <p style="font-size: 14px; font-weight: 400; margin-bottom: 10px;">Small Text - Crimson Text 14px, Weight 400</p>
+      <p style="font-family: 'Courier Prime', monospace; font-size: 12px; color: #999;">Timestamp - Courier Prime 12px (Monospace)</p>
+    </div>
+
+    <div class="choice-box">
+      <h4>💡 Make Your Choice:</h4>
+      <ul>
+        <li>Keep Crimson Text for everything? (Currently used)</li>
+        <li>Headings: Weight 600 (semi-bold) or normal?</li>
+        <li>Body text: 16px, 14px, or 15px?</li>
+        <li>Keep Courier Prime for timestamps?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="section" style="background: #e3f2fd; border: 3px solid #2196f3;">
+    <h2 style="color: #1565c0;">📋 Summary - Tell Me Your Choices!</h2>
+    <p style="font-size: 16px; line-height: 1.8; color: #1565c0;">
+      After reviewing the styles above, tell me:<br><br>
+      1️⃣ Which button styles for primary/secondary/icon actions?<br>
+      2️⃣ Which colors to keep/consolidate?<br>
+      3️⃣ Which border radius values for small/medium/large elements?<br>
+      4️⃣ Memory card preferences (background color, fonts, etc.)?<br>
+      5️⃣ Any typography changes?<br><br>
+      <strong>I'll create your standardized design system based on your picks!</strong>
+    </p>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,223 @@
+import { useState, useEffect } from 'react'
+import './AdvancedSearch.css'
+
+export default function AdvancedSearch({ isOpen, onClose, memories, onFilter }) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedTags, setSelectedTags] = useState([])
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [searchMode, setSearchMode] = useState('AND') // AND, OR, NOT
+  const [contextSearch, setContextSearch] = useState('')
+
+  // Get all unique hashtags from memories
+  const allTags = [...new Set(memories.flatMap(m => m.hashtags || []))].sort()
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset filters when closing
+      setSearchTerm('')
+      setSelectedTags([])
+      setDateFrom('')
+      setDateTo('')
+      setSearchMode('AND')
+      setContextSearch('')
+    }
+  }, [isOpen])
+
+  const handleSearch = () => {
+    let filtered = [...memories]
+
+    // Text search in title and content
+    if (searchTerm) {
+      const terms = searchTerm.toLowerCase().split(' ').filter(t => t)
+      filtered = filtered.filter(memory => {
+        const searchableText = `${memory.title || ''} ${memory.content || ''}`.toLowerCase()
+
+        if (searchMode === 'AND') {
+          return terms.every(term => searchableText.includes(term))
+        } else if (searchMode === 'OR') {
+          return terms.some(term => searchableText.includes(term))
+        } else if (searchMode === 'NOT') {
+          return !terms.some(term => searchableText.includes(term))
+        }
+        return true
+      })
+    }
+
+    // Hashtag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(memory => {
+        const memoryTags = memory.hashtags || []
+        if (searchMode === 'AND') {
+          return selectedTags.every(tag => memoryTags.includes(tag))
+        } else if (searchMode === 'OR') {
+          return selectedTags.some(tag => memoryTags.includes(tag))
+        } else if (searchMode === 'NOT') {
+          return !selectedTags.some(tag => memoryTags.includes(tag))
+        }
+        return true
+      })
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter(memory => {
+        if (!memory.timestamp) return false
+        const memoryDate = new Date(memory.timestamp)
+        if (dateFrom && memoryDate < new Date(dateFrom)) return false
+        if (dateTo && memoryDate > new Date(dateTo)) return false
+        return true
+      })
+    }
+
+    // Context search
+    if (contextSearch) {
+      const contextTerms = contextSearch.toLowerCase().split(' ').filter(t => t)
+      filtered = filtered.filter(memory => {
+        // Check in additional context fields if they exist
+        const contextText = `${memory.context || ''} ${memory.additionalContext || ''}`.toLowerCase()
+
+        if (searchMode === 'AND') {
+          return contextTerms.every(term => contextText.includes(term))
+        } else if (searchMode === 'OR') {
+          return contextTerms.some(term => contextText.includes(term))
+        } else if (searchMode === 'NOT') {
+          return !contextTerms.some(term => contextText.includes(term))
+        }
+        return true
+      })
+    }
+
+    onFilter(filtered)
+    onClose()
+  }
+
+  const handleReset = () => {
+    setSearchTerm('')
+    setSelectedTags([])
+    setDateFrom('')
+    setDateTo('')
+    setSearchMode('AND')
+    setContextSearch('')
+    onFilter(null) // Reset to show all memories
+  }
+
+  const toggleTag = (tag) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    )
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="advanced-search-overlay">
+      <div className="advanced-search-modal">
+        <div className="advanced-search-header">
+          <h2>Advanced Search</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+
+        <div className="advanced-search-content">
+          {/* Search Mode Selector */}
+          <div className="search-group">
+            <label>Search Mode</label>
+            <div className="search-mode-buttons">
+              <button
+                className={`mode-btn ${searchMode === 'AND' ? 'active' : ''}`}
+                onClick={() => setSearchMode('AND')}
+              >
+                AND (all terms)
+              </button>
+              <button
+                className={`mode-btn ${searchMode === 'OR' ? 'active' : ''}`}
+                onClick={() => setSearchMode('OR')}
+              >
+                OR (any term)
+              </button>
+              <button
+                className={`mode-btn ${searchMode === 'NOT' ? 'active' : ''}`}
+                onClick={() => setSearchMode('NOT')}
+              >
+                NOT (exclude)
+              </button>
+            </div>
+          </div>
+
+          {/* Text Search */}
+          <div className="search-group">
+            <label>Search in Title & Content</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Enter search terms..."
+              className="search-input"
+            />
+          </div>
+
+          {/* Context Search */}
+          <div className="search-group">
+            <label>Search in Context</label>
+            <input
+              type="text"
+              value={contextSearch}
+              onChange={(e) => setContextSearch(e.target.value)}
+              placeholder="Search context fields..."
+              className="search-input"
+            />
+          </div>
+
+          {/* Hashtag Filter */}
+          <div className="search-group">
+            <label>Filter by Hashtags</label>
+            <div className="tag-cloud">
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`tag-btn ${selectedTags.includes(tag) ? 'selected' : ''}`}
+                  onClick={() => toggleTag(tag)}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date Range */}
+          <div className="search-group">
+            <label>Date Range</label>
+            <div className="date-range">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                placeholder="From"
+                className="date-input"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                placeholder="To"
+                className="date-input"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="advanced-search-footer">
+          <button className="btn-reset" onClick={handleReset}>
+            Reset Filters
+          </button>
+          <button className="btn-apply" onClick={handleSearch}>
+            Apply Filters
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

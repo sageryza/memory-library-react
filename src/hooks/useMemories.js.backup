@@ -1,0 +1,147 @@
+import { useState, useEffect } from 'react';
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../firebase';
+
+export const useMemories = (userId) => {
+  const [memories, setMemories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    console.log('useMemories hook - userId:', userId);
+
+    if (!userId) {
+      console.log('useMemories - No userId, returning empty');
+      setMemories([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log('useMemories - Setting up Firebase listener for userId:', userId);
+    const memoriesRef = collection(db, 'users', userId, 'memories');
+    const q = query(memoriesRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const memoriesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('useMemories - Firebase returned:', memoriesData.length, 'memories');
+        setMemories(memoriesData);
+        setLoading(false);
+        setError(null);
+      },
+      (error) => {
+        console.error('Error fetching memories:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      console.log('useMemories - Cleaning up listener');
+      unsubscribe();
+    };
+  }, [userId]);
+
+  // Add a new memory
+  const addMemory = async (memoryData) => {
+    if (!userId) return null;
+
+    try {
+      const memoriesRef = collection(db, 'users', userId, 'memories');
+      const docRef = await addDoc(memoriesRef, {
+        ...memoryData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error adding memory:', error);
+      throw error;
+    }
+  };
+
+  // Update an existing memory
+  const updateMemory = async (memoryId, updates) => {
+    if (!userId || !memoryId) {
+      console.error('Missing userId or memoryId:', { userId, memoryId });
+      return;
+    }
+
+    try {
+      // Ensure memoryId is a string and valid
+      const cleanMemoryId = String(memoryId).trim();
+
+      // Filter out any undefined or null values from updates
+      const cleanUpdates = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined && value !== null) {
+          cleanUpdates[key] = value;
+        }
+      }
+
+      const memoryRef = doc(db, 'users', userId, 'memories', cleanMemoryId);
+
+      // Check if the document exists first
+      const docSnap = await getDoc(memoryRef);
+      if (!docSnap.exists()) {
+        throw new Error(`Memory with ID ${cleanMemoryId} not found in database`);
+      }
+
+      // Only add updatedAt if we have other updates
+      if (Object.keys(cleanUpdates).length > 0) {
+        await updateDoc(memoryRef, {
+          ...cleanUpdates,
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Error updating memory:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        memoryId,
+        userId
+      });
+      throw error;
+    }
+  };
+
+  // Delete a memory
+  const deleteMemory = async (memoryId) => {
+    if (!userId || !memoryId) return;
+
+    try {
+      const memoryRef = doc(db, 'users', userId, 'memories', memoryId);
+      await deleteDoc(memoryRef);
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+      throw error;
+    }
+  };
+
+  return {
+    memories,
+    loading,
+    error,
+    addMemory,
+    updateMemory,
+    deleteMemory
+  };
+};
+
+export default useMemories;

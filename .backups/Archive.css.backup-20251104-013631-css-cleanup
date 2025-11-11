@@ -1,0 +1,252 @@
+/* ===== GLOBAL RESET & BASE STYLES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Crimson Text', serif;
+    background: #FFFFFF;
+    color: #2F4F4F;
+    overflow: hidden;
+}
+
+/* Global input and textarea font override */
+input,
+textarea,
+select {
+    font-family: 'Crimson Text', serif;
+}
+
+#root {
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* ===== LAYOUT ===== */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.archive-main-layout {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.archive-content-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 0;
+}
+
+/* ===== FILTER BAR ===== */
+.filter-bar {
+    background: #FAFAFA;
+    padding: 15px 30px;
+    border-bottom: 1px solid #E0E0E0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.filter-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.home-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.home-icon:hover {
+    opacity: 0.7;
+}
+
+.home-icon svg {
+    display: block;
+}
+
+.page-title {
+    font-size: 24px;
+    color: #800020;
+    font-weight: 600;
+}
+
+/* ===== SEARCH SECTION ===== */
+.search-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    max-width: 500px;
+}
+
+.search-input-container {
+    position: relative;
+    flex: 1;
+}
+
+.search-input-container input {
+    width: 100%;
+    padding: 10px 40px 10px 15px;
+    border: 1px solid #CCC;
+    border-radius: 6px;
+    font-family: 'Crimson Text', serif;
+    font-size: 14px;
+}
+
+.search-input-container input:focus {
+    outline: none;
+    border-color: #800020;
+}
+
+.advanced-search-btn {
+    position: absolute;
+    right: 35px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.advanced-search-btn:hover {
+    color: #800020;
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.clear-search-btn:hover {
+    color: #666;
+}
+
+/* ===== TOOLBAR BUTTONS ===== */
+.toolbar-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+/* Vanilla button styles - exact match */
+.btn-primary {
+    background: #800020;
+    color: #FFFFFF;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Crimson Text', serif;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: #A0001C;
+}
+
+.btn-secondary {
+    background: #E8E8E8;
+    color: #666;
+    border: 1px solid #CCC;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Crimson Text', serif;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #DDD;
+    color: #2F4F4F;
+}
+
+.btn-secondary.active {
+    background: #800020;
+    color: white;
+    border-color: #800020;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    color: #800020;
+}
+
+/* ===== MASONRY CONTAINER ===== */
+.memories-container {
+    padding: 20px 30px;
+    display: flex;
+    margin-left: -15px;
+}
+
+.masonry-column {
+    padding-left: 15px;
+    background-clip: padding-box;
+}
+
+.memories-container.select-mode .memory-checkbox {
+    display: flex !important;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.empty-state h3 {
+    color: #800020;
+    margin-bottom: 10px;
+}

@@ -1,0 +1,175 @@
+/* ============================================
+   VENN DIAGRAM POPUP
+   ============================================ */
+
+.venn-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.venn-popup.show {
+  opacity: 1;
+}
+
+.venn-popup.show .venn-popup-content {
+  transform: scale(1);
+}
+
+.venn-popup-content {
+  background: white;
+  border: 2px solid #e8e6d5;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 650px;
+  max-height: 90%;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.venn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px 15px;
+  border-bottom: 1px solid #e8e6d5;
+  background: #faf8e9;
+  border-radius: 12px 12px 0 0;
+}
+
+.venn-header h3 {
+  margin: 0;
+  color: #800020;
+  font-size: 20px;
+  font-weight: normal;
+}
+
+.venn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #800020;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.venn-close:hover {
+  background: rgba(128, 0, 32, 0.1);
+}
+
+.venn-diagram-container {
+  padding: 40px 25px 40px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+}
+
+.venn-diagram {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  display: block;
+}
+
+/* Venn diagram SVG elements */
+.venn-text {
+  font-family: 'Crimson Text', serif;
+  font-size: 12px;
+  fill: #2F4F4F;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.venn-text-small {
+  font-size: 10px;
+}
+
+.venn-title {
+  font-size: 14px;
+  font-weight: bold;
+  fill: black;
+}
+
+.venn-title tspan {
+  /* No transition - animated via JavaScript */
+}
+
+.venn-circle {
+  fill: transparent;
+  stroke: black;
+  stroke-width: 2;
+  /* No transition - animated via JavaScript */
+}
+
+.venn-intersection {
+  fill: rgba(0, 0, 0, 0.1);
+  transition: opacity 0.5s ease-in-out;
+}
+
+.venn-analysis-text {
+  padding: 0 25px 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2F4F4F;
+}
+
+/* Manual input section */
+.manual-input-section {
+  padding: 10px 20px 20px;
+}
+
+.manual-input-section label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 16px;
+  text-align: center;
+}
+
+.manual-input-section textarea {
+  width: 100%;
+  max-width: 500px;
+  min-height: 75px;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  margin-bottom: 15px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  transition: border-color 0.3s ease;
+}
+
+.manual-input-section textarea:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.manual-input-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}

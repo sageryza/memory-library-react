@@ -1,0 +1,108 @@
+import { useState, useEffect } from 'react';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../firebase';
+
+export const useConstellations = (userId) => {
+  const [constellations, setConstellations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setConstellations([]);
+      setLoading(false);
+      return;
+    }
+
+    const constellationsRef = collection(db, 'users', userId, 'constellations');
+    const q = query(constellationsRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const constellationsList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setConstellations(constellationsList);
+        setLoading(false);
+        setError(null);
+      },
+      (error) => {
+        console.error('Error fetching constellations:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  // Save a constellation
+  const saveConstellation = async (name, constellationData) => {
+    if (!userId) return;
+
+    try {
+      // Use auto-generated ID instead of name as document ID
+      const constellationsRef = collection(db, 'users', userId, 'constellations');
+      const constellationRef = doc(constellationsRef);
+      await setDoc(constellationRef, {
+        name: name?.trim() || '', // Name is optional, default to empty string
+        memories: constellationData.memories || [],
+        connections: constellationData.connections || [],
+        pins: constellationData.pins || [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error saving constellation:', error);
+      throw error;
+    }
+  };
+
+  // Load a constellation
+  const loadConstellation = (constellationId) => {
+    const constellation = constellations.find(c => c.id === constellationId);
+    if (constellation) {
+      return {
+        memories: constellation.memories || [],
+        connections: constellation.connections || [],
+        pins: constellation.pins || []
+      };
+    }
+    return null;
+  };
+
+  // Delete a constellation
+  const deleteConstellation = async (constellationId) => {
+    if (!userId || !constellationId) return;
+
+    try {
+      const constellationRef = doc(db, 'users', userId, 'constellations', constellationId);
+      await deleteDoc(constellationRef);
+    } catch (error) {
+      console.error('Error deleting constellation:', error);
+      throw error;
+    }
+  };
+
+  return {
+    constellations,
+    loading,
+    error,
+    saveConstellation,
+    loadConstellation,
+    deleteConstellation
+  };
+};
+
+export default useConstellations;

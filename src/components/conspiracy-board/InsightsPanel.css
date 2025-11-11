@@ -1,0 +1,121 @@
+/* ============================================
+   INSIGHTS PANEL
+   ============================================ */
+
+.insights-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.insights-panel {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.insights-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #800020;
+  background: #faf8e9;
+}
+
+.insights-panel-header h2 {
+  margin: 0;
+  color: #800020;
+  font-size: 22px;
+  font-family: 'Crimson Text', serif;
+}
+
+.insights-panel-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.empty-insights {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.empty-insights p {
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+.empty-insights .help-text {
+  font-size: 14px;
+  color: #999;
+}
+
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.insight-item {
+  background: #faf8e9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.2s;
+}
+
+.insight-item:hover {
+  box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
+}
+
+.insight-connection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #800020;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.memory-name {
+  font-family: 'Crimson Text', serif;
+  flex: 1;
+}
+
+.connection-icon {
+  color: #dc143c;
+  flex-shrink: 0;
+}
+
+.insight-text {
+  color: #333;
+  line-height: 1.6;
+  font-size: 14px;
+  padding: 12px;
+  background: white;
+  border-radius: 4px;
+  border-left: 3px solid #800020;
+  margin-bottom: 8px;
+}
+
+.insight-date {
+  font-size: 12px;
+  color: #999;
+  text-align: right;
+  font-style: italic;
+}

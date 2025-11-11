@@ -1,0 +1,213 @@
+import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import MemoryCard from '../shared/MemoryCard'
+import AdvancedSearch from './AdvancedSearch'
+
+function DraggableMemoryCard({ memory, onDoubleClick }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: memory.id,
+    data: memory,
+  })
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : undefined
+
+  const handleDoubleClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onDoubleClick(memory)
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`draggable-memory ${isDragging ? 'dragging' : ''}`}
+      onDoubleClick={handleDoubleClick}
+    >
+      <MemoryCard memory={memory} />
+    </div>
+  )
+}
+
+export default function Sidebar({
+  memories,
+  droppedMemories = [],
+  onAddMemory,
+  onScatterMemories,
+  onUndo,
+  canUndo = false,
+  onToggleConstellation,
+  isConstellationMode = false,
+  onStartPlacingPin,
+  onRandomlyPlaceMemory
+}) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  const [filteredByAdvanced, setFilteredByAdvanced] = useState(null)
+
+  // First filter out memories that are already on the canvas
+  const droppedMemoryIds = new Set(droppedMemories.map(m => m.id))
+  const availableMemories = memories.filter(memory => !droppedMemoryIds.has(memory.id))
+
+  // Apply advanced filter if active, otherwise use search filter
+  let filteredMemories
+  if (filteredByAdvanced) {
+    // Use advanced search results, but still exclude dropped memories
+    filteredMemories = filteredByAdvanced.filter(memory => !droppedMemoryIds.has(memory.id))
+  } else {
+    // Use regular search
+    filteredMemories = availableMemories.filter(memory => {
+      const searchLower = searchTerm.toLowerCase()
+      return (
+        (memory.title || '').toLowerCase().includes(searchLower) ||
+        (memory.content || '').toLowerCase().includes(searchLower) ||
+        (memory.hashtags || []).some(tag => tag.toLowerCase().includes(searchLower))
+      )
+    })
+  }
+
+  return (
+    <div className="sidebar">
+      <div className="sidebar-header">
+        {/* Top Button Row */}
+        <div className="sidebar-header-top">
+          <button
+            className="scatter-memories-btn"
+            onClick={onScatterMemories}
+            title="Scatter memories on canvas"
+          >
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-2 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-4 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM2 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM14 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+            </svg>
+          </button>
+
+          <button
+            className="undo-btn"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title={canUndo ? "Undo last action" : "Nothing to undo"}
+          >
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+            </svg>
+          </button>
+
+          <button
+            className={`constellation-btn ${isConstellationMode ? 'active' : ''}`}
+            onClick={onToggleConstellation}
+            title="Constellation Mode"
+          >
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M3.5 3.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm9 9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0-9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-9 9a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+              <path d="M12 3.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm0 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM3 3.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm0 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+              <path d="M12.5 3.5 12 3l-.5.5.5.5.5-.5zm0 9-1-1 1 1zm-9 0-1-1 1 1zm0-9-1-1 1 1z"/>
+              <path stroke="currentColor" strokeWidth="0.5" fill="none" d="M3 3.5L12 12.5M12 3.5L3 12.5M7.5 3v10M3 8h10"/>
+              <circle cx="8" cy="8" r="1.5"/>
+              <circle cx="5" cy="8" r="0.5"/>
+              <circle cx="11" cy="8" r="0.5"/>
+              <circle cx="8" cy="5" r="0.5"/>
+              <circle cx="8" cy="11" r="0.5"/>
+            </svg>
+          </button>
+
+          <button
+            className="search-toggle-btn"
+            onClick={() => setShowSearch(!showSearch)}
+            title="Search"
+          >
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+            </svg>
+          </button>
+
+          <button
+            className="standalone-pin-btn"
+            onClick={onStartPlacingPin}
+            title="Place a pin"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="8" cy="5" r="4" fill="#dc143c"/>
+              <rect x="7" y="8" width="2" height="6" fill="#999"/>
+            </svg>
+          </button>
+
+          <button
+            className="add-memory-btn-icon"
+            onClick={onAddMemory}
+            title="Add new memory"
+          >
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1 .5.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1-.5-.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5-.5v-5A.5.5 0 0 1 8 2z"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Search Section (Toggleable) */}
+        {showSearch && (
+          <div className="sidebar-search">
+            <div className="search-input-container">
+              <input
+                type="text"
+                placeholder="Search memories..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+                id="sidebarSearch"
+              />
+              <button
+                className="advanced-search-btn"
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                title="Advanced search"
+              >
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="memory-list">
+        {filteredMemories.length === 0 ? (
+          <p className="empty-state">
+            {searchTerm ? 'No memories match your search' : 'No memories found'}
+          </p>
+        ) : (
+          filteredMemories.map(memory => (
+            <DraggableMemoryCard
+              key={memory.id}
+              memory={memory}
+              onDoubleClick={onRandomlyPlaceMemory}
+            />
+          ))
+        )}
+      </div>
+
+      <AdvancedSearch
+        isOpen={showAdvancedSearch}
+        onClose={() => setShowAdvancedSearch(false)}
+        memories={memories}
+        onFilter={(filtered) => {
+          setFilteredByAdvanced(filtered)
+          if (filtered) {
+            setSearchTerm('') // Clear regular search when using advanced
+          }
+        }}
+      />
+    </div>
+  )
+}

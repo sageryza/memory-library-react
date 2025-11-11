@@ -1,0 +1,72 @@
+/* ============================================
+   CONNECTIONS - CONSOLIDATED FROM APP.CSS + CONSPIRACYBOARD.CSS
+   ============================================ */
+
+/* SVG Container for Connection Lines */
+.connections-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2100; /* Higher than drag-overlay (2000) so strings appear above dragged cards */
+  /* Width and height set inline to match full canvas size (10000x8000) */
+}
+
+/* Alternative name for SVG container */
+.connection-strings {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+  /* Width and height should be set inline if this class is used */
+}
+
+/* Connection Line Base Styles */
+.connection-line {
+  stroke: #dc143c;
+  stroke-width: 2;
+  fill: none;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition: stroke-width 0.2s ease;
+  /* No transition for smoother real-time drag updates */
+}
+
+/* Connection Line Hover State */
+.connection-line:hover {
+  stroke-width: 3 !important;
+  stroke: #ff4500 !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Constellation selected lines should not have red hover */
+.connection-line.constellation-selected:hover {
+  stroke: url(#goldSheen) !important;
+}
+
+/* Connection Tooltip */
+.connection-tooltip {
+  position: absolute;
+  background: white;
+  color: #333;
+  border: 2px solid #ccc;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: 'Crimson Text', serif;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 300px;
+  word-wrap: break-word;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.9);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.connection-tooltip.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}

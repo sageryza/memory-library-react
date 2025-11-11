@@ -1,0 +1,225 @@
+/* Constellation Sidebar Styles */
+/* Base sidebar structure comes from App.css (.sidebar, .sidebar-header, .sidebar-content) */
+/* 📖 For styling guidelines, see /STYLING-GUIDE.md */
+
+/* Customize header for constellation tabs */
+.constellation-header {
+  padding: 16px 20px 0 20px;
+  background: var(--color-bg-tan);
+  border-bottom: 1px solid var(--color-border-divider);
+}
+
+/* Tab styling - matches MemoryModal design */
+.constellation-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: flex-end;
+}
+
+.constellation-tabs .tab {
+  background: var(--color-bg-white);
+  border: 1px solid var(--color-border-standard);
+  border-bottom: none;
+  border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  padding: 6px 12px;
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  font-weight: normal;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  position: relative;
+  min-width: 70px;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.constellation-tabs .tab:hover:not(.active) {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-white);
+}
+
+.constellation-tabs .tab.active {
+  background: var(--color-bg-white);
+  color: var(--color-primary);
+  border-color: var(--color-border-divider);
+  border-bottom-color: var(--color-bg-white);
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-bottom: 7px;
+}
+
+/* Content area - extends global .sidebar-content */
+.constellation-content {
+  /* Global styles from .sidebar-content are inherited */
+}
+
+/* Select tab content */
+.select-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.networks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.network-item {
+  background: var(--color-bg-white);
+  border: 2px solid transparent;
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.network-item:hover {
+  /* No hover effect */
+}
+
+.network-item.selected {
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+.mini-constellation {
+  display: block;
+  margin: 0 auto var(--spacing-md);
+  background: transparent;
+  border-radius: var(--radius-small);
+}
+
+.network-save-controls {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.name-input {
+  flex: 1;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-small);
+  font-size: var(--font-size-small);
+  font-family: var(--font-family-primary);
+  transition: border-color var(--transition-normal);
+}
+
+.name-input:focus {
+  outline: none;
+}
+
+.btn-save {
+  background: none;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-small);
+  padding: 6px 8px;
+  cursor: pointer;
+  color: var(--color-primary);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
+}
+
+.btn-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Load tab content */
+.load-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.saved-item {
+  background: var(--color-bg-white);
+  border: 2px solid var(--color-border-primary);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.saved-item:hover {
+  /* No hover effect */
+}
+
+.saved-item.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 12px rgba(128, 0, 32, 0.2);
+}
+
+.saved-name {
+  text-align: center;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-light);
+  margin-top: var(--spacing-sm);
+}
+
+.saved-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.btn-load {
+  flex: 1;
+  padding: var(--spacing-sm);
+  background: var(--color-primary);
+  color: var(--color-text-white);
+  border: none;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  transition: all var(--transition-normal);
+}
+
+.btn-load:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-delete {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-error);
+  color: var(--color-text-white);
+  border: none;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  transition: all var(--transition-normal);
+}
+
+.btn-delete:hover {
+  background: #c82333;
+}
+
+.no-constellations {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 40px 20px;
+  font-size: var(--font-size-base);
+}

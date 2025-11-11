@@ -1,0 +1,326 @@
+/* Unified Constellation Modal Styles */
+
+.unified-constellation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9998;
+}
+
+.unified-constellation-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.unified-constellation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.unified-constellation-header h2 {
+  margin: 0;
+  color: #800020;
+  font-size: 24px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.btn-close:hover {
+  color: #333;
+}
+
+/* Tabs */
+.unified-constellation-tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.unified-constellation-tabs .tab {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.unified-constellation-tabs .tab:hover {
+  background: #f5f5f5;
+}
+
+.unified-constellation-tabs .tab.active {
+  color: #800020;
+  border-bottom-color: #FFD700;
+  font-weight: 600;
+}
+
+/* Content Area */
+.unified-constellation-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Select Tab */
+.select-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.selection-info {
+  text-align: center;
+}
+
+.selection-info p {
+  margin: 0 0 12px;
+  color: #666;
+  font-size: 16px;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn-select-all,
+.btn-clear {
+  padding: 8px 16px;
+  background: white;
+  color: #800020;
+  border: 1px solid #800020;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-select-all:hover,
+.btn-clear:hover {
+  background: #800020;
+  color: white;
+}
+
+.constellation-preview {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.constellation-preview svg {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.save-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.name-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: #FFD700;
+}
+
+.btn-save {
+  width: 100%;
+  padding: 12px;
+  background: #FFD700;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #FFC700;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.help-text {
+  padding: 12px;
+  background: #faf8e9;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.help-text p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Load Tab */
+.load-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.constellations-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.no-constellations {
+  text-align: center;
+  color: #999;
+  padding: 40px;
+  margin: 0;
+}
+
+.constellation-item {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.constellation-item:hover {
+  background: #f8f8f8;
+}
+
+.constellation-item.selected {
+  background: #faf8e9;
+  border-left: 3px solid #FFD700;
+}
+
+.constellation-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.constellation-meta {
+  font-size: 13px;
+  color: #999;
+}
+
+.load-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-load {
+  flex: 1;
+  padding: 12px;
+  background: #800020;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-load:hover {
+  background: #600018;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-delete {
+  padding: 12px 24px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover {
+  background: #c82333;
+}
+
+/* Selection Overlay */
+.constellation-selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 8999;
+}
+
+.selectable-node,
+.selectable-node-pin {
+  transition: all 0.2s;
+}
+
+.selectable-node:hover,
+.selectable-node-pin:hover {
+  border: 2px dashed #FFD700;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+.selectable-node.selected,
+.selectable-node-pin.selected {
+  border: 3px solid #FFD700;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.selectable-node-pin.selected {
+  border-radius: 50%;
+}

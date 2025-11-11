@@ -1,0 +1,250 @@
+import { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+
+/**
+ * Hook to manage memory libraries
+ * Libraries can be:
+ * - Manual: Contains specific memory IDs (manualMemoryIds)
+ * - Search-based: Contains search logic that filters memories dynamically
+ * - Locked: Only accessible when viewing that library (hidden from main view)
+ */
+export default function useLibraries(userId) {
+  const [libraries, setLibraries] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load libraries from Firestore or localStorage
+  useEffect(() => {
+    if (!userId) {
+      // Load from localStorage if no user
+      loadLocalLibraries();
+      return;
+    }
+
+    // Load from Firestore
+    loadFirestoreLibraries();
+  }, [userId]);
+
+  const loadLocalLibraries = () => {
+    try {
+      const stored = localStorage.getItem('memoryLibraries');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setLibraries(parsed);
+      }
+    } catch (error) {
+      console.error('Error loading libraries from localStorage:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFirestoreLibraries = async () => {
+    try {
+      const q = query(collection(db, 'libraries'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      const libs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setLibraries(libs);
+    } catch (error) {
+      console.error('Error loading libraries from Firestore:', error);
+      // Fallback to empty libraries if permission denied
+      setLibraries([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save libraries to storage
+  const saveLibraries = async (updatedLibraries) => {
+    setLibraries(updatedLibraries);
+
+    if (!userId) {
+      // Save to localStorage
+      localStorage.setItem('memoryLibraries', JSON.stringify(updatedLibraries));
+      return;
+    }
+
+    // Note: Individual library updates are handled in create/update/delete functions
+  };
+
+  // Create a new library
+  const createLibrary = async (libraryData) => {
+    try {
+      const newLibrary = {
+        name: libraryData.name,
+        description: libraryData.description || '',
+        manualMemoryIds: libraryData.manualMemoryIds || [],
+        searchLogic: libraryData.searchLogic || null,
+        isLocked: libraryData.isLocked || false,
+        color: libraryData.color || null,
+        createdAt: new Date().toISOString(),
+        ...(!userId ? {} : { userId })
+      };
+
+      if (!userId) {
+        // localStorage: generate ID and save
+        const id = Date.now().toString();
+        const withId = { ...newLibrary, id };
+        const updated = [...libraries, withId];
+        await saveLibraries(updated);
+        return withId;
+      } else {
+        // Firestore: add document
+        const docRef = await addDoc(collection(db, 'libraries'), newLibrary);
+        const withId = { ...newLibrary, id: docRef.id };
+        setLibraries([...libraries, withId]);
+        return withId;
+      }
+    } catch (error) {
+      console.error('Error creating library:', error);
+      throw error;
+    }
+  };
+
+  // Update an existing library
+  const updateLibrary = async (libraryId, updates) => {
+    try {
+      if (!userId) {
+        // localStorage
+        const updated = libraries.map(lib =>
+          lib.id === libraryId ? { ...lib, ...updates } : lib
+        );
+        await saveLibraries(updated);
+      } else {
+        // Firestore
+        const docRef = doc(db, 'libraries', libraryId);
+        await updateDoc(docRef, updates);
+        setLibraries(libraries.map(lib =>
+          lib.id === libraryId ? { ...lib, ...updates } : lib
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating library:', error);
+      throw error;
+    }
+  };
+
+  // Delete a library
+  const deleteLibrary = async (libraryId) => {
+    try {
+      if (!userId) {
+        // localStorage
+        const updated = libraries.filter(lib => lib.id !== libraryId);
+        await saveLibraries(updated);
+      } else {
+        // Firestore
+        const docRef = doc(db, 'libraries', libraryId);
+        await deleteDoc(docRef);
+        setLibraries(libraries.filter(lib => lib.id !== libraryId));
+      }
+    } catch (error) {
+      console.error('Error deleting library:', error);
+      throw error;
+    }
+  };
+
+  // Add memory to library
+  const addMemoryToLibrary = async (libraryId, memoryId) => {
+    const library = libraries.find(lib => lib.id === libraryId);
+    if (!library) return;
+
+    const currentIds = library.manualMemoryIds || [];
+    if (currentIds.includes(memoryId)) return; // Already in library
+
+    const updatedIds = [...currentIds, memoryId];
+    await updateLibrary(libraryId, { manualMemoryIds: updatedIds });
+  };
+
+  // Remove memory from library
+  const removeMemoryFromLibrary = async (libraryId, memoryId) => {
+    const library = libraries.find(lib => lib.id === libraryId);
+    if (!library) return;
+
+    const currentIds = library.manualMemoryIds || [];
+    const updatedIds = currentIds.filter(id => id !== memoryId);
+    await updateLibrary(libraryId, { manualMemoryIds: updatedIds });
+  };
+
+  // Get memories in a library
+  const getLibraryMemories = (libraryId, allMemories) => {
+    const library = libraries.find(lib => lib.id === libraryId);
+    if (!library) return [];
+
+    // Manual library
+    if (library.manualMemoryIds && library.manualMemoryIds.length > 0) {
+      return allMemories.filter(memory =>
+        library.manualMemoryIds.includes(memory.id)
+      );
+    }
+
+    // Search-based library - filter memories using saved search logic
+    if (library.searchLogic) {
+      const searchLogic = library.searchLogic;
+      return allMemories.filter(memory => {
+        let matches = true;
+
+        // Check AND terms - all must match
+        if (searchLogic.andTerms && searchLogic.andTerms.length > 0) {
+          matches = searchLogic.andTerms.every(term => {
+            const termLower = term.toLowerCase();
+            return (
+              (searchLogic.searchInTitles !== false && memory.title?.toLowerCase().includes(termLower)) ||
+              (searchLogic.searchInContent !== false && memory.content?.toLowerCase().includes(termLower)) ||
+              (searchLogic.searchInHashtags !== false && memory.hashtags?.some(tag => tag.toLowerCase().includes(termLower))) ||
+              (searchLogic.searchInDates !== false && (
+                memory.dateTime?.toLowerCase().includes(termLower) ||
+                memory.timestamp?.toLowerCase().includes(termLower)
+              ))
+            );
+          });
+        }
+
+        // Check OR terms - at least one must match
+        if (matches && searchLogic.orTerms && searchLogic.orTerms.length > 0) {
+          matches = searchLogic.orTerms.some(term => {
+            const termLower = term.toLowerCase();
+            return (
+              (searchLogic.searchInTitles !== false && memory.title?.toLowerCase().includes(termLower)) ||
+              (searchLogic.searchInContent !== false && memory.content?.toLowerCase().includes(termLower)) ||
+              (searchLogic.searchInHashtags !== false && memory.hashtags?.some(tag => tag.toLowerCase().includes(termLower))) ||
+              (searchLogic.searchInDates !== false && (
+                memory.dateTime?.toLowerCase().includes(termLower) ||
+                memory.timestamp?.toLowerCase().includes(termLower)
+              ))
+            );
+          });
+        }
+
+        // Check exclude terms - none should match
+        if (matches && searchLogic.excludeTerms) {
+          const termLower = searchLogic.excludeTerms.toLowerCase();
+          matches = !(
+            memory.title?.toLowerCase().includes(termLower) ||
+            memory.content?.toLowerCase().includes(termLower) ||
+            memory.hashtags?.some(tag => tag.toLowerCase().includes(termLower)) ||
+            memory.dateTime?.toLowerCase().includes(termLower) ||
+            memory.timestamp?.toLowerCase().includes(termLower)
+          );
+        }
+
+        return matches;
+      });
+    }
+
+    return [];
+  };
+
+  return {
+    libraries,
+    loading,
+    createLibrary,
+    updateLibrary,
+    deleteLibrary,
+    addMemoryToLibrary,
+    removeMemoryFromLibrary,
+    getLibraryMemories
+  };
+}
