@@ -143,8 +143,11 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   useEffect(() => {
     if (!boardStateLoading && boardState?.panOffset) {
       setPanOffset(boardState.panOffset)
-      // Mark that initial pan offset has been loaded (will update in next render)
-      setIsInitialPanLoad(false)
+      // Defer removing the initial-load class until after the transform has been applied
+      // This ensures no transition occurs on initial load
+      setTimeout(() => {
+        setIsInitialPanLoad(false)
+      }, 50)
     }
   }, [boardState, boardStateLoading])
 
