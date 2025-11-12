@@ -44,7 +44,13 @@
       "Bash(git fsck:*)",
       "Bash(jobs:*)",
       "Bash(tmutil listlocalsnapshots:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd major features and fix ID type inconsistencies\n\nThis commit includes significant improvements and bug fixes accumulated since the initial commit:\n\nMajor Features:\n- Add file system breadcrumb navigation for memory titles\n- Implement dynamic title formatting with formatTitleForDisplay\n- Add Home component with new landing page\n- Create reusable Dropdown component for UI consistency\n- Add comprehensive documentation (ARCHITECTURE, HOOKS, CHRONOLOGY)\n\nBug Fixes:\n- Fix widespread ID type mismatch (numbers vs strings) causing persistence issues\n- Consolidate ID normalization logic in generateId.js\n- Update idUtils to use centralized normalizeId function\n- Remove cleanupDuplicateIds.js (no longer needed)\n\nImprovements:\n- Refactor chronology component for better performance\n- Update constellation sidebar with improved styling\n- Enhance opacity calculations for better visual experience\n- Add favicon support\n- Clean up backup files (moved to timeline-backups-archive)\n- Update theme CSS variables\n- Improve simplified view functionality\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git show:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(/Users/sageryza/Documents/timeline/memory-library-react/public/favicon.svg)"
     ],
     "deny": [],
     "ask": []

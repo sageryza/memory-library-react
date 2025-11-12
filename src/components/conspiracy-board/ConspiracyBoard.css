@@ -12,6 +12,11 @@
   transition: none;
 }
 
+/* Disable transition during initial load to prevent pan animation on page reload */
+.pan-container.initial-load {
+  transition: none;
+}
+
 /* ============================================
    MEMORY CARDS (Matching Original Exactly)
    ============================================ */

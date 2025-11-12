@@ -93,6 +93,9 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   // Track cleanup function for event listeners
   const cleanupRef = useRef(null)
 
+  // Track if we've loaded the initial pan offset (starts true, becomes false after first load)
+  const [isInitialPanLoad, setIsInitialPanLoad] = useState(true)
+
   // Undo system
   const MAX_UNDO_STATES = 50
   const [undoHistory, setUndoHistory] = useState([])
@@ -136,11 +139,14 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   }, [])
 
   // Load pan offset from boardState when it changes
+  // Only update after initial load to prevent animation from default {0,0} to saved position
   useEffect(() => {
-    if (boardState?.panOffset) {
+    if (!boardStateLoading && boardState?.panOffset) {
       setPanOffset(boardState.panOffset)
+      // Mark that initial pan offset has been loaded (will update in next render)
+      setIsInitialPanLoad(false)
     }
-  }, [boardState])
+  }, [boardState, boardStateLoading])
 
   // Save activeBoardName to localStorage whenever it changes
   useEffect(() => {
@@ -1787,7 +1793,7 @@ const handleDragEnd = (event) => {
             style={{ cursor: isPanning ? 'grabbing' : 'default' }}
           >
             <div
-              className={`pan-container ${isPanning ? 'dragging' : ''}`}
+              className={`pan-container ${isPanning ? 'dragging' : ''} ${isInitialPanLoad ? 'initial-load' : ''}`}
               style={{
                 transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
                 transformOrigin: '0 0',

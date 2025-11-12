@@ -3,7 +3,7 @@
     height: auto;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, #faf8e9 0%, #f8f6e3 100%);
+    background: rgba(255, 255, 255, 0.8);
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -12,7 +12,7 @@
 .home-header {
     text-align: center;
     padding: 40px 20px 40px;
-    background: rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, #faf8e9 0%, #f8f6e3 100%);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(128, 0, 32, 0.1);
     position: relative;
@@ -52,7 +52,7 @@
 }
 
 .module-card {
-    background: #FFFFFF;
+    background: linear-gradient(135deg, #faf8e9 0%, #f8f6e3 100%);
     border: 1px solid rgba(128, 0, 32, 0.1);
     border-radius: 12px;
     padding: 30px;
