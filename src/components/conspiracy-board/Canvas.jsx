@@ -31,7 +31,7 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
     cursor: isInlineEditing ? 'default' : (isDragging ? 'grabbing' : 'grab'),
     zIndex: isDragging ? 1000 : 'auto',
     opacity: isDragging ? 0 : opacity, // Hide original card when dragging (DragOverlay shows instead)
-    transition: isDragging ? 'none' : 'opacity 0.5s ease', // No transition when dragging starts/stops for instant hide/show
+    transition: isDragging ? 'none' : undefined, // Only remove transition during drag
   }
 
   const handlePinClick = (e) => {

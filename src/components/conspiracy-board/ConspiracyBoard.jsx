@@ -12,6 +12,7 @@ import PinEditModal from './PinEditModal'
 import ContextMenu from '../shared/ContextMenu'
 import MemoryPopup from '../shared/MemoryPopup'
 import MemoryCard from '../shared/MemoryCard'
+import Dropdown from '../shared/Dropdown'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
 import useSavedBoards from '../../hooks/useSavedBoards'
@@ -19,6 +20,7 @@ import useSimplifyView from '../../hooks/useSimplifyView'
 import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
+import { generatePinId, ensureStringId } from '../../utils/generateId'
 import constellationIcon from '../../assets/constellation.svg'
 import '../../App.css'
 import './ConspiracyBoard.css'
@@ -60,7 +62,6 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [showAllInsights, setShowAllInsights] = useState(false)
   const [isPlacingPin, setIsPlacingPin] = useState(false)
   const [pinPlacementPosition, setPinPlacementPosition] = useState(null)
-  const [pinIdCounter, setPinIdCounter] = useState(1)
   const [isPlacingConstellation, setIsPlacingConstellation] = useState(false)
   const [placingConstellationData, setPlacingConstellationData] = useState(null)
   const [constellationPlacementPosition, setConstellationPlacementPosition] = useState(null)
@@ -68,7 +69,6 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [memoryPopup, setMemoryPopup] = useState(null)
   const [isConstellationMode, setIsConstellationMode] = useState(false)
   const [constellationSelectedNodes, setConstellationSelectedNodes] = useState(null)
-  const [showBoardDropdown, setShowBoardDropdown] = useState(false)
   const [editingPin, setEditingPin] = useState(null)
   const [showSaveBoardModal, setShowSaveBoardModal] = useState(false)
   const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
@@ -249,32 +249,24 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
 
   // Apply optimistic position updates for smooth dragging
   const displayMemories = droppedMemories.map(memory => {
-    if (optimisticPositions[memory.id]) {
-      return { ...memory, ...optimisticPositions[memory.id] }
+    // Ensure ID is normalized for object key lookup
+    const normalizedId = ensureStringId(memory.id)
+    if (optimisticPositions[normalizedId]) {
+      return { ...memory, ...optimisticPositions[normalizedId] }
     }
     return memory
   })
 
   // Apply optimistic position updates for standalone pins
   const displayStandalonePins = standalonePins.map(pin => {
-    if (optimisticPinPositions[pin.id]) {
-      return { ...pin, ...optimisticPinPositions[pin.id] }
+    // Ensure ID is normalized for object key lookup
+    const normalizedId = ensureStringId(pin.id)
+    if (optimisticPinPositions[normalizedId]) {
+      return { ...pin, ...optimisticPinPositions[normalizedId] }
     }
     return pin
   })
 
-  // Initialize pin counter based on existing pins
-  useEffect(() => {
-    if (standalonePins && standalonePins.length > 0) {
-      const maxPinId = Math.max(
-        ...standalonePins.map(p => {
-          const match = p.id.match(/pin_(\d+)/)
-          return match ? parseInt(match[1]) : 0
-        })
-      )
-      setPinIdCounter(maxPinId + 1)
-    }
-  }, [standalonePins.length])
 
   // Save state for undo
   const saveStateForUndo = useCallback((actionDescription = 'Action') => {
@@ -390,9 +382,11 @@ const handleDragEnd = (event) => {
       const newY = memory.y + delta.y
 
       // Set optimistic position immediately for smooth transition
+      // Normalize ID for object key
+      const normalizedId = ensureStringId(memoryData.id)
       setOptimisticPositions(prev => ({
         ...prev,
-        [memoryData.id]: { x: newX, y: newY }
+        [normalizedId]: { x: newX, y: newY }
       }))
 
       saveStateForUndo('Move memory')
@@ -404,20 +398,17 @@ const handleDragEnd = (event) => {
           }
           return m
         })
-      }).then(() => {
-        // Clear optimistic position once Firebase confirms
-        setOptimisticPositions(prev => {
-          const newPositions = { ...prev }
-          delete newPositions[memoryData.id]
-          return newPositions
-        })
-      }).catch((error) => {
-        console.error('Failed to update position:', error)
-        // Revert optimistic update on error
-        setOptimisticPositions(prev => {
-          const newPositions = { ...prev }
-          delete newPositions[memoryData.id]
-          return newPositions
+      })
+
+      // Clear optimistic position after update completes
+      // Using requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setOptimisticPositions(prev => {
+            const newPositions = { ...prev }
+            delete newPositions[normalizedId]
+            return newPositions
+          })
         })
       })
     }
@@ -430,9 +421,11 @@ const handleDragEnd = (event) => {
       const newY = pin.y + delta.y
 
       // Set optimistic position immediately for smooth transition
+      // Normalize ID for object key
+      const normalizedPinId = ensureStringId(memoryData.id)
       setOptimisticPinPositions(prev => ({
         ...prev,
-        [memoryData.id]: { x: newX, y: newY }
+        [normalizedPinId]: { x: newX, y: newY }
       }))
 
       saveStateForUndo('Move pin')
@@ -444,20 +437,17 @@ const handleDragEnd = (event) => {
           }
           return p
         })
-      }).then(() => {
-        // Clear optimistic position once Firebase confirms
-        setOptimisticPinPositions(prev => {
-          const newPositions = { ...prev }
-          delete newPositions[memoryData.id]
-          return newPositions
-        })
-      }).catch((error) => {
-        console.error('Failed to update pin position:', error)
-        // Revert optimistic update on error
-        setOptimisticPinPositions(prev => {
-          const newPositions = { ...prev }
-          delete newPositions[memoryData.id]
-          return newPositions
+      })
+
+      // Clear optimistic position after update completes
+      // Using requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setOptimisticPinPositions(prev => {
+            const newPositions = { ...prev }
+            delete newPositions[normalizedPinId]
+            return newPositions
+          })
         })
       })
     }
@@ -1147,16 +1137,6 @@ const handleDragEnd = (event) => {
           standalonePins: [...standalonePins, ...offsetPins]
         })
 
-        // Update pin counter if pins were loaded
-        if (offsetPins.length > 0) {
-          const maxPinId = Math.max(
-            ...offsetPins.map(p => {
-              const match = p.id.match(/pin_(\d+)/)
-              return match ? parseInt(match[1]) : 0
-            })
-          )
-          setPinIdCounter(Math.max(pinIdCounter, maxPinId + 1))
-        }
       }
 
       // Exit placement mode
@@ -1195,7 +1175,7 @@ const handleDragEnd = (event) => {
 
       // Create new standalone pin
       const newPin = {
-        id: `pin_${pinIdCounter}`,
+        id: generatePinId(),
         x: canvasPos.x - 10, // Center the pin (pin is 20px wide)
         y: canvasPos.y - 10,
         description: ''
@@ -1206,11 +1186,10 @@ const handleDragEnd = (event) => {
         ...boardState,
         standalonePins: [...standalonePins, newPin]
       })
-      setPinIdCounter(pinIdCounter + 1)
       setIsPlacingPin(false)
       setPinPlacementPosition(null)
     }
-  }, [isPlacingPin, pinPlacementPosition, pinIdCounter, boardState, standalonePins, updateBoardState, selectedPin, inlineEditingMemoryId, droppedMemories, handleInlineMemoryBlur, isPlacingConstellation, constellationPlacementPosition, placingConstellationData, connections, screenToCanvas, saveStateForUndo])
+  }, [isPlacingPin, pinPlacementPosition, boardState, standalonePins, updateBoardState, selectedPin, inlineEditingMemoryId, droppedMemories, handleInlineMemoryBlur, isPlacingConstellation, constellationPlacementPosition, placingConstellationData, connections, screenToCanvas, saveStateForUndo])
 
   const handleUpdatePinPosition = useCallback((pinId, position) => {
     updateBoardState({
@@ -1552,227 +1531,238 @@ const handleDragEnd = (event) => {
             <h1>Conspiracy</h1>
           </div>
           <div className="header-right">
-            {/* Sidebar buttons moved to header */}
-            <button
-              className="scatter-memories-btn"
-              onClick={scatterMemories}
-              disabled={isConstellationMode}
-              title="Scatter memories on canvas"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <circle cx="4" cy="3" r="1.3"/>
-                <circle cx="11.5" cy="2" r="1.3"/>
-                <circle cx="2.5" cy="7" r="1.3"/>
-                <circle cx="8" cy="8.5" r="1.3"/>
-                <circle cx="13.5" cy="10" r="1.3"/>
-                <circle cx="6" cy="13" r="1.3"/>
-                <circle cx="10.5" cy="14.5" r="1.3"/>
-              </svg>
-            </button>
+            {/* View Dropdown Menu */}
+            <Dropdown
+              className="header-dropdown"
+              align="left"
+              trigger={
+                <button className="header-dropdown-btn">
+                  <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <circle cx="8" cy="8" r="3"/>
+                  </svg>
+                  <span>View</span>
+                  <svg className="dropdown-arrow" width="12" height="12" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </button>
+              }
+              items={[
+                {
+                  label: 'Reset View',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path fillRule="evenodd" d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3zm8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM3 11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM8 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13z"/>
+                      <circle cx="8" cy="8" r="2"/>
+                    </svg>
+                  ),
+                  onClick: handleResetView,
+                  title: 'Reset view to center'
+                },
+                { separator: true },
+                {
+                  label: isSimplified ? 'Normal View' : 'Simplified View',
+                  icon: isSimplified ? (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zM1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5V5H1V3.5zM1 6h14v6.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V6z"/>
+                      <path d="M2 8.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                  ),
+                  onClick: toggleSimplify,
+                  active: isSimplified
+                },
+                {
+                  label: showOpacityFading ? 'Disable Opacity Fading' : 'Enable Opacity Fading',
+                  icon: showOpacityFading ? (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    </svg>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                        <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                        <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                      </svg>
+                    </>
+                  ),
+                  onClick: () => setShowOpacityFading(!showOpacityFading),
+                  active: showOpacityFading
+                },
+                {
+                  label: showAllInsights ? 'Hide All Insights' : 'Show All Insights',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                      <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                    </svg>
+                  ),
+                  onClick: () => setShowAllInsights(!showAllInsights),
+                  active: showAllInsights
+                }
+              ]}
+            />
 
-            <button
-              className="undo-btn"
-              onClick={performUndo}
-              disabled={undoHistory.length === 0 || isConstellationMode}
-              title={undoHistory.length > 0 ? "Undo last action" : "Nothing to undo"}
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
-                <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
-              </svg>
-            </button>
+            {/* Tools Dropdown Menu */}
+            <Dropdown
+              className="header-dropdown"
+              align="left"
+              trigger={
+                <button className="header-dropdown-btn">
+                  <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path d="M0 10.5a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 0-1H1.707l4.147-4.146a.5.5 0 0 0-.708-.708L1 9.293V7.5a.5.5 0 0 0-1 0v3zM15.5 5h-3a.5.5 0 0 0 0 1h1.793l-4.147 4.146a.5.5 0 0 0 .708.708L15 6.707V8.5a.5.5 0 0 0 1 0v-3a.5.5 0 0 0-.5-.5z"/>
+                  </svg>
+                  <span>Tools</span>
+                  <svg className="dropdown-arrow" width="12" height="12" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </button>
+              }
+              items={[
+                {
+                  label: 'Add Memory',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M8 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1 .5.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1-.5-.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5-.5v-5A.5.5 0 0 1 8 2z"/>
+                    </svg>
+                  ),
+                  onClick: handleAddMemory,
+                  disabled: isConstellationMode
+                },
+                {
+                  label: 'Place Pin',
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 16 16">
+                      <circle cx="8" cy="4" r="3" fill="#dc143c"/>
+                      <rect x="7.5" y="6.5" width="1" height="7" fill="#999"/>
+                    </svg>
+                  ),
+                  onClick: handleStartPlacingPin,
+                  disabled: isConstellationMode
+                },
+                {
+                  label: 'Scatter Memories',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <circle cx="4" cy="3" r="1.3"/>
+                      <circle cx="11.5" cy="2" r="1.3"/>
+                      <circle cx="2.5" cy="7" r="1.3"/>
+                      <circle cx="8" cy="8.5" r="1.3"/>
+                      <circle cx="13.5" cy="10" r="1.3"/>
+                      <circle cx="6" cy="13" r="1.3"/>
+                      <circle cx="10.5" cy="14.5" r="1.3"/>
+                    </svg>
+                  ),
+                  onClick: scatterMemories,
+                  disabled: isConstellationMode
+                },
+                { separator: true },
+                {
+                  label: 'Search',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                  ),
+                  onClick: () => setShowSearch(!showSearch),
+                  disabled: isConstellationMode,
+                  active: showSearch
+                },
+                { separator: true },
+                {
+                  label: 'Undo',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                      <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+                    </svg>
+                  ),
+                  onClick: performUndo,
+                  disabled: undoHistory.length === 0 || isConstellationMode,
+                  shortcut: '⌘Z'
+                }
+              ]}
+            />
 
-            <button
-              className="reset-view-btn"
-              onClick={handleResetView}
-              title="Reset view to center"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3zm8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM3 11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM8 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13z"/>
-                <circle cx="8" cy="8" r="2"/>
-              </svg>
-            </button>
-
+            {/* Standalone buttons */}
             <button
               className={`constellation-btn ${isConstellationMode ? 'active' : ''}`}
               onClick={() => {
                 const newMode = !isConstellationMode
                 setIsConstellationMode(newMode)
                 if (newMode) {
-                  setIsSidebarOpen(true) // Open sidebar when entering constellation mode
+                  setIsSidebarOpen(true)
                 } else {
-                  setConstellationSelectedNodes(null) // Clear selection when exiting constellation mode
+                  setConstellationSelectedNodes(null)
                 }
               }}
               title="Constellations - Select, Save & Load"
             >
-              <img src={constellationIcon} alt="Constellation" width="16" height="16" />
+              <img src={constellationIcon} alt="Constellation" width="16" height="16" style={{ filter: 'brightness(0) saturate(100%) invert(24%) sepia(7%) saturate(1358%) hue-rotate(128deg) brightness(95%) contrast(87%)' }} />
             </button>
 
-            <button
-              className="search-toggle-btn"
-              onClick={() => setShowSearch(!showSearch)}
-              disabled={isConstellationMode}
-              title="Search"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-              </svg>
-            </button>
-
-            <button
-              className="standalone-pin-btn"
-              onClick={handleStartPlacingPin}
-              disabled={isConstellationMode}
-              title="Place a pin"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16">
-                <circle cx="8" cy="4" r="3" fill="#dc143c"/>
-                <rect x="7.5" y="6.5" width="1" height="7" fill="#999"/>
-              </svg>
-            </button>
-
-            <button
-              className="add-memory-btn-icon"
-              onClick={handleAddMemory}
-              disabled={isConstellationMode}
-              title="Add new memory"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1 .5.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1-.5-.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5-.5v-5A.5.5 0 0 1 8 2z"/>
-              </svg>
-            </button>
-
-            {/* Playground button */}
             <button
               className="add-memory-btn-icon"
               onClick={handleOpenPlayground}
               title="Playground"
             >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
                 <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
                 <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
               </svg>
             </button>
 
-            {/* Simplify view toggle button */}
-            <button
-              className={`view-toggle-btn-sidebar ${isSimplified ? 'active' : ''}`}
-              onClick={toggleSimplify}
-              title={isSimplified ? "Normal View" : "Simplified View"}
-            >
-              {isSimplified ? (
-                // When simplified, show "normal view" icon (grid)
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
-                </svg>
-              ) : (
-                // When normal, show "simplified view" icon (card with lines)
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zM1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5V5H1V3.5zM1 6h14v6.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V6z"/>
-                  <path d="M2 8.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
-                </svg>
-              )}
-            </button>
-
-            {/* Opacity Fading Toggle */}
-            <button
-              className={`opacity-toggle-btn-sidebar ${showOpacityFading ? 'active' : ''}`}
-              onClick={() => setShowOpacityFading(!showOpacityFading)}
-              title={showOpacityFading ? "Disable opacity fading" : "Enable opacity fading"}
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                {showOpacityFading ? (
-                  // Eye icon (fading enabled)
-                  <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                ) : (
-                  // Eye slash icon (fading disabled)
-                  <>
-                    <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
-                    <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
-                    <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
-                  </>
-                )}
-              </svg>
-            </button>
-
-            {/* Show All Insights Toggle */}
-            <button
-              className={`insights-toggle-btn-sidebar ${showAllInsights ? 'active' : ''}`}
-              onClick={() => setShowAllInsights(!showAllInsights)}
-              title={showAllInsights ? "Hide all insights" : "Show all insights"}
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-              </svg>
-            </button>
-
-            <div className="board-dropdown-container">
-              <button
-                className="board-dropdown-btn"
-                id="boardDropdownBtn"
-                onClick={() => setShowBoardDropdown(!showBoardDropdown)}
-              >
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 2h12v12H2V2z"/>
-                  <path d="M3 3h10v2H3zm0 4h10v6H3z"/>
-                </svg>
-                <span className="board-name" id="boardNameDisplay">{activeBoardName}</span>
-                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" className="dropdown-arrow">
-                  <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-                </svg>
-              </button>
-
-              {showBoardDropdown && (
-                <div className="board-dropdown-menu">
-                  <div className="board-dropdown-header">
-                    <h3>Board Management</h3>
-                    <button
-                      className="board-dropdown-close"
-                      onClick={() => setShowBoardDropdown(false)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <div className="board-dropdown-content">
-                    <button
-                      className="board-dropdown-item"
-                      onClick={handleNewBoard}
-                    >
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z"/>
-                      </svg>
-                      New Board
-                    </button>
-                    <button
-                      className="board-dropdown-item"
-                      onClick={() => {
-                        setShowSaveBoardModal(true)
-                        setShowBoardDropdown(false)
-                      }}
-                    >
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
-                      </svg>
-                      Save As New Board
-                    </button>
-                    <button
-                      className="board-dropdown-item"
-                      onClick={() => {
-                        setShowLoadBoardModal(true)
-                        setShowBoardDropdown(false)
-                      }}
-                    >
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
-                      </svg>
-                      Load Board
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Board Dropdown Menu */}
+            <Dropdown
+              className="header-dropdown board-dropdown"
+              align="right"
+              closeOnItemClick={false}
+              trigger={
+                <button className="header-dropdown-btn board-dropdown-btn">
+                  <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 2h12v12H2V2z"/>
+                    <path d="M3 3h10v2H3zm0 4h10v6H3z"/>
+                  </svg>
+                  <span className="board-name">{activeBoardName || 'Untitled Board'}</span>
+                  <svg className="dropdown-arrow" width="12" height="12" fill="#2F4F4F" viewBox="0 0 16 16">
+                    <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </button>
+              }
+              items={[
+                {
+                  label: 'New Board',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z"/>
+                    </svg>
+                  ),
+                  onClick: handleNewBoard
+                },
+                {
+                  label: 'Save As New Board',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
+                    </svg>
+                  ),
+                  onClick: () => setShowSaveBoardModal(true)
+                },
+                {
+                  label: 'Load Board',
+                  icon: (
+                    <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                      <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
+                    </svg>
+                  ),
+                  onClick: () => setShowLoadBoardModal(true)
+                }
+              ]}
+            />
           </div>
         </header>
 

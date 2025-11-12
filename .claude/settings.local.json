@@ -36,7 +36,15 @@
       "WebFetch(domain:lucide.dev)",
       "Bash(tree:*)",
       "Bash(sed:*)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(defaults read:*)",
+      "Bash(npm run:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git restore:*)",
+      "Bash(git fsck:*)",
+      "Bash(jobs:*)",
+      "Bash(tmutil listlocalsnapshots:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

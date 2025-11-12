@@ -1,3 +1,13 @@
+// TODO: Review Testing Coverage for Recent Bug Fixes
+// Context: Fixed at least 3 major bugs around Nov 9-11
+// Tasks:
+// - Document what bugs were fixed
+// - Identify edge cases that might not be tested
+// - Look for patterns in what broke (e.g., ID type issues, localStorage dependencies)
+// - Ensure similar issues won't reoccur
+// - Consider adding tests for critical paths
+// See TODO.md for systematic issues found (timestamp inconsistency, localStorage deps, etc.)
+
 import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
@@ -14,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
+import { ensureStringId } from '../utils/generateId';
 
 export const useMemories = (userId) => {
   const [memories, setMemories] = useState([]);
@@ -27,7 +38,12 @@ export const useMemories = (userId) => {
   useEffect(() => {
     if (!userId) {
       // Use localStorage for unauthenticated users
-      setMemories(localStorage.memories || []);
+      // Ensure all localStorage memory IDs are strings
+      const localMemories = (localStorage.memories || []).map(mem => ({
+        ...mem,
+        id: ensureStringId(mem.id)
+      }));
+      setMemories(localMemories);
       setLoading(false);
       return;
     }
@@ -44,9 +60,9 @@ export const useMemories = (userId) => {
           // FIX: Remove any 'id' field from the data to prevent override
           const { id: dataId, ...restData } = data;
 
-          // Now we're guaranteed to use the Firestore document ID
+          // ENSURE ID IS ALWAYS A STRING
           return {
-            id: doc.id,  // Always use the Firestore document ID
+            id: ensureStringId(doc.id),  // Always use the Firestore document ID as a string
             ...restData  // Spread the rest of the data (without the id field)
           };
         });
@@ -115,7 +131,9 @@ export const useMemories = (userId) => {
         console.error('Missing memoryId');
         return;
       }
-      localStorage.updateMemory(memoryId, updates);
+      // Ensure memoryId is a string
+      const normalizedId = ensureStringId(memoryId);
+      localStorage.updateMemory(normalizedId, updates);
       setMemories(localStorage.memories);
       return;
     }
@@ -128,7 +146,7 @@ export const useMemories = (userId) => {
 
     try {
       // Ensure memoryId is a string and valid
-      const cleanMemoryId = String(memoryId).trim();
+      const cleanMemoryId = ensureStringId(memoryId).trim();
 
       // Filter out any undefined or null values from updates, and never include 'id'
       const cleanUpdates = {};
@@ -177,7 +195,9 @@ export const useMemories = (userId) => {
         console.error(error);
         throw error;
       }
-      localStorage.deleteMemory(memoryId);
+      // Ensure memoryId is a string
+      const normalizedId = ensureStringId(memoryId);
+      localStorage.deleteMemory(normalizedId);
       setMemories(localStorage.memories);
       return;
     }
@@ -195,8 +215,8 @@ export const useMemories = (userId) => {
     }
 
     try {
-      // Convert memoryId to string as Firestore requires string IDs
-      const memoryIdStr = String(memoryId);
+      // Ensure memoryId is a string as Firestore requires string IDs
+      const memoryIdStr = ensureStringId(memoryId);
       const memoryRef = doc(db, 'users', userId, 'memories', memoryIdStr);
       await deleteDoc(memoryRef);
 

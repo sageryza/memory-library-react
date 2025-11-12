@@ -412,3 +412,91 @@
 .standalone-pin.placing {
   cursor: crosshair;
 }
+
+/* ============================================
+   HEADER DROPDOWNS
+   ============================================ */
+
+/* Header right section layout */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Header dropdown specific styles */
+.header-dropdown {
+  position: relative;
+}
+
+.header-dropdown .dropdown-menu {
+  margin-top: 8px;
+  min-width: 220px;
+}
+
+/* Ensure dropdown icons have proper color */
+.header-dropdown .dropdown-item svg {
+  fill: currentColor;
+}
+
+.header-dropdown .dropdown-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Board dropdown specific styles */
+.board-dropdown .board-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 4px;
+}
+
+.board-dropdown .dropdown-menu {
+  min-width: 250px;
+}
+
+/* Ensure dropdowns appear above other elements */
+.header-dropdown .dropdown-menu {
+  z-index: 1100;
+}
+
+/* Adjust button styles for consistency */
+.header-dropdown-btn {
+  height: 32px;
+  min-width: 80px;
+  padding: 0 12px;
+}
+
+.header-dropdown-btn span {
+  margin: 0 6px;
+}
+
+/* Keep standalone buttons consistent */
+.constellation-btn,
+.add-memory-btn-icon {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid #e8e6d5;
+  border-radius: 6px;
+  color: #2F4F4F;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.constellation-btn:hover,
+.add-memory-btn-icon:hover {
+  background: rgba(47, 79, 79, 0.05);
+  border-color: #2F4F4F;
+}
+
+.constellation-btn.active {
+  background: rgba(47, 79, 79, 0.1);
+  border-color: #2F4F4F;
+}

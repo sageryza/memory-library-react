@@ -1,0 +1,457 @@
+.home-container {
+    min-height: 100vh;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, #faf8e9 0%, #f8f6e3 100%);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Header */
+.home-header {
+    text-align: center;
+    padding: 40px 20px 40px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(128, 0, 32, 0.1);
+    position: relative;
+}
+
+.header-content {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.home-header h1 {
+    font-size: 48px;
+    color: #800020;
+    margin-bottom: 10px;
+    font-weight: 600;
+    letter-spacing: -1px;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: #666;
+    font-family: 'Courier Prime', monospace;
+    opacity: 0.8;
+}
+
+/* Module Grid */
+.modules-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+    padding: 40px 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.module-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(128, 0, 32, 0.1);
+    border-radius: 12px;
+    padding: 30px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    opacity: 0;
+    transform: translateY(30px);
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.module-card:hover {
+    transform: translateY(-5px);
+    border: 2px solid #800020;
+    box-shadow:
+        0 12px 40px rgba(128, 0, 32, 0.2),
+        0 0 20px rgba(128, 0, 32, 0.15),
+        inset 0 0 20px rgba(128, 0, 32, 0.05);
+}
+
+/* Module Icons */
+.module-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+/* Timeline Icon */
+.timeline-icon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.hourglass {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.hourglass-top {
+    width: 30px;
+    height: 15px;
+    background: #800020;
+    border-radius: 15px 15px 0 0;
+    border: 2px solid #800020;
+    border-bottom: none;
+}
+
+.hourglass-middle {
+    width: 8px;
+    height: 8px;
+    background: #800020;
+    margin: -2px 0;
+}
+
+.hourglass-bottom {
+    width: 30px;
+    height: 15px;
+    background: #A0001C;
+    border-radius: 0 0 15px 15px;
+    border: 2px solid #800020;
+    border-top: none;
+}
+
+/* Archive Icon */
+.archive-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bookshelf {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 100%;
+    justify-content: center;
+    padding: 5px;
+}
+
+.book {
+    background: #800020;
+    border-radius: 1px;
+    position: relative;
+}
+
+.book1 {
+    width: 8px;
+    height: 35px;
+}
+
+.book2 {
+    width: 10px;
+    height: 42px;
+    background: #A0001C;
+}
+
+.book3 {
+    width: 7px;
+    height: 38px;
+}
+
+.book4 {
+    width: 9px;
+    height: 40px;
+    background: #660018;
+}
+
+/* Constellation Icon */
+.constellation-icon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.star-pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.star {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: #800020;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 1;
+    box-shadow: 0 0 3px rgba(128, 0, 32, 0.4);
+}
+
+.constellation-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.star-line {
+    position: absolute;
+    height: 1px;
+    border-top: 1px dashed #800020;
+    opacity: 0.6;
+    transform-origin: left center;
+}
+
+.line1 {
+    top: 30%;
+    left: 25%;
+    width: 30px;
+    transform: rotate(20deg);
+}
+
+.line2 {
+    top: 45%;
+    left: 45%;
+    width: 25px;
+    transform: rotate(-25deg);
+}
+
+.line3 {
+    top: 55%;
+    left: 60%;
+    width: 20px;
+    transform: rotate(35deg);
+}
+
+/* Conspiracy Icon */
+.conspiracy-icon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.pushpin {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.pin-head {
+    width: 20px;
+    height: 20px;
+    background: #800020;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pin-body {
+    width: 3px;
+    height: 25px;
+    background: linear-gradient(to bottom, #666, #888);
+    margin-top: -3px;
+    border-radius: 0 0 2px 2px;
+}
+
+.pin-shadow {
+    position: absolute;
+    bottom: 5px;
+    width: 15px;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    transform: translateX(8px);
+}
+
+/* Module Content */
+.module-card h3 {
+    font-size: 24px;
+    color: #2F4F4F;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.module-card p {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.module-features {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.feature {
+    background: rgba(128, 0, 32, 0.1);
+    color: #800020;
+    font-size: 12px;
+    font-family: 'Courier Prime', monospace;
+    padding: 4px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(128, 0, 32, 0.2);
+}
+
+/* Lessons Icon */
+.lessons-icon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.book-open {
+    position: relative;
+    width: 50px;
+    height: 35px;
+    display: flex;
+    justify-content: center;
+}
+
+.page-left {
+    position: absolute;
+    left: 0;
+    width: 22px;
+    height: 30px;
+    background: #800020;
+    border-radius: 3px 0 0 3px;
+    transform: perspective(30px) rotateY(25deg);
+    transform-origin: right center;
+}
+
+.page-right {
+    position: absolute;
+    right: 0;
+    width: 22px;
+    height: 30px;
+    background: #800020;
+    border-radius: 0 3px 3px 0;
+    transform: perspective(30px) rotateY(-25deg);
+    transform-origin: left center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+}
+
+.book-spine {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 32px;
+    background: #600018;
+    z-index: 1;
+}
+
+.text-line {
+    width: 12px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 1px 0;
+}
+
+/* Launch Button */
+.launch-btn {
+    width: 100%;
+    background: #800020;
+    color: #FFFFFF;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.launch-btn:hover {
+    background: #A0001C;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(128, 0, 32, 0.3);
+}
+
+.launch-btn.coming-soon {
+    background: #E8E8E8;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.launch-btn.coming-soon:hover {
+    background: #E8E8E8;
+    transform: none;
+    box-shadow: none;
+}
+
+.module-card.coming-soon {
+    cursor: default;
+}
+
+.module-card.coming-soon:hover {
+    transform: translateY(0);
+    border: 1px solid rgba(128, 0, 32, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modules-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 20px 15px;
+    }
+
+    .home-header h1 {
+        font-size: 36px;
+    }
+
+    .module-card {
+        padding: 25px;
+    }
+}
+
+/* Animation for loading */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.module-card {
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+.module-card:nth-child(1) { animation-delay: 0.1s; }
+.module-card:nth-child(2) { animation-delay: 0.2s; }
+.module-card:nth-child(3) { animation-delay: 0.3s; }
+.module-card:nth-child(4) { animation-delay: 0.4s; }
+.module-card:nth-child(5) { animation-delay: 0.5s; }

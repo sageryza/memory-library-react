@@ -281,21 +281,24 @@ export default function ConstellationSidebar({
     const minY = Math.min(...starPositions.map(p => p.y))
     const maxY = Math.max(...starPositions.map(p => p.y))
 
-    // Small buffer for star size
-    const starBuffer = 10
+    // Larger buffer for bigger star size
+    const starBuffer = 20
 
     const width = (maxX - minX + starBuffer) || starBuffer
     const height = (maxY - minY + starBuffer) || starBuffer
 
     // Target size for mini visualization
+    // TODO: Make minimap visualizations bigger
+    // Need to investigate what's constraining their size (bounding box? container?)
     const targetWidth = 200
     const targetHeight = 120
-    const padding = 15
+    const padding = 20
 
-    // Calculate scale to fit
+    // Calculate scale to fit - more aggressive compression for distances
     const scaleX = (targetWidth - 2 * padding) / width
     const scaleY = (targetHeight - 2 * padding) / height
-    const scale = Math.min(scaleX, scaleY)
+    // Apply additional compression factor to make lines shorter relative to star size
+    const scale = Math.min(scaleX, scaleY) * 0.85
 
     // Calculate actual scaled dimensions
     const scaledWidth = width * scale
@@ -358,9 +361,10 @@ export default function ConstellationSidebar({
             y1={conn.from.scaledY}
             x2={conn.to.scaledX}
             y2={conn.to.scaledY}
-            stroke="#999"
-            strokeWidth="1"
-            opacity="0.6"
+            stroke="#808080"
+            strokeWidth="2"
+            strokeDasharray="5,5"
+            strokeLinecap="round"
           />
         ))}
 
@@ -369,11 +373,19 @@ export default function ConstellationSidebar({
           // No offset needed - scaledX/Y already at star positions
           return (
             <g key={item.id} transform={`translate(${item.scaledX}, ${item.scaledY})`}>
+              {/* Gray outline stroke */}
               <path
-                d="M 0,-5 L 1.5,-2 L 4.5,-1.5 L 2.25,0.5 L 2.75,3.5 L 0,2 L -2.75,3.5 L -2.25,0.5 L -4.5,-1.5 L -1.5,-2 Z"
+                d="M 0,-10 L 3,-4 L 9,-3 L 4.5,1 L 5.5,7 L 0,4 L -5.5,7 L -4.5,1 L -9,-3 L -3,-4 Z"
+                fill="none"
+                stroke="#808080"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+              {/* Gold fill */}
+              <path
+                d="M 0,-10 L 3,-4 L 9,-3 L 4.5,1 L 5.5,7 L 0,4 L -5.5,7 L -4.5,1 L -9,-3 L -3,-4 Z"
                 fill="#FFD700"
-                stroke="#FFD700"
-                strokeWidth="0.5"
+                stroke="none"
               />
             </g>
           )
@@ -445,6 +457,9 @@ export default function ConstellationSidebar({
   return (
     <div className="sidebar">
       {/* File folder tabs */}
+      {/* TODO: Fix tab styling issues:
+          - Add space above Select/Load tabs
+          - Add header color */}
       <div className="constellation-tabs">
         <button
           className={`tab ${activeTab === 'select' ? 'active' : ''}`}

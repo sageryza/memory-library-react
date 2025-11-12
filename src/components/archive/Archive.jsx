@@ -5,7 +5,6 @@ import Masonry from 'react-masonry-css';
 import useLibraries from '../../hooks/useLibraries';
 import useSimplifyView from '../../hooks/useSimplifyView';
 import { usePlaygrounds } from '../../hooks/usePlaygrounds';
-import cleanupDuplicateIds from '../../utils/cleanupDuplicateIds';
 import LibrarySidebar from './LibrarySidebar';
 import MemoryModal from '../shared/MemoryModal';
 import AdvancedSearch from '../shared/AdvancedSearch';
@@ -30,13 +29,19 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [draggedMemoryIds, setDraggedMemoryIds] = useState([]);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [filteredByAdvanced, setFilteredByAdvanced] = useState(null);
+  // TODO: Add boolean logic for multiple hashtag filtering
+  // Currently only supports single hashtag filtering. Need to implement:
+  // - Click multiple hashtags to add them to filter bar
+  // - Default operator is '+' (AND) between tags
+  // - Click '+' to toggle to 'OR'
+  // - Display: #work + #urgent or #work OR #urgent
+  // - Filter memories based on operators (AND = all tags, OR = any tag)
+  // See TODO.md for detailed spec
   const [currentHashtag, setCurrentHashtag] = useState(null);
   const [currentLibrary, setCurrentLibrary] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
-  const [showCleanupButton, setShowCleanupButton] = useState(false);
-  const [cleanupStatus, setCleanupStatus] = useState(null);
 
   // Libraries hook
   const {
@@ -57,13 +62,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     processInputTitle,
     formatTitleForDisplay,
   } = useSimplifyView();
-
-  // Check if cleanup is needed (you can remove this after running cleanup)
-  useEffect(() => {
-    // Always show the cleanup button for now - you can run it to be safe
-    // After running cleanup once, you can remove this entire useEffect and the button
-    setShowCleanupButton(true);
-  }, [memories]);
 
   // Filter memories
   useEffect(() => {
@@ -292,32 +290,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
   };
 
-  // One-time cleanup function (can be removed after use)
-  const handleRunCleanup = async () => {
-    if (!userId) {
-      alert('You must be logged in to run cleanup');
-      return;
-    }
-
-    setCleanupStatus('running');
-
-    try {
-      const result = await cleanupDuplicateIds(userId);
-
-      if (result.success) {
-        setCleanupStatus('complete');
-        alert(`Cleanup complete!\n\nCleaned: ${result.cleanedCount} memories\nTotal: ${result.totalMemories} memories\n\nPlease refresh the page.`);
-        window.location.reload();
-      } else {
-        setCleanupStatus('error');
-        alert(`Cleanup failed: ${result.error}`);
-      }
-    } catch (error) {
-      setCleanupStatus('error');
-      alert(`Cleanup error: ${error.message}`);
-    }
-  };
-
   if (memoriesLoading || librariesLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -469,22 +441,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             {selectMode && selectedIds.size > 0 && (
               <button className="toolbar-btn active" onClick={handleBulkDelete}>
                 <Trash2 size={16} /> Delete ({selectedIds.size})
-              </button>
-            )}
-
-            {/* Temporary cleanup button - remove after running once */}
-            {showCleanupButton && (
-              <button
-                className="toolbar-btn"
-                onClick={handleRunCleanup}
-                disabled={cleanupStatus === 'running'}
-                style={{
-                  backgroundColor: '#ff9800',
-                  color: 'white',
-                  marginLeft: '10px'
-                }}
-              >
-                {cleanupStatus === 'running' ? 'Cleaning...' : 'Fix Duplicate IDs'}
               </button>
             )}
           </div>

@@ -91,6 +91,9 @@ export default function Sidebar({
               className="search-input"
               id="sidebarSearch"
             />
+            {/* TODO: Fix dropdown arrow - currently non-functional
+                Expected: clicking should open boolean search interface
+                Current: nothing happens when clicked */}
             <button
               className="advanced-search-btn"
               onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}

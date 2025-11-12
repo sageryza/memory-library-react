@@ -1,6 +1,13 @@
+// TODO: Replace All Magic Numbers & Hardcoded Values (JavaScript)
+// Find hardcoded opacity thresholds, timing values, dimensions, etc.
+// Replace with descriptive named constants (e.g., MIN_VISIBLE_OPACITY = 0.3)
+// This is part of a unified effort to replace ALL magic numbers (JS and CSS)
+// See TODO.md for complete task description and examples
+
 /**
  * Find all separate chains of connected memories
  * A chain is a group of memories connected by strings
+ * ALL IDs are now guaranteed to be strings
  */
 export function findAllChains(connections) {
   const chains = []
@@ -9,7 +16,7 @@ export function findAllChains(connections) {
   // Helper function to find all memories in a chain using BFS
   function findChain(startId) {
     const chain = new Set()
-    const queue = [String(startId)]
+    const queue = [startId]
 
     while (queue.length > 0) {
       const currentId = queue.shift()
@@ -20,13 +27,11 @@ export function findAllChains(connections) {
 
       // Find all neighbors
       connections.forEach(conn => {
-        const fromStr = String(conn.from)
-        const toStr = String(conn.to)
-
-        if (fromStr === currentId && !visited.has(toStr)) {
-          queue.push(toStr)
-        } else if (toStr === currentId && !visited.has(fromStr)) {
-          queue.push(fromStr)
+        // IDs are already strings, no conversion needed
+        if (conn.from === currentId && !visited.has(conn.to)) {
+          queue.push(conn.to)
+        } else if (conn.to === currentId && !visited.has(conn.from)) {
+          queue.push(conn.from)
         }
       })
     }
@@ -36,13 +41,11 @@ export function findAllChains(connections) {
 
   // Find all chains
   connections.forEach(conn => {
-    const fromStr = String(conn.from)
-    const toStr = String(conn.to)
-
-    if (!visited.has(fromStr)) {
-      chains.push(findChain(fromStr))
-    } else if (!visited.has(toStr)) {
-      chains.push(findChain(toStr))
+    // IDs are already strings, no conversion needed
+    if (!visited.has(conn.from)) {
+      chains.push(findChain(conn.from))
+    } else if (!visited.has(conn.to)) {
+      chains.push(findChain(conn.to))
     }
   })
 
@@ -52,6 +55,7 @@ export function findAllChains(connections) {
 /**
  * Calculate opacity levels for all connected memories
  * Based on distance from most recent connection in each chain
+ * ALL IDs are now guaranteed to be strings
  */
 export function calculateOpacityLevels(connections) {
   const opacityMap = new Map()
@@ -67,11 +71,9 @@ export function calculateOpacityLevels(connections) {
 
     // Look through all connections to find the most recent one in this chain
     connections.forEach(conn => {
-      const fromStr = String(conn.from)
-      const toStr = String(conn.to)
-
+      // IDs are already strings, no conversion needed
       // Check if this connection is in the current chain
-      if (chain.has(fromStr) && chain.has(toStr)) {
+      if (chain.has(conn.from) && chain.has(conn.to)) {
         const timestamp = conn.timestamp || 0
 
         if (timestamp > latestTimestamp) {
@@ -93,13 +95,11 @@ export function calculateOpacityLevels(connections) {
     const visited = new Set()
     const queue = []
 
-    const fromId = String(chainMostRecent.from)
-    const toId = String(chainMostRecent.to)
-
-    queue.push({ id: fromId, distance: 0 })
-    queue.push({ id: toId, distance: 0 })
-    visited.add(fromId)
-    visited.add(toId)
+    // IDs are already strings, no conversion needed
+    queue.push({ id: chainMostRecent.from, distance: 0 })
+    queue.push({ id: chainMostRecent.to, distance: 0 })
+    visited.add(chainMostRecent.from)
+    visited.add(chainMostRecent.to)
 
     // BFS to calculate distances within this chain
     while (queue.length > 0) {
@@ -126,17 +126,15 @@ export function calculateOpacityLevels(connections) {
 
       // Find connected memories within this chain
       connections.forEach(conn => {
-        const connFromStr = String(conn.from)
-        const connToStr = String(conn.to)
-
+        // IDs are already strings, no conversion needed
         // Only process connections within this chain
-        if (!chain.has(connFromStr) || !chain.has(connToStr)) return
+        if (!chain.has(conn.from) || !chain.has(conn.to)) return
 
         let nextId = null
-        if (connFromStr === id && !visited.has(connToStr)) {
-          nextId = connToStr
-        } else if (connToStr === id && !visited.has(connFromStr)) {
-          nextId = connFromStr
+        if (conn.from === id && !visited.has(conn.to)) {
+          nextId = conn.to
+        } else if (conn.to === id && !visited.has(conn.from)) {
+          nextId = conn.from
         }
 
         if (nextId) {

@@ -10,6 +10,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { ensureStringId } from '../utils/generateId';
 
 export const useConstellations = (userId) => {
   const [constellations, setConstellations] = useState([]);
@@ -29,10 +30,35 @@ export const useConstellations = (userId) => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const constellationsList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const constellationsList = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Ensure IDs in connections are strings
+          const connections = (data.connections || []).map(conn => ({
+            ...conn,
+            from: ensureStringId(conn.from),
+            to: ensureStringId(conn.to)
+          }));
+
+          // Ensure memory IDs are strings
+          const memories = (data.memories || []).map(mem => ({
+            ...mem,
+            id: ensureStringId(mem.id)
+          }));
+
+          // Ensure pin IDs are strings
+          const pins = (data.pins || []).map(pin => ({
+            ...pin,
+            id: ensureStringId(pin.id)
+          }));
+
+          return {
+            id: ensureStringId(doc.id),
+            ...data,
+            connections,
+            memories,
+            pins
+          };
+        });
         setConstellations(constellationsList);
         setLoading(false);
         setError(null);
@@ -71,7 +97,8 @@ export const useConstellations = (userId) => {
 
   // Load a constellation
   const loadConstellation = (constellationId) => {
-    const constellation = constellations.find(c => c.id === constellationId);
+    const normalizedId = ensureStringId(constellationId);
+    const constellation = constellations.find(c => c.id === normalizedId);
     if (constellation) {
       return {
         memories: constellation.memories || [],
@@ -87,7 +114,8 @@ export const useConstellations = (userId) => {
     if (!userId || !constellationId) return;
 
     try {
-      const constellationRef = doc(db, 'users', userId, 'constellations', constellationId);
+      const normalizedId = ensureStringId(constellationId);
+      const constellationRef = doc(db, 'users', userId, 'constellations', normalizedId);
       await deleteDoc(constellationRef);
     } catch (error) {
       console.error('Error deleting constellation:', error);

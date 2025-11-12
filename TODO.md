@@ -1,7 +1,164 @@
 # TODO - Memory Library React Refactoring
 
-**Last Updated:** 2025-11-03
+**Last Updated:** 2025-11-11
 **Priority:** High items first
+
+---
+
+## 📝 NEW TODOS FROM NOTEBOOK (2025-11-11)
+
+### Archive - Boolean Hashtag Filtering (Simple Version)
+**Current behavior:** Click one hashtag → filter to only memories with that tag
+
+**Desired behavior:**
+- Click multiple hashtags to add them to the filter bar
+- Default operator is `+` (AND) between tags
+- Click the `+` to toggle it to `OR`
+- Display in header: `#work + #urgent` or `#work OR #urgent`
+- Memories must match based on the operators:
+  - AND (`+`) = memory must have ALL selected tags
+  - OR = memory can have ANY of the selected tags
+
+**Future consideration:** Complex version with parentheses/grouping for mixed operators (e.g., `#work + (#urgent OR #personal)`) - implements boolean operator precedence
+
+---
+
+### Conspiracy Board - Fix Search Dropdown Arrow
+**Issue:** The dropdown arrow in conspiracy board search is visible but clicking it does nothing
+
+**Expected behavior:** Clicking should open the boolean search interface
+
+**Location:** Conspiracy board search component
+
+---
+
+### Conspiracy Board Constellation Mode - Fix Tab Styling
+**Issues:**
+- No space above the "Select" and "Load" tabs
+- Missing header color
+
+**Location:** Constellation mode tab interface
+
+---
+
+### Constellation Sidebar - Bigger Minimap Visualizations
+**Goal:** Increase the size of constellation visualizations in the minimap
+
+**Investigation needed:**
+- What's constraining their size currently?
+- Is there a bounding box limiting them?
+- Can we adjust container dimensions or apply scaling?
+
+---
+
+### General - Change Favicon
+Simple task - replace current favicon with new design
+
+---
+
+### Code Quality - Replace All Magic Numbers & Hardcoded Values
+**What are magic numbers?** Hardcoded values (in JS or CSS) without explanation of what they represent
+
+**Completed:**
+- ✅ Text input focus styling - Changed from maroon outline to subtle gray (App.css:540, 1490)
+
+**JavaScript Examples:**
+```javascript
+// Bad (magic number - what does 0.3 mean?)
+if (opacity < 0.3) { ... }
+
+// Good (named constant with clear meaning)
+const MIN_VISIBLE_OPACITY = 0.3;
+if (opacity < MIN_VISIBLE_OPACITY) { ... }
+```
+
+**CSS Examples:**
+```css
+/* Bad (hardcoded values) */
+padding: 8px;
+border-radius: 4px;
+transition: 0.2s ease;
+color: #999;
+
+/* Good (theme variables) */
+padding: var(--spacing-sm);
+border-radius: var(--radius-small);
+transition: var(--transition-normal);
+color: var(--color-text-muted);
+```
+
+**Task:** Systematically replace ALL hardcoded values with named constants
+
+**JavaScript locations to check:**
+- `src/utils/opacityCalculations.js` - opacity thresholds
+- Layout/positioning code - dimensions and spacing
+- Animation code - timing values, durations
+- Any hardcoded thresholds, limits, or configuration values
+
+**CSS locations to check:**
+- All `.css` files - look for hardcoded colors, spacing, transitions, border-radius
+- Replace with variables from `src/styles/theme.css`
+- Add new variables to theme.css if needed
+
+**Areas to review:**
+- Colors: Replace `#999`, `#666`, `#ddd` with `var(--color-text-muted)`, etc.
+- Spacing: Replace `8px`, `16px`, `20px` with `var(--spacing-sm/md/lg)`
+- Transitions: Replace `0.2s`, `0.3s` with `var(--transition-normal/fast/slow)`
+- Border radius: Replace `4px`, `6px`, `8px` with `var(--radius-small/medium/large)`
+- Shadows: Use `var(--shadow-small/medium/large)`
+
+**Benefits:**
+- Easier to maintain consistency
+- Single source of truth for design values
+- Easy to update styles globally
+- Self-documenting code
+
+---
+
+### Conspiracy Board - Enhance Recently Added Dropdown
+**Tasks:**
+- Change or add icons to dropdown menu items
+- Implement keyboard shortcuts for menu actions
+- Display keyboard shortcuts next to menu items (standard pattern: menu item left, shortcut right aligned)
+
+**Note:** Longer/more involved task
+
+---
+
+### Testing - Review Coverage for Recent Bug Fixes
+**Context:** Fixed at least 3 major bugs in the past two days (around Nov 9-11)
+
+**Goal:**
+- Document what bugs were fixed
+- Identify edge cases that might not be tested
+- Look for patterns in what broke
+- Ensure similar issues won't reoccur
+- Consider adding tests for critical paths
+
+**Questions to answer:**
+- What caused each bug?
+- Are there similar patterns elsewhere in the code?
+- What inputs/scenarios weren't handled?
+
+---
+
+### Investigation - ID/String Mismatch Related Issues
+**Context:** Recently resolved an ID type inconsistency issue (numbers vs strings) that caused persistence bugs
+
+**Task:**
+- Locate file documenting related issues (user mentioned they have these documented)
+- Review documented issues
+- Search codebase for similar ID type mismatches
+- Ensure consistent ID handling throughout (decide: always strings? always numbers?)
+- Add safeguards to prevent future type mismatches
+
+**Files likely involved:**
+- `src/utils/idUtils.js`
+- `src/utils/generateId.js`
+- Any files dealing with Firebase persistence
+- Components that create or reference memory/constellation IDs
+
+**Action needed:** User to identify which file contains the documented related issues
 
 ---
 

@@ -1,7 +1,7 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useChronologyState } from '../hooks/useChronologyState';
 import { useAuth } from '../hooks/useAuth';
+import { ensureStringId } from '../utils/generateId';
 
 const MAX_WIDTH = 250;
 const MIN_WIDTH = 60;
@@ -10,8 +10,14 @@ const GAP = 0;
 export default function Chronology({ memories = [], memoriesLoading }) {
   const { user } = useAuth();
   const { chronologyState, updateChronologyState, loading: chronologyLoading } = useChronologyState(user?.uid);
-  const [timeline, setTimeline] = useState([]);
-  const [focusedIndex, setFocusedIndex] = useState(1);
+
+  // Timeline contains memories, gaps, AND ghost segments - ALL participate in scaling
+  const [timeline, setTimeline] = useState([
+    { id: 'ghost-start', type: 'ghost' },
+    { id: 'ghost-end', type: 'ghost' }
+  ]);
+
+  const [focusedIndex, setFocusedIndex] = useState(1); // Timeline index (not memory index)
   const [sidebarMemories, setSidebarMemories] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [draggedItem, setDraggedItem] = useState(null);
@@ -21,156 +27,230 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   const lastFocusChangeRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1200);
-  const lastLocalUpdateRef = useRef(null);
-  const hasInitializedRef = useRef(false);
-  const isLocalChangeRef = useRef(false);
-  const stateVersionRef = useRef(0);
-  const [errorMessage, setErrorMessage] = useState(null);
-  const errorTimeoutRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+  const hasLoadedFromFirebaseRef = useRef(false);
+  const lastSavedStateRef = useRef(null);
+  const initialLoadCompleteRef = useRef(false);
+  const processedPositionsRef = useRef(null); // Track which positions we've processed
 
-  // Generate unique ID for gaps
+  // Helper function to generate unique IDs for gaps
   const generateUniqueId = () => {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   };
 
-  // Show error message with auto-dismiss
-  const showError = (message) => {
-    setErrorMessage(message);
-    if (errorTimeoutRef.current) {
-      clearTimeout(errorTimeoutRef.current);
-    }
-    errorTimeoutRef.current = setTimeout(() => {
-      setErrorMessage(null);
-    }, 5000); // Auto-dismiss after 5 seconds
-  };
-
   // Convert Firebase memory format to Chronology format
   const convertMemory = (mem) => ({
-    id: mem.id,
+    id: ensureStringId(mem.id),  // Ensure ID is always a string
     type: 'memory',
     title: mem.title || 'Untitled',
     text: mem.content || '',
     hashtags: mem.hashtags || []
   });
 
-  // Load chronology state and sync with Firebase memories
+  // Load initial data from Firebase (FIXED - properly tracks what we've processed)
   useEffect(() => {
-    if (memoriesLoading || chronologyLoading) return;
-
-    // Skip Firebase updates if we're in the middle of a local change
-    if (isLocalChangeRef.current) {
+    // Must have memories loaded
+    if (memoriesLoading) {
+      console.log('⏸️ Waiting for memories to load');
       return;
     }
 
-    // Check if this is a newer version from Firebase
-    const incomingVersion = chronologyState.positions?.version || 0;
-    if (hasInitializedRef.current && incomingVersion <= stateVersionRef.current) {
-      // Skip if we already have this version or newer
+    // Wait for chronology to finish loading from Firebase
+    if (chronologyLoading) {
+      console.log('⏸️ Waiting for chronology to load from Firebase');
       return;
     }
 
-    try {
-      stateVersionRef.current = incomingVersion;
-      if (chronologyState.positions?.timelineIds && chronologyState.positions?.sidebarIds) {
-        // Restore saved arrangement
-        const timelineMemories = chronologyState.positions.timelineIds
-          .map(id => memories.find(m => m.id === id))
-          .filter(Boolean)
-          .map(convertMemory);
+    // Check if we've already processed this exact positions state
+    // Only compare the data we care about (timelineIds and sidebarIds)
+    const currentTimelineIds = chronologyState.positions?.timelineIds || [];
+    const currentSidebarIds = chronologyState.positions?.sidebarIds || [];
+    const currentPositionsKey = JSON.stringify({
+      timelineIds: currentTimelineIds,
+      sidebarIds: currentSidebarIds
+    });
 
-        const sidebarMems = chronologyState.positions.sidebarIds
-          .map(id => memories.find(m => m.id === id))
-          .filter(Boolean)
-          .map(convertMemory);
+    if (processedPositionsRef.current === currentPositionsKey) {
+      console.log('⏸️ Already processed this positions state:', currentPositionsKey);
+      return;
+    }
 
-        // Find new memories not in saved state
-        const allSavedIds = [...chronologyState.positions.timelineIds, ...chronologyState.positions.sidebarIds];
-        const newMemories = memories
-          .filter(m => !allSavedIds.includes(m.id))
-          .map(convertMemory);
+    // CRITICAL: Check if this data matches what we last saved
+    // If it does, it's just our own save echoing back - don't rebuild!
+    if (lastSavedStateRef.current === currentPositionsKey) {
+      console.log('⏸️ This is our own saved data echoing back, not rebuilding');
+      processedPositionsRef.current = currentPositionsKey; // Mark as processed
+      return;
+    }
 
-        // Rebuild timeline with gaps and ghosts
-        const rebuiltTimeline = [{ id: 'ghost-start', type: 'ghost' }];
-        timelineMemories.forEach((mem, idx) => {
-          rebuiltTimeline.push(mem);
-          if (idx < timelineMemories.length - 1) {
-            rebuiltTimeline.push({ id: `gap-${idx}`, type: 'gap' });
-          }
-        });
-        rebuiltTimeline.push({ id: 'ghost-end', type: 'ghost' });
+    console.log('🆕 New positions detected, will process:', currentPositionsKey);
 
-        setTimeline(rebuiltTimeline);
-        setSidebarMemories([...sidebarMems, ...newMemories]);
-      } else {
-        // First time - put all memories in sidebar
-        const converted = memories.map(convertMemory);
-        setSidebarMemories(converted);
-        setTimeline([
-          { id: 'ghost-start', type: 'ghost' },
-          { id: 'ghost-end', type: 'ghost' }
-        ]);
-      }
-    } catch (e) {
-      console.error('Error loading chronology:', e);
-      showError('Failed to load chronology arrangement. Using default layout.');
+    console.log('🎯 LOAD EFFECT - Initializing chronology with state:', chronologyState);
+    console.log('🎯 Positions available:', chronologyState.positions);
+    console.log('🎯 Has been loaded before:', hasLoadedFromFirebaseRef.current);
+
+    // Get positions (normalized - only one path now)
+    const timelineIds = chronologyState.positions?.timelineIds || [];
+    const sidebarIds = chronologyState.positions?.sidebarIds || [];
+
+    const hasTimelineData = timelineIds.length > 0;
+    const hasSidebarData = sidebarIds.length > 0;
+
+    if (hasTimelineData || hasSidebarData) {
+      // RESTORE from Firebase
+      console.log('✅ RESTORING FROM FIREBASE:', { timelineIds, sidebarIds });
+
+      const timelineMemories = timelineIds
+        .map(id => memories.find(m => m.id === id))
+        .filter(Boolean)
+        .map(convertMemory);
+
+      const sidebarMems = sidebarIds
+        .map(id => memories.find(m => m.id === id))
+        .filter(Boolean)
+        .map(convertMemory);
+
+      // Find new memories not in saved state
+      const allSavedIds = [...timelineIds, ...sidebarIds];
+      const newMemories = memories
+        .filter(m => !allSavedIds.includes(m.id))
+        .map(convertMemory);
+
+      // Rebuild timeline with gaps
+      const rebuiltTimeline = [{ id: 'ghost-start', type: 'ghost' }];
+      timelineMemories.forEach((mem, idx) => {
+        rebuiltTimeline.push(mem);
+        if (idx < timelineMemories.length - 1) {
+          rebuiltTimeline.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+        }
+      });
+      rebuiltTimeline.push({ id: 'ghost-end', type: 'ghost' });
+
+      setTimeline(rebuiltTimeline);
+      setSidebarMemories([...sidebarMems, ...newMemories]);
+
+      const firstMemoryIndex = rebuiltTimeline.findIndex(item => item.type === 'memory');
+      setFocusedIndex(firstMemoryIndex !== -1 ? firstMemoryIndex : 0);
+
+      // Store initial state
+      lastSavedStateRef.current = JSON.stringify({
+        timeline: timelineMemories.map(m => m.id),
+        sidebar: [...sidebarMems, ...newMemories].map(m => m.id)
+      });
+    } else {
+      // FIRST TIME - put all memories in sidebar (confirmed no Firebase data)
+      console.log('✅ FIRST TIME LOAD - No saved data, putting all memories in sidebar');
       const converted = memories.map(convertMemory);
       setSidebarMemories(converted);
       setTimeline([
         { id: 'ghost-start', type: 'ghost' },
         { id: 'ghost-end', type: 'ghost' }
       ]);
-    }
-    hasInitializedRef.current = true;
-  }, [memories, memoriesLoading, chronologyState, chronologyLoading]);
+      setFocusedIndex(0);
 
-  // Save chronology state (timeline arrangement only)
+      lastSavedStateRef.current = JSON.stringify({
+        timeline: [],
+        sidebar: converted.map(m => m.id)
+      });
+    }
+
+    // Mark this positions state as processed
+    processedPositionsRef.current = currentPositionsKey;
+
+    // Mark as loaded and enable saves after delay
+    if (!hasLoadedFromFirebaseRef.current) {
+      hasLoadedFromFirebaseRef.current = true;
+      setTimeout(() => {
+        initialLoadCompleteRef.current = true;
+        console.log('✅ Ready to save changes');
+      }, 1000);
+    }
+  }, [memoriesLoading, chronologyLoading, memories.length, chronologyState.positions]);
+
+  // Save to Firebase with debounce (FIXED dependencies and error handling)
   useEffect(() => {
-    const saveState = async () => {
-      if (!user?.uid) return;
-      if (!hasInitializedRef.current) return; // Don't save before initialization
+    console.log('🔍 SAVE EFFECT - Running with checks:', {
+      hasLoadedFromFirebase: hasLoadedFromFirebaseRef.current,
+      userId: user?.uid,
+      chronologyLoading,
+      initialLoadComplete: initialLoadCompleteRef.current
+    });
+
+    // Safety checks
+    if (!hasLoadedFromFirebaseRef.current) {
+      console.log('⏸️ SAVE BLOCKED: Not loaded from Firebase yet');
+      return;
+    }
+    if (!user?.uid) {
+      console.log('⏸️ SAVE BLOCKED: No user ID');
+      return;
+    }
+    if (chronologyLoading) {
+      console.log('⏸️ SAVE BLOCKED: Chronology still loading');
+      return;
+    }
+    if (!initialLoadCompleteRef.current) {
+      console.log('⏸️ SAVE BLOCKED: Initial load not complete');
+      return;
+    }
+
+    const timelineMemoryIds = timeline
+      .filter(item => item.type === 'memory')
+      .map(item => item.id);
+
+    const sidebarMemoryIds = sidebarMemories.map(mem => mem.id);
+
+    // Create state representation for comparison (must match load effect key format!)
+    const currentStateKey = JSON.stringify({
+      timelineIds: timelineMemoryIds,
+      sidebarIds: sidebarMemoryIds
+    });
+
+    // Skip if nothing has changed
+    if (lastSavedStateRef.current === currentStateKey) {
+      return;
+    }
+
+    console.log('State changed, scheduling save...');
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for saving (2 seconds after last change for stability)
+    saveTimeoutRef.current = setTimeout(async () => {
+      console.log('SAVING TO FIREBASE:', {
+        timelineIds: timelineMemoryIds,
+        sidebarIds: sidebarMemoryIds
+      });
 
       try {
-        const timelineMemoryIds = timeline
-          .filter(item => item.type === 'memory')
-          .map(item => item.id);
-
-        const sidebarMemoryIds = sidebarMemories.map(mem => mem.id);
-
-        // Increment version for this local change
-        const newVersion = stateVersionRef.current + 1;
-
-        // Set flag to prevent re-loading our own changes
-        isLocalChangeRef.current = true;
-        lastLocalUpdateRef.current = Date.now();
-
         await updateChronologyState({
           positions: {
             timelineIds: timelineMemoryIds,
             sidebarIds: sidebarMemoryIds,
-            lastUpdated: new Date().toISOString(),
-            version: newVersion
+            lastUpdated: new Date().toISOString()
           }
         });
 
-        stateVersionRef.current = newVersion;
+        console.log('✅ Save completed successfully');
+        lastSavedStateRef.current = currentStateKey;
+      } catch (error) {
+        console.error('❌ Failed to save chronology state:', error);
+        console.error('Error details:', error);
+        // Don't update lastSavedStateRef so it will retry on next change
+      }
+    }, 2000);
 
-        // Clear the flag after a short delay to allow Firebase to propagate
-        setTimeout(() => {
-          isLocalChangeRef.current = false;
-        }, 100);
-      } catch (e) {
-        console.error('Error saving chronology state:', e);
-        showError('Failed to save chronology arrangement. Changes may not persist.');
-        isLocalChangeRef.current = false;
-        // Revert the version since save failed
-        stateVersionRef.current = stateVersionRef.current > 0 ? stateVersionRef.current - 1 : 0;
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
+  }, [timeline, sidebarMemories, user?.uid, chronologyLoading, updateChronologyState]);
 
-    const timeoutId = setTimeout(saveState, 500);
-    return () => clearTimeout(timeoutId);
-  }, [timeline, sidebarMemories, updateChronologyState, user?.uid]);
-
+  // Handle viewport resizing
   useEffect(() => {
     let timeoutId;
     const handleResize = () => {
@@ -179,9 +259,9 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         setViewportWidth(window.innerWidth);
       }, 100);
     };
-    
+
     setViewportWidth(window.innerWidth);
-    
+
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -193,25 +273,25 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     const SIDEBAR_WIDTH = sidebarOpen ? 300 : 0;
     const PADDING = 40;
     const availableWidth = viewportWidth - SIDEBAR_WIDTH - PADDING;
-    
+
     let usedWidth = MAX_WIDTH;
     const visibleIndices = [focusedIndex];
     const scales = {
       [focusedIndex]: 1.0
     };
-    
+
     let leftIndex = focusedIndex - 1;
     let rightIndex = focusedIndex + 1;
-    
+
     for (let distance = 1; distance <= 5; distance++) {
       let scale;
       if (distance === 1) scale = 0.75;
       else if (distance === 2) scale = 0.55;
       else if (distance === 3) scale = 0.4;
       else scale = 0.25;
-      
+
       const widthNeeded = MAX_WIDTH * scale + GAP;
-      
+
       if (leftIndex >= 0) {
         if (usedWidth + widthNeeded <= availableWidth) {
           visibleIndices.unshift(leftIndex);
@@ -220,7 +300,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           leftIndex--;
         }
       }
-      
+
       if (rightIndex < timeline.length) {
         if (usedWidth + widthNeeded <= availableWidth) {
           visibleIndices.push(rightIndex);
@@ -229,74 +309,48 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           rightIndex++;
         }
       }
-      
+
       if ((leftIndex < 0 && rightIndex >= timeline.length) ||
           (usedWidth + (MIN_WIDTH * 2) > availableWidth)) {
         break;
       }
     }
-    
+
     return {
       startIndex: Math.min(...visibleIndices),
       endIndex: Math.max(...visibleIndices) + 1,
       scales
     };
-  }, [focusedIndex, timeline.length, viewportWidth, sidebarOpen]);
+    // Include timeline in dependencies to recalculate when items are reordered
+  }, [focusedIndex, timeline, viewportWidth, sidebarOpen]);
 
   const { startIndex, endIndex, scales } = getVisibleItemsAndScales();
 
-  // Pre-calculate chunk structure to avoid recreating during render
-  const chunkStructure = useMemo(() => {
-    const chunks = [];
-    let currentChunk = [];
-    let currentChunkIds = [];
-
-    timeline.forEach((item, idx) => {
-      if (item.type === 'gap') {
-        if (currentChunk.length > 0) {
-          chunks.push({
-            type: 'chunk',
-            items: currentChunk,
-            ids: currentChunkIds
-          });
-          currentChunk = [];
-          currentChunkIds = [];
-        }
-        chunks.push({ type: 'gap', item, index: idx });
-      } else if (item.type === 'ghost') {
-        if (currentChunk.length > 0) {
-          chunks.push({
-            type: 'chunk',
-            items: currentChunk,
-            ids: currentChunkIds
-          });
-          currentChunk = [];
-          currentChunkIds = [];
-        }
-        chunks.push({ type: 'ghost', item, index: idx });
-      } else {
-        currentChunk.push({ ...item, index: idx });
-        currentChunkIds.push(item.id);
-      }
-    });
-
-    if (currentChunk.length > 0) {
-      chunks.push({
-        type: 'chunk',
-        items: currentChunk,
-        ids: currentChunkIds
-      });
-    }
-
-    return chunks;
-  }, [timeline]);
-
   const handleItemHover = useCallback((index) => {
+    // Allow hover changes even when dragging
     if (index !== focusedIndex) {
-      setFocusedIndex(index);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+
+      const now = Date.now();
+      const timeSinceLastChange = now - lastFocusChangeRef.current;
+      const cooldownPeriod = 200;
+
+      if (timeSinceLastChange < cooldownPeriod) {
+        hoverTimeoutRef.current = setTimeout(() => {
+          lastFocusChangeRef.current = Date.now();
+          setFocusedIndex(index);
+        }, cooldownPeriod - timeSinceLastChange + 50);
+      } else {
+        hoverTimeoutRef.current = setTimeout(() => {
+          lastFocusChangeRef.current = Date.now();
+          setFocusedIndex(index);
+        }, 50);
+      }
     }
   }, [focusedIndex]);
-  
+
   const handleItemLeave = useCallback(() => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -318,19 +372,42 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   const handleDragOver = (e, item = null) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!draggedItem || !item) return;
-    
+
+    // Update focus while dragging to show scaling
     const itemIndex = timeline.findIndex(t => t.id === item.id);
     if (itemIndex !== -1 && itemIndex !== focusedIndex) {
       setFocusedIndex(itemIndex);
     }
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const midpoint = rect.left + rect.width / 2;
     const side = e.clientX < midpoint ? 'left' : 'right';
-    
+
     setDropTarget({ type: item.type, id: item.id, side });
+  };
+
+  const cleanupGaps = (timelineArray) => {
+    const cleaned = [...timelineArray];
+
+    for (let i = cleaned.length - 1; i > 0; i--) {
+      if (cleaned[i].type === 'gap' && cleaned[i - 1].type === 'gap') {
+        cleaned.splice(i, 1);
+      }
+    }
+
+    const ghostStartIdx = cleaned.findIndex(item => item.id === 'ghost-start');
+    const ghostEndIdx = cleaned.findIndex(item => item.id === 'ghost-end');
+
+    if (ghostStartIdx !== -1 && cleaned[ghostStartIdx + 1]?.type === 'gap') {
+      cleaned.splice(ghostStartIdx + 1, 1);
+    }
+    if (ghostEndIdx !== -1 && cleaned[ghostEndIdx - 1]?.type === 'gap') {
+      cleaned.splice(ghostEndIdx - 1, 1);
+    }
+
+    return cleaned;
   };
 
   const handleDrop = (e) => {
@@ -340,159 +417,174 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     if (!draggedItem || !dropTarget) return;
 
     const newTimeline = [...timeline];
-    
+    let droppedMemoryId = null; // Track the dropped memory to focus on it
+
+    // Dropping on a gap
     if (dropTarget.type === 'gap') {
       const gapIndex = newTimeline.findIndex(item => item.id === dropTarget.id);
       if (gapIndex === -1) return;
-      
+
       if (draggedItem.isChunk) {
         const chunk = draggedItem.item;
         const chunkMemoryIds = chunk.memories.map(m => m.id);
-        const filteredTimeline = newTimeline.filter(item => 
+        const filteredTimeline = newTimeline.filter(item =>
           item.type === 'gap' || item.type === 'ghost' || !chunkMemoryIds.includes(item.id)
         );
-        
+
         const newGapIndex = filteredTimeline.findIndex(item => item.id === dropTarget.id);
-        
+
         filteredTimeline.splice(newGapIndex, 1,
           { id: `gap-${generateUniqueId()}-before`, type: 'gap' },
           ...chunk.memories,
           { id: `gap-${generateUniqueId()}-after`, type: 'gap' }
         );
-        
+
         const cleaned = cleanupGaps(filteredTimeline);
         setTimeline(cleaned);
-        
+        droppedMemoryId = chunk.memories[0].id; // Focus on first memory of chunk
+
       } else {
         const memory = draggedItem.item;
         const memoryToAdd = { ...memory, type: 'memory' };
-        
+
         newTimeline.splice(gapIndex, 1,
           { id: `gap-${generateUniqueId()}-before`, type: 'gap' },
           memoryToAdd,
           { id: `gap-${generateUniqueId()}-after`, type: 'gap' }
         );
-        
+
         if (draggedItem.fromSidebar) {
           setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
         }
-        
+
         const cleaned = cleanupGaps(newTimeline);
         setTimeline(cleaned);
+        droppedMemoryId = memory.id;
+
+        // Update focus to the dropped memory's position
+        const newIndex = cleaned.findIndex(item => item.id === memory.id);
+        if (newIndex !== -1) {
+          setFocusedIndex(newIndex);
+        }
       }
     }
+    // Dropping on ghost-start
     else if (dropTarget.type === 'ghost' && dropTarget.id === 'ghost-start') {
       const memory = draggedItem.item;
       const memoryToAdd = { ...memory, type: 'memory' };
       const ghostStartIndex = newTimeline.findIndex(item => item.id === 'ghost-start');
-      
+
       newTimeline.splice(ghostStartIndex + 1, 0,
         memoryToAdd,
         { id: `gap-${generateUniqueId()}`, type: 'gap' }
       );
-      
+
       if (draggedItem.fromSidebar) {
         setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
       }
-      
+
       const cleaned = cleanupGaps(newTimeline);
       setTimeline(cleaned);
+      droppedMemoryId = memory.id;
+
+      // Update focus to the dropped memory's position
+      const newIndex = cleaned.findIndex(item => item.id === memory.id);
+      if (newIndex !== -1) {
+        setFocusedIndex(newIndex);
+      }
     }
+    // Dropping on ghost-end
     else if (dropTarget.type === 'ghost' && dropTarget.id === 'ghost-end') {
       const memory = draggedItem.item;
       const memoryToAdd = { ...memory, type: 'memory' };
       const ghostEndIndex = newTimeline.findIndex(item => item.id === 'ghost-end');
-      
+
       newTimeline.splice(ghostEndIndex, 0,
         { id: `gap-${generateUniqueId()}`, type: 'gap' },
         memoryToAdd
       );
-      
+
       if (draggedItem.fromSidebar) {
         setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
       }
-      
+
       const cleaned = cleanupGaps(newTimeline);
       setTimeline(cleaned);
+      droppedMemoryId = memory.id;
+
+      // Update focus to the dropped memory's position
+      const newIndex = cleaned.findIndex(item => item.id === memory.id);
+      if (newIndex !== -1) {
+        setFocusedIndex(newIndex);
+      }
     }
+    // Dropping on a regular memory edge
     else if (dropTarget.type === 'memory') {
       const dropMemoryIndex = newTimeline.findIndex(item => item.id === dropTarget.id);
       if (dropMemoryIndex === -1) return;
-      
+
       const dropPosition = dropTarget.side === 'left' ? dropMemoryIndex : dropMemoryIndex + 1;
-      
+
       if (draggedItem.isChunk) {
         const chunk = draggedItem.item;
         const chunkMemoryIds = chunk.memories.map(m => m.id);
-        const filteredTimeline = newTimeline.filter(item => 
+        const filteredTimeline = newTimeline.filter(item =>
           item.type === 'gap' || item.type === 'ghost' || !chunkMemoryIds.includes(item.id)
         );
-        
+
         let adjustedDropPosition = dropPosition;
         for (let i = 0; i < dropPosition && i < newTimeline.length; i++) {
           if (chunkMemoryIds.includes(newTimeline[i].id)) {
             adjustedDropPosition--;
           }
         }
-        
+
         filteredTimeline.splice(adjustedDropPosition, 0, ...chunk.memories);
-        
+
         const cleaned = cleanupGaps(filteredTimeline);
         setTimeline(cleaned);
-        
+        droppedMemoryId = chunk.memories[0].id; // Focus on first memory of chunk
+
+        // Update focus
+        const newIndex = cleaned.findIndex(item => item.id === droppedMemoryId);
+        if (newIndex !== -1) {
+          setFocusedIndex(newIndex);
+        }
+
       } else {
         const memory = draggedItem.item;
-        
+
         if (draggedItem.fromSidebar) {
           const memoryToAdd = { ...memory, type: 'memory' };
-
-          // Direct adjacency - user wants memories side by side (red highlight)
-          // Just insert the memory without any gaps
           newTimeline.splice(dropPosition, 0, memoryToAdd);
-
           setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
         } else {
           const currentIndex = newTimeline.findIndex(item => item.id === memory.id);
           if (currentIndex === -1) return;
-          
+
           newTimeline.splice(currentIndex, 1);
-          
+
           let insertIdx = dropPosition;
           if (dropPosition > currentIndex) {
             insertIdx--;
           }
-          
+
           newTimeline.splice(insertIdx, 0, memory);
         }
-        
+
         const cleaned = cleanupGaps(newTimeline);
         setTimeline(cleaned);
-      }
-    }
-    
-    handleDragEnd();
-  };
+        droppedMemoryId = memory.id;
 
-  const cleanupGaps = (timelineArray) => {
-    const cleaned = [...timelineArray];
-    
-    for (let i = cleaned.length - 1; i > 0; i--) {
-      if (cleaned[i].type === 'gap' && cleaned[i - 1].type === 'gap') {
-        cleaned.splice(i, 1);
+        // Update focus to the dropped memory's position
+        const newIndex = cleaned.findIndex(item => item.id === memory.id);
+        if (newIndex !== -1) {
+          setFocusedIndex(newIndex);
+        }
       }
     }
-    
-    const ghostStartIdx = cleaned.findIndex(item => item.id === 'ghost-start');
-    const ghostEndIdx = cleaned.findIndex(item => item.id === 'ghost-end');
-    
-    if (ghostStartIdx !== -1 && cleaned[ghostStartIdx + 1]?.type === 'gap') {
-      cleaned.splice(ghostStartIdx + 1, 1);
-    }
-    if (ghostEndIdx !== -1 && cleaned[ghostEndIdx - 1]?.type === 'gap') {
-      cleaned.splice(ghostEndIdx - 1, 1);
-    }
-    
-    return cleaned;
+
+    handleDragEnd();
   };
 
   const handleMemoryDoubleClick = (memory) => {
@@ -504,6 +596,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     setSidebarMemories(prev => [...prev, memory]);
   };
 
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.key === 'ArrowLeft' && focusedIndex > 0) {
@@ -518,11 +611,15 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [focusedIndex, timeline.length]);
-  
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
   }, []);
@@ -537,44 +634,6 @@ export default function Chronology({ memories = [], memoriesLoading }) {
 
   return (
     <div className="app-container">
-      {/* Error Notification */}
-      {errorMessage && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: '#f44336',
-          color: 'white',
-          padding: '12px 24px',
-          borderRadius: '4px',
-          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          fontSize: '14px',
-          fontWeight: '500',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          <span>⚠️</span>
-          <span>{errorMessage}</span>
-          <button
-            onClick={() => setErrorMessage(null)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'white',
-              cursor: 'pointer',
-              marginLeft: '10px',
-              fontSize: '18px',
-              padding: '0 4px'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       <div className="app-header">
         <div className="header-left">
           <h1>Chronology</h1>
@@ -590,72 +649,132 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         <div className="timeline-area">
           <div className="timeline-container" ref={timelineRef}>
             <div className="timeline-track">
-              {timeline.map((item, timelineIdx) => {
-                const scale = scales[timelineIdx] || 0;
-                const distance = Math.abs(timelineIdx - focusedIndex);
-                const isFocused = timelineIdx === focusedIndex;
-                const isVisible = scales[timelineIdx] !== undefined;
+              {(() => {
+                const elements = [];
+                let currentChunk = [];
 
-                if (item.type === 'gap' || item.type === 'ghost') {
-                  const isActive = dropTarget?.type === item.type && dropTarget?.id === item.id;
-                  const isBookend = item.type === 'ghost';
+                timeline.forEach((item, timelineIdx) => {
+                  const scale = scales[timelineIdx] || 0;
+                  const distance = Math.abs(timelineIdx - focusedIndex);
+                  const isFocused = timelineIdx === focusedIndex;
+                  const isVisible = scales[timelineIdx] !== undefined;
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={`ghost-segment ${isBookend ? 'bookend' : ''} ${isFocused ? 'focused' : ''}`}
-                      style={{
-                        width: isVisible ? `${MAX_WIDTH * scale}px` : '0px',
-                        opacity: isVisible ? 1 - Math.min(distance * 0.12, 0.6) : 0,
-                        zIndex: 10 - distance
-                      }}
-                      onMouseEnter={() => handleItemHover(timelineIdx)}
-                      onMouseLeave={handleItemLeave}
-                      onDragOver={(e) => handleDragOver(e, item)}
-                      onDrop={handleDrop}
-                    >
-                      <div className={`ghost-line ${isActive ? 'active' : ''}`}></div>
-                    </div>
-                  );
-                } else {
-                  const memory = item;
-                  const showLeftIndicator = dropTarget?.type === 'memory' && dropTarget?.id === memory.id && dropTarget?.side === 'left';
-                  const showRightIndicator = dropTarget?.type === 'memory' && dropTarget?.id === memory.id && dropTarget?.side === 'right';
+                  // Skip rendering items outside visible range
+                  if (!isVisible) return;
 
-                  return (
-                    <div
-                      key={memory.id}
-                      className={`timeline-memory ${isFocused ? 'focused' : ''}`}
-                      style={{
-                        width: isVisible ? `${MAX_WIDTH * scale}px` : '0px',
-                        opacity: isVisible ? 1 - Math.min(distance * 0.12, 0.6) : 0,
-                        zIndex: 10 - distance,
-                        overflow: 'hidden'
-                      }}
-                      onMouseEnter={() => handleItemHover(timelineIdx)}
-                      onMouseLeave={handleItemLeave}
-                      onDoubleClick={() => handleMemoryDoubleClick(memory)}
-                      onDragOver={(e) => handleDragOver(e, memory)}
-                      onDrop={handleDrop}
-                    >
-                      <div className={`drop-indicator left ${showLeftIndicator ? 'active' : ''}`}></div>
-                      <div className={`drop-indicator right ${showRightIndicator ? 'active' : ''}`}></div>
-                      <div className="memory-content-wrapper">
-                        <div className="memory-card-title">{memory.title}</div>
-                        {scale > 0.35 && <div className="memory-card-content">{memory.text}</div>}
-                        {scale > 0.25 && memory.hashtags && memory.hashtags.length > 0 && (
-                          <div className="hashtags">
-                            {memory.hashtags.map((tag, idx) => (
-                              <span key={idx} className="hashtag">{tag}</span>
-                            ))}
-                          </div>
-                        )}
+                  if (item.type === 'gap') {
+                    // Finish current chunk
+                    if (currentChunk.length > 0) {
+                      elements.push(
+                        <div key={`chunk-${elements.length}`} className="memory-chunk">
+                          {currentChunk}
+                        </div>
+                      );
+                      currentChunk = [];
+                    }
+
+                    // Render gap as scaling ghost segment
+                    const isActive = dropTarget?.type === 'gap' && dropTarget?.id === item.id;
+                    elements.push(
+                      <div
+                        key={item.id}
+                        className={`ghost-segment ${isFocused ? 'focused' : ''}`}
+                        style={{
+                          width: `${MAX_WIDTH * scale}px`,
+                          opacity: 1 - Math.min(distance * 0.12, 0.6),
+                          zIndex: 10 - distance
+                        }}
+                        onMouseEnter={() => handleItemHover(timelineIdx)}
+                        onMouseLeave={handleItemLeave}
+                        onDragOver={(e) => handleDragOver(e, item)}
+                        onDrop={handleDrop}
+                      >
+                        <div className={`ghost-line ${isActive ? 'active' : ''}`}></div>
                       </div>
-                      <div className="memory-timeline-segment"></div>
+                    );
+                  } else if (item.type === 'ghost') {
+                    // Finish current chunk
+                    if (currentChunk.length > 0) {
+                      elements.push(
+                        <div key={`chunk-${elements.length}`} className="memory-chunk">
+                          {currentChunk}
+                        </div>
+                      );
+                      currentChunk = [];
+                    }
+
+                    // Render ghost bookend as scaling segment
+                    const isActive = dropTarget?.type === 'ghost' && dropTarget?.id === item.id;
+
+                    elements.push(
+                      <div
+                        key={item.id}
+                        className={`ghost-segment bookend ${isFocused ? 'focused' : ''}`}
+                        style={{
+                          width: `${MAX_WIDTH * scale}px`,
+                          opacity: 1 - Math.min(distance * 0.12, 0.6),
+                          zIndex: 10 - distance
+                        }}
+                        onMouseEnter={() => handleItemHover(timelineIdx)}
+                        onMouseLeave={handleItemLeave}
+                        onDragOver={(e) => handleDragOver(e, item)}
+                        onDrop={handleDrop}
+                      >
+                        <div className={`ghost-line ${isActive ? 'active' : ''}`}></div>
+                      </div>
+                    );
+                  } else {
+                    // Add memory to current chunk
+                    const memory = item;
+                    const showLeftIndicator = dropTarget?.type === 'memory' && dropTarget?.id === memory.id && dropTarget?.side === 'left';
+                    const showRightIndicator = dropTarget?.type === 'memory' && dropTarget?.id === memory.id && dropTarget?.side === 'right';
+
+                    currentChunk.push(
+                      <div
+                        key={memory.id}
+                        className={`timeline-memory ${isFocused ? 'focused' : ''}`}
+                        style={{
+                          width: `${MAX_WIDTH * scale}px`,
+                          opacity: 1 - Math.min(distance * 0.12, 0.6),
+                          zIndex: 10 - distance,
+                          overflow: 'hidden'
+                        }}
+                        onMouseEnter={() => handleItemHover(timelineIdx)}
+                        onMouseLeave={handleItemLeave}
+                        onDoubleClick={() => handleMemoryDoubleClick(memory)}
+                        onDragOver={(e) => handleDragOver(e, memory)}
+                        onDrop={handleDrop}
+                      >
+                        <div className={`drop-indicator left ${showLeftIndicator ? 'active' : ''}`}></div>
+                        <div className={`drop-indicator right ${showRightIndicator ? 'active' : ''}`}></div>
+                        <div className="memory-content-wrapper">
+                          <div className="memory-card-title">{memory.title}</div>
+                          {scale > 0.35 && <div className="memory-card-content">{memory.text}</div>}
+                          {scale > 0.25 && memory.hashtags && memory.hashtags.length > 0 && (
+                            <div className="hashtags">
+                              {memory.hashtags.map((tag, idx) => (
+                                <span key={idx} className="hashtag">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="memory-timeline-segment"></div>
+                      </div>
+                    );
+                  }
+                });
+
+                // Add final chunk if it exists
+                if (currentChunk.length > 0) {
+                  elements.push(
+                    <div key={`chunk-${elements.length}`} className="memory-chunk">
+                      {currentChunk}
                     </div>
                   );
                 }
-              })}
+
+                return elements;
+              })()}
             </div>
           </div>
         </div>
@@ -669,7 +788,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
             <div className="memory-count">{sidebarMemories.length} available</div>
             <div className="sidebar-hint">Double-click timeline memories to remove</div>
           </div>
-          
+
           <div className="sidebar-content">
             {sidebarMemories.length === 0 ? (
               <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
@@ -819,12 +938,12 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: width 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+          transition: width 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                       opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
           position: relative;
           flex-shrink: 0;
         }
-        
+
         .ghost-line {
           position: absolute;
           bottom: -9px;
@@ -835,7 +954,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           border-radius: 2px;
           transition: all 0.3s ease;
         }
-        
+
         .ghost-segment.focused .ghost-line {
           background: rgba(128, 0, 32, 0.5);
           height: 8px;
@@ -866,7 +985,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           padding: 12px;
           position: relative;
           cursor: pointer;
-          transition: width 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+          transition: width 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                       opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                       box-shadow 0.2s ease;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);

@@ -21,8 +21,9 @@ export function useMemoryConnections(userId) {
     constellations.forEach(constellation => {
       if (constellation.connections && constellation.connections.length > 0) {
         // Check if this memory is involved in any connections
+        // IDs are already strings, no conversion needed
         const memoryConnections = constellation.connections.filter(conn =>
-          String(conn.from) === String(memoryId) || String(conn.to) === String(memoryId)
+          conn.from === memoryId || conn.to === memoryId
         );
 
         if (memoryConnections.length > 0) {

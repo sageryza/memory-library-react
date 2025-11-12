@@ -104,8 +104,9 @@ export default function Connections({ connections, droppedMemories, standalonePi
     }
 
     // Get opacity of both connected memories
-    const fromOpacity = opacityMap.get(String(connection.from)) || 1.0
-    const toOpacity = opacityMap.get(String(connection.to)) || 1.0
+    // IDs are already strings, no conversion needed
+    const fromOpacity = opacityMap.get(connection.from) || 1.0
+    const toOpacity = opacityMap.get(connection.to) || 1.0
 
     // Use the average of both memories' opacity
     return (fromOpacity + toOpacity) / 2

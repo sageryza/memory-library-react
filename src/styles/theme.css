@@ -45,7 +45,10 @@
   /* ===== Spacing System ===== */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
+  --spacing-10: 10px;  /* Between sm and md - common for padding */
+  --spacing-12: 12px;  /* Between sm and md - common for margins */
   --spacing-md: 16px;
+  --spacing-20: 20px;  /* Between md and lg */
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
