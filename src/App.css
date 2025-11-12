@@ -1,4 +1,12 @@
 /* Reset and Base Styles */
+
+/* TODO: Replace All Magic Numbers & Hardcoded Values (CSS)
+ * ✅ DONE: Text input focus styling (maroon outline → subtle gray)
+ * Replace hardcoded colors, spacing, transitions, etc. with theme variables
+ * Examples: #999 → var(--color-text-muted), 8px → var(--spacing-sm)
+ * See TODO.md for complete task description and examples
+ */
+
 * {
   margin: 0;
   padding: 0;
@@ -34,7 +42,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  background: #800020;
+  background: var(--color-primary);
   padding: 12px 24px;
   gap: 24px;
   z-index: 10000;
@@ -71,7 +79,7 @@ body {
   width: 100vw;
   display: flex;
   flex-direction: column;
-  background: #faf8e9;
+  background: var(--color-bg-card);
   overflow: visible; /* Changed from hidden to visible to allow dropdown/tooltips */
   position: relative;
   margin-top: 0; /* No margin since navigation is hidden */
@@ -105,7 +113,7 @@ body {
   border: none;
   padding: 2px 4px;
   cursor: pointer;
-  color: #800020;
+  color: var(--color-primary);
   transition: all 0.3s ease;
   text-decoration: none;
   display: flex;
@@ -129,14 +137,14 @@ body {
   margin: 0;
   font-family: 'Crimson Text', serif;
   font-size: 24px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: normal;
 }
 
 /* View Toggle Button */
 .view-toggle-btn {
   background: none;
-  color: #800020;
+  color: var(--color-primary);
   border: 1px solid #c0beac;
   padding: 6px 8px;
   border-radius: 4px;
@@ -151,8 +159,8 @@ body {
 }
 
 .view-toggle-btn:hover {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 .view-toggle-btn:focus {
@@ -171,7 +179,7 @@ body {
 .opacity-toggle-btn,
 .insights-toggle-btn {
   background: none;
-  color: #800020;
+  color: var(--color-primary);
   border: 1px solid #c0beac;
   padding: 6px 8px;
   border-radius: 4px;
@@ -187,8 +195,8 @@ body {
 
 .opacity-toggle-btn:hover,
 .insights-toggle-btn:hover {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 .opacity-toggle-btn:focus,
@@ -247,7 +255,7 @@ body {
 }
 
 .board-dropdown-btn:hover {
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border-color: #bbb;
 }
 
@@ -289,14 +297,14 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border-bottom: 1px solid #e0e0e0;
 }
 
 .board-dropdown-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -316,7 +324,7 @@ body {
 }
 
 .board-dropdown-close:hover {
-  color: #800020;
+  color: var(--color-primary);
 }
 
 .board-dropdown-content {
@@ -502,7 +510,7 @@ body {
   margin: 0 0 5px 0;
   font-family: 'Crimson Text', serif;
   font-size: 16px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: normal;
 }
 
@@ -518,7 +526,7 @@ body {
   padding: 10px;
   border: none;
   border-radius: 6px;
-  background: #faf8e9;
+  background: var(--color-bg-card);
   color: #333;
   font-size: 0.9rem;
 }
@@ -528,7 +536,9 @@ body {
 }
 
 .search-input:focus {
-  outline: 2px solid rgba(128, 0, 32, 0.3);
+  outline: none;
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .memory-list {
@@ -577,12 +587,82 @@ body {
 
 .drag-overlay {
   pointer-events: none;
-  z-index: 1000;
+  z-index: 10000 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.drag-overlay > div {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .drag-overlay .memory-card {
-  box-shadow: 0 8px 25px rgba(128, 0, 32, 0.3);
-  border-color: #800020;
+  /* Match canvas card dimensions exactly */
+  width: 250px !important;
+  min-height: 120px !important;
+  padding: 15px !important;
+  border-radius: 6px;
+  background: #faf8e9 !important;
+  border: 0.75px solid #e8e6d5;
+  position: relative;
+  cursor: move;
+  user-select: none;
+  z-index: 10;
+  box-sizing: border-box;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  /* Match canvas card layout */
+  margin-bottom: 0;
+
+  /* Enhanced shadow for dragging - using subtle gray like canvas cards */
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
+  border-color: #e8e6d5;
+
+  /* No transition during drag */
+  transition: none !important;
+}
+
+/* Match canvas card text sizing and layout */
+.drag-overlay .memory-card-title {
+  font-size: 16px !important;
+  margin-bottom: 8px !important;
+  line-height: 1.3 !important;
+  font-weight: normal !important;
+  color: #2F4F4F !important;
+}
+
+.drag-overlay .memory-card-content {
+  font-size: 13px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.4 !important;
+  color: #666 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.drag-overlay .memory-card-date {
+  font-size: 9px !important;
+  font-family: 'Courier Prime', monospace !important;
+  color: #999 !important;
+}
+
+/* Stacked view styling for drag overlay */
+.drag-overlay .memory-card.stacked-view {
+  width: 120px;
+}
+
+.drag-overlay .memory-card-title.stacked {
+  font-size: 16px;
+  line-height: 1.1;
+  text-align: center;
 }
 
 /* Canvas Container and Memory Pins moved to Canvas.css */
@@ -597,7 +677,7 @@ body {
 .btn-scatter, .btn-undo, .btn-redo {
   background: none;
   border: 1px solid #c0beac;
-  color: #800020;
+  color: var(--color-primary);
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -609,8 +689,8 @@ body {
 }
 
 .btn-scatter:hover, .btn-undo:hover:not(:disabled), .btn-redo:hover:not(:disabled) {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 .btn-undo:disabled, .btn-redo:disabled {
@@ -619,7 +699,7 @@ body {
 }
 
 .btn-scatter svg, .btn-view-toggle svg {
-  fill: #800020;
+  fill: var(--color-primary);
   opacity: 0.8;
 }
 
@@ -630,7 +710,7 @@ body {
 .btn-view-toggle {
   background: none;
   border: 1px solid #c0beac;
-  color: #800020;
+  color: var(--color-primary);
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -642,8 +722,8 @@ body {
 }
 
 .btn-view-toggle:hover {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 /* Generic Modal Overlay (used by PinEditModal, Archive, etc. - NOT VennDiagram) */
@@ -661,7 +741,7 @@ body {
 }
 
 .modal-content {
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 30px;
   max-width: 500px;
@@ -679,7 +759,7 @@ body {
   background: none;
   border: none;
   font-size: 2rem;
-  color: #800020;
+  color: var(--color-primary);
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -695,7 +775,7 @@ body {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border: 1px solid #c0beac;
   border-radius: 8px;
   padding: 15px;
@@ -708,8 +788,8 @@ body {
 }
 
 .btn-save-board {
-  background: #800020;
-  color: #faf8e9;
+  background: var(--color-primary);
+  color: var(--color-bg-card);
   padding: 8px 16px;
   border: none;
   border-radius: 6px;
@@ -737,15 +817,15 @@ body {
 
 .save-dialog button {
   padding: 6px 12px;
-  background: #800020;
-  color: #faf8e9;
+  background: var(--color-primary);
+  color: var(--color-bg-card);
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .saved-boards h3 {
-  color: #800020;
+  color: var(--color-primary);
   font-size: 0.9rem;
   margin-bottom: 10px;
 }
@@ -780,7 +860,7 @@ body {
 .delete-board {
   background: none;
   border: none;
-  color: #800020;
+  color: var(--color-primary);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0 5px;
@@ -795,7 +875,7 @@ body {
 
 /* Add Memory Button in Sidebar */
 .add-memory-btn {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -843,7 +923,7 @@ body {
 
 .app-header h1 {
   font-size: 24px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: normal;
 }
 
@@ -868,8 +948,8 @@ body {
 
 .sidebar-header h2,
 .sidebar-header h3 {
-  font-size: 16px;
-  color: #800020;
+  font-size: var(--font-size-medium);
+  color: var(--color-primary);
   margin-bottom: 5px;
   font-weight: normal;
 }
@@ -902,12 +982,12 @@ body {
 .insights-toggle-btn-sidebar,
 .board-dropdown-btn-sidebar {
   background: none;
-  border: 1px solid #c0beac;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-small);
   padding: 6px 8px;
   cursor: pointer;
-  color: #800020;
-  transition: all 0.2s ease;
+  color: var(--color-primary);
+  transition: all var(--transition-normal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -930,8 +1010,8 @@ body {
 .opacity-toggle-btn-sidebar:hover,
 .insights-toggle-btn-sidebar:hover,
 .board-dropdown-btn-sidebar:hover {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 .scatter-memories-btn:focus,
@@ -963,7 +1043,7 @@ body {
 .opacity-toggle-btn-sidebar:active,
 .insights-toggle-btn-sidebar:active,
 .board-dropdown-btn-sidebar:active {
-  background: #f0f0f0;
+  background: var(--color-bg-light);
   transform: translateY(1px);
 }
 
@@ -973,9 +1053,9 @@ body {
 .opacity-toggle-btn-sidebar.active,
 .insights-toggle-btn-sidebar.active,
 .board-dropdown-btn-sidebar.active {
-  background: #e8e6d5;
-  color: white;
-  border-color: #e8e6d5;
+  background: var(--color-border-primary);
+  color: var(--color-text-white);
+  border-color: var(--color-border-primary);
 }
 
 .constellation-btn.active:hover,
@@ -983,7 +1063,7 @@ body {
 .opacity-toggle-btn-sidebar.active:hover,
 .insights-toggle-btn-sidebar.active:hover,
 .board-dropdown-btn-sidebar.active:hover {
-  background: #b88585;
+  background: var(--color-primary-light);
 }
 
 .scatter-memories-btn svg,
@@ -1002,6 +1082,12 @@ body {
   opacity: 0.8;
 }
 
+/* Make constellation img match other SVG icons */
+.constellation-btn img {
+  opacity: 0.8;
+  filter: brightness(0) saturate(100%) invert(40%) sepia(0%) saturate(0%);
+}
+
 .scatter-memories-btn:hover svg,
 .undo-btn:hover:not(:disabled) svg,
 .reset-view-btn:hover svg,
@@ -1018,6 +1104,10 @@ body {
   opacity: 1;
 }
 
+.constellation-btn:hover img {
+  opacity: 1;
+}
+
 /* Active toggle buttons should have white icons */
 .constellation-btn.active svg,
 .view-toggle-btn-sidebar.active svg,
@@ -1027,9 +1117,15 @@ body {
   opacity: 1;
 }
 
+.constellation-btn.active img {
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(20%) sepia(0%) saturate(0%);
+  transform: scale(1.1);
+}
+
 /* Search toggle button - pink color for search icon */
 .search-toggle-btn svg {
-  fill: #800020;
+  fill: var(--color-primary);
 }
 
 /* Constellation button active state */
@@ -1044,13 +1140,22 @@ body {
   opacity: 1;
 }
 
-/* Undo button disabled state */
-.undo-btn:disabled {
+/* Disabled button states for constellation mode */
+.undo-btn:disabled,
+.scatter-memories-btn:disabled,
+.standalone-pin-btn:disabled,
+.add-memory-btn-icon:disabled,
+.search-toggle-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
-.undo-btn:disabled:hover {
+.undo-btn:disabled:hover,
+.scatter-memories-btn:disabled:hover,
+.standalone-pin-btn:disabled:hover,
+.add-memory-btn-icon:disabled:hover,
+.search-toggle-btn:disabled:hover {
   background: none;
   border-color: #e8e6d5;
 }
@@ -1102,7 +1207,7 @@ body {
 }
 
 .sidebar .advanced-search-btn:hover {
-  color: #800020;
+  color: var(--color-primary);
 }
 
 /* Context Menu */
@@ -1196,7 +1301,7 @@ body {
 
 /* Toggle Sidebar Button */
 .toggle-sidebar-btn {
-  background: #800020;
+  background: var(--color-primary);
   color: #FFFFFF;
   border: none;
   padding: 10px 15px;
@@ -1221,7 +1326,7 @@ body {
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  background: #800020;
+  background: var(--color-primary);
   border: none;
   border-radius: 4px 0 0 4px;
   padding: 12px 4px;
@@ -1269,7 +1374,7 @@ body {
 }
 
 .board-dropdown-btn:hover {
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border-color: #bbb;
 }
 
@@ -1296,13 +1401,13 @@ body {
   border-radius: 4px;
   padding: 6px 8px;
   cursor: pointer;
-  color: #800020;
+  color: var(--color-primary);
   transition: all 0.2s ease;
 }
 
 .constellation-btn:hover {
-  background: #faf8e9;
-  border-color: #800020;
+  background: var(--color-bg-card);
+  border-color: var(--color-primary);
 }
 
 .constellation-btn.active {
@@ -1369,7 +1474,7 @@ body {
 .board-modal h3 {
   margin: 0 0 10px 0;
   font-size: 20px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: normal;
 }
 
@@ -1392,7 +1497,8 @@ body {
 
 .board-modal-input:focus {
   outline: none;
-  border-color: #800020;
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .board-modal-buttons {
@@ -1418,7 +1524,7 @@ body {
 
 .board-modal-save {
   padding: 8px 20px;
-  background: #800020;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -1458,7 +1564,7 @@ body {
   align-items: center;
   padding: 15px;
   margin-bottom: 10px;
-  background: #faf8e9;
+  background: var(--color-bg-card);
   border: 1px solid #e5e3d4;
   border-radius: 4px;
   transition: background 0.2s ease;
@@ -1475,7 +1581,7 @@ body {
 .saved-board-name {
   font-size: 16px;
   font-weight: bold;
-  color: #800020;
+  color: var(--color-primary);
   margin-bottom: 5px;
 }
 
@@ -1501,7 +1607,7 @@ body {
 }
 
 .saved-board-load {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1511,12 +1617,12 @@ body {
 
 .saved-board-delete {
   background: white;
-  color: #800020;
-  border: 1px solid #800020;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .saved-board-delete:hover {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
 }
 
