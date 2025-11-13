@@ -41,6 +41,12 @@ export default function useLibraries(userId) {
     }
   };
 
+  // TODO: Add default libraries on first use
+  // When libs.length === 0 (new user), create default libraries:
+  // 1. "Core Memories" - most important and defining memories
+  // 2. "Synchronicities" - meaningful coincidences and connections
+  // Check localStorage flag to prevent recreating if user deleted them
+  // See TODO.md line 403 for full implementation details
   const loadFirestoreLibraries = async () => {
     try {
       // Store in user's subcollection: users/{userId}/libraries
@@ -51,6 +57,8 @@ export default function useLibraries(userId) {
         ...doc.data()
       }));
       setLibraries(libs);
+
+      // TODO: Add here - if libs.length === 0 && !hasCreatedDefaults, create defaults
     } catch (error) {
       console.error('Error loading libraries from Firestore:', error);
       // Fallback to empty libraries if permission denied

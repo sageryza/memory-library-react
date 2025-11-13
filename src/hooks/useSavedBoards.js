@@ -48,6 +48,12 @@ export const useSavedBoards = (userId) => {
   }, [userId]);
 
   // Save a board
+  // TODO: Investigate false error popups when board saves successfully
+  // Sometimes this function succeeds but triggers error handling in ConspiracyBoard.jsx
+  // Possible issues:
+  // - serverTimestamp() timing issue?
+  // - Promise resolution timing?
+  // - Network/Firebase timeout false positive?
   const saveBoard = async (name, boardState) => {
     if (!userId || !name) return;
 

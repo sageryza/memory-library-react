@@ -37,6 +37,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Disable hover effects during pin selection mode */
+.pin-selection-mode .memory-card:hover {
+  box-shadow: none;
+  cursor: default;
+}
+
 .memory-card:active {
   cursor: grabbing;
 }
@@ -311,11 +317,14 @@
   z-index: 1;
 }
 
+/* TODO: Add customizable string colors for Advanced Mode */
+/* TODO: Fix random Venn Modal triggers - pointer-events and click detection too sensitive
+   Consider: require modifier key, reduce hitbox, or move to context menu instead */
 .connection-line {
-  stroke: var(--color-string-and-pin);
+  stroke: var(--color-string-and-pin); /* TODO: Make customizable in Advanced Mode */
   stroke-width: 2;
   fill: none;
-  pointer-events: stroke;
+  pointer-events: stroke; /* TODO: May be too sensitive, causing random modal triggers */
   cursor: pointer;
   transition: stroke-width 0.2s ease;
 }
@@ -368,12 +377,17 @@
   color: white;
 }
 
+/* TODO: Fix z-index to prevent accidentally triggering Venn Modal
+   Current z-index (100) is below connections, causing clicks near pins
+   to trigger connection handlers. Should increase to 2200 (above connections)
+   to ensure pins are always clickable without triggering connections. */
+/* TODO: Add customizable pin head styles (stars, red flags, etc.) for Advanced Mode */
 .standalone-pin {
   position: absolute;
   width: 20px;
   height: 20px;
   cursor: grab;
-  z-index: 100;
+  z-index: 100; /* TODO: Increase to 2200 to be above connections */
 }
 
 .standalone-pin:active,
@@ -493,4 +507,10 @@
 .constellation-btn.active {
   background: rgba(47, 79, 79, 0.1);
   border-color: var(--color-text-primary);
+}
+
+.constellation-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
 }

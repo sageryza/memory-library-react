@@ -4,6 +4,12 @@
   overflow: visible; /* Ensure dropdown menu can extend outside container */
 }
 
+.dropdown-container.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .dropdown-menu {
   position: absolute;
   top: 100%;
@@ -35,6 +41,7 @@
   }
 }
 
+/* TODO: Increase font size in file menu dropdown for better readability */
 .dropdown-item {
   display: flex;
   align-items: center;
@@ -43,7 +50,7 @@
   border: none;
   background: none;
   color: var(--color-text-light);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-base); /* TODO: Consider increasing to var(--font-size-medium) */
   text-align: left;
   cursor: pointer;
   transition: background-color var(--transition-fast);

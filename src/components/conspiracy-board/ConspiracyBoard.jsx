@@ -85,6 +85,8 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [activeBoardName, setActiveBoardName] = useState(() => {
     return localStorage.getItem('activeBoardName') || null
   })
+  // TODO: Add way to close/dismiss search bar once toggled on
+  // Currently no way to hide search bar after toggling it on in sidebar
   const [showSearch, setShowSearch] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -374,6 +376,10 @@ const handleDragEnd = (event) => {
 
   // If dropping on canvas from sidebar (allow drops anywhere in the pan area)
   // Accept drops even when over is null (outside original viewport but within pan area)
+  // TODO: Fix drag-drop issue for canvas-created memories
+  // BUG: Memories created via right-click (handleAddMemoryAtPosition) have isOnCanvas: true
+  // When these are returned to sidebar and re-dragged, this condition may fail
+  // Need to either: (1) clear isOnCanvas when returning to sidebar, or (2) adjust this logic
   if (!memoryData?.isOnCanvas && !memoryData?.isStandalonePin && memoryData) {
     if (!memoryData || !memoryData.id) {
       console.error('No valid memory data found for dragged item')
@@ -532,6 +538,10 @@ const handleDragEnd = (event) => {
 
       // First pin selected
       setSelectedPin(memoryId)
+      // Blur any focused element to remove blue outline
+      if (document.activeElement) {
+        document.activeElement.blur()
+      }
     } else if (compareIds(selectedPin, memoryId)) {
       // Deselect if clicking same pin
       setSelectedPin(null)
@@ -574,6 +584,13 @@ const handleDragEnd = (event) => {
 
   // Connection handlers
   const handleConnectionClick = (connection) => {
+    // Don't open modal if user is currently creating a new connection
+    // When selectedPin exists, user is in "connection creation mode" (dashed line showing)
+    // Clicking existing connections should be ignored until they complete or cancel
+    if (selectedPin) {
+      return; // Ignore clicks on connections while placing a new connection
+    }
+
     // In constellation mode, select the connected network instead
     if (isConstellationMode) {
       const network = findConnectedNetwork(connection.from)
@@ -600,11 +617,15 @@ const handleDragEnd = (event) => {
 
   // Board management handlers
   const handleSaveBoard = async () => {
+    // TODO: Replace native alert() with custom Dialog component
     if (!boardNameInput.trim()) {
       alert('Please enter a board name')
       return
     }
 
+    // TODO: Fix false error popup when board saves successfully
+    // Sometimes shows "Failed to save" even though the save actually worked
+    // Check useSavedBoards.js saveBoard implementation for promise/timing issues
     try {
       await saveBoard(boardNameInput.trim(), boardState)
       setActiveBoardName(boardNameInput.trim())
@@ -613,6 +634,7 @@ const handleDragEnd = (event) => {
       setShowBoardDropdown(false)
     } catch (error) {
       console.error('Error saving board:', error)
+      // TODO: Replace native alert() with custom Dialog component
       alert('Failed to save board. Please try again.')
     }
   }
@@ -884,6 +906,9 @@ const handleDragEnd = (event) => {
     if (!position) return
 
     // Create a new blank memory at the clicked position
+    // TODO: isOnCanvas flag causes drag-drop issues later
+    // When this memory is returned to sidebar and re-dragged, the isOnCanvas: true flag
+    // may prevent it from being dropped back onto canvas (see handleDragEnd line 381)
     const newMemory = {
       id: Date.now().toString(), // Temporary ID (normalized to string)
       title: '',
@@ -1310,6 +1335,10 @@ const handleDragEnd = (event) => {
     if (!node) return
 
     const handleWheel = (e) => {
+      // TODO: Enable touchpad/mousepad scrolling for panning
+      // Currently only prevents browser navigation - should update panOffset based on e.deltaX/e.deltaY
+      // Need to respect pan bounds (CANVAS_OFFSET_X/Y) and potentially add sensitivity adjustment
+
       // Prevent default to stop browser navigation gestures
       e.preventDefault()
       e.stopPropagation()
@@ -1385,6 +1414,7 @@ const handleDragEnd = (event) => {
   const handleContextMenu = useCallback((e, type, data) => {
     e.preventDefault()
     if (isConstellationMode) return // Disable context menus in constellation mode
+    if (selectedPin) return // Disable context menus during pin selection mode
 
     // Capture canvas position for inline memory creation
     let canvasPos = null
@@ -1398,6 +1428,8 @@ const handleDragEnd = (event) => {
 
     const items = []
 
+    // TODO: Right-click to edit memories works here in Conspiracy Board ✅
+    // Still need to add this functionality to Sidebar (see Sidebar.jsx)
     if (type === 'memory') {
       items.push(
         { label: 'Edit Memory', icon: '✏️', onClick: () => handleEditMemory(data) },
@@ -1414,6 +1446,9 @@ const handleDragEnd = (event) => {
         { label: 'Add Insight', icon: '💡', onClick: () => setEditingPin(data) }
       )
     } else if (type === 'connection') {
+      // TODO: Make connection removal more discoverable
+      // Currently only accessible via right-click context menu
+      // Consider: hover delete button, keyboard shortcut, or button in Venn Modal
       items.push(
         { label: 'Remove Connection', icon: '🗑️', onClick: () => handleConnectionDelete(data) },
         { label: 'Specify Commonality', icon: '💡', onClick: () => handleConnectionClick(data) }
@@ -1425,6 +1460,10 @@ const handleDragEnd = (event) => {
 
   const handleReturnToSidebar = useCallback((memoryId) => {
     if (isConstellationMode) return // Prevent returning to sidebar in constellation mode
+    // TODO: Clear isOnCanvas flag when returning memory to sidebar
+    // Currently only removes from droppedMemories array, but if the memory object in Firestore
+    // still has isOnCanvas: true, it will cause drag-drop issues when re-dragging from sidebar
+    // Should update the memory document in Firestore to remove isOnCanvas property
     saveStateForUndo('Return memory to sidebar')
     updateBoardState({
       ...boardState,
@@ -1608,6 +1647,7 @@ const handleDragEnd = (event) => {
                 className="header-dropdown"
                 align="right"
                 triggerOnHover={true}
+                disabled={!!selectedPin}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Pages</span>
@@ -1647,6 +1687,7 @@ const handleDragEnd = (event) => {
                 className="header-dropdown"
                 align="right"
                 triggerOnHover={true}
+                disabled={!!selectedPin}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Tools</span>
@@ -1735,6 +1776,7 @@ const handleDragEnd = (event) => {
                 align="right"
                 triggerOnHover={true}
                 closeOnItemClick={false}
+                disabled={!!selectedPin}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Board</span>
@@ -1773,8 +1815,9 @@ const handleDragEnd = (event) => {
 
               {/* Standalone buttons */}
               <button
-                className={`constellation-btn ${isConstellationMode ? 'active' : ''}`}
+                className={`constellation-btn ${isConstellationMode ? 'active' : ''} ${selectedPin ? 'disabled' : ''}`}
                 onClick={() => {
+                  if (selectedPin) return; // Disable during pin selection
                   const newMode = !isConstellationMode
                   setIsConstellationMode(newMode)
                   if (newMode) {
@@ -1783,6 +1826,7 @@ const handleDragEnd = (event) => {
                     setConstellationSelectedNodes(null)
                   }
                 }}
+                disabled={!!selectedPin}
                 title="Constellations - Select, Save & Load"
               >
                 <img src={constellationIcon} alt="Constellation" width="16" height="16" style={{ filter: 'brightness(0) saturate(100%) invert(24%) sepia(7%) saturate(1358%) hue-rotate(128deg) brightness(95%) contrast(87%)' }} />
@@ -1793,6 +1837,7 @@ const handleDragEnd = (event) => {
                 className="header-dropdown"
                 align="right"
                 triggerOnHover={true}
+                disabled={!!selectedPin}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>View</span>
@@ -1864,6 +1909,7 @@ const handleDragEnd = (event) => {
                 className="header-dropdown"
                 align="right"
                 triggerOnHover={true}
+                disabled={!!selectedPin}
                 trigger={
                   <button className="add-memory-btn-icon" title="Account">
                     <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
@@ -1928,7 +1974,7 @@ const handleDragEnd = (event) => {
                 attachCanvasListeners(node)
               }
             }}
-            className="canvas-container"
+            className={`canvas-container ${selectedPin ? 'pin-selection-mode' : ''}`}
             onMouseDown={handlePanStart}
             onMouseMove={(e) => {
               handleCanvasMouseMove(e)

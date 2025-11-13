@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import MemoryCard from '../shared/MemoryCard'
 import AdvancedSearch from '../shared/AdvancedSearch'
+import SearchInput from '../shared/SearchInput'
 
+// TODO: Add right-click context menu to edit memories in sidebar
+// Currently only double-click opens edit modal
+// Should add onContextMenu handler to show context menu with "Edit Memory" option
+// See ConspiracyBoard.jsx:1423-1429 for example implementation
 function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isSimplified }) {
   const {
     attributes,
@@ -26,6 +31,12 @@ function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isS
     onDoubleClick(memory)
   }
 
+  // TODO: Add handleContextMenu function here
+  // const handleContextMenu = (e) => {
+  //   e.preventDefault()
+  //   // Show context menu with edit option
+  // }
+
   return (
     <div
       ref={setNodeRef}
@@ -34,6 +45,7 @@ function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isS
       {...attributes}
       className={`draggable-memory ${isDragging ? 'dragging' : ''}`}
       onDoubleClick={handleDoubleClick}
+      // TODO: Add onContextMenu={handleContextMenu}
     >
       <MemoryCard
         memory={memory}
@@ -82,25 +94,11 @@ export default function Sidebar({
       {/* Search Section - Only render when showSearch is true */}
       {showSearch && (
         <div className="sidebar-search">
-          <div className="search-input-container">
-            <input
-              type="text"
-              placeholder="Search memories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-              id="sidebarSearch"
-            />
-            <button
-              className="advanced-search-btn"
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              title="Advanced search"
-            >
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            </button>
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            onToggleAdvanced={() => setShowAdvancedSearch(!showAdvancedSearch)}
+          />
 
           {/* Advanced Search Panel - Inline */}
           <AdvancedSearch

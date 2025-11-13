@@ -20,6 +20,14 @@ a {
   text-decoration: none;
 }
 
+/* TODO: Standardize button styling across the app
+   Current buttons have inconsistent:
+   - Border radius
+   - Padding
+   - Font size/weight
+   - Colors and hover states
+   - Transition effects
+   Consider adding base button classes or CSS variables for consistency */
 button {
   font-family: inherit;
   cursor: pointer;

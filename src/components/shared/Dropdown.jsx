@@ -28,7 +28,8 @@ function Dropdown({
   closeOnItemClick = true,
   isOpen: controlledIsOpen,
   onOpenChange,
-  triggerOnHover = false
+  triggerOnHover = false,
+  disabled = false
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -80,13 +81,13 @@ function Dropdown({
 
   const handleTriggerClick = (e) => {
     e.stopPropagation()
-    if (!triggerOnHover) {
+    if (!triggerOnHover && !disabled) {
       setIsOpen(!isOpen)
     }
   }
 
   const handleMouseEnter = () => {
-    if (triggerOnHover) {
+    if (triggerOnHover && !disabled) {
       setIsOpen(true)
     }
   }
@@ -109,7 +110,7 @@ function Dropdown({
 
   return (
     <div
-      className={`dropdown-container ${className}`}
+      className={`dropdown-container ${className} ${disabled ? 'disabled' : ''}`}
       ref={dropdownRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -118,7 +119,7 @@ function Dropdown({
         {trigger}
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className={`dropdown-menu ${align === 'right' ? 'dropdown-menu-right' : ''}`}>
           {items.map((item, index) => {
             if (item.separator) {

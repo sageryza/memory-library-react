@@ -3,6 +3,11 @@ import { calculateOpacityLevels } from '../../utils/opacityCalculations'
 import { compareIds, normalizeId, setHasId } from '../../utils/idUtils'
 import './Connections.css'
 
+// TODO: Add customizable string/connection colors for Advanced Mode
+// Allow users to set custom colors via settings
+// Could use CSS custom properties or inline styles based on user preferences
+// TODO: Fix random Venn Modal triggers - connection click detection too sensitive
+// See ConspiracyBoard.css line 321 for pointer-events issue
 export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null }) {
   const svgRef = useRef(null)
   const [hoveredConnection, setHoveredConnection] = useState(null)
@@ -120,6 +125,10 @@ export default function Connections({ connections, droppedMemories, standalonePi
 
   return (
     <>
+      {/* TODO: Add toggle for string z-index (over/under cards)
+          Currently no z-index set here - defaults to DOM order
+          Could add: zIndex: stringsAboveCards ? 2100 : 50
+          See Settings TODO for user preference storage */}
       <svg
         ref={svgRef}
         className="connections-svg"
