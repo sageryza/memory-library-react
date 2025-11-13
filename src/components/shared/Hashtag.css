@@ -1,0 +1,37 @@
+/* Shared Hashtag Styles - Exact vanilla styling */
+/* Used across all components that display hashtags */
+
+.hashtag {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: #800020;                         /* Vanilla maroon */
+  background: rgba(220, 20, 60, 0.1);     /* Vanilla crimson bg */
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: all 0.3s ease;              /* Vanilla transition */
+}
+
+.hashtag.small {
+  font-size: 9px;
+}
+
+.hashtag.clickable {
+  cursor: pointer;
+}
+
+.hashtag.clickable:hover {
+  background: rgba(220, 20, 60, 0.2);     /* Vanilla hover bg */
+  color: #A0001C;                         /* Vanilla hover color */
+}
+
+/* Container for hashtag lists */
+.hashtag-container {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hashtag-container.small-gap {
+  gap: 4px;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import './Hashtag.css'
 
 export default function MemoryPopup({ memory, x, y, onClose }) {
   const popupRef = useRef(null)
@@ -78,9 +79,9 @@ export default function MemoryPopup({ memory, x, y, onClose }) {
         />
       </div>
       {memory.hashtags && memory.hashtags.length > 0 && (
-        <div className="memory-popup-tags">
+        <div className="hashtag-container">
           {memory.hashtags.map((tag, i) => (
-            <span key={i} className="memory-popup-tag">
+            <span key={i} className="hashtag">
               {tag}
             </span>
           ))}

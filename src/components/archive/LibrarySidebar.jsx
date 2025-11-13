@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import LibraryIcon from '../shared/LibraryIcon';
+import '../shared/Hashtag.css';
 
-function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, isDragOver }) {
+export function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, isDragOver }) {
   const getLibraryColor = () => {
     if (library.id === 'core-memories') return '#b1872f';
     if (library.id === 'coincidences') return '#9932CC';
@@ -23,6 +24,60 @@ function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, is
     onDragLeave();
   };
 
+  // Render search terms with boolean operators
+  const renderSearchTerms = () => {
+    if (!library.searchLogic) return null;
+
+    const { andTerms = [], orTerms = [], excludeTerms } = library.searchLogic;
+    const hasAndTerms = andTerms.length > 0;
+    const hasOrTerms = orTerms.length > 0;
+    const hasExcludeTerms = excludeTerms && excludeTerms.trim();
+
+    if (!hasAndTerms && !hasOrTerms && !hasExcludeTerms) return null;
+
+    const elements = [];
+
+    // AND terms group
+    if (hasAndTerms) {
+      const andGroup = [];
+      if (hasOrTerms) andGroup.push(<span key="and-open" className="operator">(</span>);
+
+      andTerms.forEach((term, i) => {
+        andGroup.push(<span key={`and-${i}`} className="hashtag small">{term}</span>);
+        if (i < andTerms.length - 1) {
+          andGroup.push(<span key={`and-op-${i}`} className="operator">AND</span>);
+        }
+      });
+
+      if (hasOrTerms) andGroup.push(<span key="and-close" className="operator">)</span>);
+      elements.push(...andGroup);
+    }
+
+    // OR terms group
+    if (hasOrTerms) {
+      const orGroup = [];
+      orGroup.push(<span key="or-open" className="operator">(</span>);
+
+      orTerms.forEach((term, i) => {
+        orGroup.push(<span key={`or-${i}`} className="hashtag small">{term}</span>);
+        if (i < orTerms.length - 1) {
+          orGroup.push(<span key={`or-op-${i}`} className="operator">OR</span>);
+        }
+      });
+
+      orGroup.push(<span key="or-close" className="operator">)</span>);
+      elements.push(...orGroup);
+    }
+
+    // Exclude terms
+    if (hasExcludeTerms) {
+      elements.push(<span key="not-op" className="operator">NOT</span>);
+      elements.push(<span key="exclude" className="hashtag small exclude">{excludeTerms}</span>);
+    }
+
+    return <div className="library-search-terms">{elements}</div>;
+  };
+
   return (
     <div
       className={`sidebar-library-card ${isDragOver ? 'drag-over' : ''} ${library.id === 'core-memories' ? 'core-memories' : ''} ${library.id === 'coincidences' ? 'coincidences' : ''}`}
@@ -41,6 +96,7 @@ function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, is
       {library.description && (
         <p className="sidebar-library-description">{library.description}</p>
       )}
+      {renderSearchTerms()}
       <div className="sidebar-library-stats">
         <span className="sidebar-memory-count">{memoryCount} memories</span>
         {library.isLocked && (
@@ -136,10 +192,6 @@ export default function LibrarySidebar({
 
       {/* Sidebar */}
       <div className="sidebar">
-        <div className="sidebar-header">
-          <h2>Libraries</h2>
-        </div>
-
         <div className="sidebar-content">
           <div className="sidebar-libraries-grid">
             {libraries.length === 0 ? (
@@ -179,7 +231,7 @@ export default function LibrarySidebar({
                     return (
                       <button
                         key={tag}
-                        className={`tag-cloud-item ${isSelected ? 'selected' : ''}`}
+                        className={`hashtag clickable tag-cloud ${isSelected ? 'selected' : ''}`}
                         onClick={() => onHashtagClick && onHashtagClick(tag)}
                         title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
                         style={{ fontSize: `${fontSize}px` }}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './MemoryCard.css';
+import './Hashtag.css';
 
 /**
  * Base MemoryCard Component (Presentational)
@@ -82,7 +83,7 @@ export default function MemoryCard({
     <div className={`memory-card ${isStackedView ? 'stacked-view' : ''}`}>
       <div
         ref={titleRef}
-        className={`memory-card-title ${isStackedView ? 'stacked' : ''} ${!hasContent && !isStackedView ? 'full-height' : ''}`}
+        className={`memory-card-title ${isStackedView ? 'stacked' : ''}`}
         style={isStackedView ? { fontSize: `${fontSize}px` } : undefined}
         dangerouslySetInnerHTML={{ __html: displayTitle }}
       />
@@ -92,16 +93,15 @@ export default function MemoryCard({
         </div>
       )}
       {!isStackedView && memory.hashtags && memory.hashtags.length > 0 && (
-        <div className="memory-card-tags">
+        <div className="hashtag-container">
           {memory.hashtags.map((tag, i) => (
             <span
               key={i}
-              className="tag"
+              className={`hashtag ${onHashtagClick ? 'clickable' : ''}`}
               onClick={onHashtagClick ? (e) => {
                 e.stopPropagation();
                 onHashtagClick(tag);
               } : undefined}
-              style={onHashtagClick ? { cursor: 'pointer' } : undefined}
             >
               {tag}
             </span>

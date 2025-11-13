@@ -213,27 +213,7 @@
   margin-top: auto;
 }
 
-.playground-memory-card .memory-hashtags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.playground-memory-card .hashtag {
-  font-family: 'Courier Prime', monospace;
-  font-size: 9px;
-  color: var(--color-primary);
-  background: var(--crimson-bg-light);
-  padding: 2px 6px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.playground-memory-card .hashtag:hover {
-  background: var(--crimson-bg-hover);
-  color: var(--color-primary-hover);
-}
+/* Hashtag styles now defined in shared/Hashtag.css */
 
 /* ===== CONTEXT MENU ===== */
 .playground-context-menu {

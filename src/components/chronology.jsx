@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useChronologyState } from '../hooks/useChronologyState';
 import { useAuth } from '../hooks/useAuth';
 import { ensureStringId } from '../utils/generateId';
+import './shared/Hashtag.css';
 
 const MAX_WIDTH = 250;
 const MIN_WIDTH = 60;
@@ -751,7 +752,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                           <div className="memory-card-title">{memory.title}</div>
                           {scale > 0.35 && <div className="memory-card-content">{memory.text}</div>}
                           {scale > 0.25 && memory.hashtags && memory.hashtags.length > 0 && (
-                            <div className="hashtags">
+                            <div className="hashtag-container">
                               {memory.hashtags.map((tag, idx) => (
                                 <span key={idx} className="hashtag">{tag}</span>
                               ))}
@@ -809,7 +810,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                   <div className="memory-card-title">{memory.title}</div>
                   <div className="memory-card-content">{memory.text}</div>
                   {memory.hashtags && memory.hashtags.length > 0 && (
-                    <div className="hashtags">
+                    <div className="hashtag-container">
                       {memory.hashtags.map((tag, idx) => (
                         <span key={idx} className="hashtag">{tag}</span>
                       ))}

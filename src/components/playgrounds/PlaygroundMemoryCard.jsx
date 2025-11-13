@@ -1,5 +1,6 @@
 import React from 'react';
 import { filterVisibleHashtags } from '../../utils/inlineParsingUtils';
+import '../shared/Hashtag.css';
 
 export default function PlaygroundMemoryCard({
   memory,
@@ -31,9 +32,9 @@ export default function PlaygroundMemoryCard({
 
       {memory.hashtags && memory.hashtags.length > 0 && (
         <div className="memory-footer">
-          <div className="memory-hashtags">
+          <div className="hashtag-container small-gap">
             {filterVisibleHashtags(memory.hashtags).map((tag, idx) => (
-              <span key={idx} className="hashtag">{tag}</span>
+              <span key={idx} className="hashtag small">{tag}</span>
             ))}
           </div>
         </div>

@@ -102,6 +102,30 @@
   flex: 1;
 }
 
+/* Search Terms Display */
+.library-search-terms {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+/* Hashtag styles now defined in shared/Hashtag.css */
+
+.library-search-terms .hashtag.exclude {
+  background: #ffe5e5;
+  color: #c62828;
+}
+
+.library-search-terms .operator {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: #999;
+  font-weight: 500;
+  padding: 0 2px;
+}
+
 .library-card-footer {
   display: flex;
   justify-content: space-between;

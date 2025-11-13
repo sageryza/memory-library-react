@@ -17,10 +17,13 @@ import MemoryCard from '../shared/MemoryCard'
 import Dropdown from '../shared/Dropdown'
 import Header from '../shared/Header'
 import LibraryIcon from '../shared/LibraryIcon'
+import TabbedSidebar from '../shared/TabbedSidebar'
+import { LibraryCard } from '../archive/LibrarySidebar'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
 import useSavedBoards from '../../hooks/useSavedBoards'
 import useSimplifyView from '../../hooks/useSimplifyView'
+import useLibraries from '../../hooks/useLibraries'
 import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
@@ -29,6 +32,7 @@ import constellationIcon from '../../assets/constellation.svg'
 import '../../App.css'
 import './ConspiracyBoard.css'
 import '../../styles/simplifyView.css'
+import '../archive/LibrarySidebar.css'
 
 // Canvas size constants for infinite panning
 // Canvas needs to be large enough to cover all pannable area for dnd-kit collision detection
@@ -88,6 +92,7 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [contextMenuPosition, setContextMenuPosition] = useState(null)
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null)
+  const [dragOverLibraryId, setDragOverLibraryId] = useState(null)
 
   // Pan state
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
@@ -121,6 +126,15 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
 
   // Playgrounds hook
   const { createPlayground } = usePlaygrounds(user?.uid)
+
+  // Libraries hook
+  const {
+    libraries,
+    loading: librariesLoading,
+    createLibrary,
+    addMemoryToLibrary,
+    getLibraryMemories
+  } = useLibraries(user?.uid)
 
   // Make canvas-container droppable
   const { setNodeRef: setContainerRef } = useDroppable({
@@ -1084,6 +1098,25 @@ const handleDragEnd = (event) => {
     }
   }
 
+  // Library helper functions
+  const getLibraryMemoryCount = (libraryId) => {
+    const libraryMemories = getLibraryMemories(libraryId, memories)
+    return libraryMemories.length
+  }
+
+  const handleMemoryDropToLibrary = async (libraryId, memoryIds) => {
+    if (!memoryIds || memoryIds.length === 0) return
+
+    try {
+      for (const memoryId of memoryIds) {
+        await addMemoryToLibrary(libraryId, String(memoryId))
+      }
+    } catch (error) {
+      console.error('Error adding memories to library:', error)
+      alert('Failed to add memories to library')
+    }
+  }
+
   // Standalone Pin handlers
   const handleStartPlacingPin = () => {
     setIsPlacingPin(true)
@@ -1200,6 +1233,12 @@ const handleDragEnd = (event) => {
       if (selectedPin) {
         setSelectedPin(null)
         setCursorPosition(null)
+        return
+      }
+
+      // Deselect constellation if one is selected
+      if (constellationSelectedNodes) {
+        setConstellationSelectedNodes(null)
         return
       }
     }
@@ -2110,29 +2149,82 @@ const handleDragEnd = (event) => {
                 )}
               </svg>
             </button>
-            {isConstellationMode ? (
-              <ConstellationSidebar
-                droppedMemories={displayMemories}
-                connections={connections}
-                standalonePins={displayStandalonePins}
-                panOffset={panOffset}
-                viewportWidth={window.innerWidth}
-                viewportHeight={window.innerHeight}
-                onLoadConstellation={handleLoadConstellation}
-                onConstellationSelect={setConstellationSelectedNodes}
-                selectedConstellationNodes={constellationSelectedNodes}
-                onPanToNetwork={handlePanToNetwork}
-              />
-            ) : (
-              <Sidebar
-                memories={memories}
-                droppedMemories={displayMemories}
-                onRandomlyPlaceMemory={randomlyPlaceMemory}
-                showSearch={showSearch}
-                formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={isSimplified}
-              />
-            )}
+            <TabbedSidebar
+              showSearchToggle={true}
+              defaultTabIndex={0}
+              searchContent={
+                <Sidebar
+                  memories={memories}
+                  droppedMemories={displayMemories}
+                  onRandomlyPlaceMemory={randomlyPlaceMemory}
+                  showSearch={true}
+                  formatTitleForDisplay={formatTitleForDisplay}
+                  isSimplified={isSimplified}
+                />
+              }
+              tabs={[
+                {
+                  label: 'Memories',
+                  content: (
+                    <Sidebar
+                      memories={memories}
+                      droppedMemories={displayMemories}
+                      onRandomlyPlaceMemory={randomlyPlaceMemory}
+                      showSearch={false}
+                      formatTitleForDisplay={formatTitleForDisplay}
+                      isSimplified={isSimplified}
+                    />
+                  )
+                },
+                {
+                  label: 'Libraries',
+                  content: (
+                    <div className="sidebar-content">
+                      <div className="sidebar-libraries-grid">
+                        {libraries.length === 0 ? (
+                          <div className="empty-state">
+                            <p>No libraries yet</p>
+                          </div>
+                        ) : (
+                          libraries.map(library => (
+                            <LibraryCard
+                              key={library.id}
+                              library={library}
+                              memoryCount={getLibraryMemoryCount(library.id)}
+                              onDrop={(libraryId) => {
+                                // Handle drop - for now just a placeholder
+                                // In future, could implement dragging memories from canvas to libraries
+                                setDragOverLibraryId(null)
+                              }}
+                              onDragOver={(libraryId) => setDragOverLibraryId(libraryId)}
+                              onDragLeave={() => setDragOverLibraryId(null)}
+                              isDragOver={dragOverLibraryId === library.id}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )
+                },
+                {
+                  label: 'Constellations',
+                  content: (
+                    <ConstellationSidebar
+                      droppedMemories={displayMemories}
+                      connections={connections}
+                      standalonePins={displayStandalonePins}
+                      panOffset={panOffset}
+                      viewportWidth={window.innerWidth}
+                      viewportHeight={window.innerHeight}
+                      onLoadConstellation={handleLoadConstellation}
+                      onConstellationSelect={setConstellationSelectedNodes}
+                      selectedConstellationNodes={constellationSelectedNodes}
+                      onPanToNetwork={handlePanToNetwork}
+                    />
+                  )
+                }
+              ]}
+            />
           </div>
         </div>
 

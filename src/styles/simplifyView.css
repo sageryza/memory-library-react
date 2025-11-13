@@ -10,7 +10,10 @@
 
 .memories-container.simplify-view .memory-hashtags,
 .simplify-grid .memory-hashtags,
-.simplify-view .memory-hashtags {
+.simplify-view .memory-hashtags,
+.memories-container.simplify-view .hashtag-container,
+.simplify-grid .hashtag-container,
+.simplify-view .hashtag-container {
     display: none !important;
 }
 
@@ -107,7 +110,8 @@
 }
 
 .dropped-memory.stacked-view .memory-card-content,
-.dropped-memory.stacked-view .memory-card-tags {
+.dropped-memory.stacked-view .memory-card-tags,
+.dropped-memory.stacked-view .hashtag-container {
     display: none !important;
 }
 

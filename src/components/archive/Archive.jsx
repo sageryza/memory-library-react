@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare } from 'lucide-react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import useLibraries from '../../hooks/useLibraries';
 import useSimplifyView from '../../hooks/useSimplifyView';
 import { usePlaygrounds } from '../../hooks/usePlaygrounds';
-import LibrarySidebar from './LibrarySidebar';
+import LibrarySidebar, { LibraryCard } from './LibrarySidebar';
 import MemoryModal from '../shared/MemoryModal';
 import AdvancedSearch from '../shared/AdvancedSearch';
 import ArchiveMemoryCard from './ArchiveMemoryCardWrapper';
 import PlaygroundModal from '../playgrounds/PlaygroundModal';
 import Header from '../shared/Header';
 import LibraryIcon from '../shared/LibraryIcon';
+import TabbedSidebar from '../shared/TabbedSidebar';
 import './LibrarySidebar.css';
 import './styles/Archive.css';
 import './styles/MemoryCard.css';
@@ -38,6 +39,8 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [contextMenu, setContextMenu] = useState(null);
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
+  const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
+  const [tagsExpanded, setTagsExpanded] = useState(true);
 
   // Libraries hook
   const {
@@ -196,6 +199,46 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     setSearchQuery('');
   };
 
+  // Extract all unique hashtags with counts
+  const getAllHashtags = () => {
+    const hashtagMap = new Map();
+
+    memories.forEach(memory => {
+      if (memory.hashtags && Array.isArray(memory.hashtags)) {
+        memory.hashtags.forEach(tag => {
+          // Normalize hashtag (ensure it starts with #)
+          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+          const count = hashtagMap.get(normalizedTag) || 0;
+          hashtagMap.set(normalizedTag, count + 1);
+        });
+      }
+    });
+
+    // Convert to array and sort by count (descending)
+    return Array.from(hashtagMap.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Calculate font sizes for tag cloud based on frequency
+  const getFontSize = (count, allHashtags) => {
+    if (allHashtags.length === 0) return 13;
+
+    const counts = allHashtags.map(h => h.count);
+    const minCount = Math.min(...counts);
+    const maxCount = Math.max(...counts);
+
+    // Font size range: 11px (smallest) to 18px (largest)
+    const minSize = 11;
+    const maxSize = 18;
+
+    // If all tags have same count, use middle size
+    if (minCount === maxCount) return 13;
+
+    // Linear scaling based on count
+    const ratio = (count - minCount) / (maxCount - minCount);
+    return Math.round(minSize + (ratio * (maxSize - minSize)));
+  };
 
   const handleContextMenuAction = (action) => {
     if (!contextMenu) return;
@@ -577,17 +620,93 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           )}
         </div>
 
-        {/* Library Sidebar */}
-        <LibrarySidebar
-          libraries={libraries}
-          getLibraryMemoryCount={getLibraryMemoryCount}
-          onMemoryDropToLibrary={handleMemoryDropToLibrary}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={toggleSidebarCollapse}
-          memories={memories}
-          onHashtagClick={handleHashtagClick}
-          selectedHashtags={selectedHashtags}
-        />
+        {/* Tabbed Sidebar */}
+        <div className={`sidebar-wrapper ${sidebarCollapsed ? 'closed' : ''}`}>
+          <button
+            className="sidebar-toggle-tab"
+            onClick={toggleSidebarCollapse}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+          </button>
+
+          <TabbedSidebar
+            showSearchToggle={false}
+            defaultTabIndex={0}
+            tabs={[
+              {
+                label: 'Libraries',
+                content: (
+                  <div className="sidebar-content">
+                    <div className="sidebar-libraries-grid">
+                      {libraries.length === 0 ? (
+                        <div className="empty-state">
+                          <p>No libraries yet</p>
+                        </div>
+                      ) : (
+                        libraries.map(library => (
+                          <LibraryCard
+                            key={library.id}
+                            library={library}
+                            memoryCount={getLibraryMemoryCount(library.id)}
+                            onDrop={(libraryId) => {
+                              handleMemoryDropToLibrary(libraryId);
+                              setDragOverLibraryId(null);
+                            }}
+                            onDragOver={(libraryId) => setDragOverLibraryId(libraryId)}
+                            onDragLeave={() => setDragOverLibraryId(null)}
+                            isDragOver={dragOverLibraryId === library.id}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              },
+              {
+                label: 'Tags',
+                content: (
+                  <div className="sidebar-content">
+                    {getAllHashtags().length > 0 ? (
+                      <div className="sidebar-section">
+                        <div
+                          className="sidebar-section-header"
+                          onClick={() => setTagsExpanded(!tagsExpanded)}
+                        >
+                          <h3>All Tags</h3>
+                          <span className="expand-icon">{tagsExpanded ? '−' : '+'}</span>
+                        </div>
+                        {tagsExpanded && (
+                          <div className="sidebar-tags-cloud">
+                            {getAllHashtags().map(({ tag, count }) => {
+                              const isSelected = selectedHashtags.some(h => h.tag === tag);
+                              const fontSize = getFontSize(count, getAllHashtags());
+                              return (
+                                <button
+                                  key={tag}
+                                  className={`tag-cloud-item ${isSelected ? 'selected' : ''}`}
+                                  onClick={() => handleHashtagClick(tag)}
+                                  title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
+                                  style={{ fontSize: `${fontSize}px` }}
+                                >
+                                  {tag}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="empty-state">
+                        <p>No tags yet</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+            ]}
+          />
+        </div>
       </div>
 
       {/* Modals */}

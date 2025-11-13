@@ -53,6 +53,8 @@
 /* Content area - extends global .sidebar-content */
 .constellation-content {
   /* Global styles from .sidebar-content are inherited */
+  min-height: 100%;
+  cursor: default;
 }
 
 /* Select tab content */
@@ -69,7 +71,7 @@
 }
 
 .network-item {
-  background: var(--color-bg-white);
+  background: #191970;
   border: 2px solid transparent;
   border-radius: var(--radius-large);
   padding: var(--spacing-md);
@@ -89,8 +91,10 @@
 .mini-constellation {
   display: block;
   margin: 0 auto var(--spacing-md);
-  background: transparent;
+  background: #191970;
   border-radius: var(--radius-small);
+  max-width: 100%;
+  height: auto;
 }
 
 .network-save-controls {
@@ -152,7 +156,7 @@
 }
 
 .saved-item {
-  background: var(--color-bg-white);
+  background: #191970;
   border: 2px solid var(--color-border-primary);
   border-radius: var(--radius-large);
   padding: var(--spacing-md);
@@ -173,7 +177,7 @@
   text-align: center;
   font-size: var(--font-size-base);
   font-weight: 600;
-  color: var(--color-text-light);
+  color: #ffffff;
   margin-top: var(--spacing-sm);
 }
 

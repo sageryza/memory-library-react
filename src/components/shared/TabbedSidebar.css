@@ -1,0 +1,98 @@
+/* Tabbed Sidebar Styles */
+/* Note: The outer .sidebar class comes from App.css and provides white background + border */
+
+/* Header with search toggle and tabs */
+.tabbed-sidebar-header {
+  flex-shrink: 0;
+  padding: 12px 15px 0 15px;
+  background: #FAFAFA;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: none;
+}
+
+/* Search toggle button (left side) */
+.search-toggle-btn {
+  background: none;
+  border: none;
+  padding: 6px 6px 7px 6px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  margin-bottom: -1px;
+}
+
+.search-toggle-btn:hover {
+  color: var(--color-text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.search-toggle-btn.active {
+  color: var(--color-primary);
+}
+
+/* Tabs container (right side) */
+.sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  margin-bottom: -1px;
+}
+
+/* Individual tab */
+.sidebar-tab {
+  background: #F5F5F5;
+  border: 1px solid var(--color-border-gray);
+  border-bottom: 1px solid var(--color-border-gray);
+  border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  padding: 6px 16px 7px 16px;
+  font-family: 'Crimson Text', serif;
+  font-size: var(--font-size-base);
+  font-weight: normal;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 80px;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+  white-space: nowrap;
+}
+
+.sidebar-tab:hover {
+  color: var(--color-text-secondary);
+  background: #FAFAFA;
+}
+
+.sidebar-tab.active {
+  background: white;
+  color: var(--color-primary);
+  border-color: var(--color-border-gray);
+  border-bottom-color: white;
+  z-index: 2;
+  padding-bottom: 8px;
+}
+
+/* Content area */
+.tabbed-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-top: 1px solid var(--color-border-gray);
+  position: relative;
+  z-index: 1;
+}
+
+/* Remove duplicate sidebar styling when Sidebar component is rendered inside tab content */
+.tabbed-sidebar-content .sidebar {
+  border-left: none;
+  background: transparent;
+}

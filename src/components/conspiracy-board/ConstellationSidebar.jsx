@@ -27,6 +27,37 @@ export default function ConstellationSidebar({
   const [constellationName, setConstellationName] = useState('')
   const [selectedSavedId, setSelectedSavedId] = useState(null)
   const prevSelectedNodesRef = useRef(null)
+  const isAutoPanningRef = useRef(false)
+  const stableSortOrderRef = useRef(null)
+  const prevPanOffsetRef = useRef(panOffset)
+  const justAutopannedRef = useRef(false)
+
+  // Detect manual panning and clear the auto-pan lock
+  useEffect(() => {
+    // Skip if this is the first render
+    if (!prevPanOffsetRef.current) {
+      prevPanOffsetRef.current = panOffset
+      return
+    }
+
+    // Check if panOffset changed
+    const panChanged =
+      prevPanOffsetRef.current.x !== panOffset.x ||
+      prevPanOffsetRef.current.y !== panOffset.y
+
+    if (panChanged) {
+      // If we just set the auto-pan flag, this is the auto-pan happening
+      if (justAutopannedRef.current) {
+        justAutopannedRef.current = false
+      } else if (isAutoPanningRef.current) {
+        // Pan changed but we didn't just auto-pan - this is manual panning
+        // Clear the lock so sorting can resume
+        isAutoPanningRef.current = false
+      }
+    }
+
+    prevPanOffsetRef.current = panOffset
+  }, [panOffset])
 
   // Detect all connected networks
   const detectedNetworks = useMemo(() => {
@@ -129,7 +160,7 @@ export default function ConstellationSidebar({
 
   // Calculate visibility of each network
   const networksWithVisibility = useMemo(() => {
-    return unsavedNetworks.map(network => {
+    const networksWithVis = unsavedNetworks.map(network => {
       const allItems = [...network.memories, ...network.pins]
 
       // Calculate viewport bounds considering pan and canvas offset
@@ -166,7 +197,26 @@ export default function ConstellationSidebar({
           visibility > 0 ? 'partial' :
           'none'
       }
-    }).sort((a, b) => {
+    })
+
+    // If we're auto-panning (from sidebar click), keep the stable sort order
+    // If we're manually panning (user dragging), update the sort order
+    if (isAutoPanningRef.current && stableSortOrderRef.current) {
+      // Use stable order - just update visibility values without re-sorting
+      const stableOrder = stableSortOrderRef.current
+      return networksWithVis.sort((a, b) => {
+        const aIndex = stableOrder.indexOf(a.id)
+        const bIndex = stableOrder.indexOf(b.id)
+        // Keep original order for known items, put new items at end
+        if (aIndex === -1 && bIndex === -1) return 0
+        if (aIndex === -1) return 1
+        if (bIndex === -1) return -1
+        return aIndex - bIndex
+      })
+    }
+
+    // Manual pan or first load - sort by visibility and update stable order
+    const sorted = networksWithVis.sort((a, b) => {
       // Sort by visibility category first
       const categoryOrder = { 'full': 0, 'partial': 1, 'none': 2 }
       const categoryDiff = categoryOrder[a.visibilityCategory] - categoryOrder[b.visibilityCategory]
@@ -180,6 +230,10 @@ export default function ConstellationSidebar({
       const bMinX = Math.min(...[...b.memories, ...b.pins].map(item => item.x))
       return aMinX - bMinX
     })
+
+    // Save the stable order
+    stableSortOrderRef.current = sorted.map(n => n.id)
+    return sorted
   }, [unsavedNetworks, panOffset, viewportWidth, viewportHeight])
 
   // Watch for constellation selection from canvas and update sidebar selection
@@ -206,7 +260,14 @@ export default function ConstellationSidebar({
 
     // Only proceed if selection actually changed
     if (!hasChanged) return
-    if (!selectedConstellationNodes || selectedConstellationNodes.size === 0) return
+
+    // IMPORTANT: When deselecting (null/empty), we need to clear the local state
+    if (!selectedConstellationNodes || selectedConstellationNodes.size === 0) {
+      setSelectedNetworkId(null)
+      setSelectedSavedId(null)
+      setConstellationName('')
+      return
+    }
 
     // Normalize the selected nodes for comparison
     const selectedNodeSet = new Set(
@@ -348,10 +409,10 @@ export default function ConstellationSidebar({
 
     return (
       <svg
-        width={targetWidth}
-        height={targetHeight}
         viewBox={`0 0 ${targetWidth} ${targetHeight}`}
+        preserveAspectRatio="xMidYMid meet"
         className="mini-constellation"
+        style={{ width: '100%', height: 'auto' }}
       >
         {/* Draw connections */}
         {scaledConnections.map((conn, idx) => (
@@ -394,7 +455,8 @@ export default function ConstellationSidebar({
     )
   }
 
-  const handleSelectNetwork = (network) => {
+  const handleSelectNetwork = (network, e) => {
+    e.stopPropagation()
     setSelectedNetworkId(network.id)
     setConstellationName('')
 
@@ -405,6 +467,10 @@ export default function ConstellationSidebar({
 
     // Pan to show the network on canvas
     if (onPanToNetwork) {
+      // Set flags to lock sort order during auto-pan
+      // This stays locked until user manually pans
+      isAutoPanningRef.current = true
+      justAutopannedRef.current = true
       onPanToNetwork(network)
     }
   }
@@ -454,8 +520,22 @@ export default function ConstellationSidebar({
     }
   }
 
+  const handleDeselectAll = (e) => {
+    // Don't deselect if clicking on interactive elements
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
+      return
+    }
+
+    setSelectedNetworkId(null)
+    setSelectedSavedId(null)
+    setConstellationName('')
+    if (onConstellationSelect) {
+      onConstellationSelect(null)
+    }
+  }
+
   return (
-    <div className="sidebar">
+    <div className="sidebar" onClick={handleDeselectAll}>
       {/* File folder tabs */}
       {/* TODO: Fix tab styling issues:
           - Add space above Select/Load tabs
@@ -463,13 +543,19 @@ export default function ConstellationSidebar({
       <div className="constellation-tabs">
         <button
           className={`tab ${activeTab === 'select' ? 'active' : ''}`}
-          onClick={() => setActiveTab('select')}
+          onClick={(e) => {
+            e.stopPropagation()
+            setActiveTab('select')
+          }}
         >
           Select
         </button>
         <button
           className={`tab ${activeTab === 'load' ? 'active' : ''}`}
-          onClick={() => setActiveTab('load')}
+          onClick={(e) => {
+            e.stopPropagation()
+            setActiveTab('load')
+          }}
         >
           Load
         </button>
@@ -487,7 +573,7 @@ export default function ConstellationSidebar({
                   <div
                     key={network.id}
                     className={`network-item ${selectedNetworkId === network.id ? 'selected' : ''}`}
-                    onClick={() => handleSelectNetwork(network)}
+                    onClick={(e) => handleSelectNetwork(network, e)}
                   >
                     {createMiniVisualization(network, selectedNetworkId === network.id)}
 
@@ -527,7 +613,10 @@ export default function ConstellationSidebar({
                   <div
                     key={constellation.id}
                     className={`saved-item ${selectedSavedId === constellation.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedSavedId(constellation.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedSavedId(constellation.id)
+                    }}
                   >
                     {createMiniVisualization({
                       memories: constellation.memories || [],

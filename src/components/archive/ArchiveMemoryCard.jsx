@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import ConstellationIcon from './ConstellationIcon';
 import ConstellationTooltip from './ConstellationTooltip';
 import { useMemoryConnections } from '../../hooks/useMemoryConnections';
+import '../shared/Hashtag.css';
 
 // Feature flag - set to false to disable constellation feature
 const ENABLE_CONSTELLATION_FEATURE = true;
@@ -104,11 +105,11 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
       {!isSimplified && (
         <div className="memory-footer">
           {memory.hashtags && memory.hashtags.length > 0 && (
-            <div className="memory-hashtags">
+            <div className="hashtag-container">
               {memory.hashtags.slice(0, 3).map((tag, idx) => (
                 <span
                   key={idx}
-                  className="hashtag"
+                  className={`hashtag ${!selectMode ? 'clickable' : ''}`}
                   onClick={(e) => {
                     if (!selectMode) {
                       e.stopPropagation();

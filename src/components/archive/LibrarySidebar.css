@@ -77,6 +77,30 @@
   margin-bottom: 10px;
 }
 
+/* Search Terms Display */
+.sidebar-library-card .library-search-terms {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+/* Hashtag styles now defined in shared/Hashtag.css */
+
+.sidebar-library-card .library-search-terms .hashtag.exclude {
+  background: #ffe5e5;
+  color: #c62828;
+}
+
+.sidebar-library-card .library-search-terms .operator {
+  font-family: 'Courier Prime', monospace;
+  font-size: 8px;
+  color: #999;
+  font-weight: 500;
+  padding: 0 1px;
+}
+
 .sidebar-library-stats {
   font-size: 11px;
   color: #888;
@@ -151,28 +175,15 @@
   padding: 4px;
 }
 
-.tag-cloud-item {
-  font-family: 'Courier Prime', monospace;
+/* Tag cloud specific styles (uses shared .hashtag base) */
+.hashtag.tag-cloud {
   /* font-size set dynamically via inline style */
-  color: var(--color-primary);
-  background: var(--crimson-bg-light);
-  padding: 4px 8px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
+  border: 1px solid rgba(128, 0, 32, 0.15);
   user-select: none;
-  border: none;
-  line-height: 1.4;
 }
 
-.tag-cloud-item:hover {
+.hashtag.tag-cloud.selected {
   background: var(--crimson-bg-hover);
   color: var(--color-primary-hover);
-}
-
-.tag-cloud-item.selected {
-  background: var(--crimson-bg-hover);
-  color: var(--color-primary-hover);
+  border-color: rgba(128, 0, 32, 0.3);
 }
