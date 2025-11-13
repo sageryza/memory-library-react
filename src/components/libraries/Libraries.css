@@ -4,7 +4,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: var(--spacing-20);
   background: #FFFFFF;
   overflow: hidden;
 }
@@ -16,11 +16,11 @@
   align-items: center;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--color-border-standard);
 }
 
 .libraries-header h1 {
-  color: #800020;
+  color: var(--color-primary);
   font-size: 28px;
   font-weight: 600;
   margin: 0;
@@ -44,10 +44,10 @@
 
 /* Library Card */
 .library-card {
-  background: #fdf2f8;
-  border-radius: 4px;
-  border: 1px solid #CCC;
-  padding: 15px;
+  background: var(--beige-primary);
+  border-radius: var(--radius-large);
+  border: 1px solid var(--color-border-gray);
+  padding: 10px 15px 15px 15px; /* Less top padding */
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -58,24 +58,45 @@
 }
 
 .library-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #f5f2e0;
+  border-color: var(--color-border-medium);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .library-card-header {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.library-card-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #4A4A4A; /* Neutral gray, no blue tint */
+  padding-left: 4px; /* Align with divider line */
+}
+
+.library-card-header-top svg {
+  margin-top: -2px; /* Move icon up to align with text baseline */
+}
+
+.library-card-divider {
+  height: 1px;
+  background: var(--color-border-gray);
+  margin: 0 4px; /* Closer to edges */
 }
 
 .library-card-title {
-  font-size: 18px;
+  font-size: var(--font-size-large);
   font-weight: 600;
-  color: #2F4F4F;
+  color: #4A4A4A; /* Neutral gray to match icon */
   margin: 0;
 }
 
 .library-card-description {
-  color: #666;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
   line-height: 1.4;
   margin-bottom: 15px;
   flex: 1;
@@ -86,13 +107,13 @@
   justify-content: space-between;
   align-items: center;
   padding-top: 12px;
-  border-top: 1px solid #e8e6d5;
+  border-top: 1px solid var(--beige-border);
   margin-top: auto;
 }
 
 .library-memory-count {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -112,6 +133,11 @@
 .library-badge.search-based {
   background: #e3f2fd;
   color: #1976d2;
+}
+
+.library-badge.manual {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .library-badge.locked {
@@ -137,7 +163,7 @@
 /* Library Modal */
 .library-modal {
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
@@ -150,18 +176,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border-gray);
 }
 
 .modal-header h2 {
-  color: #800020;
+  color: var(--color-primary);
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-size-large);
   font-weight: 600;
 }
 
 .modal-content {
-  padding: 20px;
+  padding: var(--spacing-20);
 }
 
 /* Form Groups */
@@ -173,28 +199,23 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #2F4F4F;
-  font-size: 14px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-small);
   padding: 10px 12px;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   resize: vertical;
   box-sizing: border-box;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
-  border-color: #800020;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(128, 0, 32, 0.1);
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 /* Form Actions */
 .form-actions {
@@ -204,7 +225,7 @@
   gap: 15px;
   margin-top: 20px;
   padding-top: 15px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--color-border-gray);
 }
 
 .form-actions-right {
@@ -214,13 +235,13 @@
 
 /* Buttons */
 .btn-primary {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-family: 'Crimson Text', serif;
   transition: all 0.2s ease;
   text-decoration: none;
@@ -228,17 +249,17 @@
 }
 
 .btn-primary:hover {
-  background: #A0001C;
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
   background: #E8E8E8;
-  color: #2F4F4F;
-  border: 1px solid #CCC;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-medium);
   padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-family: 'Crimson Text', serif;
   transition: all 0.2s ease;
   text-decoration: none;
@@ -246,15 +267,15 @@
 }
 
 .btn-secondary:hover {
-  background: #DDD;
+  background: var(--color-border-standard);
 }
 
 .btn-icon {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 24px;
-  color: #666;
+  font-size: var(--font-size-xlarge);
+  color: var(--color-text-secondary);
   padding: 4px 8px;
   border-radius: 3px;
   transition: all 0.2s ease;
@@ -262,16 +283,16 @@
 }
 
 .btn-icon:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--color-bg-light);
+  color: var(--color-text-light);
 }
 
 .btn-icon-delete {
-  background: #DC143C;
+  background: var(--color-accent-crimson);
   border: none;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -287,26 +308,26 @@
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
+  color: var(--color-text-secondary);
   grid-column: 1 / -1;
 }
 
 .empty-state p {
   margin-bottom: 10px;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
 }
 
 .empty-state-hint {
-  font-size: 14px;
-  color: #999;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
 }
 
 /* Loading State */
 .loading {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
-  font-size: 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-medium);
 }
 
 /* Responsive */

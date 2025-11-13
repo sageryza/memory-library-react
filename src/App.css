@@ -3,7 +3,7 @@
 /* TODO: Replace All Magic Numbers & Hardcoded Values (CSS)
  * ✅ DONE: Text input focus styling (maroon outline → subtle gray)
  * Replace hardcoded colors, spacing, transitions, etc. with theme variables
- * Examples: #999 → var(--color-text-muted), 8px → var(--spacing-sm)
+ * Examples: var(--color-text-muted) → var(--color-text-muted), 8px → var(--spacing-sm)
  * See TODO.md for complete task description and examples
  */
 
@@ -53,10 +53,10 @@ body {
   color: white;
   text-decoration: none;
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: all 0.2s;
   font-family: 'Crimson Text', serif;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   font-weight: 600;
 }
 
@@ -88,9 +88,9 @@ body {
 .app-header {
   flex-shrink: 0;
   padding: 8px 30px;
-  background: #FAFAFA;
-  border-bottom: 1px solid #E0E0E0;
-  color: #2F4F4F;
+  background: var(--beige-primary);
+  border-bottom: 1px solid var(--color-border-gray);
+  color: var(--color-text-primary);
   box-shadow: none;
   z-index: 1000; /* Increased to be above canvas elements */
   min-height: auto;
@@ -106,6 +106,23 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+}
+
+/* Header Center */
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.board-name-display {
+  margin: 0;
+  font-family: 'Crimson Text', serif;
+  font-size: var(--font-size-xlarge);
+  font-weight: normal;
+  color: var(--color-primary-hover);
 }
 
 .back-btn {
@@ -122,7 +139,7 @@ body {
 }
 
 .back-btn:hover {
-  color: #A0001C;
+  color: var(--color-primary-hover);
   transform: scale(1.05);
 }
 
@@ -131,12 +148,15 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+  overflow: visible; /* Allow dropdowns to extend beyond container */
 }
 
 .app-header h1 {
   margin: 0;
   font-family: 'Crimson Text', serif;
-  font-size: 24px;
+  font-size: var(--font-size-xlarge);
   color: var(--color-primary);
   font-weight: normal;
 }
@@ -145,9 +165,9 @@ body {
 .view-toggle-btn {
   background: none;
   color: var(--color-primary);
-  border: 1px solid #c0beac;
+  border: 1px solid var(--color-border-light);
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -180,9 +200,9 @@ body {
 .insights-toggle-btn {
   background: none;
   color: var(--color-primary);
-  border: 1px solid #c0beac;
+  border: 1px solid var(--color-border-light);
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -216,9 +236,9 @@ body {
 
 .opacity-toggle-btn.active,
 .insights-toggle-btn.active {
-  background: #e8e6d5;
+  background: var(--beige-border);
   color: #FFFFFF;
-  border-color: #e8e6d5;
+  border-color: var(--beige-border);
 }
 
 .opacity-toggle-btn.active svg,
@@ -238,17 +258,17 @@ body {
 
 .board-dropdown-btn {
   background: none;
-  border: 1px solid #c0beac;
-  border-radius: 6px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-medium);
   padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
   transition: all 0.2s ease;
   min-width: 160px;
   justify-content: space-between;
@@ -283,8 +303,8 @@ body {
   top: calc(100% + 8px);
   right: 0;
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-large);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   z-index: 999999; /* Increased z-index to ensure it appears above everything */
   min-width: 280px;
@@ -298,12 +318,12 @@ body {
   align-items: center;
   padding: 12px 16px;
   background: var(--color-bg-card);
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border-gray);
 }
 
 .board-dropdown-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -311,8 +331,8 @@ body {
 .board-dropdown-close {
   background: none;
   border: none;
-  font-size: 24px;
-  color: #666;
+  font-size: var(--font-size-xlarge);
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   width: 24px;
@@ -341,8 +361,8 @@ body {
   gap: 12px;
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
-  color: #333;
+  font-size: var(--font-size-base);
+  color: var(--color-text-light);
   text-align: left;
   transition: all 0.2s ease;
 }
@@ -374,15 +394,15 @@ body {
 
 .board-dropdown-divider {
   height: 1px;
-  background: #e0e0e0;
+  background: var(--color-border-gray);
   margin: 8px 0;
 }
 
 .app-header p {
   margin: 5px 0 0 0;
   font-family: 'Courier Prime', monospace;
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
 }
 
 .app-layout {
@@ -413,7 +433,7 @@ body {
 .sidebar {
   width: 100%;
   background: #FFFFFF;
-  border-left: 1px solid #E0E0E0;
+  border-left: 1px solid var(--color-border-gray);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -430,9 +450,9 @@ body {
   max-height: 30px;
   min-height: 30px;
   background: #FFFFFF;
-  border: 1px solid #E0E0E0;
+  border: 1px solid var(--color-border-gray);
   border-right: none;
-  border-radius: 4px 0 0 4px;
+  border-radius: var(--radius-small) 0 0 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -468,9 +488,9 @@ body {
   height: 30px !important;
   max-height: 30px !important;
   min-height: 30px !important;
-  color: #ccc;
+  color: var(--color-border-medium);
   outline: none !important;
-  border: 1px solid #E0E0E0;
+  border: 1px solid var(--color-border-gray);
   border-right: none;
   line-height: 1 !important;
 }
@@ -501,15 +521,15 @@ body {
 .sidebar-header {
   flex-shrink: 0;
   padding: 12px 15px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid var(--color-border-gray);
   background: #FAFAFA;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
 }
 
 .sidebar-header h2 {
   margin: 0 0 5px 0;
   font-family: 'Crimson Text', serif;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   color: var(--color-primary);
   font-weight: normal;
 }
@@ -517,29 +537,25 @@ body {
 .memory-count {
   margin: 0 0 15px 0;
   font-family: 'Courier Prime', monospace;
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
 }
 
 .search-input {
   width: 100%;
-  padding: 10px;
+  padding: var(--spacing-10);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-medium);
   background: var(--color-bg-card);
-  color: #333;
+  color: var(--color-text-light);
   font-size: 0.9rem;
 }
 
 .search-input::placeholder {
-  color: #999;
+  color: var(--color-text-muted);
 }
 
-.search-input:focus {
-  outline: none;
-  border-color: #d1d5db;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 .memory-list {
   flex: 1;
@@ -563,7 +579,7 @@ body {
 }
 
 .empty-state {
-  color: #999;
+  color: var(--color-text-muted);
   text-align: center;
   padding: 40px 20px;
   font-style: italic;
@@ -604,9 +620,9 @@ body {
   width: 250px !important;
   min-height: 120px !important;
   padding: 15px !important;
-  border-radius: 6px;
-  background: #faf8e9 !important;
-  border: 0.75px solid #e8e6d5;
+  border-radius: var(--radius-medium);
+  background: var(--beige-primary) !important;
+  border: 0.75px solid var(--beige-border);
   position: relative;
   cursor: move;
   user-select: none;
@@ -621,7 +637,7 @@ body {
 
   /* Enhanced shadow for dragging - using subtle gray like canvas cards */
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
-  border-color: #e8e6d5;
+  border-color: var(--beige-border);
 
   /* No transition during drag */
   transition: none !important;
@@ -629,18 +645,18 @@ body {
 
 /* Match canvas card text sizing and layout */
 .drag-overlay .memory-card-title {
-  font-size: 16px !important;
+  font-size: var(--font-size-medium) !important;
   margin-bottom: 8px !important;
   line-height: 1.3 !important;
   font-weight: normal !important;
-  color: #2F4F4F !important;
+  color: var(--color-text-primary) !important;
 }
 
 .drag-overlay .memory-card-content {
   font-size: 13px !important;
   margin-bottom: 10px !important;
   line-height: 1.4 !important;
-  color: #666 !important;
+  color: var(--color-text-secondary) !important;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -651,7 +667,7 @@ body {
 .drag-overlay .memory-card-date {
   font-size: 9px !important;
   font-family: 'Courier Prime', monospace !important;
-  color: #999 !important;
+  color: var(--color-text-muted) !important;
 }
 
 /* Stacked view styling for drag overlay */
@@ -660,7 +676,7 @@ body {
 }
 
 .drag-overlay .memory-card-title.stacked {
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   line-height: 1.1;
   text-align: center;
 }
@@ -676,10 +692,10 @@ body {
 
 .btn-scatter, .btn-undo, .btn-redo {
   background: none;
-  border: 1px solid #c0beac;
+  border: 1px solid var(--color-border-light);
   color: var(--color-primary);
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
@@ -709,10 +725,10 @@ body {
 
 .btn-view-toggle {
   background: none;
-  border: 1px solid #c0beac;
+  border: 1px solid var(--color-border-light);
   color: var(--color-primary);
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
@@ -776,8 +792,8 @@ body {
   bottom: 20px;
   left: 20px;
   background: var(--color-bg-card);
-  border: 1px solid #c0beac;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-large);
   padding: 15px;
   z-index: 100;
   max-width: 250px;
@@ -792,14 +808,14 @@ body {
   color: var(--color-bg-card);
   padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-medium);
   cursor: pointer;
   transition: all 0.2s;
   width: 100%;
 }
 
 .btn-save-board:hover {
-  background: #600018;
+  background: var(--color-button-destructive);
 }
 
 .save-dialog {
@@ -811,8 +827,8 @@ body {
 .save-dialog input {
   flex: 1;
   padding: 6px;
-  border: 1px solid #c0beac;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-small);
 }
 
 .save-dialog button {
@@ -820,7 +836,7 @@ body {
   background: var(--color-primary);
   color: var(--color-bg-card);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
 }
 
@@ -842,7 +858,7 @@ body {
   padding: 6px;
   margin-bottom: 5px;
   background: rgba(128, 0, 32, 0.05);
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -879,10 +895,10 @@ body {
   color: white;
   border: none;
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -891,7 +907,7 @@ body {
 }
 
 .add-memory-btn:hover {
-  background: #600018;
+  background: var(--color-button-destructive);
 }
 
 .add-memory-btn svg {
@@ -910,19 +926,28 @@ body {
 .App {
   background: #FFFFFF; /* White background like original */
   font-family: 'Crimson Text', serif;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Allow dropdowns to extend beyond boundaries */
+  position: relative;
 }
 
 /* Header Styling */
 .app-header {
-  background: #FAFAFA;
+  background: var(--beige-primary);
   padding: 8px 30px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid var(--color-border-gray);
   min-height: auto;
   box-shadow: none; /* Remove any shadows */
+  overflow: visible; /* Allow dropdown to extend beyond header */
+  z-index: 1000; /* Ensure header is above canvas but below dropdowns */
+  position: relative; /* Create stacking context */
 }
 
 .app-header h1 {
-  font-size: 24px;
+  font-size: var(--font-size-xlarge);
   color: var(--color-primary);
   font-weight: normal;
 }
@@ -941,7 +966,7 @@ body {
 
 .sidebar-header {
   padding: 12px 15px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid var(--color-border-gray);
   background: #FAFAFA;
   flex-shrink: 0;
 }
@@ -1130,9 +1155,9 @@ body {
 
 /* Constellation button active state */
 .constellation-btn.active {
-  background: #e8e6d5;
+  background: var(--beige-border);
   color: white;
-  border-color: #e8e6d5;
+  border-color: var(--beige-border);
 }
 
 .constellation-btn.active svg {
@@ -1157,13 +1182,13 @@ body {
 .add-memory-btn-icon:disabled:hover,
 .search-toggle-btn:disabled:hover {
   background: none;
-  border-color: #e8e6d5;
+  border-color: var(--beige-border);
 }
 
 /* Sidebar Search Section */
 .sidebar-search {
   padding: 12px 15px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid var(--color-border-gray);
   background: #FAFAFA;
   flex-shrink: 0;
 }
@@ -1176,17 +1201,18 @@ body {
 .search-input-container input {
   width: 100%;
   padding: 8px 35px 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-small);
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: normal;
   background: #ffffff;
 }
 
 .search-input-container input:focus {
   outline: none;
-  border-color: #999;
+  border-color: var(--focus-border-color);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 /* Sidebar search button positioning */
@@ -1198,8 +1224,8 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  color: #666;
-  padding: 4px;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-xs);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1212,25 +1238,25 @@ body {
 
 /* Context Menu */
 .context-menu {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--color-bg-white);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-medium);
+  box-shadow: var(--shadow-small);
   min-width: 180px;
-  padding: 4px 0;
-  font-size: 14px;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-size-base);
 }
 
 .context-menu-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-12);
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .context-menu-item:hover {
-  background: #f5f5f5;
+  background: var(--beige-alt);
 }
 
 .context-menu-icon {
@@ -1243,21 +1269,21 @@ body {
 
 .context-menu-shortcut {
   margin-left: auto;
-  color: #999;
-  font-size: 12px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
   padding-left: 16px;
 }
 
 .context-menu-separator {
   height: 1px;
-  background: #e0e0e0;
+  background: var(--color-border-gray);
   margin: 4px 0;
 }
 
 .memory-count {
   font-family: 'Courier Prime', monospace;
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
   margin-bottom: 15px;
 }
 
@@ -1285,13 +1311,13 @@ body {
 
 .memory-list::-webkit-scrollbar-thumb,
 .sidebar-content::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--color-border-medium);
   border-radius: 3px;
 }
 
 .memory-list::-webkit-scrollbar-thumb:hover,
 .sidebar-content::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--color-text-muted);
 }
 
 
@@ -1305,9 +1331,9 @@ body {
   color: #FFFFFF;
   border: none;
   padding: 10px 15px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-family: 'Crimson Text', serif;
   font-weight: normal;
   display: flex;
@@ -1317,7 +1343,7 @@ body {
 }
 
 .toggle-sidebar-btn:hover {
-  background: #A0001C;
+  background: var(--color-primary-hover);
 }
 
 /* Sidebar Toggle Arrow (Alternative) */
@@ -1328,7 +1354,7 @@ body {
   transform: translateY(-50%);
   background: var(--color-primary);
   border: none;
-  border-radius: 4px 0 0 4px;
+  border-radius: var(--radius-small) 0 0 4px;
   padding: 12px 4px;
   cursor: pointer;
   z-index: 60;
@@ -1336,7 +1362,7 @@ body {
 }
 
 .sidebar-toggle-arrow:hover {
-  background: #A0001C;
+  background: var(--color-primary-hover);
   padding-left: 8px;
 }
 
@@ -1357,17 +1383,17 @@ body {
 
 .board-dropdown-btn {
   background: none;
-  border: 1px solid #c0beac;
-  border-radius: 6px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-medium);
   padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
   transition: all 0.2s ease;
   min-width: 160px;
   justify-content: space-between;
@@ -1383,8 +1409,8 @@ body {
   top: calc(100% + 4px);
   left: 0;
   background: white;
-  border: 1px solid #c0beac;
-  border-radius: 6px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-medium);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   min-width: 280px;
@@ -1397,8 +1423,8 @@ body {
 
 .constellation-btn {
   background: none;
-  border: 1px solid #c0beac;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-small);
   padding: 6px 8px;
   cursor: pointer;
   color: var(--color-primary);
@@ -1411,9 +1437,9 @@ body {
 }
 
 .constellation-btn.active {
-  background: #e8e6d5;
+  background: var(--beige-border);
   color: white;
-  border-color: #e8e6d5;
+  border-color: var(--beige-border);
 }
 
 .constellation-mode-panel {
@@ -1421,9 +1447,9 @@ body {
   top: 80px;
   right: 20px;
   background: white;
-  border: 2px solid #FFD700;
-  border-radius: 8px;
-  padding: 16px;
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 9500;
   min-width: 250px;
@@ -1464,7 +1490,7 @@ body {
 .board-modal {
   background: white;
   padding: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   max-width: 500px;
   width: 90%;
@@ -1480,26 +1506,22 @@ body {
 
 .board-modal-subtitle {
   margin: 0 0 20px 0;
-  font-size: 14px;
-  color: #666;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
 }
 
 .board-modal-input {
   width: 100%;
-  padding: 10px;
-  font-size: 16px;
+  padding: var(--spacing-10);
+  font-size: var(--font-size-medium);
   font-family: 'Crimson Text', serif;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-small);
   margin-bottom: 20px;
   box-sizing: border-box;
 }
 
-.board-modal-input:focus {
-  outline: none;
-  border-color: #d1d5db;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 .board-modal-buttons {
   display: flex;
@@ -1509,17 +1531,17 @@ body {
 
 .board-modal-cancel {
   padding: 8px 20px;
-  background: #f0f0f0;
-  color: #333;
+  background: var(--color-bg-light);
+  color: var(--color-text-light);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   font-family: 'Crimson Text', serif;
   transition: background 0.2s ease;
 }
 
 .board-modal-cancel:hover {
-  background: #e0e0e0;
+  background: var(--color-border-gray);
 }
 
 .board-modal-save {
@@ -1527,14 +1549,14 @@ body {
   background: var(--color-primary);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   font-family: 'Crimson Text', serif;
   transition: background 0.2s ease;
 }
 
 .board-modal-save:hover {
-  background: #600018;
+  background: var(--color-button-destructive);
 }
 
 /* Load Board Modal Styles */
@@ -1546,10 +1568,10 @@ body {
   margin: 20px 0;
   padding: 30px;
   text-align: center;
-  color: #666;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
   background: #f9f9f9;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
 }
 
 .saved-boards-list {
@@ -1566,7 +1588,7 @@ body {
   margin-bottom: 10px;
   background: var(--color-bg-card);
   border: 1px solid #e5e3d4;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: background 0.2s ease;
 }
 
@@ -1579,15 +1601,15 @@ body {
 }
 
 .saved-board-name {
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   font-weight: bold;
   color: var(--color-primary);
   margin-bottom: 5px;
 }
 
 .saved-board-date {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
 }
 
 .saved-board-actions {
@@ -1599,10 +1621,10 @@ body {
 .saved-board-delete {
   padding: 6px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   transition: all 0.2s ease;
 }
 
@@ -1612,7 +1634,7 @@ body {
 }
 
 .saved-board-load:hover {
-  background: #600018;
+  background: var(--color-button-destructive);
 }
 
 .saved-board-delete {

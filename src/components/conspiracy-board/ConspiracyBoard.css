@@ -26,7 +26,7 @@
   background: var(--beige-primary);
   border: 1px solid var(--beige-border);
   border-radius: var(--radius-medium);
-  padding: 12px;
+  padding: var(--spacing-12);
   margin-bottom: 0;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -109,7 +109,7 @@
   height: 120px;
   min-height: 120px;
   max-height: 120px;
-  padding: 10px;
+  padding: var(--spacing-10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,7 +204,7 @@
   background: var(--beige-primary);
   border: 2px solid var(--beige-border);
   border-radius: var(--radius-large);
-  padding: 20px;
+  padding: var(--spacing-20);
   min-width: 300px;
   max-width: 400px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);

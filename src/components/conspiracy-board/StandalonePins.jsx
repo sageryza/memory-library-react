@@ -147,8 +147,8 @@ export default function StandalonePins({
           style={{
             position: 'absolute',
             left: placementPosition.x - 10,
-            top: placementPosition.y - 10,
-            opacity: 0.7,
+            top: placementPosition.y - 25,
+            opacity: 1,
             pointerEvents: 'none',
           }}
         >

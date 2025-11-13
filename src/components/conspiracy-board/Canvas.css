@@ -32,7 +32,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .empty-instructions {
@@ -41,7 +41,7 @@
 }
 
 .empty-instructions h3 {
-  color: #800020;
+  color: var(--color-primary);
   margin-bottom: 10px;
 }
 
@@ -63,17 +63,13 @@
 }
 
 .dropped-memory .memory-card {
-  background: #faf8e9;
-  border: 0.75px solid #e8e6d5;
-  border-radius: 6px;
-  padding: 15px;
+  /* Base styling from shared MemoryCard.css */
+  /* Override specifics for conspiracy board */
   width: 250px;
   min-height: 120px;
   cursor: move;
-  transition: box-shadow 0.2s ease;
-  user-select: none;
-  position: relative;
-  z-index: 10;
+  border: 1px solid var(--beige-border); /* Fixed from 0.75px to 1px */
+  border-radius: var(--radius-medium);    /* 6px for conspiracy board */
 }
 
 .dropped-memory:hover .memory-card {
@@ -107,7 +103,7 @@
 .memory-pin-circle {
   width: 12px;
   height: 12px;
-  background: radial-gradient(circle at 30% 30%, #ff6b7a 30%, #dc143c 50%);
+  background: radial-gradient(circle at 30% 30%, var(--color-pin-highlight) 30%, var(--color-string-and-pin) 50%);
   border-radius: 50%;
   position: absolute;
   top: 0;
@@ -119,7 +115,7 @@
 .memory-pin-tail {
   width: 2px;
   height: 14px;
-  background: #999;
+  background: var(--color-text-muted);
   position: absolute;
   top: 10px;
   left: 12px;

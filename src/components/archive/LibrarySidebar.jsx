@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import LibraryIcon from '../shared/LibraryIcon';
 
 function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, isDragOver }) {
   const getLibraryColor = () => {
@@ -30,15 +31,18 @@ function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, is
       onDragLeave={handleDragLeave}
       style={{ borderColor: getLibraryColor() }}
     >
-      <h4 className="sidebar-library-name">{library.name}</h4>
+      <div className="sidebar-library-header">
+        <div className="sidebar-library-header-top">
+          <LibraryIcon size={20} color="currentColor" />
+          <h4 className="sidebar-library-name">{library.name}</h4>
+        </div>
+        <div className="sidebar-library-divider"></div>
+      </div>
       {library.description && (
         <p className="sidebar-library-description">{library.description}</p>
       )}
       <div className="sidebar-library-stats">
         <span className="sidebar-memory-count">{memoryCount} memories</span>
-        {library.searchLogic && (
-          <span className="search-based-indicator">Search-based</span>
-        )}
         {library.isLocked && (
           <span className="search-based-indicator">Locked</span>
         )}
@@ -52,9 +56,13 @@ export default function LibrarySidebar({
   getLibraryMemoryCount,
   onMemoryDropToLibrary,
   collapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  memories = [],
+  onHashtagClick,
+  selectedHashtags = []
 }) {
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
+  const [tagsExpanded, setTagsExpanded] = useState(true);
 
   const handleDragOver = (libraryId) => {
     setDragOverLibraryId(libraryId);
@@ -69,6 +77,50 @@ export default function LibrarySidebar({
 
   const handleDragLeave = () => {
     setDragOverLibraryId(null);
+  };
+
+  // Extract all unique hashtags with counts
+  const getAllHashtags = () => {
+    const hashtagMap = new Map();
+
+    memories.forEach(memory => {
+      if (memory.hashtags && Array.isArray(memory.hashtags)) {
+        memory.hashtags.forEach(tag => {
+          // Normalize hashtag (ensure it starts with #)
+          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+          const count = hashtagMap.get(normalizedTag) || 0;
+          hashtagMap.set(normalizedTag, count + 1);
+        });
+      }
+    });
+
+    // Convert to array and sort by count (descending)
+    return Array.from(hashtagMap.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const allHashtags = getAllHashtags();
+  const selectedHashtagTags = selectedHashtags.map(h => h.tag);
+
+  // Calculate font sizes for tag cloud based on frequency
+  const getFontSize = (count) => {
+    if (allHashtags.length === 0) return 13;
+
+    const counts = allHashtags.map(h => h.count);
+    const minCount = Math.min(...counts);
+    const maxCount = Math.max(...counts);
+
+    // Font size range: 11px (smallest) to 18px (largest)
+    const minSize = 11;
+    const maxSize = 18;
+
+    // If all tags have same count, use middle size
+    if (minCount === maxCount) return 13;
+
+    // Linear scaling based on count
+    const ratio = (count - minCount) / (maxCount - minCount);
+    return Math.round(minSize + (ratio * (maxSize - minSize)));
   };
 
   return (
@@ -108,6 +160,38 @@ export default function LibrarySidebar({
               ))
             )}
           </div>
+
+          {/* All Tags Section */}
+          {allHashtags.length > 0 && (
+            <div className="sidebar-section">
+              <div
+                className="sidebar-section-header"
+                onClick={() => setTagsExpanded(!tagsExpanded)}
+              >
+                <h3>All Tags</h3>
+                <span className="expand-icon">{tagsExpanded ? '−' : '+'}</span>
+              </div>
+              {tagsExpanded && (
+                <div className="sidebar-tags-cloud">
+                  {allHashtags.map(({ tag, count }) => {
+                    const isSelected = selectedHashtagTags.includes(tag);
+                    const fontSize = getFontSize(count);
+                    return (
+                      <button
+                        key={tag}
+                        className={`tag-cloud-item ${isSelected ? 'selected' : ''}`}
+                        onClick={() => onHashtagClick && onHashtagClick(tag)}
+                        title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
+                        style={{ fontSize: `${fontSize}px` }}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

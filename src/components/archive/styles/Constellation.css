@@ -45,10 +45,10 @@
 /* Tooltip container */
 .constellation-tooltip {
     background: #fff;
-    border: 1px solid #e8e6d5;
-    border-radius: 8px;
+    border: 1px solid var(--beige-border);
+    border-radius: var(--radius-large);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 12px;
+    padding: var(--spacing-12);
     display: flex;
     gap: 12px;
     z-index: 999998; /* Increased z-index to ensure tooltip is visible */
@@ -57,10 +57,10 @@
 
 /* Individual mini-map container */
 .constellation-map-container {
-    background: #faf8e9;
-    border: 1px solid #e8e6d5;
-    border-radius: 6px;
-    padding: 8px;
+    background: var(--beige-primary);
+    border: 1px solid var(--beige-border);
+    border-radius: var(--radius-medium);
+    padding: var(--spacing-sm);
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -77,7 +77,7 @@
     width: 100px;
     height: 100px;
     background: #fff;
-    border-radius: 4px;
+    border-radius: var(--radius-small);
 }
 
 /* Board name label below mini-map */
@@ -85,7 +85,7 @@
     font-size: 11px;
     text-align: center;
     margin-top: 6px;
-    color: #666;
+    color: var(--color-text-secondary);
     font-family: 'Courier Prime', monospace;
 }
 

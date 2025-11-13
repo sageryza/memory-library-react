@@ -16,16 +16,33 @@ import './Dropdown.css'
  * @param {string} props.className - Additional CSS class for the container
  * @param {string} props.align - Alignment of dropdown: 'left' | 'right' (default: 'left')
  * @param {boolean} props.closeOnItemClick - Whether to close dropdown when item is clicked (default: true)
+ * @param {boolean} props.isOpen - Controlled open state (optional)
+ * @param {function} props.onOpenChange - Callback when open state changes (optional)
+ * @param {boolean} props.triggerOnHover - Whether to open on hover (default: false)
  */
 function Dropdown({
   trigger,
   items = [],
   className = '',
   align = 'left',
-  closeOnItemClick = true
+  closeOnItemClick = true,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  triggerOnHover = false
 }) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
   const dropdownRef = useRef(null)
+
+  // Use controlled state if provided, otherwise use internal state
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
+  const setIsOpen = (newValue) => {
+    if (controlledIsOpen === undefined) {
+      setInternalIsOpen(newValue)
+    }
+    if (onOpenChange) {
+      onOpenChange(newValue)
+    }
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -63,7 +80,21 @@ function Dropdown({
 
   const handleTriggerClick = (e) => {
     e.stopPropagation()
-    setIsOpen(!isOpen)
+    if (!triggerOnHover) {
+      setIsOpen(!isOpen)
+    }
+  }
+
+  const handleMouseEnter = () => {
+    if (triggerOnHover) {
+      setIsOpen(true)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (triggerOnHover) {
+      setIsOpen(false)
+    }
   }
 
   const handleItemClick = (item, e) => {
@@ -77,7 +108,12 @@ function Dropdown({
   }
 
   return (
-    <div className={`dropdown-container ${className}`} ref={dropdownRef}>
+    <div
+      className={`dropdown-container ${className}`}
+      ref={dropdownRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div onClick={handleTriggerClick}>
         {trigger}
       </div>

@@ -9,7 +9,7 @@ Memory Library provides four different ways to work with your notes:
 - **🗂️ Conspiracy Board** - Visual canvas with drag-and-drop positioning and connection drawing between related memories
 - **📚 Archive** - Pinterest-style masonry grid for browsing all memories with advanced search and filtering
 - **⏳ Chronology** - Timeline interface for arranging memories in chronological order
-- **📖 Libraries** - Collections for organizing memories with search-based dynamic filtering
+- **📖 Libraries** - Collections for organizing memories with manual curation and/or search-based dynamic filtering (hybrid support)
 
 ## Key Features
 

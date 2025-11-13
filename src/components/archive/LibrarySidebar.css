@@ -10,22 +10,24 @@
 }
 
 .sidebar-library-card {
-  background: #fdf2f8;
-  border: 2px solid #E0E0E0;
-  border-radius: 6px;
-  padding: 15px;
+  background: var(--beige-primary);
+  border: 1px solid var(--color-border-gray);
+  border-radius: var(--radius-large);
+  padding: 10px 15px 15px 15px; /* Less top padding */
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
 }
 
 .sidebar-library-card:hover {
+  background: #f5f2e0;
+  border-color: var(--color-border-medium);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-library-card.drag-over {
-  border-color: #800020;
+  border-color: var(--color-primary);
   background: #f8f0f0;
   box-shadow: 0 4px 16px rgba(128, 0, 32, 0.3);
 }
@@ -38,16 +40,39 @@
   border-color: #9932CC;
 }
 
+.sidebar-library-header {
+  margin-bottom: 10px;
+}
+
+.sidebar-library-header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #4A4A4A; /* Neutral gray, no blue tint */
+  padding-left: 3px; /* Align with divider line */
+}
+
+.sidebar-library-header-top svg {
+  margin-top: -2px; /* Move icon up to align with text baseline */
+}
+
+.sidebar-library-divider {
+  height: 1px;
+  background: var(--color-border-gray);
+  margin: 0 3px; /* Closer to edges */
+}
+
 .sidebar-library-name {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
-  color: #2F4F4F;
-  margin: 0 0 8px 0;
+  color: #4A4A4A; /* Neutral gray to match icon */
+  margin: 0;
 }
 
 .sidebar-library-description {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
   line-height: 1.3;
   margin-bottom: 10px;
 }
@@ -66,9 +91,9 @@
 
 .search-based-indicator {
   background: rgba(128, 0, 32, 0.1);
-  color: #800020;
+  color: var(--color-primary);
   padding: 2px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   font-size: 10px;
   font-weight: 600;
 }
@@ -78,7 +103,76 @@
 .sidebar-libraries-grid .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--color-text-muted);
   font-style: italic;
-  font-size: 14px;
+  font-size: var(--font-size-base);
+}
+
+/* All Tags Section */
+.sidebar-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-gray);
+}
+
+.sidebar-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 12px;
+  user-select: none;
+  padding: 8px 4px;
+  border-radius: var(--radius-medium);
+  transition: background 0.2s ease;
+}
+
+.sidebar-section-header:hover {
+  background: var(--color-bg-hover);
+}
+
+.sidebar-section-header h3 {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.expand-icon {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--color-text-secondary);
+}
+
+.sidebar-tags-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
+}
+
+.tag-cloud-item {
+  font-family: 'Courier Prime', monospace;
+  /* font-size set dynamically via inline style */
+  color: var(--color-primary);
+  background: var(--crimson-bg-light);
+  padding: 4px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  border: none;
+  line-height: 1.4;
+}
+
+.tag-cloud-item:hover {
+  background: var(--crimson-bg-hover);
+  color: var(--color-primary-hover);
+}
+
+.tag-cloud-item.selected {
+  background: var(--crimson-bg-hover);
+  color: var(--color-primary-hover);
 }

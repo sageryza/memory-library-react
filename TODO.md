@@ -23,21 +23,29 @@
 
 ---
 
-### Conspiracy Board - Fix Search Dropdown Arrow
-**Issue:** The dropdown arrow in conspiracy board search is visible but clicking it does nothing
-
-**Expected behavior:** Clicking should open the boolean search interface
-
-**Location:** Conspiracy board search component
-
----
-
 ### Conspiracy Board Constellation Mode - Fix Tab Styling
 **Issues:**
 - No space above the "Select" and "Load" tabs
 - Missing header color
 
 **Location:** Constellation mode tab interface
+
+---
+
+### Conspiracy Board - Redesign Advanced Search Styling
+**Goal:** Improve the visual design and styling of the advanced search panel
+
+**Location:** `src/components/shared/AdvancedSearch.jsx` and `AdvancedSearch.css`
+
+**Areas to review:**
+- Overall layout and spacing
+- Input field styling
+- Button styling
+- Visual hierarchy
+- Color scheme
+- Responsiveness
+
+**Note:** Specific design changes to be determined
 
 ---
 
@@ -48,11 +56,6 @@
 - What's constraining their size currently?
 - Is there a bounding box limiting them?
 - Can we adjust container dimensions or apply scaling?
-
----
-
-### General - Change Favicon
-Simple task - replace current favicon with new design
 
 ---
 

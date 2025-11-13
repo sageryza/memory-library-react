@@ -4,19 +4,19 @@
 
 .btn-constellation-mode {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #800020, #b8860b);
+  background: linear-gradient(135deg, var(--color-primary), #b8860b);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .btn-constellation-mode:hover {
-  background: linear-gradient(135deg, #600018, #8b6508);
+  background: linear-gradient(135deg, var(--color-button-destructive), #8b6508);
   transform: translateY(-1px);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
@@ -26,9 +26,9 @@
   top: 80px;
   right: 20px;
   background: white;
-  border: 2px solid #FFD700;
-  border-radius: 8px;
-  padding: 16px;
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 9500;
   min-width: 250px;
@@ -40,28 +40,28 @@
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border-gray);
 }
 
 .constellation-header h3 {
   margin: 0;
-  color: #800020;
-  font-size: 18px;
+  color: var(--color-primary);
+  font-size: var(--font-size-large);
 }
 
 .btn-exit-constellation {
   padding: 6px 12px;
-  background: #f0f0f0;
-  color: #333;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background: var(--color-bg-light);
+  color: var(--color-text-light);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.2s;
 }
 
 .btn-exit-constellation:hover {
-  background: #e0e0e0;
+  background: var(--color-border-gray);
 }
 
 .constellation-info {
@@ -70,8 +70,8 @@
 
 .constellation-info p {
   margin: 0 0 8px;
-  color: #666;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
 }
 
 .constellation-visualization {
@@ -96,17 +96,17 @@
   flex: 1;
   padding: 6px 12px;
   background: white;
-  color: #800020;
-  border: 1px solid #800020;
-  border-radius: 4px;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.2s;
 }
 
 .btn-select-all:hover,
 .btn-clear-selection:hover {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -116,26 +116,26 @@
   gap: 8px;
   margin-bottom: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--color-border-gray);
 }
 
 .constellation-name-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-small);
+  font-size: var(--font-size-base);
 }
 
 .btn-export-constellation {
   width: 100%;
   padding: 10px 16px;
-  background: #FFD700;
-  color: #333;
+  background: var(--color-accent-gold);
+  color: var(--color-text-light);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
   transition: all 0.2s;
 }
@@ -152,16 +152,16 @@
 }
 
 .constellation-help {
-  padding: 12px;
-  background: #faf8e9;
-  border-radius: 4px;
+  padding: var(--spacing-12);
+  background: var(--beige-primary);
+  border-radius: var(--radius-small);
   margin-top: 12px;
 }
 
 .constellation-help p {
   margin: 0 0 6px;
-  color: #666;
-  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
   line-height: 1.4;
 }
 

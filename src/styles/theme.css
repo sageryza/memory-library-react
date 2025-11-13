@@ -9,11 +9,26 @@
   --color-primary: #800020;        /* Maroon - CTAs, active states, primary buttons */
   --color-primary-hover: #A0001C;  /* Light maroon - hover states */
   --color-primary-light: #b88585;  /* Lighter maroon - active toggles on hover */
+  --color-button-destructive: #600018; /* Dark maroon - delete/destructive actions */
+
+  /* Primary Maroon Opacity Variants */
+  --maroon-bg-subtle: rgba(128, 0, 32, 0.02);  /* 2% - subtle hover backgrounds */
+  --maroon-bg-light: rgba(128, 0, 32, 0.05);   /* 5% - light hover backgrounds */
+  --maroon-bg-medium: rgba(128, 0, 32, 0.1);   /* 10% - active state backgrounds */
 
   /* Accent Colors */
   --color-accent-gold: #FFD700;    /* Gold - constellation features, special highlights */
-  --color-accent-crimson: #dc143c; /* Crimson red - connections */
+  --color-accent-crimson: #dc143c; /* Crimson red - connections, hashtag borders */
   --color-accent-orange: #ff4500;  /* Orange - connection hovers */
+
+  /* Crimson Opacity Variants (for hashtag backgrounds) */
+  --crimson-bg-light: rgba(220, 20, 60, 0.1);   /* 10% - default hashtag backgrounds */
+  --crimson-bg-medium: rgba(220, 20, 60, 0.15); /* 15% - central hashtag oval */
+  --crimson-bg-hover: rgba(220, 20, 60, 0.2);   /* 20% - hashtag hover states */
+
+  /* Pin and String Colors */
+  --color-string-and-pin: #dc143c;  /* Connection strings and pin gradient base */
+  --color-pin-highlight: #ff6b7a;   /* Pin gradient highlight */
 
   /* Background Colors */
   --color-bg-white: #FFFFFF;       /* Pure white backgrounds */
@@ -22,12 +37,20 @@
   --color-bg-light: #f0f0f0;       /* Light gray - active button states */
   --color-bg-overlay: rgba(0, 0, 0, 0.5); /* Modal overlay backdrop */
 
+  /* Beige System Colors (Consolidated from conspiracy board design) */
+  --beige-primary: #faf8e9;        /* Main beige - memory cards, primary backgrounds */
+  --beige-light: #fffef5;          /* Light cream - modal highlights, hover states */
+  --beige-border: #e8e6d5;         /* Beige borders - card borders, dividers */
+  --beige-alt: #f5f5f5;            /* Alternative light beige - neutral hover states */
+
   /* Border Colors */
   --color-border-primary: #e8e6d5; /* Primary borders - cards, subtle dividers */
   --color-border-light: #c0beac;   /* Light borders - inactive buttons */
   --color-border-muted: #ce9c9c;   /* Muted rose borders */
   --color-border-standard: #ddd;   /* Standard gray borders */
   --color-border-divider: #e5e5e5; /* Section dividers */
+  --color-border-gray: #e0e0e0;    /* Light gray borders - cards, containers */
+  --color-border-medium: #ccc;     /* Medium gray borders - inputs, buttons */
 
   /* Text Colors */
   --color-text-primary: #2F4F4F;   /* Dark slate - headings, primary text */
@@ -41,6 +64,10 @@
   --color-error: #dc3545;           /* Error states */
   --color-warning: #ffc107;         /* Warning states */
   --color-info: #17a2b8;            /* Info states */
+
+  /* Focus States */
+  --focus-border-color: #d1d5db;    /* Subtle gray border for focused inputs */
+  --focus-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05); /* Subtle outer glow for focused inputs */
 
   /* ===== Spacing System ===== */
   --spacing-xs: 4px;

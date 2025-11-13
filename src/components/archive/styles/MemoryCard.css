@@ -1,40 +1,25 @@
 /* ===== MEMORY CARD - COMPLETE VANILLA STYLING ===== */
 
-/* Base Memory Card */
-.memory-item {
-    background: #faf8e9;
-    border: 0.5px solid #E0E0E0;
-    border-radius: 8px;
-    padding: 20px;
-    transition: all 0.3s ease;
-    cursor: pointer;
+/* Archive Memory Wrapper (container for checkbox, constellation, and base card) */
+.archive-memory-wrapper {
     width: 100%; /* Let Masonry handle column widths */
     margin-bottom: 15px; /* Vertical spacing between items */
-    display: flex;
-    flex-direction: column;
     position: relative;
-    /* Remove fixed height to allow natural content sizing */
+    user-select: none;
+    /* No background, border, or padding - the inner MemoryCard handles that */
 }
 
-/* Hover State */
-.memory-item:hover {
-    background: #f5f2e0;
-    border-color: #CCC;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Selected State */
-.memory-item.selected {
+/* Selected State - applies to inner card via child selector */
+.archive-memory-wrapper.selected .memory-card {
     background: #fdf2f8;
     border-color: #d9bbc2;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(128, 0, 32, 0.2);
 }
 
-/* Card View (default) */
-.memory-item.card {
-    height: fit-content;
+/* Dragging State */
+.archive-memory-wrapper.dragging .memory-card {
+    opacity: 0.5;
 }
 
 /* ===== MEMORY HEADER ===== */
@@ -47,15 +32,15 @@
 
 .memory-title {
     font-weight: 600;
-    font-size: 16px;
-    color: #2F4F4F;
+    font-size: var(--font-size-medium);
+    color: var(--color-text-primary);
     line-height: 1.3;
 }
 
 .memory-date {
     font-family: 'Courier Prime', monospace;
     font-size: 11px;
-    color: #666;
+    color: var(--color-text-secondary);
     background: rgba(255, 255, 255, 0.7);
     padding: 2px 6px;
     border-radius: 3px;
@@ -63,7 +48,7 @@
 
 /* ===== MEMORY CONTENT ===== */
 .memory-content {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1.4;
     color: #4A4A4A;
     margin-bottom: 12px;
@@ -80,8 +65,8 @@
 
 /* Content expand/collapse styles */
 .content-expand-btn {
-    color: #666;
-    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-small);
     cursor: pointer;
     display: inline;
     margin-left: 4px;
@@ -90,7 +75,7 @@
 }
 
 .content-expand-btn:hover {
-    color: #800020;
+    color: var(--color-primary);
 }
 
 .expand-arrow {
@@ -119,8 +104,8 @@
 .hashtag {
     font-family: 'Courier Prime', monospace;
     font-size: 10px;
-    color: #800020;
-    background: rgba(220, 20, 60, 0.1);
+    color: var(--color-primary);
+    background: var(--crimson-bg-light);
     padding: 2px 6px;
     border-radius: 10px;
     cursor: pointer;
@@ -128,8 +113,8 @@
 }
 
 .hashtag:hover {
-    background: rgba(220, 20, 60, 0.2);
-    color: #A0001C;
+    background: var(--crimson-bg-hover);
+    color: var(--color-primary-hover);
 }
 
 /* ===== MEMORY ACTIONS (Edit/Delete buttons) ===== */
@@ -140,7 +125,7 @@
     transition: opacity 0.3s ease;
 }
 
-.memory-item:hover .memory-actions {
+.archive-memory-wrapper:hover .memory-actions {
     opacity: 1;
 }
 
@@ -148,16 +133,16 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    padding: 4px;
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    padding: var(--spacing-xs);
     border-radius: 3px;
     transition: all 0.3s ease;
 }
 
 .action-btn:hover {
     background: rgba(0, 0, 0, 0.1);
-    color: #2F4F4F;
+    color: var(--color-text-primary);
 }
 
 /* ===== MEMORY SELECTION CHECKBOX ===== */
@@ -168,7 +153,7 @@
     width: 20px;
     height: 20px;
     background: white;
-    border: 2px solid #ccc;
+    border: 2px solid var(--color-border-medium);
     border-radius: 3px;
     cursor: pointer;
     display: none;
@@ -179,19 +164,19 @@
 }
 
 .memory-checkbox:hover {
-    border-color: #800020;
+    border-color: var(--color-primary);
     background: #f8f9fa;
 }
 
 .memory-checkbox.checked {
-    background: #800020;
-    border-color: #800020;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 .memory-checkbox.checked::after {
     content: '✓';
     color: white;
-    font-size: 12px;
+    font-size: var(--font-size-small);
     font-weight: bold;
 }
 
@@ -212,13 +197,13 @@
     cursor: pointer;
     user-select: none;
     margin-bottom: 8px;
-    color: #666;
-    font-size: 14px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
     font-family: 'Crimson Text', serif;
 }
 
 .additional-context-header:hover {
-    color: #333;
+    color: var(--color-text-light);
 }
 
 .additional-context-label {
@@ -226,9 +211,9 @@
 }
 
 .additional-context-arrow {
-    font-size: 12px;
+    font-size: var(--font-size-small);
     transition: transform 0.3s ease;
-    color: #999;
+    color: var(--color-text-muted);
 }
 
 .additional-context-header.expanded .additional-context-arrow {
@@ -242,26 +227,25 @@
 .additional-context-content textarea {
     width: 100%;
     min-height: 80px;
-    padding: 10px;
-    border: 0.5px solid #DDD;
-    border-radius: 4px;
+    padding: var(--spacing-10);
+    border: 0.5px solid var(--color-border-standard);
+    border-radius: var(--radius-small);
     font-family: 'Crimson Text', serif;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1.4;
-    color: #666;
+    color: var(--color-text-secondary);
     background-color: #FFFFFF;
     resize: vertical;
 }
 
 .additional-context-content textarea:focus {
-    outline: none;
-    border-color: #800020;
-    background-color: #FFF;
+    /* Border and shadow inherited from global input:focus rule in components.css */
+    background-color: #FFF; /* Keep white background on focus for this specific textarea */
 }
 
 .additional-context-content textarea::placeholder {
     font-family: 'Crimson Text', serif;
-    color: #999;
+    color: var(--color-text-muted);
 }
 
 /* ===== SIMPLIFY VIEW (Mini Card Mode) ===== */
@@ -285,26 +269,26 @@
 .memory-table td {
     padding: 12px 15px;
     text-align: left;
-    border-bottom: 0.5px solid #E0E0E0;
+    border-bottom: 0.5px solid var(--color-border-gray);
 }
 
 .memory-table th {
     background: #F5F5DC;
     font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    color: #800020;
+    font-size: var(--font-size-small);
+    color: var(--color-primary);
     font-weight: bold;
     position: sticky;
     top: 0;
 }
 
 .memory-table tr:hover {
-    background: #faf8e9;
+    background: var(--beige-primary);
 }
 
 .table-title {
     font-weight: bold;
-    color: #2F4F4F;
+    color: var(--color-text-primary);
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -314,7 +298,7 @@
 .table-date {
     font-family: 'Courier Prime', monospace;
     font-size: 11px;
-    color: #666;
+    color: var(--color-text-secondary);
     min-width: 100px;
 }
 

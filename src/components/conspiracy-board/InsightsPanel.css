@@ -17,7 +17,7 @@
 
 .insights-panel {
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   width: 90%;
   max-width: 700px;
   max-height: 80vh;
@@ -30,20 +30,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 2px solid #800020;
-  background: #faf8e9;
+  padding: var(--spacing-20);
+  border-bottom: 2px solid var(--color-primary);
+  background: var(--beige-primary);
 }
 
 .insights-panel-header h2 {
   margin: 0;
-  color: #800020;
+  color: var(--color-primary);
   font-size: 22px;
   font-family: 'Crimson Text', serif;
 }
 
 .insights-panel-content {
-  padding: 20px;
+  padding: var(--spacing-20);
   overflow-y: auto;
   flex: 1;
 }
@@ -51,17 +51,17 @@
 .empty-insights {
   text-align: center;
   padding: 40px 20px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .empty-insights p {
   margin: 10px 0;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
 }
 
 .empty-insights .help-text {
-  font-size: 14px;
-  color: #999;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
 }
 
 .insights-list {
@@ -71,10 +71,10 @@
 }
 
 .insight-item {
-  background: #faf8e9;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--beige-primary);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
   transition: box-shadow 0.2s;
 }
 
@@ -87,7 +87,7 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
-  color: #800020;
+  color: var(--color-primary);
   font-weight: 600;
   font-size: 15px;
 }
@@ -98,24 +98,24 @@
 }
 
 .connection-icon {
-  color: #dc143c;
+  color: var(--color-string-and-pin);
   flex-shrink: 0;
 }
 
 .insight-text {
-  color: #333;
+  color: var(--color-text-light);
   line-height: 1.6;
-  font-size: 14px;
-  padding: 12px;
+  font-size: var(--font-size-base);
+  padding: var(--spacing-12);
   background: white;
-  border-radius: 4px;
-  border-left: 3px solid #800020;
+  border-radius: var(--radius-small);
+  border-left: 3px solid var(--color-primary);
   margin-bottom: 8px;
 }
 
 .insight-date {
-  font-size: 12px;
-  color: #999;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
   text-align: right;
   font-style: italic;
 }

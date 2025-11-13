@@ -5,10 +5,11 @@ import { generateLocalId } from '../utils/generateId';
 
 /**
  * Hook to manage memory libraries
- * Libraries can be:
- * - Manual: Contains specific memory IDs (manualMemoryIds)
- * - Search-based: Contains search logic that filters memories dynamically
- * - Locked: Only accessible when viewing that library (hidden from main view)
+ * Libraries can contain:
+ * - Manual memories: Specific memory IDs (manualMemoryIds)
+ * - Search-based memories: Search logic that filters memories dynamically (searchLogic)
+ * - Both: Libraries can have both manual and search-based memories simultaneously
+ * - Locked: Flag to make library only accessible when viewing that library (hidden from main view)
  */
 export default function useLibraries(userId) {
   const [libraries, setLibraries] = useState([]);
@@ -176,17 +177,17 @@ export default function useLibraries(userId) {
     const library = libraries.find(lib => lib.id === libraryId);
     if (!library) return [];
 
-    // Manual library
+    const memoryIdsToInclude = new Set();
+
+    // Collect memories from manual IDs
     if (library.manualMemoryIds && library.manualMemoryIds.length > 0) {
-      return allMemories.filter(memory =>
-        library.manualMemoryIds.includes(memory.id)
-      );
+      library.manualMemoryIds.forEach(id => memoryIdsToInclude.add(id));
     }
 
-    // Search-based library - filter memories using saved search logic
+    // Collect memories from search logic
     if (library.searchLogic) {
       const searchLogic = library.searchLogic;
-      return allMemories.filter(memory => {
+      const searchMatches = allMemories.filter(memory => {
         let matches = true;
 
         // Check AND terms - all must match
@@ -235,9 +236,13 @@ export default function useLibraries(userId) {
 
         return matches;
       });
+
+      // Add search matches to the set
+      searchMatches.forEach(memory => memoryIdsToInclude.add(memory.id));
     }
 
-    return [];
+    // Return union of both manual and search-based memories (deduplicated)
+    return allMemories.filter(memory => memoryIdsToInclude.has(memory.id));
   };
 
   return {

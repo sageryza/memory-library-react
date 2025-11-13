@@ -3,9 +3,9 @@
 
 .sidebar-advanced-search {
   background: #ffffff;
-  border: 1px solid #e8e6d5;
-  border-radius: 6px;
-  padding: 12px;
+  border: 1px solid var(--beige-border);
+  border-radius: var(--radius-medium);
+  padding: var(--spacing-12);
   margin-top: 8px;
 }
 
@@ -31,26 +31,23 @@
 
 .term-input {
   padding: 4px 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border-medium);
   border-radius: 3px;
   font-family: 'Crimson Text', serif;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: normal;
   background: #ffffff;
   min-width: 60px;
   max-width: 80px;
 }
 
-.term-input:focus {
-  outline: none;
-  border-color: #999;
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 .boolean-connector {
   font-family: 'Crimson Text', serif;
   font-weight: normal;
-  color: #666;
-  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
   padding: 0 3px;
   user-select: none;
 }
@@ -58,9 +55,9 @@
 .add-term-btn {
   width: 18px;
   height: 18px;
-  border: 1px solid #666;
+  border: 1px solid var(--color-text-secondary);
   background: #ffffff;
-  color: #666;
+  color: var(--color-text-secondary);
   border-radius: 2px;
   cursor: pointer;
   font-size: 10px;
@@ -72,8 +69,8 @@
 }
 
 .add-term-btn:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--color-bg-light);
+  color: var(--color-text-light);
 }
 
 .exclude-row {
@@ -83,8 +80,8 @@
 .exclude-label {
   font-family: 'Crimson Text', serif;
   font-weight: normal;
-  color: #666;
-  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
   min-width: 50px;
   user-select: none;
 }
@@ -99,7 +96,7 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 12px 0;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--color-border-standard);
   margin-top: 12px;
 }
 
@@ -109,7 +106,7 @@
   gap: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
 }
 
 .search-field-toggles input[type="checkbox"] {
@@ -129,33 +126,33 @@
 
 .btn-secondary {
   background: #E8E8E8;
-  color: #666;
-  border: 1px solid #CCC;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-medium);
   padding: 6px 12px;
   border-radius: 3px;
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
-  background: #DDD;
-  color: #2F4F4F;
+  background: var(--color-border-standard);
+  color: var(--color-text-primary);
 }
 
 .btn-primary {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 6px 12px;
   border-radius: 3px;
   cursor: pointer;
   font-family: 'Crimson Text', serif;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-  background: #A0001C;
+  background: var(--color-primary-hover);
 }

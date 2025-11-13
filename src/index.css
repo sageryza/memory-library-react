@@ -9,7 +9,7 @@
 body {
   font-family: 'Crimson Text', serif;
   background: #FFFFFF;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
   height: 100vh;
   overflow: hidden;
 }

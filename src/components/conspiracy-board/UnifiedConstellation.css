@@ -30,21 +30,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: var(--spacing-20);
+  border-bottom: 1px solid var(--color-border-gray);
 }
 
 .unified-constellation-header h2 {
   margin: 0;
-  color: #800020;
-  font-size: 24px;
+  color: var(--color-primary);
+  font-size: var(--font-size-xlarge);
 }
 
 .btn-close {
   background: none;
   border: none;
   font-size: 28px;
-  color: #999;
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -56,34 +56,34 @@
 }
 
 .btn-close:hover {
-  color: #333;
+  color: var(--color-text-light);
 }
 
 /* Tabs */
 .unified-constellation-tabs {
   display: flex;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border-gray);
 }
 
 .unified-constellation-tabs .tab {
   flex: 1;
-  padding: 12px;
+  padding: var(--spacing-12);
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
-  color: #666;
+  font-size: var(--font-size-medium);
+  color: var(--color-text-secondary);
   transition: all 0.2s;
   border-bottom: 2px solid transparent;
 }
 
 .unified-constellation-tabs .tab:hover {
-  background: #f5f5f5;
+  background: var(--beige-alt);
 }
 
 .unified-constellation-tabs .tab.active {
-  color: #800020;
-  border-bottom-color: #FFD700;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-accent-gold);
   font-weight: 600;
 }
 
@@ -91,7 +91,7 @@
 .unified-constellation-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--spacing-20);
 }
 
 /* Select Tab */
@@ -107,8 +107,8 @@
 
 .selection-info p {
   margin: 0 0 12px;
-  color: #666;
-  font-size: 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-medium);
 }
 
 .selection-actions {
@@ -121,17 +121,17 @@
 .btn-clear {
   padding: 8px 16px;
   background: white;
-  color: #800020;
-  border: 1px solid #800020;
-  border-radius: 6px;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-medium);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   transition: all 0.2s;
 }
 
 .btn-select-all:hover,
 .btn-clear:hover {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -153,27 +153,24 @@
 
 .name-input {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 16px;
+  padding: var(--spacing-12);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-medium);
+  font-size: var(--font-size-medium);
   transition: border-color 0.2s;
 }
 
-.name-input:focus {
-  outline: none;
-  border-color: #FFD700;
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 .btn-save {
   width: 100%;
-  padding: 12px;
-  background: #FFD700;
-  color: #333;
+  padding: var(--spacing-12);
+  background: var(--color-accent-gold);
+  color: var(--color-text-light);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-medium);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   font-weight: 600;
   transition: all 0.2s;
 }
@@ -190,16 +187,16 @@
 }
 
 .help-text {
-  padding: 12px;
-  background: #faf8e9;
-  border-radius: 6px;
+  padding: var(--spacing-12);
+  background: var(--beige-primary);
+  border-radius: var(--radius-medium);
   text-align: center;
 }
 
 .help-text p {
   margin: 0;
-  color: #666;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
 }
 
 /* Load Tab */
@@ -212,20 +209,20 @@
 .constellations-list {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid var(--color-border-gray);
+  border-radius: var(--radius-medium);
 }
 
 .no-constellations {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 40px;
   margin: 0;
 }
 
 .constellation-item {
-  padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: var(--spacing-12);
+  border-bottom: 1px solid var(--color-bg-light);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -235,20 +232,20 @@
 }
 
 .constellation-item.selected {
-  background: #faf8e9;
-  border-left: 3px solid #FFD700;
+  background: var(--beige-primary);
+  border-left: 3px solid var(--color-accent-gold);
 }
 
 .constellation-name {
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-light);
   margin-bottom: 4px;
 }
 
 .constellation-meta {
   font-size: 13px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .load-actions {
@@ -258,19 +255,19 @@
 
 .btn-load {
   flex: 1;
-  padding: 12px;
-  background: #800020;
+  padding: var(--spacing-12);
+  background: var(--color-primary);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-medium);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .btn-load:hover {
-  background: #600018;
+  background: var(--color-button-destructive);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -280,9 +277,9 @@
   background: #dc3545;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-medium);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-size-medium);
   transition: all 0.2s;
 }
 
@@ -308,15 +305,15 @@
 
 .selectable-node:hover,
 .selectable-node-pin:hover {
-  border: 2px dashed #FFD700;
-  border-radius: 8px;
+  border: 2px dashed var(--color-accent-gold);
+  border-radius: var(--radius-large);
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
 }
 
 .selectable-node.selected,
 .selectable-node-pin.selected {
-  border: 3px solid #FFD700;
-  border-radius: 8px;
+  border: 3px solid var(--color-accent-gold);
+  border-radius: var(--radius-large);
   box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
   background: rgba(255, 215, 0, 0.1);
 }

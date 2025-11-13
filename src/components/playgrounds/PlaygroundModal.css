@@ -18,9 +18,9 @@
   width: 90vw;
   height: 80vh;
   background: white;
-  border: 3px solid #DC143C;
+  border: 3px solid var(--color-accent-crimson);
   outline: 4px solid #f5f5dc;
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -31,7 +31,7 @@
 .playground-header {
   background: #faf8ea;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--color-border-divider);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -41,7 +41,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
   font-family: 'Crimson Text', serif;
 }
 
@@ -54,26 +54,26 @@
 .header-icon-btn {
   background: none;
   border: none;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: all 0.2s ease;
 }
 
 .header-icon-btn:hover {
   background: rgba(0, 0, 0, 0.1);
-  color: #800020;
+  color: var(--color-primary);
 }
 
 .playground-header .modal-close {
   background: none;
   border: none;
   font-size: 28px;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   width: 28px;
@@ -81,13 +81,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: all 0.2s ease;
 }
 
 .playground-header .modal-close:hover {
   background: rgba(0, 0, 0, 0.1);
-  color: #333;
+  color: var(--color-text-light);
 }
 
 /* ===== CANVAS CONTAINER (SCROLLABLE) ===== */
@@ -105,13 +105,13 @@
 }
 
 .playground-canvas-container::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 4px;
+  background: var(--color-bg-light);
+  border-radius: var(--radius-small);
 }
 
 .playground-canvas-container::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 4px;
+  background: var(--color-border-medium);
+  border-radius: var(--radius-small);
 }
 
 .playground-canvas-container::-webkit-scrollbar-thumb:hover {
@@ -135,8 +135,8 @@
   border-radius: 50px;
   padding: 12px 32px;
 
-  border: 3px solid #DC143C;
-  background: rgba(220, 20, 60, 0.15);
+  border: 3px solid var(--color-accent-crimson);
+  background: var(--crimson-bg-medium);
   color: white;
 
   font-family: 'Crimson Text', serif;
@@ -155,10 +155,10 @@
 .playground-memory-card {
   position: absolute;
   width: 200px;
-  background: #faf8e9;
-  border: 0.5px solid #E0E0E0;
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--beige-primary);
+  border: 0.5px solid var(--color-border-gray);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-md);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: grab;
   transition: box-shadow 0.2s ease;
@@ -170,7 +170,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
   background: #f5f2e0;
-  border-color: #CCC;
+  border-color: var(--color-border-medium);
 }
 
 .playground-memory-card.dragging {
@@ -192,8 +192,8 @@
 
 .playground-memory-card .memory-title {
   font-weight: 600;
-  font-size: 14px;
-  color: #2F4F4F;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
   line-height: 1.3;
   word-wrap: break-word;
 }
@@ -222,19 +222,25 @@
 .playground-memory-card .hashtag {
   font-family: 'Courier Prime', monospace;
   font-size: 9px;
-  color: #800020;
-  background: rgba(220, 20, 60, 0.1);
+  color: var(--color-primary);
+  background: var(--crimson-bg-light);
   padding: 2px 6px;
   border-radius: 10px;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.playground-memory-card .hashtag:hover {
+  background: var(--crimson-bg-hover);
+  color: var(--color-primary-hover);
 }
 
 /* ===== CONTEXT MENU ===== */
 .playground-context-menu {
   position: fixed;
   background: white;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-small);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   z-index: 3000;
   min-width: 180px;
@@ -244,17 +250,17 @@
 .context-menu-item {
   padding: 10px 16px;
   cursor: pointer;
-  font-size: 14px;
-  color: #2F4F4F;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
   transition: background 0.2s ease;
 }
 
 .context-menu-item:hover {
-  background: #f5f5f5;
+  background: var(--beige-alt);
 }
 
 .context-menu-item:first-child {
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--radius-small) 4px 0 0;
 }
 
 .context-menu-item:last-child {
@@ -278,8 +284,8 @@
 
 .add-playground-memory-modal {
   background: white;
-  border: 2px solid #800020;
-  border-radius: 8px;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-large);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
   width: 90%;
   max-width: 500px;
@@ -292,25 +298,25 @@
 .add-playground-memory-modal .modal-header {
   background: #faf8ea;
   padding: 16px 20px;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-large) 8px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--color-border-divider);
 }
 
 .add-playground-memory-modal .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-size-large);
   font-weight: 600;
-  color: #2F4F4F;
+  color: var(--color-text-primary);
 }
 
 .add-playground-memory-modal .modal-close {
   background: none;
   border: none;
-  font-size: 24px;
-  color: #666;
+  font-size: var(--font-size-xlarge);
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   width: 24px;
@@ -318,17 +324,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   transition: all 0.2s ease;
 }
 
 .add-playground-memory-modal .modal-close:hover {
   background: rgba(0, 0, 0, 0.1);
-  color: #333;
+  color: var(--color-text-light);
 }
 
 .add-playground-memory-modal .modal-body {
-  padding: 20px;
+  padding: var(--spacing-20);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -337,11 +343,11 @@
 
 .add-playground-memory-modal textarea {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
+  padding: var(--spacing-12);
+  border: 1px solid var(--color-border-divider);
+  border-radius: var(--radius-medium);
   font-family: 'Crimson Text', serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   background: white;
   resize: vertical;
@@ -349,21 +355,17 @@
   transition: all 0.2s ease;
 }
 
-.add-playground-memory-modal textarea:focus {
-  outline: none;
-  border-color: #d1d5db;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
-}
+/* Focus styles inherited from global input:focus rule in components.css */
 
 .central-hashtag-notice {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
 .add-playground-memory-modal .modal-footer {
   padding: 16px 20px;
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid var(--color-border-divider);
   background: white;
   display: flex;
   gap: 12px;
@@ -371,12 +373,12 @@
 }
 
 .add-playground-memory-modal .btn-save {
-  background: #800020;
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-medium);
+  font-size: var(--font-size-base);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -384,22 +386,22 @@
 }
 
 .add-playground-memory-modal .btn-save:hover {
-  background: #A0001C;
+  background: var(--color-primary-hover);
 }
 
 .add-playground-memory-modal .btn-cancel {
   background: #E8E8E8;
-  color: #666;
-  border: 1px solid #CCC;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-medium);
   padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-medium);
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: 'Crimson Text', serif;
 }
 
 .add-playground-memory-modal .btn-cancel:hover {
-  background: #DDD;
-  color: #2F4F4F;
+  background: var(--color-border-standard);
+  color: var(--color-text-primary);
 }

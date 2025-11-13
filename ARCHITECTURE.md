@@ -7,7 +7,7 @@ Memory Library is a React-based personal knowledge management application that a
 - **Conspiracy Board**: Visual canvas for creating connections between memories with drag-and-drop positioning
 - **Archive**: Pinterest-style masonry grid for browsing and managing all memories
 - **Chronology**: Timeline interface for arranging memories in chronological order
-- **Libraries**: Collection system for organizing memories with search-based filtering
+- **Libraries**: Collection system for organizing memories with manual and/or search-based filtering (can be hybrid)
 
 The app supports both authenticated (Firebase) and demo mode (localStorage) with automatic migration between them.
 
@@ -16,7 +16,7 @@ The app supports both authenticated (Firebase) and demo mode (localStorage) with
 - **Memory**: The fundamental data unit - a note with title, content, and hashtags
 - **Constellation**: A group of related memories created from hashtags
 - **Connection**: Visual links between memories on the Conspiracy Board
-- **Library**: A saved collection of memories (manual or search-based)
+- **Library**: A saved collection of memories (can be manual, search-based, or both simultaneously)
 - **Playground**: A sandbox workspace for experimenting with memory arrangements
 
 ## Main Files and Their Purpose

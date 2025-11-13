@@ -261,7 +261,7 @@ await updateChronologyState({
 
 ### useLibraries
 
-**Purpose**: Manages memory collections (Libraries) with manual and search-based filtering.
+**Purpose**: Manages memory collections (Libraries) with manual and search-based filtering. Libraries can contain both manual and search-based memories simultaneously.
 
 **Location**: `src/hooks/useLibraries.js`
 
@@ -288,13 +288,15 @@ await updateChronologyState({
   id: string,
   name: string,
   description: string,
-  manualMemoryIds: string[],       // For manual libraries
-  searchLogic: SearchLogic | null, // For search-based libraries
+  manualMemoryIds: string[],       // Manually added memories
+  searchLogic: SearchLogic | null, // Dynamic search filter
   isLocked: boolean,               // Hidden from main views
   color: string | null,
   createdAt: string
 }
 ```
+
+**Note**: Libraries support hybrid functionality - they can have both `manualMemoryIds` and `searchLogic` simultaneously. The `getLibraryMemories` function returns the union of both sources (deduplicated).
 
 **SearchLogic Object**:
 ```javascript
@@ -332,7 +334,21 @@ await createLibrary({
   }
 });
 
-// Get memories in a library
+// Create a hybrid library (both manual and search-based)
+await createLibrary({
+  name: 'Important Work Items',
+  description: 'Work-related memories plus specific highlights',
+  manualMemoryIds: ['mem1', 'mem2'],  // Specific memories
+  searchLogic: {                      // Plus dynamic search
+    andTerms: ['work'],
+    orTerms: [],
+    searchInTitles: true,
+    searchInContent: true,
+    searchInHashtags: true
+  }
+});
+
+// Get memories in a library (returns union of manual + search results)
 const libraryMemories = getLibraryMemories(libraryId, memories);
 ```
 

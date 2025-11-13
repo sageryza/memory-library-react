@@ -117,9 +117,9 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     if (isOpen) {
       if (editingMemory) {
         // Editing mode - populate with existing memory data
-        // Extract hashtags without # symbol for display
+        // Extract hashtags without # symbol for display, join with commas
         const hashtagsText = editingMemory.hashtags ?
-          editingMemory.hashtags.map(tag => tag.replace('#', '')).join(' ') : '';
+          editingMemory.hashtags.map(tag => tag.replace('#', '')).join(', ') : '';
 
         // Format title - replace <br> with spaces for editing
         const titleText = editingMemory.title ? editingMemory.title.replace(/<br>/g, ' ') : '';
@@ -260,11 +260,13 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
 
     // Convert to memories format
     const memories = validUnits.map(unit => {
-      // Process hashtags: split by space, filter empty, ensure # prefix
+      // Process hashtags: split by commas, trim each, ensure # prefix
       const hashtagArray = unit.hashtags.trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .map(tag => tag.startsWith('#') ? tag : '#' + tag);
+        ? unit.hashtags.split(',').map(tag => {
+            const trimmed = tag.trim();
+            return trimmed ? (trimmed.startsWith('#') ? trimmed : `#${trimmed}`) : null;
+          }).filter(tag => tag !== null)
+        : [];
 
       // Filter breadcrumbs to remove empty ones
       const filteredBreadcrumbs = unit.breadcrumbs.filter(crumb => crumb.trim());

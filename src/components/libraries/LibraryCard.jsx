@@ -1,11 +1,16 @@
+import LibraryIcon from '../shared/LibraryIcon';
+
 export default function LibraryCard({ library, memoryCount, onClick }) {
-  const isSearchBased = !!library.searchLogic;
   const isLocked = library.isLocked;
 
   return (
     <div className="library-card" onClick={onClick}>
       <div className="library-card-header">
-        <h3 className="library-card-title">{library.name}</h3>
+        <div className="library-card-header-top">
+          <LibraryIcon size={24} color="currentColor" />
+          <h3 className="library-card-title">{library.name}</h3>
+        </div>
+        <div className="library-card-divider"></div>
       </div>
 
       {library.description && (
@@ -17,9 +22,6 @@ export default function LibraryCard({ library, memoryCount, onClick }) {
           {memoryCount} {memoryCount === 1 ? 'memory' : 'memories'}
         </span>
         <div className="library-badges">
-          {isSearchBased && (
-            <span className="library-badge search-based">Search-based</span>
-          )}
           {isLocked && (
             <span className="library-badge locked">Locked</span>
           )}

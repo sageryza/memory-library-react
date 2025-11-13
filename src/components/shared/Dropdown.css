@@ -1,18 +1,19 @@
 .dropdown-container {
   position: relative;
   display: inline-block;
+  overflow: visible; /* Ensure dropdown menu can extend outside container */
 }
 
 .dropdown-menu {
   position: absolute;
   top: 100%;
   left: 0;
-  z-index: var(--z-dropdown);
+  z-index: 1100;
   min-width: 200px;
-  margin-top: var(--spacing-xs);
+  margin-top: -8px;
   background: var(--color-bg-white);
   border: 1px solid var(--color-border-divider);
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-medium);
   box-shadow: var(--shadow-medium);
   overflow: hidden;
   animation: dropdownSlide var(--transition-fast) ease-out;
@@ -20,7 +21,7 @@
 
 .dropdown-menu-right {
   left: auto;
-  right: 0;
+  right: -1px; /* Slight adjustment to align perfectly with button edge */
 }
 
 @keyframes dropdownSlide {
@@ -98,7 +99,7 @@
   }
 
   .dropdown-item {
-    color: #e0e0e0;
+    color: var(--color-border-gray);
   }
 
   .dropdown-item:hover:not(.disabled) {
@@ -119,10 +120,10 @@
 .header-dropdown-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  justify-content: center;
   padding: var(--spacing-medium) var(--spacing-10);
   background: transparent;
-  border: 1px solid var(--color-border-primary);
+  border: none;
   border-radius: var(--radius-medium);
   color: var(--color-text-primary);
   font-size: var(--font-size-base);
@@ -132,12 +133,10 @@
 
 .header-dropdown-btn:hover {
   background: rgba(47, 79, 79, 0.05);
-  border-color: var(--color-text-primary);
 }
 
 .header-dropdown-btn.active {
   background: rgba(47, 79, 79, 0.1);
-  border-color: var(--color-text-primary);
 }
 
 .header-dropdown-btn svg {

@@ -195,7 +195,7 @@
 .modal-close {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--font-size-xlarge);
   color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
@@ -215,7 +215,7 @@
 
 /* Modal body */
 .modal-body {
-  padding: 20px;
+  padding: var(--spacing-20);
   overflow-y: auto;
   flex: 1;
 }
@@ -231,6 +231,15 @@
 
 /* ===== Form Elements ===== */
 
+/* Global focus styling for all text inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--focus-border-color);
+  box-shadow: var(--focus-shadow);
+}
+
 /* Input fields */
 .form-input {
   width: 100%;
@@ -241,11 +250,6 @@
   font-family: var(--font-family-primary);
   color: var(--color-text-primary);
   transition: border-color var(--transition-normal);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
 }
 
 /* Textarea */
@@ -260,11 +264,6 @@
   resize: vertical;
   min-height: 80px;
   transition: border-color var(--transition-normal);
-}
-
-.form-textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
 }
 
 /* Form labels */

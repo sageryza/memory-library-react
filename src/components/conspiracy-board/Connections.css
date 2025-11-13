@@ -24,7 +24,7 @@
 
 /* Connection Line Base Styles */
 .connection-line {
-  stroke: #dc143c;
+  stroke: var(--color-string-and-pin);
   stroke-width: 2;
   fill: none;
   pointer-events: stroke;
@@ -49,10 +49,10 @@
 .connection-tooltip {
   position: absolute;
   background: white;
-  color: #333;
-  border: 2px solid #ccc;
+  color: var(--color-text-light);
+  border: 2px solid var(--color-border-medium);
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   font-family: 'Crimson Text', serif;
   font-size: 13px;
   line-height: 1.4;

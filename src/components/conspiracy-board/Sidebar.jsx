@@ -79,45 +79,44 @@ export default function Sidebar({
 
   return (
     <div className="sidebar">
-      {/* Search Section (Toggleable) */}
-      {showSearch && (
-        <div className="sidebar-search">
-          <div className="search-input-container">
-            <input
-              type="text"
-              placeholder="Search memories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-              id="sidebarSearch"
-            />
-            {/* TODO: Fix dropdown arrow - currently non-functional
-                Expected: clicking should open boolean search interface
-                Current: nothing happens when clicked */}
-            <button
-              className="advanced-search-btn"
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              title="Advanced search"
-            >
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            </button>
-          </div>
+      {/* Search Section - Background always visible */}
+      <div className="sidebar-search">
+        {showSearch && (
+          <>
+            <div className="search-input-container">
+              <input
+                type="text"
+                placeholder="Search memories..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+                id="sidebarSearch"
+              />
+              <button
+                className="advanced-search-btn"
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                title="Advanced search"
+              >
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                </svg>
+              </button>
+            </div>
 
-          {/* Advanced Search Panel - Inline */}
-          <AdvancedSearch
-            isOpen={showAdvancedSearch}
-            memories={memories}
-            onFilter={(filtered) => {
-              setFilteredByAdvanced(filtered)
-              if (filtered) {
-                setSearchTerm('') // Clear regular search when using advanced
-              }
-            }}
-          />
-        </div>
-      )}
+            {/* Advanced Search Panel - Inline */}
+            <AdvancedSearch
+              isOpen={showAdvancedSearch}
+              memories={memories}
+              onFilter={(filtered) => {
+                setFilteredByAdvanced(filtered)
+                if (filtered) {
+                  setSearchTerm('') // Clear regular search when using advanced
+                }
+              }}
+            />
+          </>
+        )}
+      </div>
 
       <div className="memory-list">
         {filteredMemories.length === 0 ? (
