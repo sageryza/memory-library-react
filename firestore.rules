@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User-specific data (existing rules)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // User's memories
+      match /memories/{memoryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's board state
+      match /boardState/{stateId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's saved boards
+      match /boards/{boardId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's libraries
+      match /libraries/{libraryId} {
+        allow read, write: if isOwner(userId);
+
+        // Library memories
+        match /memories/{memoryId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      // User's playgrounds
+      match /playgrounds/{playgroundId} {
+        allow read, write: if isOwner(userId);
+
+        // Playground messages
+        match /messages/{messageId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      // User's chronology state
+      match /chronologyState/{stateId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's constellation state
+      match /constellationState/{stateId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Public boards - accessible to everyone
+    match /publicBoards/{boardId} {
+      // Anyone can read public boards
+      allow read: if true;
+
+      // Anyone can create a public board (authenticated or anonymous)
+      allow create: if true;
+
+      // Only the creator can update the board metadata
+      allow update: if resource.data.createdBy == request.auth.uid
+                    || !isAuthenticated();
+
+      // Only the creator can delete the board
+      allow delete: if isAuthenticated()
+                    && resource.data.createdBy == request.auth.uid;
+
+      // Board memories
+      match /memories/{memoryId} {
+        // Anyone can read memories on public boards
+        allow read: if true;
+
+        // Anyone can add memories to public boards
+        allow create, update: if true;
+
+        // Anyone can remove memories (collective editing)
+        allow delete: if true;
+      }
+
+      // Board connections
+      match /connections/{connectionId} {
+        // Anyone can read connections
+        allow read: if true;
+
+        // Anyone can create connections
+        allow create: if true;
+
+        // Anyone can remove connections (collective editing)
+        allow delete: if true;
+      }
+
+      // Board standalone pins
+      match /pins/{pinId} {
+        // Anyone can read pins
+        allow read: if true;
+
+        // Anyone can create pins
+        allow create: if true;
+
+        // Anyone can remove pins (collective editing)
+        allow delete: if true;
+      }
+    }
+  }
+}

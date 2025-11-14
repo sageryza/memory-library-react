@@ -12,6 +12,7 @@ import ConspiracyBoard from './components/conspiracy-board/ConspiracyBoard'
 import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
 import Chronology from './components/Chronology'
+import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import StorageIndicator from './components/shared/StorageIndicator'
 import './styles/theme.css'
 import './styles/components.css'
@@ -27,6 +28,7 @@ function PageTitle() {
       '/archive': 'Archive',
       '/libraries': 'Libraries',
       '/chronology': 'Chronology',
+      '/public': 'Public Boards',
       '/login': 'Login'
     };
 
@@ -66,6 +68,7 @@ function Navigation({ user }) {
       <Link to="/archive" className="nav-link">📚 Archive</Link>
       <Link to="/libraries" className="nav-link">📖 Libraries</Link>
       <Link to="/chronology" className="nav-link">⏳ Chronology</Link>
+      <Link to="/public" className="nav-link">🌐 Public Boards</Link>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {user ? (
           <>
@@ -249,6 +252,10 @@ function App() {
                 deleteMemory={deleteMemory}
               />
             }
+          />
+          <Route
+            path="/public"
+            element={<PublicBoardsContainer />}
           />
           <Route
             path="/login"

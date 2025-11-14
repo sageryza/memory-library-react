@@ -1,0 +1,171 @@
+.public-board-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #faf8e9;
+  font-family: 'Crimson Text', serif;
+  overflow: hidden;
+}
+
+.public-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 30px;
+  background: white;
+  border-bottom: 2px solid #e8e6d5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.back-btn {
+  background: none;
+  border: 2px solid #800020;
+  color: #800020;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Crimson Text', serif;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.back-btn:hover {
+  background: #800020;
+  color: white;
+}
+
+.public-board-header h2 {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 1.8em;
+  color: #800020;
+  font-weight: normal;
+}
+
+.board-info {
+  display: flex;
+  gap: 10px;
+  color: #666;
+  font-size: 0.95em;
+}
+
+.board-layout {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.memory-sidebar {
+  width: 280px;
+  background: white;
+  border-right: 2px solid #e8e6d5;
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.memory-sidebar h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.3em;
+  font-weight: normal;
+}
+
+.add-memory-btn {
+  width: 100%;
+  padding: 10px;
+  background: #800020;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Crimson Text', serif;
+  font-size: 1em;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  margin-bottom: 15px;
+}
+
+.add-memory-btn:hover {
+  opacity: 0.9;
+}
+
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.sidebar-memory {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.sidebar-memory:hover {
+  transform: translateX(5px);
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #faf8e9;
+}
+
+.connections-svg {
+  pointer-events: none;
+  z-index: 1;
+}
+
+.public-board-loading,
+.public-board-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.3em;
+  color: #666;
+  font-family: 'Crimson Text', serif;
+}
+
+.public-board-error {
+  color: #d32f2f;
+}
+
+/* Override some Canvas styles for public boards */
+.public-board-container .canvas {
+  background: #faf8e9;
+  position: relative;
+}
+
+.public-board-container .dropped-memory {
+  transition: box-shadow 0.3s;
+}
+
+.public-board-container .dropped-memory:hover {
+  box-shadow: 0 8px 24px rgba(128, 0, 32, 0.2);
+}
+
+/* Memory card in sidebar should be draggable */
+.memory-sidebar .memory-card {
+  cursor: grab;
+}
+
+.memory-sidebar .memory-card:active {
+  cursor: grabbing;
+}
+
+/* Anonymous indicator */
+.anonymous-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  background: #e8e6d5;
+  color: #666;
+  border-radius: 4px;
+  font-size: 0.8em;
+  margin-left: 5px;
+}
