@@ -8,7 +8,7 @@ import { usePlaygrounds } from '../../hooks/usePlaygrounds';
 import LibrarySidebar, { LibraryCard } from './LibrarySidebar';
 import MemoryModal from '../shared/MemoryModal';
 import AdvancedSearch from '../shared/AdvancedSearch';
-import ArchiveMemoryCard from './ArchiveMemoryCardWrapper';
+import ArchiveMemoryCard from './ArchiveMemoryCard';
 import PlaygroundModal from '../playgrounds/PlaygroundModal';
 import Header from '../shared/Header';
 import LibraryIcon from '../shared/LibraryIcon';
@@ -17,6 +17,7 @@ import './LibrarySidebar.css';
 import './styles/Archive.css';
 import './styles/MemoryCard.css';
 import './styles/Constellation.css';
+import '../shared/Hashtag.css';
 import '../../styles/simplifyView.css';
 
 // Main App Component
@@ -684,7 +685,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                               return (
                                 <button
                                   key={tag}
-                                  className={`tag-cloud-item ${isSelected ? 'selected' : ''}`}
+                                  className={`hashtag clickable tag-cloud ${isSelected ? 'selected' : ''}`}
                                   onClick={() => handleHashtagClick(tag)}
                                   title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
                                   style={{ fontSize: `${fontSize}px` }}

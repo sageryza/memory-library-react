@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import './MemoryCard.css';
 import './Hashtag.css';
 
 /**
@@ -10,8 +9,7 @@ import './Hashtag.css';
 export default function MemoryCard({
   memory,
   isStackedView = false,
-  formatTitleForDisplay,
-  onHashtagClick  // Optional: callback when hashtag is clicked
+  formatTitleForDisplay
 }) {
   const titleRef = useRef(null);
   const [fontSize, setFontSize] = useState(14);
@@ -83,7 +81,7 @@ export default function MemoryCard({
     <div className={`memory-card ${isStackedView ? 'stacked-view' : ''}`}>
       <div
         ref={titleRef}
-        className={`memory-card-title ${isStackedView ? 'stacked' : ''}`}
+        className={`memory-card-title ${isStackedView ? 'stacked' : ''} ${!hasContent && !isStackedView ? 'full-height' : ''}`}
         style={isStackedView ? { fontSize: `${fontSize}px` } : undefined}
         dangerouslySetInnerHTML={{ __html: displayTitle }}
       />
@@ -95,14 +93,7 @@ export default function MemoryCard({
       {!isStackedView && memory.hashtags && memory.hashtags.length > 0 && (
         <div className="hashtag-container">
           {memory.hashtags.map((tag, i) => (
-            <span
-              key={i}
-              className={`hashtag ${onHashtagClick ? 'clickable' : ''}`}
-              onClick={onHashtagClick ? (e) => {
-                e.stopPropagation();
-                onHashtagClick(tag);
-              } : undefined}
-            >
+            <span key={i} className="hashtag">
               {tag}
             </span>
           ))}

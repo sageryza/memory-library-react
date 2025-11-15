@@ -45,22 +45,18 @@
 }
 
 /* Make cards uniform squares in simplify view */
-.memories-container.simplify-view .archive-memory-wrapper,
-.simplify-grid .archive-memory-wrapper {
-    margin-bottom: 0;
-}
-
-.memories-container.simplify-view .memory-card,
-.simplify-grid .memory-card {
+.memories-container.simplify-view .memory-item,
+.simplify-grid .memory-item {
     min-height: 120px;
     max-height: 120px;
-    padding: var(--spacing-sm);
+    padding: 8px;
     width: 120px;
     height: 120px;
     flex: 0 0 120px;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-bottom: 0;
     overflow: hidden;
 }
 

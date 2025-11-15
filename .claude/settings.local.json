@@ -50,7 +50,16 @@
       "Bash(git show:*)",
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
-      "Bash(/Users/sageryza/Documents/timeline/memory-library-react/public/favicon.svg)"
+      "Bash(/Users/sageryza/Documents/timeline/memory-library-react/public/favicon.svg)",
+      "Bash(git worktree add:*)",
+      "Bash(git worktree:*)",
+      "Bash(rm:*)",
+      "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-react status --short)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(git apply:*)",
+      "Bash(git revert:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

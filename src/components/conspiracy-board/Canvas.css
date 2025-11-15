@@ -63,13 +63,17 @@
 }
 
 .dropped-memory .memory-card {
-  /* Base styling from shared MemoryCard.css */
-  /* Override specifics for conspiracy board */
+  background: #faf8e9;
+  border: 0.75px solid #e8e6d5;
+  border-radius: 6px;
+  padding: 15px;
   width: 250px;
   min-height: 120px;
   cursor: move;
-  border: 1px solid var(--beige-border); /* Fixed from 0.75px to 1px */
-  border-radius: var(--radius-medium);    /* 6px for conspiracy board */
+  transition: box-shadow 0.2s ease;
+  user-select: none;
+  position: relative;
+  z-index: 10;
 }
 
 .dropped-memory:hover .memory-card {

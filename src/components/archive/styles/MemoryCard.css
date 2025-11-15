@@ -1,26 +1,40 @@
 /* ===== MEMORY CARD - COMPLETE VANILLA STYLING ===== */
 
-/* Archive Memory Wrapper (container for checkbox, constellation, and base card) */
-.archive-memory-wrapper {
+/* Base Memory Card */
+.memory-item {
+    background: #faf8e9;
+    border: 0.5px solid #E0E0E0;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    cursor: pointer;
     width: 100%; /* Let Masonry handle column widths */
     margin-bottom: 15px; /* Vertical spacing between items */
+    display: flex;
+    flex-direction: column;
     position: relative;
-    user-select: none;
-    height: fit-content; /* Shrink-wrap to card height */
-    /* No background, border, or padding - the inner MemoryCard handles that */
+    /* Remove fixed height to allow natural content sizing */
 }
 
-/* Selected State - Exact vanilla styling */
-.archive-memory-wrapper.selected .memory-card {
+/* Hover State */
+.memory-item:hover {
+    background: #f5f2e0;
+    border-color: #CCC;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Selected State */
+.memory-item.selected {
     background: #fdf2f8;
     border-color: #d9bbc2;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(128, 0, 32, 0.2);
 }
 
-/* Dragging State */
-.archive-memory-wrapper.dragging .memory-card {
-    opacity: 0.5;
+/* Card View (default) */
+.memory-item.card {
+    height: fit-content;
 }
 
 /* ===== MEMORY HEADER - Exact vanilla styling ===== */
@@ -106,7 +120,7 @@
     transition: opacity 0.3s ease;
 }
 
-.archive-memory-wrapper:hover .memory-actions {
+.memory-item:hover .memory-actions {
     opacity: 1;
 }
 

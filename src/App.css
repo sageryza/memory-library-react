@@ -437,7 +437,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to allow child scrolling */
 }
 
 /* Sidebar Toggle Tab */
