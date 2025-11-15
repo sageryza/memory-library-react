@@ -1422,12 +1422,11 @@ const handleDragEnd = (event) => {
 
     const items = []
 
-    // TODO: Right-click to edit memories works here in Conspiracy Board ✅
-    // Still need to add this functionality to Sidebar (see Sidebar.jsx)
     if (type === 'memory') {
       items.push(
         { label: 'Edit Memory', icon: '✏️', onClick: () => handleEditMemory(data) },
-        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) }
+        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) },
+        { label: 'Delete Memory', icon: '🗑️', onClick: () => handleDeleteMemory(data.id) }
       )
     } else if (type === 'canvas') {
       items.push(
@@ -2206,6 +2205,8 @@ const handleDragEnd = (event) => {
                   showSearch={true}
                   formatTitleForDisplay={formatTitleForDisplay}
                   isSimplified={isSimplified}
+                  onEditMemory={handleEditMemory}
+                  onDeleteMemory={handleDeleteMemory}
                 />
               }
               tabs={[
@@ -2219,6 +2220,8 @@ const handleDragEnd = (event) => {
                       showSearch={false}
                       formatTitleForDisplay={formatTitleForDisplay}
                       isSimplified={isSimplified}
+                      onEditMemory={handleEditMemory}
+                      onDeleteMemory={handleDeleteMemory}
                     />
                   )
                 },
