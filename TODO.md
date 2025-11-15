@@ -182,7 +182,7 @@
 
 ---
 
-### Conspiracy Board - Add Close Button for Search Bar in Sidebar
+### Conspiracy Board - Add Close Button for Search Bar in Sidebar **[COMPLETE]**
 **Issue:** Once the search bar is toggled on in the Conspiracy Board sidebar, there's no way to close/hide it
 
 **Current behavior:**
