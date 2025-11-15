@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
+import { X } from 'lucide-react'
 import MemoryCard from '../shared/MemoryCard'
 import AdvancedSearch from '../shared/AdvancedSearch'
 import SearchInput from '../shared/SearchInput'
@@ -57,6 +58,7 @@ export default function Sidebar({
   droppedMemories = [],
   onRandomlyPlaceMemory,
   showSearch = false,
+  onCloseSearch,
   formatTitleForDisplay,
   isSimplified,
   onEditMemory,
@@ -111,11 +113,22 @@ export default function Sidebar({
       {/* Search Section - Only render when showSearch is true */}
       {showSearch && (
         <div className="sidebar-search">
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            onToggleAdvanced={() => setShowAdvancedSearch(!showAdvancedSearch)}
-          />
+          <div className="sidebar-search-header">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              onToggleAdvanced={() => setShowAdvancedSearch(!showAdvancedSearch)}
+            />
+            {onCloseSearch && (
+              <button
+                className="close-search-bar-btn"
+                onClick={onCloseSearch}
+                title="Close search"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
 
           {/* Advanced Search Panel - Inline */}
           <AdvancedSearch

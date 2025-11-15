@@ -97,8 +97,6 @@ function ConspiracyBoard({
   const [activeBoardName, setActiveBoardName] = useState(() => {
     return localStorage.getItem('activeBoardName') || null
   })
-  // TODO: Add way to close/dismiss search bar once toggled on
-  // Currently no way to hide search bar after toggling it on in sidebar
   const [showSearch, setShowSearch] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -2231,6 +2229,7 @@ const handleDragEnd = (event) => {
                   droppedMemories={displayMemories}
                   onRandomlyPlaceMemory={randomlyPlaceMemory}
                   showSearch={true}
+                  onCloseSearch={() => setShowSearch(false)}
                   formatTitleForDisplay={formatTitleForDisplay}
                   isSimplified={isSimplified}
                   onEditMemory={handleEditMemory}
