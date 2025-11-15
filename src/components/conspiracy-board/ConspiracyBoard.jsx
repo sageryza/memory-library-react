@@ -376,10 +376,6 @@ const handleDragEnd = (event) => {
 
   // If dropping on canvas from sidebar (allow drops anywhere in the pan area)
   // Accept drops even when over is null (outside original viewport but within pan area)
-  // TODO: Fix drag-drop issue for canvas-created memories
-  // BUG: Memories created via right-click (handleAddMemoryAtPosition) have isOnCanvas: true
-  // When these are returned to sidebar and re-dragged, this condition may fail
-  // Need to either: (1) clear isOnCanvas when returning to sidebar, or (2) adjust this logic
   if (!memoryData?.isOnCanvas && !memoryData?.isStandalonePin && memoryData) {
     if (!memoryData || !memoryData.id) {
       console.error('No valid memory data found for dragged item')
@@ -906,9 +902,6 @@ const handleDragEnd = (event) => {
     if (!position) return
 
     // Create a new blank memory at the clicked position
-    // TODO: isOnCanvas flag causes drag-drop issues later
-    // When this memory is returned to sidebar and re-dragged, the isOnCanvas: true flag
-    // may prevent it from being dropped back onto canvas (see handleDragEnd line 381)
     const newMemory = {
       id: Date.now().toString(), // Temporary ID (normalized to string)
       title: '',
@@ -978,7 +971,8 @@ const handleDragEnd = (event) => {
 
     try {
       // Save to Firebase
-      const { x, y, id, ...memoryData } = memory
+      // Exclude canvas-specific properties (x, y, isOnCanvas) - these are board-specific, not memory-specific
+      const { x, y, id, isOnCanvas, ...memoryData } = memory
       const newMemoryId = await addMemory({
         ...memoryData,
         title: processedTitle,
@@ -1458,19 +1452,25 @@ const handleDragEnd = (event) => {
     setContextMenu({ x: e.clientX, y: e.clientY, items })
   }, [screenToCanvas, isConstellationMode, handlePlacePinAtPosition])  // Add dependencies as needed
 
-  const handleReturnToSidebar = useCallback((memoryId) => {
+  const handleReturnToSidebar = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent returning to sidebar in constellation mode
-    // TODO: Clear isOnCanvas flag when returning memory to sidebar
-    // Currently only removes from droppedMemories array, but if the memory object in Firestore
-    // still has isOnCanvas: true, it will cause drag-drop issues when re-dragging from sidebar
-    // Should update the memory document in Firestore to remove isOnCanvas property
+
+    // Clear isOnCanvas flag in Firestore for old memories that may still have it
+    // (New memories created after the fix won't have this property at all)
+    try {
+      await updateMemory(memoryId, { isOnCanvas: false })
+    } catch (error) {
+      console.error('Error clearing isOnCanvas flag:', error)
+      // Continue with removal from board even if Firestore update fails
+    }
+
     saveStateForUndo('Return memory to sidebar')
     updateBoardState({
       ...boardState,
       droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId)),
       connections: connections.filter(c => !compareIds(c.from, memoryId) && !compareIds(c.to, memoryId))
     })
-  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode])
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, updateMemory])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
     saveStateForUndo('Delete memory')
