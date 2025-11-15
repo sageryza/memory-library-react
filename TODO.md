@@ -5,6 +5,68 @@
 
 ---
 
+# ⚡ PARALLEL DEVELOPMENT WORKFLOW
+
+⚠️ **IMPORTANT: Multiple chats are working on different tasks simultaneously using git worktrees.**
+
+## How This Works
+
+- **Main repo:** `/Users/sageryza/Documents/timeline/memory-library-react`
+- **This file:** Contains ALL tasks for ALL chats
+- **Your worktree:** You're working in a separate directory on a specific branch
+- **Other chats:** Working in their own worktrees on their own branches
+
+## Before You Start
+
+1. **Pick a task** from the list below that interests you
+   - Either: Pick one and tell the user which one (await confirmation)
+   - Or: Give the user 2-3 options you're interested in working on
+2. **Mark your task as IN PROGRESS** by adding `**[IN PROGRESS]**` to the task title
+   - Example: `### Archive - Boolean Hashtag Filtering **[IN PROGRESS]**`
+   - This prevents other chats from picking the same task
+3. **Check related tasks** to see if other chats are touching the same files
+4. **Note shared files** that multiple tasks might modify (see list below)
+
+## Avoiding Conflicts
+
+### High-Risk Shared Files (check if others are modifying these):
+- `src/App.css` - Global styles (many tasks touch this)
+- `src/components/conspiracy-board/ConspiracyBoard.jsx` - Large file, many tasks
+- `src/components/conspiracy-board/ConspiracyBoard.css` - Styling for conspiracy board
+- `src/components/archive/Archive.jsx` - Archive component
+- `src/components/shared/*` - Shared components used everywhere
+- `src/hooks/*` - Shared hooks
+
+### Best Practices:
+1. **Scan other task descriptions** to see which files they touch
+2. **If another task touches your files:** Coordinate or work on different parts
+3. **Prefer creating NEW files** over modifying shared ones when possible
+4. **Use specific CSS classes** to avoid global style conflicts
+5. **Ask questions** if you're unsure about conflicts
+
+## Your Worktree
+
+- You're in an isolated directory with your own branch
+- Changes you make here don't affect other chats until merged
+- You can safely commit without disrupting others
+- Reference this master task file at: `../memory-library-react/TODO.md`
+
+## When You're Done
+
+1. **Mark your task as COMPLETE** by changing `**[IN PROGRESS]**` to `**[COMPLETE]**`
+2. Commit your changes to your branch (including the TODO.md status update)
+3. Report back: "Task complete, branch: [your-branch-name]"
+4. User will test and merge if successful
+
+## Task Status Legend
+
+- **No marker** = Available to work on
+- **[IN PROGRESS]** = Someone is currently working on this
+- **[COMPLETE]** = Finished and waiting for merge/testing
+- **[MERGED]** = Successfully merged to main
+
+---
+
 ## 📝 NEW TODOS FROM NOTEBOOK (2025-11-11)
 
 ### Archive - Boolean Hashtag Filtering (Simple Version)
