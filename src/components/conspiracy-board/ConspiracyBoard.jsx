@@ -2229,7 +2229,6 @@ const handleDragEnd = (event) => {
                   droppedMemories={displayMemories}
                   onRandomlyPlaceMemory={randomlyPlaceMemory}
                   showSearch={true}
-                  onCloseSearch={() => setShowSearch(false)}
                   formatTitleForDisplay={formatTitleForDisplay}
                   isSimplified={isSimplified}
                   onEditMemory={handleEditMemory}

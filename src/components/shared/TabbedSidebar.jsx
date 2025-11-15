@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, cloneElement, isValidElement } from 'react';
 import './TabbedSidebar.css';
 
 export default function TabbedSidebar({
@@ -6,12 +6,17 @@ export default function TabbedSidebar({
   defaultTabIndex = 0,          // Which tab to show first
   showSearchToggle = false,     // Whether to show search toggle button
   searchContent = null,         // Content to show when in search mode
+  onCloseSearch = null,         // Callback to inject into searchContent for closing search
 }) {
   const [activeTabIndex, setActiveTabIndex] = useState(defaultTabIndex);
   const [isSearchMode, setIsSearchMode] = useState(false);
 
   const toggleSearchMode = () => {
     setIsSearchMode(!isSearchMode);
+  };
+
+  const closeSearchMode = () => {
+    setIsSearchMode(false);
   };
 
   // Handle escape key to exit search mode
@@ -78,7 +83,10 @@ export default function TabbedSidebar({
       <div className="tabbed-sidebar-content">
         {isSearchMode ? (
           // Show search content when in search mode (full Sidebar with search)
-          searchContent
+          // Clone the searchContent and inject the closeSearchMode callback
+          isValidElement(searchContent)
+            ? cloneElement(searchContent, { onCloseSearch: closeSearchMode })
+            : searchContent
         ) : (
           // Show active tab content
           tabs[activeTabIndex]?.content
