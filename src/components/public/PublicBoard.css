@@ -18,7 +18,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.back-btn {
+.public-board-container .back-btn {
   background: none;
   border: 2px solid #800020;
   color: #800020;
@@ -30,7 +30,7 @@
   transition: all 0.3s;
 }
 
-.back-btn:hover {
+.public-board-container .back-btn:hover {
   background: #800020;
   color: white;
 }
@@ -58,7 +58,7 @@
   overflow: hidden;
 }
 
-.memory-sidebar {
+.public-board-container .memory-sidebar {
   width: 280px;
   background: white;
   border-right: 2px solid #e8e6d5;
@@ -67,14 +67,14 @@
   z-index: 100;
 }
 
-.memory-sidebar h3 {
+.public-board-container .memory-sidebar h3 {
   margin: 0 0 15px 0;
   color: #333;
   font-size: 1.3em;
   font-weight: normal;
 }
 
-.add-memory-btn {
+.public-board-container .add-memory-btn {
   width: 100%;
   padding: 10px;
   background: #800020;
@@ -88,11 +88,11 @@
   margin-bottom: 15px;
 }
 
-.add-memory-btn:hover {
+.public-board-container .add-memory-btn:hover {
   opacity: 0.9;
 }
 
-.memory-list {
+.public-board-container .memory-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -100,23 +100,23 @@
   overflow-y: auto;
 }
 
-.sidebar-memory {
+.public-board-container .sidebar-memory {
   cursor: pointer;
   transition: transform 0.2s;
 }
 
-.sidebar-memory:hover {
+.public-board-container .sidebar-memory:hover {
   transform: translateX(5px);
 }
 
-.canvas-container {
+.public-board-container .canvas-container {
   flex: 1;
   position: relative;
   overflow: hidden;
   background: #faf8e9;
 }
 
-.connections-svg {
+.public-board-container .connections-svg {
   pointer-events: none;
   z-index: 1;
 }
@@ -151,16 +151,16 @@
 }
 
 /* Memory card in sidebar should be draggable */
-.memory-sidebar .memory-card {
+.public-board-container .memory-sidebar .memory-card {
   cursor: grab;
 }
 
-.memory-sidebar .memory-card:active {
+.public-board-container .memory-sidebar .memory-card:active {
   cursor: grabbing;
 }
 
 /* Anonymous indicator */
-.anonymous-tag {
+.public-board-container .anonymous-tag {
   display: inline-block;
   padding: 2px 6px;
   background: #e8e6d5;
