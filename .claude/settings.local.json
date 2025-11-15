@@ -59,7 +59,11 @@
       "Bash(wc:*)",
       "Bash(git apply:*)",
       "Bash(git revert:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(chmod:*)",
+      "Bash(./create-worktree.sh:*)",
+      "Bash(./create-worktree.sh)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
