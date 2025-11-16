@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   doc,
@@ -48,32 +48,34 @@ export const useSavedBoards = (userId) => {
   }, [userId]);
 
   // Save a board
-  // TODO: Investigate false error popups when board saves successfully
-  // Sometimes this function succeeds but triggers error handling in ConspiracyBoard.jsx
-  // Possible issues:
-  // - serverTimestamp() timing issue?
-  // - Promise resolution timing?
-  // - Network/Firebase timeout false positive?
-  const saveBoard = async (name, boardState) => {
+  // updateTimestamp: if true, updates the updatedAt timestamp (for manual saves)
+  //                  if false, doesn't update timestamp (for auto-saves to prevent re-ordering)
+  const saveBoard = useCallback(async (name, boardState, updateTimestamp = true) => {
     if (!userId || !name) return;
 
     try {
       const boardRef = doc(db, 'users', userId, 'boards', name);
-      await setDoc(boardRef, {
+      const data = {
         name,
         droppedMemories: boardState.droppedMemories || [],
         connections: boardState.connections || [],
-        standalonePins: boardState.standalonePins || [],
-        updatedAt: serverTimestamp()
-      });
+        standalonePins: boardState.standalonePins || []
+      };
+
+      // Only update timestamp for manual saves, not auto-saves
+      if (updateTimestamp) {
+        data.updatedAt = serverTimestamp();
+      }
+
+      await setDoc(boardRef, data, { merge: true });
     } catch (error) {
       console.error('Error saving board:', error);
       throw error;
     }
-  };
+  }, [userId]);
 
   // Load a board
-  const loadBoard = (boardId) => {
+  const loadBoard = useCallback((boardId) => {
     const board = savedBoards.find(b => b.id === boardId);
     if (board) {
       return {
@@ -83,10 +85,10 @@ export const useSavedBoards = (userId) => {
       };
     }
     return null;
-  };
+  }, [savedBoards]);
 
   // Delete a board
-  const deleteBoard = async (boardId) => {
+  const deleteBoard = useCallback(async (boardId) => {
     if (!userId || !boardId) return;
 
     try {
@@ -96,7 +98,7 @@ export const useSavedBoards = (userId) => {
       console.error('Error deleting board:', error);
       throw error;
     }
-  };
+  }, [userId]);
 
   return {
     savedBoards,

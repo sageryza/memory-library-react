@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
+import { FileText, Library, Sparkles } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Canvas from './Canvas'
 import Connections from './Connections'
@@ -631,7 +632,6 @@ const handleDragEnd = (event) => {
       setActiveBoardName(boardNameInput.trim())
       setBoardNameInput('')
       setShowSaveBoardModal(false)
-      setShowBoardDropdown(false)
     } catch (error) {
       console.error('Error saving board:', error)
       // TODO: Replace native alert() with custom Dialog component
@@ -652,7 +652,6 @@ const handleDragEnd = (event) => {
       updateBoardState(boardData)
       setActiveBoardName(boardId)
       setShowLoadBoardModal(false)
-      setShowBoardDropdown(false)
     }
   }
 
@@ -683,7 +682,6 @@ const handleDragEnd = (event) => {
       standalonePins: []
     })
     setActiveBoardName(newBoardName)
-    setShowBoardDropdown(false)
   }
 
   // Constellation management handlers
@@ -902,33 +900,42 @@ const handleDragEnd = (event) => {
     }
   }
 
-  const handleAddMemoryAtPosition = (position) => {
+  const handleAddMemoryAtPosition = async (position) => {
     if (!position) return
 
-    // Create a new blank memory at the clicked position
-    // TODO: isOnCanvas flag causes drag-drop issues later
-    // When this memory is returned to sidebar and re-dragged, the isOnCanvas: true flag
-    // may prevent it from being dropped back onto canvas (see handleDragEnd line 381)
-    const newMemory = {
-      id: Date.now().toString(), // Temporary ID (normalized to string)
-      title: '',
-      content: '',
-      hashtags: [],
-      timestamp: new Date().toISOString(),
-      dateTime: new Date().toLocaleDateString(),
-      x: position.x,
-      y: position.y,
-      isOnCanvas: true
+    try {
+      // Create memory data (without canvas-specific properties)
+      const memoryData = {
+        title: '',
+        content: '',
+        hashtags: [],
+        timestamp: new Date().toISOString(),
+        dateTime: new Date().toLocaleDateString()
+      }
+
+      // Save to Firebase immediately to get proper ID (like normal memories)
+      const firebaseId = await addMemory(memoryData)
+
+      // Create the canvas memory with Firebase ID and position
+      const newMemory = {
+        ...memoryData,
+        id: firebaseId,
+        x: position.x,
+        y: position.y
+      }
+
+      // Add to board state
+      updateBoardState({
+        ...boardState,
+        droppedMemories: [...droppedMemories, newMemory]
+      })
+
+      // Set as inline editing
+      setInlineEditingMemoryId(firebaseId)
+    } catch (error) {
+      console.error('Failed to create memory:', error)
+      alert('Failed to create memory. Please try again.')
     }
-
-    // Add to board state
-    updateBoardState({
-      ...boardState,
-      droppedMemories: [...droppedMemories, newMemory]
-    })
-
-    // Set as inline editing
-    setInlineEditingMemoryId(newMemory.id)
   }
 
   // Inline editing handlers
@@ -940,16 +947,30 @@ const handleDragEnd = (event) => {
       clearTimeout(debounceTimeoutRef.current)
     }
 
-    // Debounce the update to avoid too many state changes
-    debounceTimeoutRef.current = setTimeout(() => {
-      updateBoardState({
-        ...boardState,
-        droppedMemories: droppedMemories.map(m =>
-          compareIds(m.id, memoryId) ? { ...m, title: newTitle } : m
-        )
-      })
-    }, 500) // 500ms debounce
-  }, [boardState, droppedMemories, updateBoardState])
+    // Update local state immediately for responsive UI
+    updateBoardState({
+      ...boardState,
+      droppedMemories: droppedMemories.map(m =>
+        compareIds(m.id, memoryId) ? { ...m, title: newTitle } : m
+      )
+    })
+
+    // Debounce the Firebase update
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Convert newlines to commas for bullet conversion
+        const titleWithCommas = newTitle.replace(/\n/g, ', ')
+        const processedTitle = processInputTitle(titleWithCommas)
+
+        // Auto-save to Firebase
+        await updateMemory(memoryId, {
+          title: processedTitle
+        })
+      } catch (error) {
+        console.error('Failed to auto-save memory update:', error)
+      }
+    }, 1000) // 1 second debounce for Firebase updates
+  }, [boardState, droppedMemories, updateBoardState, updateMemory, processInputTitle])
 
   const handleInlineMemoryBlur = useCallback(async (memoryId, finalTitle) => {
     // Clear any pending debounce
@@ -959,12 +980,21 @@ const handleDragEnd = (event) => {
 
     setInlineEditingMemoryId(null)
 
-    // If blank, delete the memory
+    // Find the memory
+    const memory = droppedMemories.find(m => compareIds(m.id, memoryId))
+    if (!memory) return
+
+    // If blank, delete the memory from both Firebase and canvas
     if (!finalTitle.trim()) {
-      updateBoardState({
-        ...boardState,
-        droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId))
-      })
+      try {
+        await deleteMemory(memoryId)
+        updateBoardState({
+          ...boardState,
+          droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId))
+        })
+      } catch (error) {
+        console.error('Failed to delete empty memory:', error)
+      }
       return
     }
 
@@ -972,33 +1002,27 @@ const handleDragEnd = (event) => {
     const titleWithCommas = finalTitle.replace(/\n/g, ', ')
     const processedTitle = processInputTitle(titleWithCommas)
 
-    // Find the memory
-    const memory = droppedMemories.find(m => compareIds(m.id, memoryId))
-    if (!memory) return
-
     try {
-      // Save to Firebase
-      const { x, y, id, ...memoryData } = memory
-      const newMemoryId = await addMemory({
-        ...memoryData,
+      // Update existing memory in Firebase (not create new one)
+      await updateMemory(memoryId, {
         title: processedTitle,
-        content: '',
-        hashtags: [],
+        content: memory.content || '',
+        hashtags: memory.hashtags || [],
         timestamp: memory.timestamp
       })
 
-      // Update with Firebase ID
+      // Update local state with processed title
       updateBoardState({
         ...boardState,
         droppedMemories: droppedMemories.map(m =>
-          compareIds(m.id, memoryId) ? { ...m, id: newMemoryId, title: processedTitle } : m
+          compareIds(m.id, memoryId) ? { ...m, title: processedTitle } : m
         )
       })
     } catch (error) {
-      console.error('Failed to save inline memory:', error)
-      alert('Failed to save memory. Please try again.')
+      console.error('Failed to update inline memory:', error)
+      alert('Failed to update memory. Please try again.')
     }
-  }, [boardState, droppedMemories, updateBoardState, addMemory, processInputTitle])
+  }, [boardState, droppedMemories, updateBoardState, updateMemory, deleteMemory, processInputTitle])
 
   const handleInlineMemoryEscape = useCallback((memoryId) => {
     // Clear any pending debounce
@@ -1016,48 +1040,7 @@ const handleDragEnd = (event) => {
   }, [boardState, droppedMemories, updateBoardState])
 
   const handleEditMemory = async (memory) => {
-    // Check if this memory has a valid Firebase ID (not a local timestamp ID)
-    const memoryId = String(memory.id)
-
-    // Firebase IDs are alphanumeric strings, not numeric timestamps
-    if (/^\d+(\.\d+)?$/.test(memoryId)) {
-      // This is a local ID (timestamp), not saved to Firebase yet
-      // Auto-save it to Firebase
-      try {
-        // Save the memory to Firebase first
-        const { x, y, id, ...memoryData } = memory
-        const newMemoryId = await addMemory({
-          ...memoryData,
-          content: memory.content || '',
-          title: processInputTitle(memory.title || ''),
-          hashtags: memory.hashtags || [],
-          timestamp: memory.timestamp || new Date().toISOString()
-        })
-
-        // Update the memory in the board state with the new Firebase ID
-        const updatedMemory = { ...memory, id: newMemoryId }
-        updateBoardState({
-          ...boardState,
-          droppedMemories: droppedMemories.map(m =>
-            compareIds(m.id, memory.id) ? updatedMemory : m
-          ),
-          connections: connections.map(c => ({
-            ...c,
-            from: compareIds(c.from, memory.id) ? newMemoryId : c.from,
-            to: compareIds(c.to, memory.id) ? newMemoryId : c.to
-          }))
-        })
-
-        // Now open the edit modal with the updated memory
-        setEditingMemory(updatedMemory)
-        setShowAddMemoryModal(true)
-      } catch (error) {
-        console.error('Failed to auto-save memory:', error)
-        alert('Failed to save memory to database. Please try again.')
-      }
-      return
-    }
-
+    // All memories now have Firebase IDs from creation, so just open the modal
     setEditingMemory(memory)
     setShowAddMemoryModal(true)
   }
@@ -1066,7 +1049,8 @@ const handleDragEnd = (event) => {
     try {
       if (isEdit && editingMemory) {
         // Update existing memory in Firestore
-        const { id, x, y, ...updates } = newMemories[0]
+        // Strip canvas-specific properties (x, y, id, isOnCanvas) before updating
+        const { id, x, y, isOnCanvas, ...updates } = newMemories[0]
 
         // Clean up the updates to only include valid memory fields
         const cleanUpdates = {
@@ -1101,7 +1085,7 @@ const handleDragEnd = (event) => {
         // Add new memories to Firestore
         for (const memory of newMemories) {
           // Remove any canvas-specific properties before saving
-          const { x, y, ...memoryData } = memory
+          const { x, y, isOnCanvas, ...memoryData } = memory
           // Process title: convert commas to bullets
           // Ensure breadcrumbs are properly handled
           const processedMemory = {
@@ -2211,6 +2195,7 @@ const handleDragEnd = (event) => {
               tabs={[
                 {
                   label: 'Memories',
+                  icon: <FileText size={16} />,
                   content: (
                     <Sidebar
                       memories={memories}
@@ -2224,6 +2209,7 @@ const handleDragEnd = (event) => {
                 },
                 {
                   label: 'Libraries',
+                  icon: <Library size={16} />,
                   content: (
                     <div className="sidebar-content">
                       <div className="sidebar-libraries-grid">
@@ -2254,6 +2240,7 @@ const handleDragEnd = (event) => {
                 },
                 {
                   label: 'Constellations',
+                  icon: <Sparkles size={16} />,
                   content: (
                     <ConstellationSidebar
                       droppedMemories={displayMemories}

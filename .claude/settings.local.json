@@ -63,7 +63,20 @@
       "Bash(chmod:*)",
       "Bash(./create-worktree.sh:*)",
       "Bash(./create-worktree.sh)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(/tmp/conspiracy-board-fix.patch)",
+      "Bash(/tmp/todo-fix.patch)",
+      "Bash(ln:*)",
+      "Bash(for worktree in /Users/sageryza/Documents/timeline/memory-library-task-*)",
+      "Bash(do echo '=== $(basename $worktree) ===' git -C $worktree log --oneline main..HEAD)",
+      "Bash(sysctl:*)",
+      "Bash(for port in 5173 5174 5175 5176 5177 5178)",
+      "Bash(do echo \"Port $port:\")",
+      "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-task-20251114-220329 status --short)",
+      "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-task-20251114-220332 status --short)",
+      "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-task-20251114-220355 status --short)",
+      "Bash(git -C \"$worktree\" log --oneline main..HEAD)",
+      "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-boards-improvements log --oneline main..HEAD)"
     ],
     "deny": [],
     "ask": []
