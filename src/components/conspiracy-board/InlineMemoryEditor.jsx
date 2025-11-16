@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import './InlineMemoryEditor.css'
 
-export default function InlineMemoryEditor({ memory, onUpdate, onBlur, onEscape }) {
+export default function InlineMemoryEditor({ memory, onUpdate, onBlur, onEscape, isStackedView = false }) {
   const [value, setValue] = useState(memory.title || '')
   const textareaRef = useRef(null)
 
@@ -51,20 +51,22 @@ export default function InlineMemoryEditor({ memory, onUpdate, onBlur, onEscape 
 
   return (
     <div
-      className="inline-memory-editor"
+      className={`memory-card ${isStackedView ? 'stacked-view' : ''}`}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
     >
-      <textarea
-        ref={textareaRef}
-        className="inline-memory-textarea"
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
-        placeholder="Type here..."
-        rows={1}
-      />
+      <div className={`memory-card-title ${isStackedView ? 'stacked' : 'full-height'}`}>
+        <textarea
+          ref={textareaRef}
+          className="inline-memory-textarea"
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          placeholder="Type here..."
+          rows={1}
+        />
+      </div>
     </div>
   )
 }
