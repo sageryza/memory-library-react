@@ -2228,7 +2228,7 @@ const handleDragEnd = (event) => {
                 {
                   label: 'Libraries',
                   icon: <LibraryIcon size={16} color="currentColor" />,
-                  onNavigate: () => window.location.href = '/archive',
+                  onNavigate: () => window.location.href = '/libraries',
                   content: (
                     <div className="sidebar-content">
                       <div className="sidebar-libraries-grid">
