@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './TabbedSidebar.css';
 
 export default function TabbedSidebar({
-  tabs = [],                    // Array of { label, content }
+  tabs = [],                    // Array of { label, icon, content }
   defaultTabIndex = 0,          // Which tab to show first
   showSearchToggle = false,     // Whether to show search toggle button
   searchContent = null,         // Content to show when in search mode
@@ -46,15 +46,19 @@ export default function TabbedSidebar({
 
           {/* Tabs (right side) */}
           <div className="sidebar-tabs">
-            {tabs.map((tab, index) => (
-              <button
-                key={index}
-                className={`sidebar-tab ${activeTabIndex === index ? 'active' : ''}`}
-                onClick={() => setActiveTabIndex(index)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {tabs.map((tab, index) => {
+              const isActive = activeTabIndex === index;
+              return (
+                <button
+                  key={index}
+                  className={`sidebar-tab ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveTabIndex(index)}
+                >
+                  {tab.icon && <span className="tab-icon">{tab.icon}</span>}
+                  {isActive && <span className="tab-label">{tab.label}</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

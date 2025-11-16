@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, ChevronLeft, ChevronRight, Library } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import useLibraries from '../../hooks/useLibraries';
@@ -637,6 +637,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             tabs={[
               {
                 label: 'Libraries',
+                icon: <Library size={16} />,
                 content: (
                   <div className="sidebar-content">
                     <div className="sidebar-libraries-grid">
@@ -666,6 +667,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               },
               {
                 label: 'Tags',
+                icon: <Tag size={16} />,
                 content: (
                   <div className="sidebar-content">
                     {getAllHashtags().length > 0 ? (
