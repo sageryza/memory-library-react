@@ -67,6 +67,82 @@
 
 ---
 
+## 🗑️ RECENTLY DELETED FEATURE **[IN PROGRESS - NEEDS DEBUGGING]**
+
+**Status:** Backend complete ✅ | UI created ✅ | Integration broken ❌
+
+### What It Does
+Soft-delete system where deleted memories go to "trash" instead of being permanently removed. Users can restore or permanently delete from Settings → Recently Deleted.
+
+### Implementation Status
+
+**✅ COMPLETE:**
+1. **Backend (useMemories.js)**
+   - `deleteMemory()` now soft deletes (sets `deletedAt` timestamp)
+   - `deletedMemories` state auto-updates via Firestore onSnapshot
+   - `restoreMemory(id)` - Restores memory by clearing `deletedAt`
+   - `permanentlyDeleteMemory(id)` - Actually deletes from Firestore
+   - `emptyTrash()` - Permanently deletes all deleted memories
+
+2. **UI Components**
+   - `RecentlyDeletedModal.jsx` + CSS - Displays trash, restore/delete buttons
+   - `SettingsModal.jsx` + CSS - Settings menu with Recently Deleted option
+
+**❌ BROKEN:**
+- Settings button in ConspiracyBoard User Account dropdown not opening modal
+- Possible HMR cache issue or JavaScript error
+
+### How to Complete/Debug
+
+**Option 1: Debug Current Implementation**
+```bash
+# 1. Verify state exists in ConspiracyBoard
+grep "showSettingsModal" src/components/conspiracy-board/ConspiracyBoard.jsx
+
+# 2. Check onClick updated (should NOT be alert anymore)
+grep "onClick: () => setShowSettingsModal" src/components/conspiracy-board/ConspiracyBoard.jsx
+
+# 3. Hard refresh browser (Cmd+Shift+R) and check console for errors
+```
+
+**Option 2: Add to Other Pages**
+If ConspiracyBoard continues having issues, add Settings to Archive/Chronology:
+```javascript
+// In Archive.jsx or other pages:
+import SettingsModal from '../shared/SettingsModal'
+import RecentlyDeletedModal from '../shared/RecentlyDeletedModal'
+import { useMemories } from '../../hooks/useMemories'
+
+// Add state
+const [showSettings, setShowSettings] = useState(false)
+const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+
+// Add button somewhere in UI
+<button onClick={() => setShowSettings(true)}>⚙️ Settings</button>
+
+// Render modals
+{showSettings && <SettingsModal ... />}
+{showRecentlyDeleted && <RecentlyDeletedModal ... />}
+```
+
+### Files Modified
+- `src/hooks/useMemories.js`
+- `src/components/shared/RecentlyDeletedModal.jsx` (NEW)
+- `src/components/shared/RecentlyDeletedModal.css` (NEW)
+- `src/components/shared/SettingsModal.jsx` (NEW)
+- `src/components/shared/SettingsModal.css` (NEW)
+- `src/components/conspiracy-board/ConspiracyBoard.jsx`
+- `src/App.jsx`
+
+### Testing Steps
+1. Delete a memory → Verify it disappears
+2. Settings → Recently Deleted → See deleted memory with date
+3. Click Restore → Memory reappears
+4. Delete again → Click Delete Forever → Permanently gone
+5. Empty Trash → All deleted memories removed
+
+---
+
 ## 📝 NEW TODOS FROM NOTEBOOK (2025-11-11)
 
 ### Archive - Boolean Hashtag Filtering (Simple Version)
