@@ -19,6 +19,7 @@ import './Dropdown.css'
  * @param {boolean} props.isOpen - Controlled open state (optional)
  * @param {function} props.onOpenChange - Callback when open state changes (optional)
  * @param {boolean} props.triggerOnHover - Whether to open on hover (default: false)
+ * @param {boolean} props.enableHoverSwitching - Enable hover-to-switch when any dropdown is open (default: false)
  */
 function Dropdown({
   trigger,
@@ -29,10 +30,12 @@ function Dropdown({
   isOpen: controlledIsOpen,
   onOpenChange,
   triggerOnHover = false,
+  enableHoverSwitching = false,
   disabled = false
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const closeTimeoutRef = useRef(null)
 
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
@@ -79,6 +82,15 @@ function Dropdown({
     }
   }, [isOpen])
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleTriggerClick = (e) => {
     e.stopPropagation()
     if (!triggerOnHover && !disabled) {
@@ -87,14 +99,25 @@ function Dropdown({
   }
 
   const handleMouseEnter = () => {
-    if (triggerOnHover && !disabled) {
+    // Clear any pending close timeout
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+
+    // Open on hover if triggerOnHover is true, OR if hover switching is enabled
+    if (!disabled && (triggerOnHover || enableHoverSwitching)) {
       setIsOpen(true)
     }
   }
 
   const handleMouseLeave = () => {
     if (triggerOnHover) {
-      setIsOpen(false)
+      // Add a delay before closing to allow natural mouse movement to menu items
+      closeTimeoutRef.current = setTimeout(() => {
+        setIsOpen(false)
+        closeTimeoutRef.current = null
+      }, 300) // 300ms delay combined with CSS bridge for forgiving UX
     }
   }
 
@@ -120,7 +143,11 @@ function Dropdown({
       </div>
 
       {isOpen && !disabled && (
-        <div className={`dropdown-menu ${align === 'right' ? 'dropdown-menu-right' : ''}`}>
+        <div
+          className={`dropdown-menu ${align === 'right' ? 'dropdown-menu-right' : ''}`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {items.map((item, index) => {
             if (item.separator) {
               return <div key={index} className="dropdown-separator" />

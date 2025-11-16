@@ -82,6 +82,7 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [showSaveBoardModal, setShowSaveBoardModal] = useState(false)
   const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
   const [boardNameInput, setBoardNameInput] = useState('')
+  const [openDropdown, setOpenDropdown] = useState(null) // Track which dropdown is currently open
   // Get saved board name from localStorage or use null initially
   const [activeBoardName, setActiveBoardName] = useState(() => {
     return localStorage.getItem('activeBoardName') || null
@@ -1630,8 +1631,11 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={true}
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
+                isOpen={openDropdown === 'pages'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'pages' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Pages</span>
@@ -1670,8 +1674,11 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={true}
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
+                isOpen={openDropdown === 'tools'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'tools' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Tools</span>
@@ -1758,9 +1765,12 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown board-dropdown"
                 align="right"
-                triggerOnHover={true}
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
                 closeOnItemClick={false}
                 disabled={!!selectedPin}
+                isOpen={openDropdown === 'board'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'board' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Board</span>
@@ -1820,8 +1830,11 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={true}
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
+                isOpen={openDropdown === 'view'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'view' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>View</span>
@@ -1892,8 +1905,11 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={true}
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
+                isOpen={openDropdown === 'account'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'account' : null)}
                 trigger={
                   <button className="add-memory-btn-icon" title="Account">
                     <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
