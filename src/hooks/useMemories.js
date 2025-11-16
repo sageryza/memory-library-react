@@ -28,6 +28,7 @@ import { ensureStringId } from '../utils/generateId';
 
 export const useMemories = (userId) => {
   const [memories, setMemories] = useState([]);
+  const [deletedMemories, setDeletedMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -54,7 +55,7 @@ export const useMemories = (userId) => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const memoriesData = snapshot.docs.map(doc => {
+        const allMemoriesData = snapshot.docs.map(doc => {
           const data = doc.data();
 
           // FIX: Remove any 'id' field from the data to prevent override
@@ -66,7 +67,13 @@ export const useMemories = (userId) => {
             ...restData  // Spread the rest of the data (without the id field)
           };
         });
-        setMemories(memoriesData);
+
+        // Separate active and deleted memories
+        const active = allMemoriesData.filter(m => !m.deletedAt);
+        const deleted = allMemoriesData.filter(m => m.deletedAt);
+
+        setMemories(active);
+        setDeletedMemories(deleted);
         setLoading(false);
         setError(null);
       },
@@ -186,7 +193,7 @@ export const useMemories = (userId) => {
     }
   }, [userId, isUsingLocalStorage, localStorage]);
 
-  // Delete a memory
+  // Soft delete a memory (moves to trash)
   const deleteMemory = useCallback(async (memoryId) => {
     // Use localStorage if not authenticated
     if (isUsingLocalStorage) {
@@ -218,7 +225,15 @@ export const useMemories = (userId) => {
       // Ensure memoryId is a string as Firestore requires string IDs
       const memoryIdStr = ensureStringId(memoryId);
       const memoryRef = doc(db, 'users', userId, 'memories', memoryIdStr);
-      await deleteDoc(memoryRef);
+
+      // Soft delete: Set deletedAt timestamp instead of actually deleting
+      await updateDoc(memoryRef, {
+        deletedAt: serverTimestamp(),
+        // Clear board-specific properties
+        x: null,
+        y: null,
+        isOnCanvas: false
+      });
 
       // Also remove the memory from chronology state
       try {
@@ -256,13 +271,102 @@ export const useMemories = (userId) => {
     }
   }, [userId, isUsingLocalStorage, localStorage]);
 
+  // Restore a deleted memory
+  const restoreMemory = useCallback(async (memoryId) => {
+    if (!userId || !memoryId) {
+      console.error('Missing userId or memoryId:', { userId, memoryId });
+      return;
+    }
+
+    try {
+      const memoryIdStr = ensureStringId(memoryId);
+      const memoryRef = doc(db, 'users', userId, 'memories', memoryIdStr);
+
+      // Remove deletedAt field to restore
+      await updateDoc(memoryRef, {
+        deletedAt: null
+      });
+    } catch (error) {
+      console.error('Error restoring memory:', error);
+      throw error;
+    }
+  }, [userId]);
+
+  // Permanently delete a memory (cannot be undone)
+  const permanentlyDeleteMemory = useCallback(async (memoryId) => {
+    if (!userId || !memoryId) {
+      console.error('Missing userId or memoryId:', { userId, memoryId });
+      return;
+    }
+
+    try {
+      const memoryIdStr = ensureStringId(memoryId);
+      const memoryRef = doc(db, 'users', userId, 'memories', memoryIdStr);
+      await deleteDoc(memoryRef);
+
+      // Also remove from chronology
+      try {
+        const chronologyRef = doc(db, 'users', userId, 'chronologyState', 'current');
+        const chronologySnap = await getDoc(chronologyRef);
+
+        if (chronologySnap.exists()) {
+          const chronologyData = chronologySnap.data();
+          const positions = chronologyData.positions || {};
+
+          const updatedTimelineIds = (positions.timelineIds || []).filter(id => id !== memoryIdStr);
+          const updatedSidebarIds = (positions.sidebarIds || []).filter(id => id !== memoryIdStr);
+
+          await setDoc(chronologyRef, {
+            ...chronologyData,
+            positions: {
+              ...positions,
+              timelineIds: updatedTimelineIds,
+              sidebarIds: updatedSidebarIds,
+              lastUpdated: new Date().toISOString(),
+              version: (positions.version || 0) + 1
+            },
+            updatedAt: serverTimestamp()
+          });
+        }
+      } catch (chronologyError) {
+        console.error('Error updating chronology after permanent delete:', chronologyError);
+      }
+    } catch (error) {
+      console.error('Error permanently deleting memory:', error);
+      throw error;
+    }
+  }, [userId]);
+
+  // Empty trash (permanently delete all deleted memories)
+  const emptyTrash = useCallback(async () => {
+    if (!userId) {
+      console.error('Cannot empty trash: User not authenticated');
+      return;
+    }
+
+    try {
+      // Delete all memories that have deletedAt set
+      const deletePromises = deletedMemories.map(memory =>
+        permanentlyDeleteMemory(memory.id)
+      );
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.error('Error emptying trash:', error);
+      throw error;
+    }
+  }, [userId, deletedMemories, permanentlyDeleteMemory]);
+
   return {
     memories,
+    deletedMemories,
     loading,
     error,
     addMemory,
     updateMemory,
     deleteMemory,
+    restoreMemory,
+    permanentlyDeleteMemory,
+    emptyTrash,
     // localStorage-specific info
     isUsingLocalStorage,
     ...(isUsingLocalStorage ? {

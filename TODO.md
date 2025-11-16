@@ -145,7 +145,7 @@ const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
 ## 📝 NEW TODOS FROM NOTEBOOK (2025-11-11)
 
-### Archive - Boolean Hashtag Filtering (Simple Version)
+### Archive - Boolean Hashtag Filtering (Simple Version) **[COMPLETE]**
 **Current behavior:** Click one hashtag → filter to only memories with that tag
 
 **Desired behavior:**
@@ -228,7 +228,7 @@ const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
 ---
 
-### Conspiracy Board - Fix Drag-Drop Issue for Canvas-Created Memories
+### Conspiracy Board - Fix Drag-Drop Issue for Canvas-Created Memories **[COMPLETE]**
 **Issue:** Certain cards cannot be dropped from the sidebar onto the Conspiracy Board. This appears to affect cards that were originally created by right-clicking directly on the canvas.
 
 **Current behavior:**

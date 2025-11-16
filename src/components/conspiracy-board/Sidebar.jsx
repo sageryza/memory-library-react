@@ -1,14 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import MemoryCard from '../shared/MemoryCard'
 import AdvancedSearch from '../shared/AdvancedSearch'
 import SearchInput from '../shared/SearchInput'
 
-// TODO: Add right-click context menu to edit memories in sidebar
-// Currently only double-click opens edit modal
-// Should add onContextMenu handler to show context menu with "Edit Memory" option
-// See ConspiracyBoard.jsx:1423-1429 for example implementation
-function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isSimplified }) {
+function DraggableMemoryCard({ memory, onDoubleClick, onContextMenu, formatTitleForDisplay, isSimplified }) {
   const {
     attributes,
     listeners,
@@ -31,11 +27,11 @@ function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isS
     onDoubleClick(memory)
   }
 
-  // TODO: Add handleContextMenu function here
-  // const handleContextMenu = (e) => {
-  //   e.preventDefault()
-  //   // Show context menu with edit option
-  // }
+  const handleContextMenu = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onContextMenu(e, memory)
+  }
 
   return (
     <div
@@ -45,7 +41,7 @@ function DraggableMemoryCard({ memory, onDoubleClick, formatTitleForDisplay, isS
       {...attributes}
       className={`draggable-memory ${isDragging ? 'dragging' : ''}`}
       onDoubleClick={handleDoubleClick}
-      // TODO: Add onContextMenu={handleContextMenu}
+      onContextMenu={handleContextMenu}
     >
       <MemoryCard
         memory={memory}
@@ -62,11 +58,32 @@ export default function Sidebar({
   onRandomlyPlaceMemory,
   showSearch = false,
   formatTitleForDisplay,
-  isSimplified
+  isSimplified,
+  onEditMemory,
+  onDeleteMemory
 }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
   const [filteredByAdvanced, setFilteredByAdvanced] = useState(null)
+  const [contextMenu, setContextMenu] = useState(null)
+
+  // Handle context menu for sidebar memories
+  const handleSidebarContextMenu = (e, memory) => {
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      memory
+    })
+  }
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (contextMenu) {
+      const handleClick = () => setContextMenu(null)
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [contextMenu])
 
   // First filter out memories that are already on the canvas
   const droppedMemoryIds = new Set(droppedMemories.map(m => m.id))
@@ -125,12 +142,76 @@ export default function Sidebar({
               key={memory.id}
               memory={memory}
               onDoubleClick={onRandomlyPlaceMemory}
+              onContextMenu={handleSidebarContextMenu}
               formatTitleForDisplay={formatTitleForDisplay}
               isSimplified={isSimplified}
             />
           ))
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="hashtag-context-menu"
+          style={{
+            position: 'fixed',
+            top: `${contextMenu.y}px`,
+            left: `${contextMenu.x}px`,
+            background: '#ffffff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 2000,
+            fontFamily: 'Crimson Text, serif',
+            fontSize: '14px',
+            minWidth: '160px',
+            overflow: 'hidden'
+          }}
+        >
+          <div
+            className="hashtag-context-item"
+            onClick={() => {
+              onEditMemory(contextMenu.memory)
+              setContextMenu(null)
+            }}
+            style={{
+              padding: '10px 16px',
+              cursor: 'pointer',
+              color: '#2F4F4F',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s ease',
+              borderBottom: '1px solid #f0f0f0'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f8f8'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            ✏️ Edit Memory
+          </div>
+          <div
+            className="hashtag-context-item"
+            onClick={() => {
+              onDeleteMemory(contextMenu.memory.id)
+              setContextMenu(null)
+            }}
+            style={{
+              padding: '10px 16px',
+              cursor: 'pointer',
+              color: '#2F4F4F',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f8f8'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            🗑️ Delete Memory
+          </div>
+        </div>
+      )}
     </div>
   )
 }

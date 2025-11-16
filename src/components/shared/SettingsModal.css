@@ -1,0 +1,89 @@
+.settings-modal {
+  background: #faf8e9;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Crimson Text', serif;
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.settings-section {
+  margin-bottom: 32px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  margin: 0 0 16px 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-option {
+  width: 100%;
+  background: white;
+  border: 1px solid #e0d8c0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', serif;
+  text-align: left;
+}
+
+.settings-option:hover {
+  background: #f5f3e8;
+  border-color: #d0c8b0;
+  transform: translateX(2px);
+}
+
+.settings-option:last-child {
+  margin-bottom: 0;
+}
+
+.option-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.option-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2F4F4F;
+  margin-bottom: 4px;
+}
+
+.option-description {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.option-arrow {
+  font-size: 24px;
+  color: #999;
+  flex-shrink: 0;
+}

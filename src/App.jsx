@@ -14,6 +14,7 @@ import Libraries from './components/libraries/Libraries'
 import Chronology from './components/Chronology'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import StorageIndicator from './components/shared/StorageIndicator'
+import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import './styles/theme.css'
 import './styles/components.css'
 import './App.css'
@@ -52,7 +53,7 @@ function PageTitle() {
   return null;
 }
 
-function Navigation({ user }) {
+function Navigation({ user, onOpenRecentlyDeleted }) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -75,6 +76,21 @@ function Navigation({ user }) {
             <span style={{ fontSize: '14px', color: '#666' }}>
               {user.email}
             </span>
+            <button
+              onClick={onOpenRecentlyDeleted}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontFamily: '"Crimson Text", serif',
+              }}
+            >
+              🗑️ Recently Deleted
+            </button>
             <button
               onClick={handleSignOut}
               style={{
@@ -145,10 +161,14 @@ function App() {
   const { user, loading: authLoading } = useAuth();
   const {
     memories,
+    deletedMemories,
     loading: memoriesLoading,
     addMemory,
     updateMemory,
     deleteMemory,
+    restoreMemory,
+    permanentlyDeleteMemory,
+    emptyTrash,
     isUsingLocalStorage,
     memoryCount,
     maxMemories,
@@ -158,6 +178,7 @@ function App() {
   } = useMemories(user?.uid);
   const [migrating, setMigrating] = useState(false);
   const [hasMigrationRun, setHasMigrationRun] = useState(false);
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false);
 
   // Run ID migration once on app startup
   useEffect(() => {
@@ -220,7 +241,7 @@ function App() {
       )}
       <div className="app">
         {/* Show navigation */}
-        <Navigation user={user} />
+        <Navigation user={user} onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)} />
 
         {/* Storage indicator for unauthenticated users */}
         {isUsingLocalStorage && (
@@ -248,6 +269,10 @@ function App() {
                 addMemory={addMemory}
                 updateMemory={updateMemory}
                 deleteMemory={deleteMemory}
+                deletedMemories={deletedMemories}
+                restoreMemory={restoreMemory}
+                permanentlyDeleteMemory={permanentlyDeleteMemory}
+                emptyTrash={emptyTrash}
               />
             }
           />
@@ -294,6 +319,18 @@ function App() {
             element={<Login />}
           />
         </Routes>
+
+        {/* Recently Deleted Modal */}
+        {showRecentlyDeleted && (
+          <RecentlyDeletedModal
+            deletedMemories={deletedMemories || []}
+            onRestore={restoreMemory}
+            onPermanentDelete={permanentlyDeleteMemory}
+            onEmptyTrash={emptyTrash}
+            onClose={() => setShowRecentlyDeleted(false)}
+            formatTitleForDisplay={(title) => title} // Simple formatter for now
+          />
+        )}
       </div>
     </Router>
   );

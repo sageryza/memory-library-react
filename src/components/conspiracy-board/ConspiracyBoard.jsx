@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
-import { Library, Building2, Sparkles } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Canvas from './Canvas'
 import Connections from './Connections'
@@ -10,6 +9,8 @@ import DragConnections from './DragConnections'
 import StandalonePins from './StandalonePins'
 import VennDiagramModal from './VennDiagramModal'
 import MemoryModal from '../shared/MemoryModal'
+import SettingsModal from '../shared/SettingsModal'
+import RecentlyDeletedModal from '../shared/RecentlyDeletedModal'
 import ConstellationSidebar from './ConstellationSidebar'
 import PinEditModal from './PinEditModal'
 import ContextMenu from '../shared/ContextMenu'
@@ -30,7 +31,6 @@ import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, ensureStringId } from '../../utils/generateId'
 import constellationIcon from '../../assets/constellation.svg'
-import memoriesIcon from '../../assets/memories.svg'
 import '../../App.css'
 import './ConspiracyBoard.css'
 import '../../styles/simplifyView.css'
@@ -57,7 +57,17 @@ const generateBoardName = () => {
   return `Untitled Board - ${timestamp}`
 }
 
-function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemory, deleteMemory }) {
+function ConspiracyBoard({
+  memories = [],
+  memoriesLoading,
+  addMemory,
+  updateMemory,
+  deleteMemory,
+  deletedMemories = [],
+  restoreMemory,
+  permanentlyDeleteMemory,
+  emptyTrash
+}) {
   const [activeId, setActiveId] = useState(null)
   const [activeMemoryData, setActiveMemoryData] = useState(null)
   const [activeTransform, setActiveTransform] = useState(null)
@@ -83,7 +93,6 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [showSaveBoardModal, setShowSaveBoardModal] = useState(false)
   const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
   const [boardNameInput, setBoardNameInput] = useState('')
-  const [openDropdown, setOpenDropdown] = useState(null) // Track which dropdown is currently open
   // Get saved board name from localStorage or use null initially
   const [activeBoardName, setActiveBoardName] = useState(() => {
     return localStorage.getItem('activeBoardName') || null
@@ -98,6 +107,8 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null)
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
   // Pan state
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
@@ -229,8 +240,7 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
     if (activeBoardName && boardState && user?.uid) {
       // Debounce the auto-save to avoid too many writes
       const timeoutId = setTimeout(() => {
-        // Pass false to prevent updating timestamp (prevents boards from re-ordering on every change)
-        saveBoard(activeBoardName, boardState, false).catch(error => {
+        saveBoard(activeBoardName, boardState).catch(error => {
           console.error('Auto-save failed:', error)
         })
       }, 1000)
@@ -380,10 +390,6 @@ const handleDragEnd = (event) => {
 
   // If dropping on canvas from sidebar (allow drops anywhere in the pan area)
   // Accept drops even when over is null (outside original viewport but within pan area)
-  // TODO: Fix drag-drop issue for canvas-created memories
-  // BUG: Memories created via right-click (handleAddMemoryAtPosition) have isOnCanvas: true
-  // When these are returned to sidebar and re-dragged, this condition may fail
-  // Need to either: (1) clear isOnCanvas when returning to sidebar, or (2) adjust this logic
   if (!memoryData?.isOnCanvas && !memoryData?.isStandalonePin && memoryData) {
     if (!memoryData || !memoryData.id) {
       console.error('No valid memory data found for dragged item')
@@ -627,11 +633,15 @@ const handleDragEnd = (event) => {
       return
     }
 
+    // TODO: Fix false error popup when board saves successfully
+    // Sometimes shows "Failed to save" even though the save actually worked
+    // Check useSavedBoards.js saveBoard implementation for promise/timing issues
     try {
       await saveBoard(boardNameInput.trim(), boardState)
       setActiveBoardName(boardNameInput.trim())
       setBoardNameInput('')
       setShowSaveBoardModal(false)
+      setShowBoardDropdown(false)
     } catch (error) {
       console.error('Error saving board:', error)
       // TODO: Replace native alert() with custom Dialog component
@@ -642,8 +652,7 @@ const handleDragEnd = (event) => {
   const handleLoadBoardClick = (boardId) => {
     // Only save current board if we're loading a different board
     if (boardState && activeBoardName && activeBoardName !== boardId && user?.uid) {
-      // Auto-save before switching, don't update timestamp
-      saveBoard(activeBoardName, boardState, false).catch(error => {
+      saveBoard(activeBoardName, boardState).catch(error => {
         console.error('Failed to save current board before loading:', error)
       })
     }
@@ -653,6 +662,7 @@ const handleDragEnd = (event) => {
       updateBoardState(boardData)
       setActiveBoardName(boardId)
       setShowLoadBoardModal(false)
+      setShowBoardDropdown(false)
     }
   }
 
@@ -670,8 +680,7 @@ const handleDragEnd = (event) => {
   const handleNewBoard = () => {
     // Auto-save current board before creating a new one
     if (boardState && activeBoardName && user?.uid) {
-      // Auto-save before creating new board, don't update timestamp
-      saveBoard(activeBoardName, boardState, false).catch(error => {
+      saveBoard(activeBoardName, boardState).catch(error => {
         console.error('Failed to save current board before creating new:', error)
       })
     }
@@ -684,6 +693,7 @@ const handleDragEnd = (event) => {
       standalonePins: []
     })
     setActiveBoardName(newBoardName)
+    setShowBoardDropdown(false)
   }
 
   // Constellation management handlers
@@ -902,44 +912,30 @@ const handleDragEnd = (event) => {
     }
   }
 
-  const handleAddMemoryAtPosition = async (position) => {
+  const handleAddMemoryAtPosition = (position) => {
     if (!position) return
 
-    try {
-      // Create memory data (without canvas-specific properties)
-      const memoryData = {
-        title: '',
-        content: '',
-        hashtags: [],
-        timestamp: new Date().toISOString(),
-        dateTime: new Date().toLocaleDateString()
-      }
-
-      // Save to Firebase immediately to get proper ID (like normal memories)
-      const firebaseId = await addMemory(memoryData)
-
-      // Create the canvas memory with Firebase ID and position
-      // Adjust x position for stacked view: Canvas.jsx adds +130px when rendering stacked cards
-      // (to keep pin in same place), so we subtract 130px here to compensate
-      const newMemory = {
-        ...memoryData,
-        id: firebaseId,
-        x: isSimplified ? position.x - 130 : position.x,
-        y: position.y
-      }
-
-      // Add to board state
-      updateBoardState({
-        ...boardState,
-        droppedMemories: [...droppedMemories, newMemory]
-      })
-
-      // Set as inline editing
-      setInlineEditingMemoryId(firebaseId)
-    } catch (error) {
-      console.error('Failed to create memory:', error)
-      alert('Failed to create memory. Please try again.')
+    // Create a new blank memory at the clicked position
+    const newMemory = {
+      id: Date.now().toString(), // Temporary ID (normalized to string)
+      title: '',
+      content: '',
+      hashtags: [],
+      timestamp: new Date().toISOString(),
+      dateTime: new Date().toLocaleDateString(),
+      x: position.x,
+      y: position.y,
+      isOnCanvas: true
     }
+
+    // Add to board state
+    updateBoardState({
+      ...boardState,
+      droppedMemories: [...droppedMemories, newMemory]
+    })
+
+    // Set as inline editing
+    setInlineEditingMemoryId(newMemory.id)
   }
 
   // Inline editing handlers
@@ -951,30 +947,16 @@ const handleDragEnd = (event) => {
       clearTimeout(debounceTimeoutRef.current)
     }
 
-    // Update local state immediately for responsive UI
-    updateBoardState({
-      ...boardState,
-      droppedMemories: droppedMemories.map(m =>
-        compareIds(m.id, memoryId) ? { ...m, title: newTitle } : m
-      )
-    })
-
-    // Debounce the Firebase update
-    debounceTimeoutRef.current = setTimeout(async () => {
-      try {
-        // Convert newlines to commas for bullet conversion
-        const titleWithCommas = newTitle.replace(/\n/g, ', ')
-        const processedTitle = processInputTitle(titleWithCommas)
-
-        // Auto-save to Firebase
-        await updateMemory(memoryId, {
-          title: processedTitle
-        })
-      } catch (error) {
-        console.error('Failed to auto-save memory update:', error)
-      }
-    }, 1000) // 1 second debounce for Firebase updates
-  }, [boardState, droppedMemories, updateBoardState, updateMemory, processInputTitle])
+    // Debounce the update to avoid too many state changes
+    debounceTimeoutRef.current = setTimeout(() => {
+      updateBoardState({
+        ...boardState,
+        droppedMemories: droppedMemories.map(m =>
+          compareIds(m.id, memoryId) ? { ...m, title: newTitle } : m
+        )
+      })
+    }, 500) // 500ms debounce
+  }, [boardState, droppedMemories, updateBoardState])
 
   const handleInlineMemoryBlur = useCallback(async (memoryId, finalTitle) => {
     // Clear any pending debounce
@@ -984,21 +966,12 @@ const handleDragEnd = (event) => {
 
     setInlineEditingMemoryId(null)
 
-    // Find the memory
-    const memory = droppedMemories.find(m => compareIds(m.id, memoryId))
-    if (!memory) return
-
-    // If blank, delete the memory from both Firebase and canvas
+    // If blank, delete the memory
     if (!finalTitle.trim()) {
-      try {
-        await deleteMemory(memoryId)
-        updateBoardState({
-          ...boardState,
-          droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId))
-        })
-      } catch (error) {
-        console.error('Failed to delete empty memory:', error)
-      }
+      updateBoardState({
+        ...boardState,
+        droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId))
+      })
       return
     }
 
@@ -1006,27 +979,34 @@ const handleDragEnd = (event) => {
     const titleWithCommas = finalTitle.replace(/\n/g, ', ')
     const processedTitle = processInputTitle(titleWithCommas)
 
+    // Find the memory
+    const memory = droppedMemories.find(m => compareIds(m.id, memoryId))
+    if (!memory) return
+
     try {
-      // Update existing memory in Firebase (not create new one)
-      await updateMemory(memoryId, {
+      // Save to Firebase
+      // Exclude canvas-specific properties (x, y, isOnCanvas) - these are board-specific, not memory-specific
+      const { x, y, id, isOnCanvas, ...memoryData } = memory
+      const newMemoryId = await addMemory({
+        ...memoryData,
         title: processedTitle,
-        content: memory.content || '',
-        hashtags: memory.hashtags || [],
+        content: '',
+        hashtags: [],
         timestamp: memory.timestamp
       })
 
-      // Update local state with processed title
+      // Update with Firebase ID
       updateBoardState({
         ...boardState,
         droppedMemories: droppedMemories.map(m =>
-          compareIds(m.id, memoryId) ? { ...m, title: processedTitle } : m
+          compareIds(m.id, memoryId) ? { ...m, id: newMemoryId, title: processedTitle } : m
         )
       })
     } catch (error) {
-      console.error('Failed to update inline memory:', error)
-      alert('Failed to update memory. Please try again.')
+      console.error('Failed to save inline memory:', error)
+      alert('Failed to save memory. Please try again.')
     }
-  }, [boardState, droppedMemories, updateBoardState, updateMemory, deleteMemory, processInputTitle])
+  }, [boardState, droppedMemories, updateBoardState, addMemory, processInputTitle])
 
   const handleInlineMemoryEscape = useCallback((memoryId) => {
     // Clear any pending debounce
@@ -1044,7 +1024,48 @@ const handleDragEnd = (event) => {
   }, [boardState, droppedMemories, updateBoardState])
 
   const handleEditMemory = async (memory) => {
-    // All memories now have Firebase IDs from creation, so just open the modal
+    // Check if this memory has a valid Firebase ID (not a local timestamp ID)
+    const memoryId = String(memory.id)
+
+    // Firebase IDs are alphanumeric strings, not numeric timestamps
+    if (/^\d+(\.\d+)?$/.test(memoryId)) {
+      // This is a local ID (timestamp), not saved to Firebase yet
+      // Auto-save it to Firebase
+      try {
+        // Save the memory to Firebase first
+        const { x, y, id, ...memoryData } = memory
+        const newMemoryId = await addMemory({
+          ...memoryData,
+          content: memory.content || '',
+          title: processInputTitle(memory.title || ''),
+          hashtags: memory.hashtags || [],
+          timestamp: memory.timestamp || new Date().toISOString()
+        })
+
+        // Update the memory in the board state with the new Firebase ID
+        const updatedMemory = { ...memory, id: newMemoryId }
+        updateBoardState({
+          ...boardState,
+          droppedMemories: droppedMemories.map(m =>
+            compareIds(m.id, memory.id) ? updatedMemory : m
+          ),
+          connections: connections.map(c => ({
+            ...c,
+            from: compareIds(c.from, memory.id) ? newMemoryId : c.from,
+            to: compareIds(c.to, memory.id) ? newMemoryId : c.to
+          }))
+        })
+
+        // Now open the edit modal with the updated memory
+        setEditingMemory(updatedMemory)
+        setShowAddMemoryModal(true)
+      } catch (error) {
+        console.error('Failed to auto-save memory:', error)
+        alert('Failed to save memory to database. Please try again.')
+      }
+      return
+    }
+
     setEditingMemory(memory)
     setShowAddMemoryModal(true)
   }
@@ -1053,8 +1074,7 @@ const handleDragEnd = (event) => {
     try {
       if (isEdit && editingMemory) {
         // Update existing memory in Firestore
-        // Strip canvas-specific properties (x, y, id, isOnCanvas) before updating
-        const { id, x, y, isOnCanvas, ...updates } = newMemories[0]
+        const { id, x, y, ...updates } = newMemories[0]
 
         // Clean up the updates to only include valid memory fields
         const cleanUpdates = {
@@ -1089,7 +1109,7 @@ const handleDragEnd = (event) => {
         // Add new memories to Firestore
         for (const memory of newMemories) {
           // Remove any canvas-specific properties before saving
-          const { x, y, isOnCanvas, ...memoryData } = memory
+          const { x, y, ...memoryData } = memory
           // Process title: convert commas to bullets
           // Ensure breadcrumbs are properly handled
           const processedMemory = {
@@ -1416,12 +1436,11 @@ const handleDragEnd = (event) => {
 
     const items = []
 
-    // TODO: Right-click to edit memories works here in Conspiracy Board ✅
-    // Still need to add this functionality to Sidebar (see Sidebar.jsx)
     if (type === 'memory') {
       items.push(
         { label: 'Edit Memory', icon: '✏️', onClick: () => handleEditMemory(data) },
-        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) }
+        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) },
+        { label: 'Delete Memory', icon: '🗑️', onClick: () => handleDeleteMemory(data.id) }
       )
     } else if (type === 'canvas') {
       items.push(
@@ -1446,19 +1465,25 @@ const handleDragEnd = (event) => {
     setContextMenu({ x: e.clientX, y: e.clientY, items })
   }, [screenToCanvas, isConstellationMode, handlePlacePinAtPosition])  // Add dependencies as needed
 
-  const handleReturnToSidebar = useCallback((memoryId) => {
+  const handleReturnToSidebar = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent returning to sidebar in constellation mode
-    // TODO: Clear isOnCanvas flag when returning memory to sidebar
-    // Currently only removes from droppedMemories array, but if the memory object in Firestore
-    // still has isOnCanvas: true, it will cause drag-drop issues when re-dragging from sidebar
-    // Should update the memory document in Firestore to remove isOnCanvas property
+
+    // Clear isOnCanvas flag in Firestore for old memories that may still have it
+    // (New memories created after the fix won't have this property at all)
+    try {
+      await updateMemory(memoryId, { isOnCanvas: false })
+    } catch (error) {
+      console.error('Error clearing isOnCanvas flag:', error)
+      // Continue with removal from board even if Firestore update fails
+    }
+
     saveStateForUndo('Return memory to sidebar')
     updateBoardState({
       ...boardState,
       droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId)),
       connections: connections.filter(c => !compareIds(c.from, memoryId) && !compareIds(c.to, memoryId))
     })
-  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode])
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, updateMemory])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
     saveStateForUndo('Delete memory')
@@ -1634,11 +1659,8 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
+                triggerOnHover={true}
                 disabled={!!selectedPin}
-                isOpen={openDropdown === 'pages'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'pages' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Pages</span>
@@ -1677,11 +1699,8 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
+                triggerOnHover={true}
                 disabled={!!selectedPin}
-                isOpen={openDropdown === 'tools'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'tools' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Tools</span>
@@ -1768,12 +1787,9 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown board-dropdown"
                 align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
+                triggerOnHover={true}
                 closeOnItemClick={false}
                 disabled={!!selectedPin}
-                isOpen={openDropdown === 'board'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'board' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>Board</span>
@@ -1833,11 +1849,8 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
+                triggerOnHover={true}
                 disabled={!!selectedPin}
-                isOpen={openDropdown === 'view'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'view' : null)}
                 trigger={
                   <button className="header-dropdown-btn">
                     <span>View</span>
@@ -1908,11 +1921,8 @@ const handleDragEnd = (event) => {
               <Dropdown
                 className="header-dropdown"
                 align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
+                triggerOnHover={true}
                 disabled={!!selectedPin}
-                isOpen={openDropdown === 'account'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'account' : null)}
                 trigger={
                   <button className="add-memory-btn-icon" title="Account">
                     <svg width="16" height="16" fill="#2F4F4F" viewBox="0 0 16 16">
@@ -1940,7 +1950,7 @@ const handleDragEnd = (event) => {
                         <path fillRule="evenodd" d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 0 0-5.86 2.929 2.929 0 0 0 0 5.858z"/>
                       </svg>
                     ),
-                    onClick: () => alert('Settings coming soon!')
+                    onClick: () => setShowSettingsModal(true)
                   },
                   {
                     label: 'Tutorial',
@@ -2209,13 +2219,13 @@ const handleDragEnd = (event) => {
                   showSearch={true}
                   formatTitleForDisplay={formatTitleForDisplay}
                   isSimplified={isSimplified}
+                  onEditMemory={handleEditMemory}
+                  onDeleteMemory={handleDeleteMemory}
                 />
               }
               tabs={[
                 {
                   label: 'Memories',
-                  icon: <Library size={16} />,
-                  onNavigate: () => window.location.href = '/archive',
                   content: (
                     <Sidebar
                       memories={memories}
@@ -2224,13 +2234,13 @@ const handleDragEnd = (event) => {
                       showSearch={false}
                       formatTitleForDisplay={formatTitleForDisplay}
                       isSimplified={isSimplified}
+                      onEditMemory={handleEditMemory}
+                      onDeleteMemory={handleDeleteMemory}
                     />
                   )
                 },
                 {
                   label: 'Libraries',
-                  icon: <LibraryIcon size={16} color="currentColor" />,
-                  onNavigate: () => window.location.href = '/libraries',
                   content: (
                     <div className="sidebar-content">
                       <div className="sidebar-libraries-grid">
@@ -2261,15 +2271,6 @@ const handleDragEnd = (event) => {
                 },
                 {
                   label: 'Constellations',
-                  onNavigate: undefined, // No navigation for now
-                  icon: (
-                    <svg width="16" height="16" viewBox="0 0 548.15 569.79" fill="currentColor">
-                      <path d="M296.2,88.71c21.26-.59,42.52-1.15,63.78-1.8,4.14-.13,8.26-.75,12.4-.95,4.22-.19,5.47-3.29,6.64-6.44,5.34-14.33,10.64-28.67,15.93-43.01,3.68-9.98,7.06-20.08,11.15-29.88,1.1-2.63,3.97-5.4,6.63-6.28,3.98-1.3,7.65,1.12,9.33,4.92,2.62,5.91,4.7,12.06,6.98,18.12,7.01,18.67,13.96,37.36,21.01,56.01,2.66,7.04,3.53,7.35,10.98,7.6,26.57,.92,53.14,1.86,79.69,3.17,2.38,.12,5.61,2.41,6.71,4.57,1.84,3.61-.12,7.14-3.26,9.59-5.89,4.6-11.86,9.11-17.81,13.62-15.61,11.82-31.21,23.67-46.88,35.41-3.5,2.62-3.98,5.76-2.86,9.67,7.21,25.23,14.37,50.48,21.54,75.72,.32,1.11,.68,2.23,.83,3.37,.53,4.02-1.01,7.17-4.31,9.44-3.18,2.19-6.34,1.65-9.31-.39-10.55-7.23-21.09-14.49-31.59-21.79-10.91-7.58-21.86-15.12-32.64-22.89-4-2.88-7.34-2.76-11.3,.08-20.39,14.6-40.88,29.05-61.35,43.54-4.04,2.86-8.16,5.61-13.11,1.98-4.33-3.17-5.07-7.44-3.58-12.4,.86-2.86,1.33-5.82,2.11-8.71,5.84-21.64,11.58-43.32,17.67-64.89,1.45-5.13,.83-8.37-3.68-11.88-20.82-16.22-41.25-32.93-61.94-49.32-3.26-2.59-5.96-5.23-4.43-9.55,1.54-4.31,4.96-6.52,9.69-6.4,1.66,.04,3.33,0,4.99,0v-.27Z"/>
-                      <path d="M53.44,160.72c0-6.98-.3-13.98,.16-20.93,.17-2.49,1.75-6.39,3.48-6.88,2.14-.61,5.91,.93,7.57,2.79,9.28,10.42,18.23,21.14,27.1,31.92,3.25,3.95,6.26,6.01,11.84,3.91,12.9-4.86,26.06-9.05,39.16-13.37,2.14-.71,4.6-1.28,6.76-.94,3.67,.58,4.84,4.59,2.44,8.39-6.21,9.83-12.6,19.55-18.92,29.31-1.08,1.67-2.18,3.34-3.22,5.03-6.55,10.56-6.91,7.04,.95,17.71,8.19,11.11,16.71,21.97,24.82,33.13,1.12,1.54,1.67,4.97,.74,6.15-1.34,1.69-4.51,3.27-6.49,2.87-8.77-1.79-17.39-4.33-26.08-6.55-6.44-1.64-12.91-3.13-19.34-4.83-3.17-.84-5.36,.01-7.23,2.75-7.68,11.25-15.48,22.42-23.24,33.62-.76,1.09-1.27,2.54-2.29,3.22-2.31,1.55-5.23,4.17-7.24,3.67-2.04-.51-4.33-4.08-4.68-6.57-1.52-10.66-2.37-21.43-3.48-32.15-.24-2.31-.98-4.66-.72-6.91,1.13-9.98-4.22-13.88-13.09-16.25-12.49-3.34-24.71-7.71-36.92-12.02-2.28-.81-5.82-3.94-5.5-5.04,.76-2.59,3.06-5.68,5.51-6.67,10.31-4.19,20.9-7.69,31.39-11.45,2.35-.84,4.68-1.71,7.01-2.61,9.24-3.56,9.32-3.69,9.34-13.82,0-5.83,0-11.65,0-17.48,.06,0,.12,0,.18,0Z"/>
-                      <path d="M224.77,426.94c7.45-.44,14.9-.98,22.36-1.28,3.81-.15,4.95-2.71,6-5.64,3.24-9.07,6.34-18.19,9.94-27.11,.91-2.27,3.8-5.65,5.2-5.39,2.4,.45,5.29,2.95,6.31,5.31,4.01,9.29,7.48,18.82,10.93,28.34,1.44,3.98,3.67,5.71,8.1,5.57,9.97-.3,19.96-.11,29.94-.08,1.66,0,3.5-.22,4.91,.42,1.68,.77,3.66,2.12,4.22,3.68,.37,1.03-1.23,3.28-2.5,4.28-8.7,6.91-17.4,13.85-26.42,20.32-3.57,2.56-3.99,5.35-3,9.01,2.59,9.61,5.39,19.17,7.66,28.86,.59,2.54-.45,5.47-.74,8.22-2.71-.57-5.84-.47-8.06-1.84-8.06-4.95-15.96-10.2-23.62-15.75-3.62-2.62-6.45-2.38-9.91-.03-8.24,5.61-16.53,11.15-25,16.39-2.01,1.24-4.81,1.2-7.25,1.76-.51-2.82-1.9-5.83-1.36-8.44,1.99-9.74,4.42-19.41,7.07-29,1.14-4.12-.33-6.69-3.33-9.02-8.39-6.5-16.87-12.89-25.07-19.63-1.78-1.46-2.49-4.22-3.69-6.38,2.27-.96,4.48-2.43,6.84-2.76,3.43-.47,6.97-.12,10.46-.12,0,.10,.01,.20,.02,.29Z"/>
-                      <path d="M73.41,558.97c-4.27-1.33-9.11-2.58-13.75-4.36-3.92-1.5-6.66-.56-9.13,2.62-2.86,3.67-5.85,7.25-8.93,10.74-.8,.91-2.52,2.08-3.19,1.77-1.09-.50-2.21-2.07-2.34-3.29-.48-4.45-.88-8.96-.68-13.42,.21-4.69-1.31-7.49-5.96-8.92-4.43-1.37-8.71-3.3-12.96-5.2-1.39-.62-2.47-1.91-3.7-2.89,1.38-1,2.63-2.35,4.17-2.93,4.82-1.82,9.87-3.07,14.56-5.15,1.66-.74,3.34-3.10,3.63-4.94,.8-4.90,.74-9.93,1.26-14.89,.14-1.34,.99-3.55,1.75-3.66,1.32-.18,3.27,.58,4.17,1.63,3.36,3.90,6.48,8.02,9.52,12.18,1.92,2.62,3.97,3.52,7.23,2.38,5.02-1.75,10.17-3.14,15.33-4.45,1.27-.32,2.78,.26,4.17,.42-.28,1.35-.18,2.95-.89,4-2.88,4.27-5.91,8.45-9.07,12.52-2.11,2.72-2.45,5.09-.36,8.10,2.93,4.23,5.47,8.74,8.09,13.18,1.56,2.64,1.25,4.48-2.91,4.55Z"/>
-                    </svg>
-                  ),
                   content: (
                     <ConstellationSidebar
                       droppedMemories={displayMemories}
@@ -2582,6 +2583,27 @@ const handleDragEnd = (event) => {
             onClose={() => setPlaygroundOpen(false)}
             playgroundId={currentPlaygroundId}
             userId={user?.uid}
+          />
+        )}
+
+        {/* Settings Modal */}
+        {showSettingsModal && (
+          <SettingsModal
+            onClose={() => setShowSettingsModal(false)}
+            onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)}
+            deletedCount={deletedMemories.length}
+          />
+        )}
+
+        {/* Recently Deleted Modal */}
+        {showRecentlyDeleted && (
+          <RecentlyDeletedModal
+            deletedMemories={deletedMemories}
+            onRestore={restoreMemory}
+            onPermanentDelete={permanentlyDeleteMemory}
+            onEmptyTrash={emptyTrash}
+            onClose={() => setShowRecentlyDeleted(false)}
+            formatTitleForDisplay={formatTitleForDisplay}
           />
         )}
       </div>
