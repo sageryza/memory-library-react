@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -6,13 +7,23 @@ import {
   GoogleAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase';
+import useAuth from '../hooks/useAuth';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Redirect to conspiracy board if user is already logged in
+  useEffect(() => {
+    if (user && !authLoading) {
+      navigate('/conspiracy-board');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +36,7 @@ const Login = () => {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
+      // Navigation will be handled by the useEffect hook when auth state updates
     } catch (error) {
       setError(error.message);
     } finally {

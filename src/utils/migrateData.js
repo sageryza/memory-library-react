@@ -35,9 +35,20 @@ export const migrateLocalStorageToFirestore = async (userId) => {
     // Parse localStorage data
     let memories = [];
     try {
-      memories = JSON.parse(localStorageData);
-      if (!Array.isArray(memories)) {
-        console.error('Invalid localStorage data format');
+      const parsed = JSON.parse(localStorageData);
+      // Check if data is in the expected format (object with memories property)
+      if (parsed && parsed.memories && Array.isArray(parsed.memories)) {
+        memories = parsed.memories;
+      } else if (Array.isArray(parsed)) {
+        // Fallback for older format where memories were stored directly as array
+        memories = parsed;
+      } else {
+        // No memories found - still mark as migrated to prevent repeated attempts
+        await setDoc(userDocRef, {
+          migrated: true,
+          migratedAt: serverTimestamp(),
+          migratedCount: 0
+        }, { merge: true });
         return;
       }
     } catch (error) {

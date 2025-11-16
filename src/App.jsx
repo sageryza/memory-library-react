@@ -157,16 +157,18 @@ function App() {
     storageInfo
   } = useMemories(user?.uid);
   const [migrating, setMigrating] = useState(false);
+  const [hasMigrationRun, setHasMigrationRun] = useState(false);
 
   // Run ID migration once on app startup
   useEffect(() => {
     runIdMigration();
   }, []);
 
-  // Run migration when user logs in
+  // Run migration when user logs in (only once per session)
   useEffect(() => {
-    if (user?.uid && !migrating) {
+    if (user?.uid && !migrating && !hasMigrationRun) {
       setMigrating(true);
+      setHasMigrationRun(true);
       migrateLocalStorageToFirestore(user.uid)
         .then(() => {
           setMigrating(false);
@@ -176,9 +178,9 @@ function App() {
           setMigrating(false);
         });
     }
-}, [user?.uid]);
+  }, [user?.uid, hasMigrationRun]);
 
-  if (authLoading || migrating) {
+  if (authLoading) {
     return <LoadingSpinner />;
   }
 
@@ -186,6 +188,36 @@ function App() {
   return (
     <Router>
       <PageTitle />
+      {migrating && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(250, 248, 233, 0.95)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #800020',
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+            marginBottom: '16px',
+          }}></div>
+          <p style={{
+            color: '#800020',
+            fontSize: '18px',
+            fontFamily: '"Crimson Text", serif',
+          }}>Migrating your data...</p>
+        </div>
+      )}
       <div className="app">
         {/* Show navigation */}
         <Navigation user={user} />
