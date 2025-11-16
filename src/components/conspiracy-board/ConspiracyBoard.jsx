@@ -919,10 +919,12 @@ const handleDragEnd = (event) => {
       const firebaseId = await addMemory(memoryData)
 
       // Create the canvas memory with Firebase ID and position
+      // Adjust x position for stacked view: Canvas.jsx adds +130px when rendering stacked cards
+      // (to keep pin in same place), so we subtract 130px here to compensate
       const newMemory = {
         ...memoryData,
         id: firebaseId,
-        x: position.x,
+        x: isSimplified ? position.x - 130 : position.x,
         y: position.y
       }
 
