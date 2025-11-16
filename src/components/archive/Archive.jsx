@@ -637,7 +637,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             tabs={[
               {
                 label: 'Libraries',
-                icon: <Library size={16} />,
+                icon: <LibraryIcon size={16} color="currentColor" />,
                 content: (
                   <div className="sidebar-content">
                     <div className="sidebar-libraries-grid">
