@@ -1343,13 +1343,27 @@ const handleDragEnd = (event) => {
     if (!node) return
 
     const handleWheel = (e) => {
-      // TODO: Enable touchpad/mousepad scrolling for panning
-      // Currently only prevents browser navigation - should update panOffset based on e.deltaX/e.deltaY
-      // Need to respect pan bounds (CANVAS_OFFSET_X/Y) and potentially add sensitivity adjustment
-
       // Prevent default to stop browser navigation gestures
       e.preventDefault()
       e.stopPropagation()
+
+      // Sensitivity multiplier for natural feel (1.0 = raw delta values)
+      const SCROLL_SENSITIVITY = 1.0
+
+      // Calculate new pan offset based on wheel delta
+      // Note: We subtract deltaX/Y because scrolling right should move content left (pan right)
+      const newOffset = {
+        x: panOffset.x - (e.deltaX * SCROLL_SENSITIVITY),
+        y: panOffset.y - (e.deltaY * SCROLL_SENSITIVITY)
+      }
+
+      // Clamp to pan bounds to prevent panning beyond canvas
+      const clampedOffset = {
+        x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newOffset.x)),
+        y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newOffset.y))
+      }
+
+      setPanOffset(clampedOffset)
     }
 
     const handleTouchStart = (e) => {
@@ -1371,7 +1385,7 @@ const handleDragEnd = (event) => {
       node.removeEventListener('touchstart', handleTouchStart)
       node.removeEventListener('touchmove', handleTouchMove)
     }
-  }, [])
+  }, [panOffset, setPanOffset])
 
   // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
   useEffect(() => {

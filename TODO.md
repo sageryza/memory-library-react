@@ -187,7 +187,7 @@ const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
 ---
 
-### Conspiracy Board - Enable Touchpad/Mousepad Scrolling
+### Conspiracy Board - Enable Touchpad/Mousepad Scrolling **[COMPLETE]**
 **Goal:** Make it possible to scroll/pan the Conspiracy Board canvas using touchpad or mousepad wheel events
 
 **Current behavior:** Wheel events are prevented but don't trigger panning
