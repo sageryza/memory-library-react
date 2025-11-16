@@ -17,6 +17,11 @@ WORKTREE="../memory-library-$TASK_NAME"
 # Create the worktree
 git worktree add "$WORKTREE" -b "$BRANCH"
 
+# Create symlink to node_modules to avoid reinstalling dependencies
+cd "$WORKTREE"
+ln -s ../memory-library-react/node_modules node_modules
+cd - > /dev/null
+
 echo ""
 echo "✅ Worktree created!"
 echo "📁 Location: $WORKTREE"
