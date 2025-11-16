@@ -33,6 +33,19 @@ export const useSavedBoards = (userId) => {
           id: doc.id,
           ...doc.data()
         }));
+
+        // Add client-side sort for stable ordering (secondary sort by name to break ties)
+        boards.sort((a, b) => {
+          // First sort by updatedAt (newest first)
+          const timeA = a.updatedAt?.toMillis?.() || 0;
+          const timeB = b.updatedAt?.toMillis?.() || 0;
+          if (timeB !== timeA) {
+            return timeB - timeA;
+          }
+          // If timestamps are equal, sort alphabetically by name for stability
+          return (a.name || '').localeCompare(b.name || '');
+        });
+
         setSavedBoards(boards);
         setLoading(false);
         setError(null);

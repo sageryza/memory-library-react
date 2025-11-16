@@ -227,7 +227,8 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
     if (activeBoardName && boardState && user?.uid) {
       // Debounce the auto-save to avoid too many writes
       const timeoutId = setTimeout(() => {
-        saveBoard(activeBoardName, boardState).catch(error => {
+        // Pass false to prevent updating timestamp (prevents boards from re-ordering on every change)
+        saveBoard(activeBoardName, boardState, false).catch(error => {
           console.error('Auto-save failed:', error)
         })
       }, 1000)
@@ -624,9 +625,6 @@ const handleDragEnd = (event) => {
       return
     }
 
-    // TODO: Fix false error popup when board saves successfully
-    // Sometimes shows "Failed to save" even though the save actually worked
-    // Check useSavedBoards.js saveBoard implementation for promise/timing issues
     try {
       await saveBoard(boardNameInput.trim(), boardState)
       setActiveBoardName(boardNameInput.trim())
@@ -642,7 +640,8 @@ const handleDragEnd = (event) => {
   const handleLoadBoardClick = (boardId) => {
     // Only save current board if we're loading a different board
     if (boardState && activeBoardName && activeBoardName !== boardId && user?.uid) {
-      saveBoard(activeBoardName, boardState).catch(error => {
+      // Auto-save before switching, don't update timestamp
+      saveBoard(activeBoardName, boardState, false).catch(error => {
         console.error('Failed to save current board before loading:', error)
       })
     }
@@ -669,7 +668,8 @@ const handleDragEnd = (event) => {
   const handleNewBoard = () => {
     // Auto-save current board before creating a new one
     if (boardState && activeBoardName && user?.uid) {
-      saveBoard(activeBoardName, boardState).catch(error => {
+      // Auto-save before creating new board, don't update timestamp
+      saveBoard(activeBoardName, boardState, false).catch(error => {
         console.error('Failed to save current board before creating new:', error)
       })
     }
