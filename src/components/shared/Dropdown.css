@@ -16,13 +16,26 @@
   left: 0;
   z-index: 1100;
   min-width: 200px;
-  margin-top: -8px;
+  margin-top: 4px; /* Small gap for visual separation */
   background: var(--color-bg-white);
   border: 1px solid var(--color-border-divider);
   border-radius: var(--radius-medium);
   box-shadow: var(--shadow-medium);
   overflow: hidden;
   animation: dropdownSlide var(--transition-fast) ease-out;
+}
+
+/* Invisible bridge between trigger and menu to prevent accidental closure */
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -20px; /* Extends upward to overlap with trigger */
+  left: -10px; /* Slightly wider to catch diagonal movements */
+  right: -10px;
+  height: 24px; /* Tall enough to bridge the gap */
+  /* Uncomment to visualize the bridge during development:
+  background: rgba(255, 0, 0, 0.1);
+  */
 }
 
 .dropdown-menu-right {
