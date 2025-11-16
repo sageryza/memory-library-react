@@ -335,20 +335,100 @@
 }
 
 /* ============================================
-   DRAG OVERLAY
+   DRAG OVERLAY (Dragging Preview)
    ============================================ */
 
+/* Base drag overlay container */
 .drag-overlay {
   pointer-events: none;
   z-index: 500; /* Above regular cards but below connections (2100) so strings appear on top */
+  /* Force visibility (overrides .memory-card.dragging visibility:hidden) */
+  display: block;
+  visibility: visible;
+  opacity: 1;
 }
 
+.drag-overlay > div {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Drag overlay - Normal view (250px cards) */
 .drag-overlay .memory-card {
+  width: 250px;
+  min-height: 120px;
+  padding: 15px;
+  border-radius: var(--radius-medium);
+  background: var(--beige-primary);
+  border: 0.75px solid var(--beige-border);
+  position: relative;
+  cursor: move;
+  user-select: none;
+  box-sizing: border-box;
+  margin-bottom: 0;
+
+  /* Enhanced shadow for dragging */
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  border-color: var(--beige-border);
-  width: 250px; /* Match the dropped-memory card width */
-  min-height: 120px; /* Match the dropped-memory card min-height */
-  padding: 15px; /* Match the dropped-memory card padding */
+
+  /* No transition during drag */
+  transition: none;
+
+  /* Force visibility */
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+
+.drag-overlay .memory-card-title {
+  font-size: var(--font-size-medium);
+  margin-bottom: 8px;
+  line-height: 1.3;
+  font-weight: normal;
+  color: var(--color-text-primary);
+}
+
+.drag-overlay .memory-card-content {
+  font-size: 13px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.drag-overlay .memory-card-date {
+  font-size: 9px;
+  font-family: 'Courier Prime', monospace;
+  color: var(--color-text-muted);
+}
+
+/* Drag overlay - Stacked/Simplified view (120px squares) */
+.drag-overlay .memory-card.stacked-view {
+  width: 120px;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-overlay .memory-card-title.stacked {
+  font-size: var(--font-size-medium);
+  line-height: 1.1;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  word-wrap: break-word;
+  overflow: hidden;
 }
 
 /* ============================================
