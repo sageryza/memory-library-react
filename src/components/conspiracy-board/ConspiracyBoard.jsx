@@ -9,6 +9,8 @@ import DragConnections from './DragConnections'
 import StandalonePins from './StandalonePins'
 import VennDiagramModal from './VennDiagramModal'
 import MemoryModal from '../shared/MemoryModal'
+import SettingsModal from '../shared/SettingsModal'
+import RecentlyDeletedModal from '../shared/RecentlyDeletedModal'
 import ConstellationSidebar from './ConstellationSidebar'
 import PinEditModal from './PinEditModal'
 import ContextMenu from '../shared/ContextMenu'
@@ -55,7 +57,17 @@ const generateBoardName = () => {
   return `Untitled Board - ${timestamp}`
 }
 
-function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemory, deleteMemory }) {
+function ConspiracyBoard({
+  memories = [],
+  memoriesLoading,
+  addMemory,
+  updateMemory,
+  deleteMemory,
+  deletedMemories = [],
+  restoreMemory,
+  permanentlyDeleteMemory,
+  emptyTrash
+}) {
   const [activeId, setActiveId] = useState(null)
   const [activeMemoryData, setActiveMemoryData] = useState(null)
   const [activeTransform, setActiveTransform] = useState(null)
@@ -95,6 +107,8 @@ function ConspiracyBoard({ memories = [], memoriesLoading, addMemory, updateMemo
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null)
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
   // Pan state
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
@@ -1936,7 +1950,7 @@ const handleDragEnd = (event) => {
                         <path fillRule="evenodd" d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 0 0-5.86 2.929 2.929 0 0 0 0 5.858z"/>
                       </svg>
                     ),
-                    onClick: () => alert('Settings coming soon!')
+                    onClick: () => setShowSettingsModal(true)
                   },
                   {
                     label: 'Tutorial',
@@ -2569,6 +2583,27 @@ const handleDragEnd = (event) => {
             onClose={() => setPlaygroundOpen(false)}
             playgroundId={currentPlaygroundId}
             userId={user?.uid}
+          />
+        )}
+
+        {/* Settings Modal */}
+        {showSettingsModal && (
+          <SettingsModal
+            onClose={() => setShowSettingsModal(false)}
+            onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)}
+            deletedCount={deletedMemories.length}
+          />
+        )}
+
+        {/* Recently Deleted Modal */}
+        {showRecentlyDeleted && (
+          <RecentlyDeletedModal
+            deletedMemories={deletedMemories}
+            onRestore={restoreMemory}
+            onPermanentDelete={permanentlyDeleteMemory}
+            onEmptyTrash={emptyTrash}
+            onClose={() => setShowRecentlyDeleted(false)}
+            formatTitleForDisplay={formatTitleForDisplay}
           />
         )}
       </div>
