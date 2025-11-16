@@ -249,23 +249,52 @@
 
 ---
 
-### Conspiracy Board - Fix False Error When Saving Board
+### Conspiracy Board - Fix False Error When Saving Board **[COMPLETE]**
 **Issue:** When saving a board, sometimes an error popup appears even though the board was successfully saved
 
-**Current behavior:**
-- User saves board
-- Board actually saves successfully
-- Error popup still appears saying "Failed to save board"
+**Resolution:**
+- Fixed `setShowBoardDropdown` undefined reference error
+- Memoized `saveBoard`, `loadBoard`, and `deleteBoard` functions with `useCallback`
+- Added `updateTimestamp` parameter to prevent auto-save from reordering boards
+- Added stable client-side secondary sort by board name
+- Prevents flickering when timestamps are equal or during serverTimestamp resolution
 
-**Suspected cause:**
-- Promise rejection or timeout issue in `saveBoard` function
-- Async timing issue between save operation and UI feedback
-- Error handling catching false positives
+**Commit:** d9ac364 (2025-11-15)
 
-**Locations to investigate:**
-- `src/hooks/useSavedBoards.js` - `saveBoard` implementation
-- `src/components/conspiracy-board/ConspiracyBoard.jsx:606` - `handleSaveBoard` function
-- `src/components/conspiracy-board/ConspiracyBoard.jsx:227` - Auto-save logic
+---
+
+### Conspiracy Board - Add Board-Level Notes/Description Field
+**Goal:** Allow users to add and edit notes/descriptions for saved boards
+
+**UI Behavior:**
+
+**Save Board Modal:**
+- Add optional notes field when creating a new board
+- Multi-line textarea (2 rows) for entering notes
+
+**Load Board Modal:**
+- Display notes below each board name in italic text (non-bold)
+- Toggle button to make notes editable
+- When editable: Shows 2-line textarea
+- When not editable: Displays in italic text
+- Auto-exits edit mode when user performs another action (load, delete, etc.)
+- Toggle can re-enable editing
+
+**Data Structure:**
+- Add `notes` field to board documents in Firebase
+- Store as string in board data structure
+- Include in `saveBoard` and `loadBoard` operations
+
+**Locations:**
+- `src/hooks/useSavedBoards.js` - Add `notes` field to save/load operations
+- `src/components/conspiracy-board/ConspiracyBoard.jsx` - Save Board modal (add notes input)
+- `src/components/conspiracy-board/ConspiracyBoard.jsx:2385-2418` - Load Board modal (add notes display/edit)
+
+**Implementation Notes:**
+- Notes are optional (can be empty)
+- Use textarea with `rows={2}` for input
+- CSS: italic text for display mode, normal textarea for edit mode
+- Consider adding character limit (e.g., 200-300 characters)
 
 ---
 
