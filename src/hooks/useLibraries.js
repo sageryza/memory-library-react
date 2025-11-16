@@ -27,12 +27,82 @@ export default function useLibraries(userId) {
     loadFirestoreLibraries();
   }, [userId]);
 
-  const loadLocalLibraries = () => {
+  // Create default libraries for new users
+  const createDefaultLibraries = async () => {
+    const defaultsData = [
+      {
+        name: 'Core Memories',
+        description: 'The memories that have lived with you the longest, that make you who you are, that you refer back to on a daily basis.',
+        color: '#FFD700', // Gold
+        isCore: true,
+        manualMemoryIds: [],
+        searchLogic: null,
+        isLocked: false
+      },
+      {
+        name: 'Coincidences',
+        description: 'Strange synchronicities, unlikely encounters, and moments when the universe seemed to conspire in your favor.',
+        color: '#9932CC', // Dark Orchid Purple
+        isCore: true,
+        manualMemoryIds: [],
+        searchLogic: null,
+        isLocked: false
+      }
+    ];
+
+    const createdLibraries = [];
+
+    for (const libraryData of defaultsData) {
+      const newLibrary = {
+        name: libraryData.name,
+        description: libraryData.description || '',
+        manualMemoryIds: libraryData.manualMemoryIds || [],
+        searchLogic: libraryData.searchLogic || null,
+        isLocked: libraryData.isLocked || false,
+        isCore: libraryData.isCore || false,
+        color: libraryData.color || null,
+        createdAt: new Date().toISOString(),
+        ...(!userId ? {} : { userId })
+      };
+
+      if (!userId) {
+        // localStorage: generate ID
+        const id = generateLocalId();
+        createdLibraries.push({ ...newLibrary, id });
+      } else {
+        // Firestore: add document to user's subcollection
+        const librariesRef = collection(db, 'users', userId, 'libraries');
+        const docRef = await addDoc(librariesRef, newLibrary);
+        createdLibraries.push({ ...newLibrary, id: docRef.id });
+      }
+    }
+
+    // Update state with all new libraries at once
+    if (!userId) {
+      // Save to localStorage
+      setLibraries(createdLibraries);
+      localStorage.setItem('memoryLibraries', JSON.stringify(createdLibraries));
+    } else {
+      // Update Firestore state
+      setLibraries(createdLibraries);
+    }
+
+    // Mark that we've created default libraries
+    localStorage.setItem('hasCreatedDefaultLibraries', 'true');
+  };
+
+  const loadLocalLibraries = async () => {
     try {
       const stored = localStorage.getItem('memoryLibraries');
       if (stored) {
         const parsed = JSON.parse(stored);
         setLibraries(parsed);
+      } else {
+        // New user with no libraries - create defaults
+        const hasCreatedDefaults = localStorage.getItem('hasCreatedDefaultLibraries');
+        if (!hasCreatedDefaults) {
+          await createDefaultLibraries();
+        }
       }
     } catch (error) {
       console.error('Error loading libraries from localStorage:', error);
@@ -41,12 +111,6 @@ export default function useLibraries(userId) {
     }
   };
 
-  // TODO: Add default libraries on first use
-  // When libs.length === 0 (new user), create default libraries:
-  // 1. "Core Memories" - most important and defining memories
-  // 2. "Synchronicities" - meaningful coincidences and connections
-  // Check localStorage flag to prevent recreating if user deleted them
-  // See TODO.md line 403 for full implementation details
   const loadFirestoreLibraries = async () => {
     try {
       // Store in user's subcollection: users/{userId}/libraries
@@ -58,7 +122,13 @@ export default function useLibraries(userId) {
       }));
       setLibraries(libs);
 
-      // TODO: Add here - if libs.length === 0 && !hasCreatedDefaults, create defaults
+      // Create defaults for new Firestore users
+      if (libs.length === 0) {
+        const hasCreatedDefaults = localStorage.getItem('hasCreatedDefaultLibraries');
+        if (!hasCreatedDefaults) {
+          await createDefaultLibraries();
+        }
+      }
     } catch (error) {
       console.error('Error loading libraries from Firestore:', error);
       // Fallback to empty libraries if permission denied
@@ -90,6 +160,7 @@ export default function useLibraries(userId) {
         manualMemoryIds: libraryData.manualMemoryIds || [],
         searchLogic: libraryData.searchLogic || null,
         isLocked: libraryData.isLocked || false,
+        isCore: libraryData.isCore || false,
         color: libraryData.color || null,
         createdAt: new Date().toISOString(),
         ...(!userId ? {} : { userId })
