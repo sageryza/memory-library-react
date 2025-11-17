@@ -1,5 +1,14 @@
-/* Inline memory editor - uses existing .memory-card and .memory-card-title.full-height classes */
-/* No duplicate styling needed - inherits from MemoryCard structure */
+.inline-memory-editor {
+  background: var(--beige-primary);
+  border: 0.5px solid var(--beige-border);
+  border-radius: var(--radius-medium);
+  padding: 15px;
+  width: 250px;
+  min-height: 120px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+}
 
 .inline-memory-textarea {
   width: 100%;
@@ -7,21 +16,14 @@
   outline: none;
   background: transparent;
   font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  color: inherit;
-  line-height: inherit;
+  font-size: var(--font-size-medium);
+  font-weight: normal;
+  color: var(--color-text-primary);
+  line-height: 1.3;
   resize: none;
   overflow: hidden;
+  min-height: 90px;
   padding: 0;
-  margin: 0;
-}
-
-/* Override global focus styles to prevent double-frame */
-.inline-memory-textarea:focus {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
 }
 
 .inline-memory-textarea::placeholder {
@@ -29,3 +31,4 @@
 }
 
 /* Auto-expand textarea */
+/* Focus styles inherited from global input:focus rule in components.css */

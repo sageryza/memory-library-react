@@ -66,7 +66,6 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
           onUpdate={(newTitle) => onInlineUpdate(memory.id, newTitle)}
           onBlur={(finalTitle) => onInlineBlur(memory.id, finalTitle)}
           onEscape={() => onInlineEscape(memory.id)}
-          isStackedView={isStackedView}
         />
       ) : (
         <MemoryCard memory={memory} isStackedView={isStackedView} formatTitleForDisplay={formatTitleForDisplay} />
