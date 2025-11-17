@@ -81,7 +81,7 @@ export default function MemoryCard({
     <div className={`memory-card ${isStackedView ? 'stacked-view' : ''}`}>
       <div
         ref={titleRef}
-        className={`memory-card-title ${isStackedView ? 'stacked' : ''}`}
+        className={`memory-card-title ${isStackedView ? 'stacked' : ''} ${!hasContent && !isStackedView ? 'full-height' : ''}`}
         style={isStackedView ? { fontSize: `${fontSize}px` } : undefined}
         dangerouslySetInnerHTML={{ __html: displayTitle }}
       />
