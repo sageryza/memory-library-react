@@ -8,7 +8,7 @@ import './Connections.css'
 // Could use CSS custom properties or inline styles based on user preferences
 // TODO: Fix random Venn Modal triggers - connection click detection too sensitive
 // See ConspiracyBoard.css line 321 for pointer-events issue
-export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null }) {
+export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null, stringsInFront = true }) {
   const svgRef = useRef(null)
   const [hoveredConnection, setHoveredConnection] = useState(null)
   const [tooltipPositions, setTooltipPositions] = useState({})
@@ -125,10 +125,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
 
   return (
     <>
-      {/* TODO: Add toggle for string z-index (over/under cards)
-          Currently no z-index set here - defaults to DOM order
-          Could add: zIndex: stringsAboveCards ? 2100 : 50
-          See Settings TODO for user preference storage */}
+      {/* String z-index toggle controlled by stringsInFront prop */}
       <svg
         ref={svgRef}
         className="connections-svg"
@@ -139,7 +136,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
           width: '10000px',  // Match canvas width
           height: '8000px',   // Match canvas height
           pointerEvents: 'none',
-          zIndex: 250
+          zIndex: stringsInFront ? 2100 : 1 // Toggle between in front (2100) and behind (1)
         }}
         viewBox="0 0 10000 8000"
       >
