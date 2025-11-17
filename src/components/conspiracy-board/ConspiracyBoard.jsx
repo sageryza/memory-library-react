@@ -2087,6 +2087,7 @@ const handleDragEnd = (event) => {
               cursorPosition={cursorPosition}
               constellationSelectedNodes={constellationSelectedNodes}
               stringsInFront={stringsInFront}
+              isDragging={!!activeId}
             />
 
             {/* Ghost constellation preview during placement */}

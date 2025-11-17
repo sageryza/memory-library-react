@@ -8,7 +8,7 @@ import './Connections.css'
 // Could use CSS custom properties or inline styles based on user preferences
 // TODO: Fix random Venn Modal triggers - connection click detection too sensitive
 // See ConspiracyBoard.css line 321 for pointer-events issue
-export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null, stringsInFront = true }) {
+export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null, stringsInFront = true, isDragging = false }) {
   const svgRef = useRef(null)
   const [hoveredConnection, setHoveredConnection] = useState(null)
   const [tooltipPositions, setTooltipPositions] = useState({})
@@ -125,7 +125,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
 
   return (
     <>
-      {/* String z-index toggle controlled by stringsInFront prop */}
+      {/* String z-index: always in front while dragging, otherwise controlled by stringsInFront toggle */}
       <svg
         ref={svgRef}
         className="connections-svg"
@@ -136,7 +136,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
           width: '10000px',  // Match canvas width
           height: '8000px',   // Match canvas height
           pointerEvents: 'none',
-          zIndex: stringsInFront ? 2100 : 1 // Toggle between in front (2100) and behind (1)
+          zIndex: isDragging ? 2100 : (stringsInFront ? 2100 : 1) // Always in front while dragging
         }}
         viewBox="0 0 10000 8000"
       >
