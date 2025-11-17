@@ -146,7 +146,7 @@
   border: none;
   border-radius: var(--radius-medium);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-medium);
   cursor: pointer;
   transition: all var(--transition-normal);
 }

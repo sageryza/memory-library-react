@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { setHasId } from '../../utils/idUtils'
 import './ConstellationMode.css'
 
-function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContextMenu, panOffset, isConstellationSelected }) {
-  const [showTooltip, setShowTooltip] = useState(false)
+function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContextMenu, panOffset, isConstellationSelected, showAllInsights }) {
+  const [hoveredTooltip, setHoveredTooltip] = useState(false)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
 
   const {
@@ -33,23 +33,30 @@ function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContex
 
   const handleMouseEnter = (e) => {
     if (pin.description && pin.description.trim()) {
-      setShowTooltip(true)
-      const rect = e.currentTarget.getBoundingClientRect()
-      const canvas = document.querySelector('.canvas')
-      const canvasRect = canvas?.getBoundingClientRect()
-
-      if (canvasRect) {
-        setTooltipPosition({
-          x: rect.left + rect.width / 2 - canvasRect.left - panOffset.x,
-          y: rect.top + rect.height / 2 - canvasRect.top - panOffset.y
-        })
-      }
+      setHoveredTooltip(true)
+      setTooltipPosition({
+        x: pin.x,
+        y: pin.y
+      })
     }
   }
 
   const handleMouseLeave = () => {
-    setShowTooltip(false)
+    setHoveredTooltip(false)
   }
+
+  // Update tooltip position when showAllInsights changes
+  useEffect(() => {
+    if (showAllInsights && pin.description && pin.description.trim()) {
+      setTooltipPosition({
+        x: pin.x,
+        y: pin.y
+      })
+    }
+  }, [showAllInsights, pin.x, pin.y, pin.id, pin.description])
+
+  // Show if either hovering this pin OR showAllInsights is true
+  const shouldShowTooltip = (showAllInsights || hoveredTooltip) && pin.description && pin.description.trim()
 
   return (
     <>
@@ -97,7 +104,7 @@ function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContex
         )}
       </div>
 
-      {showTooltip && pin.description && (
+      {shouldShowTooltip && (
         <div
           className="connection-tooltip show"
           style={{
@@ -106,7 +113,7 @@ function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContex
             top: tooltipPosition.y,
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
-            zIndex: 1000
+            zIndex: 2500 // Above strings (2100) and pins
           }}
         >
           {pin.description}
@@ -125,7 +132,8 @@ export default function StandalonePins({
   isPlacingPin,
   placementPosition,
   panOffset,
-  constellationSelectedNodes
+  constellationSelectedNodes,
+  showAllInsights
 }) {
   return (
     <>
@@ -139,6 +147,7 @@ export default function StandalonePins({
           onContextMenu={onContextMenu}
           panOffset={panOffset}
           isConstellationSelected={constellationSelectedNodes && setHasId(constellationSelectedNodes, pin.id)}
+          showAllInsights={showAllInsights}
         />
       ))}
       {isPlacingPin && placementPosition && (

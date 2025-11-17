@@ -52,7 +52,7 @@
   color: var(--color-text-light);
   border: 2px solid var(--color-border-medium);
   padding: 8px 12px;
-  border-radius: var(--radius-small);
+  border-radius: 50px;
   font-family: 'Crimson Text', serif;
   font-size: 13px;
   line-height: 1.4;

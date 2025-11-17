@@ -184,9 +184,13 @@ export default function Connections({ connections, droppedMemories, standalonePi
               stroke="transparent"
               strokeWidth="10"
               style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-              onClick={() => onConnectionClick(connection)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onConnectionClick(connection)
+              }}
               onContextMenu={(e) => {
                 e.preventDefault()
+                e.stopPropagation()
                 onConnectionContextMenu(e, connection)
               }}
               onMouseEnter={(e) => {
@@ -269,7 +273,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
               top: midpoint.y,
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none',
-              zIndex: showAllInsights ? 2000 : undefined  // Let CSS handle hover, boost for show insights mode
+              zIndex: 2500  // Above strings (2100) and pins
             }}
           >
             {insight}

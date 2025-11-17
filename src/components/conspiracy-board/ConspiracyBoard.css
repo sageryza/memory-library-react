@@ -458,17 +458,13 @@
   color: white;
 }
 
-/* TODO: Fix z-index to prevent accidentally triggering Venn Modal
-   Current z-index (100) is below connections, causing clicks near pins
-   to trigger connection handlers. Should increase to 2200 (above connections)
-   to ensure pins are always clickable without triggering connections. */
 /* TODO: Add customizable pin head styles (stars, red flags, etc.) for Advanced Mode */
 .standalone-pin {
   position: absolute;
   width: 20px;
   height: 20px;
   cursor: grab;
-  z-index: 100; /* TODO: Increase to 2200 to be above connections */
+  z-index: 2200; /* Above connections/strings (2100) */
 }
 
 .standalone-pin:active,

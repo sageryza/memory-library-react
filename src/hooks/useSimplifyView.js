@@ -5,7 +5,15 @@ import { useState, useEffect } from 'react';
  * Handles title formatting, view toggle, and auto-sizing
  */
 export default function useSimplifyView() {
-  const [isSimplified, setIsSimplified] = useState(false);
+  const [isSimplified, setIsSimplified] = useState(() => {
+    const saved = localStorage.getItem('simplifyView');
+    return saved === 'true';
+  });
+
+  // Persist to localStorage whenever isSimplified changes
+  useEffect(() => {
+    localStorage.setItem('simplifyView', isSimplified);
+  }, [isSimplified]);
 
   /**
    * Toggle between normal and simplified view

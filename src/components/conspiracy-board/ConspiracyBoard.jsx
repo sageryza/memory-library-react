@@ -1806,7 +1806,7 @@ const handleDragEnd = (event) => {
                     disabled: isConstellationMode
                   },
                   {
-                    label: 'Scatter Memories',
+                    label: 'scatter',
                     icon: (
                       <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
                         <circle cx="4" cy="3" r="1.3"/>
@@ -1820,18 +1820,6 @@ const handleDragEnd = (event) => {
                     ),
                     onClick: scatterMemories,
                     disabled: isConstellationMode
-                  },
-                  { separator: true },
-                  {
-                    label: 'Search',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-                      </svg>
-                    ),
-                    onClick: () => setShowSearch(!showSearch),
-                    disabled: isConstellationMode,
-                    active: showSearch
                   },
                   { separator: true },
                   {
@@ -1867,6 +1855,93 @@ const handleDragEnd = (event) => {
                     onClick: performRedo,
                     disabled: redoHistory.length === 0 || isConstellationMode,
                     shortcut: '⌘+⇧+Z'
+                  }
+                ]}
+              />
+
+              {/* View Dropdown Menu */}
+              <Dropdown
+                className="header-dropdown"
+                align="right"
+                triggerOnHover={false}
+                enableHoverSwitching={!!openDropdown}
+                disabled={!!selectedPin}
+                isOpen={openDropdown === 'view'}
+                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'view' : null)}
+                trigger={
+                  <button className="header-dropdown-btn">
+                    <span>View</span>
+                  </button>
+                }
+                items={[
+                  {
+                    label: 'Reset View',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3zm8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM3 11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM8 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13z"/>
+                        <circle cx="8" cy="8" r="2"/>
+                      </svg>
+                    ),
+                    onClick: handleResetView,
+                    title: 'Reset view to center'
+                  },
+                  { separator: true },
+                  {
+                    label: isSimplified ? 'Normal View' : 'simplify view',
+                    icon: isSimplified ? (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zM1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5V5H1V3.5zM1 6h14v6.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V6z"/>
+                        <path d="M2 8.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
+                      </svg>
+                    ),
+                    onClick: toggleSimplify,
+                    active: isSimplified
+                  },
+                  {
+                    label: showOpacityFading ? 'remember' : 'forget',
+                    icon: showOpacityFading ? (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                      </svg>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                          <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                          <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                          <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                        </svg>
+                      </>
+                    ),
+                    onClick: () => setShowOpacityFading(!showOpacityFading),
+                    active: showOpacityFading
+                  },
+                  {
+                    label: showAllInsights ? 'hide insights' : 'show insights',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                      </svg>
+                    ),
+                    onClick: () => setShowAllInsights(!showAllInsights),
+                    active: showAllInsights
+                  },
+                  { separator: true },
+                  {
+                    label: stringsInFront ? 'Strings Behind Cards' : 'Strings In Front of Cards',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm8.5 9.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V11.5z"/>
+                      </svg>
+                    ),
+                    onClick: () => setStringsInFront(!stringsInFront),
+                    active: stringsInFront,
+                    title: stringsInFront ? 'Move strings behind cards' : 'Move strings in front of cards'
                   }
                 ]}
               />
@@ -1935,93 +2010,6 @@ const handleDragEnd = (event) => {
               >
                 <img src={constellationIcon} alt="Constellation" width="16" height="16" style={{ filter: 'brightness(0) saturate(100%) invert(24%) sepia(7%) saturate(1358%) hue-rotate(128deg) brightness(95%) contrast(87%)' }} />
               </button>
-
-              {/* View Dropdown Menu */}
-              <Dropdown
-                className="header-dropdown"
-                align="right"
-                triggerOnHover={false}
-                enableHoverSwitching={!!openDropdown}
-                disabled={!!selectedPin}
-                isOpen={openDropdown === 'view'}
-                onOpenChange={(isOpen) => setOpenDropdown(isOpen ? 'view' : null)}
-                trigger={
-                  <button className="header-dropdown-btn">
-                    <span>View</span>
-                  </button>
-                }
-                items={[
-                  {
-                    label: 'Reset View',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path fillRule="evenodd" d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3zm8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM3 11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zm-.5-4a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1h2zM8 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13z"/>
-                        <circle cx="8" cy="8" r="2"/>
-                      </svg>
-                    ),
-                    onClick: handleResetView,
-                    title: 'Reset view to center'
-                  },
-                  { separator: true },
-                  {
-                    label: isSimplified ? 'Normal View' : 'Simplified View',
-                    icon: isSimplified ? (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zM1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5V5H1V3.5zM1 6h14v6.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V6z"/>
-                        <path d="M2 8.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
-                      </svg>
-                    ),
-                    onClick: toggleSimplify,
-                    active: isSimplified
-                  },
-                  {
-                    label: showOpacityFading ? 'Disable Opacity Fading' : 'Enable Opacity Fading',
-                    icon: showOpacityFading ? (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                      </svg>
-                    ) : (
-                      <>
-                        <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                          <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
-                          <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
-                          <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
-                        </svg>
-                      </>
-                    ),
-                    onClick: () => setShowOpacityFading(!showOpacityFading),
-                    active: showOpacityFading
-                  },
-                  {
-                    label: showAllInsights ? 'Hide All Insights' : 'Show All Insights',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                        <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                      </svg>
-                    ),
-                    onClick: () => setShowAllInsights(!showAllInsights),
-                    active: showAllInsights
-                  },
-                  { separator: true },
-                  {
-                    label: stringsInFront ? 'Strings Behind Cards' : 'Strings In Front of Cards',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm8.5 9.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V11.5z"/>
-                      </svg>
-                    ),
-                    onClick: () => setStringsInFront(!stringsInFront),
-                    active: stringsInFront,
-                    title: stringsInFront ? 'Move strings behind cards' : 'Move strings in front of cards'
-                  }
-                ]}
-              />
 
               {/* User Account Dropdown */}
               <Dropdown
