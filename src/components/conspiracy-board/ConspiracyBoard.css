@@ -60,6 +60,7 @@
   line-height: 1.3;
 }
 
+/* Used only by InlineMemoryEditor for editing state */
 .memory-card-title.full-height {
   margin-bottom: 0;
   display: flex;
