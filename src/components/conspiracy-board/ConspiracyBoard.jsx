@@ -123,9 +123,10 @@ function ConspiracyBoard({
   // Track if we've loaded the initial pan offset to prevent multiple updates causing flash
   const hasLoadedInitialPanOffset = useRef(false)
 
-  // Undo system
+  // Undo/Redo system
   const MAX_UNDO_STATES = 50
   const [undoHistory, setUndoHistory] = useState([])
+  const [redoHistory, setRedoHistory] = useState([])
 
   // Get current user
   const { user } = useAuth()
@@ -328,6 +329,9 @@ function ConspiracyBoard({
       }
       return newHistory
     })
+
+    // Clear redo history when a new action is performed
+    setRedoHistory([])
   }, [droppedMemories, connections, standalonePins, MAX_UNDO_STATES])
 
   // Perform undo
@@ -335,6 +339,24 @@ function ConspiracyBoard({
     if (undoHistory.length === 0) {
       return
     }
+
+    // Save current state to redo history before undoing
+    const currentState = {
+      droppedMemories: JSON.parse(JSON.stringify(droppedMemories)),
+      connections: JSON.parse(JSON.stringify(connections)),
+      standalonePins: JSON.parse(JSON.stringify(standalonePins)),
+      timestamp: Date.now(),
+      description: 'Redo point'
+    }
+
+    setRedoHistory(prev => {
+      const newHistory = [...prev, currentState]
+      // Limit redo history size
+      if (newHistory.length > MAX_UNDO_STATES) {
+        newHistory.shift()
+      }
+      return newHistory
+    })
 
     const previousState = undoHistory[undoHistory.length - 1]
 
@@ -348,7 +370,45 @@ function ConspiracyBoard({
 
     // Remove this state from history
     setUndoHistory(prev => prev.slice(0, -1))
-  }, [undoHistory, updateBoardState, panOffset])
+  }, [undoHistory, droppedMemories, connections, standalonePins, updateBoardState, panOffset, MAX_UNDO_STATES])
+
+  // Perform redo
+  const performRedo = useCallback(() => {
+    if (redoHistory.length === 0) {
+      return
+    }
+
+    // Save current state to undo history before redoing
+    const currentState = {
+      droppedMemories: JSON.parse(JSON.stringify(droppedMemories)),
+      connections: JSON.parse(JSON.stringify(connections)),
+      standalonePins: JSON.parse(JSON.stringify(standalonePins)),
+      timestamp: Date.now(),
+      description: 'Undo point'
+    }
+
+    setUndoHistory(prev => {
+      const newHistory = [...prev, currentState]
+      // Limit undo history size
+      if (newHistory.length > MAX_UNDO_STATES) {
+        newHistory.shift()
+      }
+      return newHistory
+    })
+
+    const nextState = redoHistory[redoHistory.length - 1]
+
+    // Restore the next state, preserving current pan position
+    updateBoardState({
+      droppedMemories: nextState.droppedMemories,
+      connections: nextState.connections,
+      standalonePins: nextState.standalonePins,
+      panOffset: panOffset
+    })
+
+    // Remove this state from redo history
+    setRedoHistory(prev => prev.slice(0, -1))
+  }, [redoHistory, droppedMemories, connections, standalonePins, updateBoardState, panOffset, MAX_UNDO_STATES])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1397,15 +1457,20 @@ const handleDragEnd = (event) => {
         }
       }
 
-      // Handle Cmd/Ctrl + Z for undo
-      if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+      // Handle Cmd/Ctrl + Z for undo and Cmd/Ctrl + Shift + Z for redo
+      // Skip if inline editing (let browser handle native undo/redo in textarea)
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !inlineEditingMemoryId) {
         e.preventDefault()
-        performUndo()
+        if (e.shiftKey) {
+          performRedo()
+        } else {
+          performUndo()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPlacingPin, selectedPin, performUndo, isPlacingConstellation])
+  }, [isPlacingPin, selectedPin, performUndo, performRedo, isPlacingConstellation, inlineEditingMemoryId])
 
   // Track cursor position when a pin is selected
   useEffect(() => {
@@ -1790,6 +1855,18 @@ const handleDragEnd = (event) => {
                     onClick: performUndo,
                     disabled: undoHistory.length === 0 || isConstellationMode,
                     shortcut: '⌘+Z'
+                  },
+                  {
+                    label: 'Redo',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                      </svg>
+                    ),
+                    onClick: performRedo,
+                    disabled: redoHistory.length === 0 || isConstellationMode,
+                    shortcut: '⌘+⇧+Z'
                   }
                 ]}
               />
