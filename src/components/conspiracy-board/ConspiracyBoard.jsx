@@ -111,6 +111,7 @@ function ConspiracyBoard({
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [showMinimap, setShowMinimap] = useState(false)
 
   // Pan state - Initialize from sessionStorage to prevent flash on reload
   // CRITICAL: This prevents the "jump to 0,0" issue on page reload
@@ -2426,21 +2427,161 @@ const handleDragEnd = (event) => {
             )}
             </div>
 
-            {/* Zoom level indicator */}
-            {zoomLevel !== 1.0 && (
+            {/* Zoom level indicator and minimap toggle */}
+            <div style={{
+              position: 'absolute',
+              bottom: '10px',
+              left: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              zIndex: 1000
+            }}>
+              {zoomLevel !== 1.0 && (
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  userSelect: 'none'
+                }}>
+                  {Math.round(zoomLevel * 100)}%
+                </div>
+              )}
+
+              {/* Minimap toggle button */}
+              <button
+                onClick={() => setShowMinimap(!showMinimap)}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+                title={showMinimap ? 'Hide minimap' : 'Show minimap'}
+              >
+                {showMinimap ? '🗺️ Hide Map' : '🗺️ Show Map'}
+              </button>
+            </div>
+
+            {/* Minimap */}
+            {showMinimap && (
               <div style={{
                 position: 'absolute',
-                bottom: '10px',
-                right: '10px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '4px 8px',
+                bottom: '60px',
+                left: '10px',
+                width: '200px',
+                height: '160px',
+                background: 'rgba(0, 0, 0, 0.85)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 borderRadius: '4px',
-                fontSize: '12px',
                 zIndex: 1000,
-                userSelect: 'none'
-              }}>
-                {Math.round(zoomLevel * 100)}%
+                overflow: 'hidden',
+                cursor: 'pointer'
+              }}
+              onClick={(e) => {
+                // Calculate where user clicked on minimap and pan there
+                const rect = e.currentTarget.getBoundingClientRect()
+                const clickX = e.clientX - rect.left
+                const clickY = e.clientY - rect.top
+
+                // Convert minimap coordinates to canvas pan offset
+                const scaleX = CANVAS_WIDTH / 200
+                const scaleY = CANVAS_HEIGHT / 160
+
+                // Calculate the target pan position (centering on clicked point)
+                const targetCanvasX = clickX * scaleX - CANVAS_OFFSET_X
+                const targetCanvasY = clickY * scaleY - CANVAS_OFFSET_Y
+
+                // Calculate pan offset to center this point
+                const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
+                const viewportHeight = window.innerHeight
+
+                const newPanX = -(targetCanvasX - viewportWidth / 2)
+                const newPanY = -(targetCanvasY - viewportHeight / 2)
+
+                // Clamp to bounds
+                const clampedOffset = {
+                  x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+                  y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                }
+
+                setPanOffset(clampedOffset)
+                savePanOffsetToSession(clampedOffset)
+              }}
+              >
+                {/* Canvas representation */}
+                <svg
+                  width="200"
+                  height="160"
+                  style={{ position: 'absolute', top: 0, left: 0 }}
+                >
+                  {/* Draw memories as small dots */}
+                  {displayMemories.map(memory => {
+                    // Scale memory position to minimap size
+                    const x = (memory.x / CANVAS_WIDTH) * 200
+                    const y = (memory.y / CANVAS_HEIGHT) * 160
+
+                    return (
+                      <circle
+                        key={memory.id}
+                        cx={x}
+                        cy={y}
+                        r="2"
+                        fill="#FFD700"
+                        opacity="0.8"
+                      />
+                    )
+                  })}
+
+                  {/* Draw viewport rectangle */}
+                  {(() => {
+                    // Calculate viewport dimensions
+                    const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
+                    const viewportHeight = window.innerHeight
+
+                    // Calculate viewport position on canvas
+                    const viewportX = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+                    const viewportY = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+                    const viewportW = viewportWidth / zoomLevel
+                    const viewportH = viewportHeight / zoomLevel
+
+                    // Scale to minimap dimensions
+                    const minimapX = (viewportX / CANVAS_WIDTH) * 200
+                    const minimapY = (viewportY / CANVAS_HEIGHT) * 160
+                    const minimapW = (viewportW / CANVAS_WIDTH) * 200
+                    const minimapH = (viewportH / CANVAS_HEIGHT) * 160
+
+                    return (
+                      <rect
+                        x={minimapX}
+                        y={minimapY}
+                        width={minimapW}
+                        height={minimapH}
+                        fill="none"
+                        stroke="rgba(100, 200, 255, 0.8)"
+                        strokeWidth="2"
+                      />
+                    )
+                  })()}
+                </svg>
+
+                {/* Minimap label */}
+                <div style={{
+                  position: 'absolute',
+                  top: '4px',
+                  left: '4px',
+                  fontSize: '10px',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  userSelect: 'none'
+                }}>
+                  Minimap
+                </div>
               </div>
             )}
           </div>
