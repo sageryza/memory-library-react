@@ -98,8 +98,9 @@ const Login = () => {
         </form>
 
         <div style={styles.divider}>
-          <div style={styles.dividerLine}></div>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#e8e6d5' }}></div>
           <span style={styles.dividerText}>OR</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#e8e6d5' }}></div>
         </div>
 
         <button
@@ -208,24 +209,16 @@ const styles = {
     height: '20px',
   },
   divider: {
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
     margin: '24px 0',
-    position: 'relative',
-  },
-  dividerLine: {
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
-    height: '1px',
-    backgroundColor: '#e8e6d5',
+    gap: '16px',
   },
   dividerText: {
-    background: 'white',
-    padding: '0 12px',
     color: '#999',
-    position: 'relative',
     fontSize: '14px',
+    flexShrink: 0,
+    padding: '0 8px',
   },
   error: {
     color: '#d32f2f',

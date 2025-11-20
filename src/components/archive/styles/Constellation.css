@@ -10,36 +10,49 @@
 
 /* The constellation icon with glowing effect */
 .constellation-icon {
-    color: #fff;
     cursor: pointer;
     transition: all 0.3s ease;
-    opacity: 1;
+    opacity: 0.7;
     filter:
-        drop-shadow(0 0 1px #2c3e50)
-        drop-shadow(0 0 2px #34495e)
+        brightness(0)
+        saturate(100%)
+        invert(24%)
+        sepia(7%)
+        saturate(1358%)
+        hue-rotate(128deg)
+        brightness(95%)
+        contrast(87%)
         drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
-    text-shadow: 0 0 1px #2c3e50;
 }
 
 .constellation-icon:hover {
-    color: #fff;
     transform: scale(1.1);
     opacity: 1;
     filter:
-        drop-shadow(0 0 1px #2c3e50)
-        drop-shadow(0 0 2px #34495e)
+        brightness(0)
+        saturate(100%)
+        invert(24%)
+        sepia(7%)
+        saturate(1358%)
+        hue-rotate(128deg)
+        brightness(95%)
+        contrast(87%)
         drop-shadow(0 0 10px rgba(255, 255, 255, 1));
-    text-shadow: 0 0 1px #2c3e50;
 }
 
 .constellation-icon.active {
-    color: #fff;
     filter:
-        drop-shadow(0 0 1px #2c3e50)
-        drop-shadow(0 0 2px #34495e)
+        brightness(0)
+        saturate(100%)
+        invert(24%)
+        sepia(7%)
+        saturate(1358%)
+        hue-rotate(128deg)
+        brightness(95%)
+        contrast(87%)
         drop-shadow(0 0 12px rgba(255, 255, 255, 1));
     transform: scale(1.15);
-    text-shadow: 0 0 1px #2c3e50;
+    opacity: 1;
 }
 
 /* Tooltip container */

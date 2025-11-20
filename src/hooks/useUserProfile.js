@@ -46,11 +46,23 @@ export const useUserProfile = (user) => {
       }
       // Or from email (before @ symbol)
       else if (user.email) {
-        const emailName = user.email.split('@')[0];
+        let emailName = user.email.split('@')[0];
+        // Remove any numbers or special characters first
+        emailName = emailName.replace(/[^a-zA-Z]/g, '');
+
+        // Try to extract just the first part if it looks like a combined name
+        // Check for camelCase (sophieSpincher -> Sophie)
+        const camelMatch = emailName.match(/^[a-z]+(?=[A-Z])/);
+        if (camelMatch) {
+          emailName = camelMatch[0];
+        }
+        // Otherwise just take the first reasonable length (max 10 chars)
+        else if (emailName.length > 10) {
+          emailName = emailName.substring(0, 10);
+        }
+
         // Capitalize first letter
         firstName = emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
-        // Remove any numbers or special characters
-        firstName = firstName.replace(/[^a-zA-Z]/g, '');
       }
 
       const profileData = {
