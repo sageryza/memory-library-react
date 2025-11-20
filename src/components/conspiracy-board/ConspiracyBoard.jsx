@@ -112,19 +112,22 @@ function ConspiracyBoard({
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
   // Pan state - Initialize from sessionStorage to prevent flash on reload
+  // CRITICAL: This prevents the "jump to 0,0" issue on page reload
+  // The initialization function runs ONCE on mount, before first render
   const [panOffset, setPanOffset] = useState(() => {
-    // Try to get pan offset from sessionStorage for immediate restoration
+    // SessionStorage provides instant restoration within the same browser session
+    // This is faster than waiting for Firebase data to load
     const savedPan = sessionStorage.getItem('boardPanOffset')
     if (savedPan) {
       try {
         const parsed = JSON.parse(savedPan)
         console.log('🔄 Restored pan offset from sessionStorage:', parsed)
-        return parsed
+        return parsed  // Use saved position immediately
       } catch (e) {
         console.warn('Failed to parse saved pan offset:', e)
       }
     }
-    return { x: 0, y: 0 }
+    return { x: 0, y: 0 }  // Only use 0,0 if no saved position exists
   })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState(null)
@@ -192,19 +195,21 @@ function ConspiracyBoard({
     setOptimisticPinPositions({})
   }, [])
 
-  // Save pan offset to sessionStorage whenever it changes for instant restoration on reload
-  // Only save when user actually pans, not when loading from Firebase
+  // CRITICAL: Controlled sessionStorage saving - prevents conflicts
+  // This function is ONLY called on user interaction (drag, wheel, reset)
+  // Never call this when loading data from Firebase to avoid circular updates
   const savePanOffsetToSession = useCallback((offset) => {
     sessionStorage.setItem('boardPanOffset', JSON.stringify(offset))
     console.log('💾 Saved pan offset to sessionStorage:', offset)
   }, [])
 
-  // Load pan offset from boardState when it changes in Firebase
-  // Only watch the actual x/y values from Firebase, not local panOffset to avoid circular updates
+  // Firebase sync logic - handles loading saved positions from database
+  // CRITICAL: This runs AFTER sessionStorage initialization to handle cross-device sync
   useEffect(() => {
-    // Only load on first time after boardStateLoading is complete to avoid multiple updates causing flash
+    // Only run once after Firebase finishes loading to avoid multiple updates
     if (!boardStateLoading && savedPanOffset && !hasLoadedInitialPanOffset.current) {
-      // Check if Firebase has a different value than what we have in sessionStorage
+      // Compare Firebase value with current sessionStorage value
+      // This handles cases where user opens app in new tab/device
       const sessionPan = sessionStorage.getItem('boardPanOffset')
       let currentPan = { x: 0, y: 0 }
       if (sessionPan) {
@@ -213,13 +218,17 @@ function ConspiracyBoard({
         } catch (e) {}
       }
 
-      // Only update if Firebase has a significantly different value (not just from rounding)
+      // IMPORTANT: Use threshold (>1) to avoid conflicts from rounding differences
+      // Without this, Firebase and sessionStorage can fight over tiny differences
       const isDifferent = Math.abs(savedPanOffset.x - currentPan.x) > 1 ||
                          Math.abs(savedPanOffset.y - currentPan.y) > 1
 
       if (isDifferent) {
+        // Only update if Firebase has significantly different data
+        // This happens when opening in new tab or after clearing sessionStorage
         console.log('🔵 Loaded different pan offset from Firebase:', savedPanOffset, 'vs current:', currentPan)
         setPanOffset(savedPanOffset)
+        // Note: We don't call savePanOffsetToSession here to avoid circular updates
       }
       hasLoadedInitialPanOffset.current = true
     }

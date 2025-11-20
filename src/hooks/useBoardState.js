@@ -8,8 +8,11 @@ import {
 import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
 
+// CRITICAL: authLoading parameter prevents localStorage/Firebase confusion
+// Without this, app briefly uses localStorage before auth completes
 export const useBoardState = (userId, authLoading = false) => {
-  // Initialize pan offset from sessionStorage to prevent flash on reload
+  // Initialize pan offset from sessionStorage for instant restoration
+  // This runs before Firebase data loads, preventing visual jumps
   const getInitialPanOffset = () => {
     const savedPan = sessionStorage.getItem('boardPanOffset');
     if (savedPan) {
@@ -31,14 +34,16 @@ export const useBoardState = (userId, authLoading = false) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Use localStorage when not authenticated
+  // Determine data source based on auth state
   const localStorage = useLocalStorage();
-  const isUsingLocalStorage = !userId && !authLoading;  // Don't use localStorage if auth is still loading
+  // CRITICAL: Check authLoading to prevent premature localStorage usage
+  const isUsingLocalStorage = !userId && !authLoading;
 
   useEffect(() => {
-    // Wait for auth to finish loading before deciding data source
+    // CRITICAL: Wait for auth to resolve before choosing data source
+    // This prevents the "flash of wrong data" issue
     if (authLoading) {
-      return;  // Don't load any data while auth is loading
+      return;  // Exit early - don't load ANY data while auth is determining state
     }
 
     if (!userId) {

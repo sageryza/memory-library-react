@@ -26,20 +26,24 @@ import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
 import { ensureStringId } from '../utils/generateId';
 
+// CRITICAL: authLoading parameter prevents data source confusion
+// Without this, app shows localStorage memories briefly before Firebase loads
 export const useMemories = (userId, authLoading = false) => {
   const [memories, setMemories] = useState([]);
   const [deletedMemories, setDeletedMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Use localStorage when not authenticated
+  // Determine data source based on auth state
   const localStorage = useLocalStorage();
-  const isUsingLocalStorage = !userId && !authLoading;  // Don't use localStorage if auth is still loading
+  // CRITICAL: Check authLoading to prevent showing wrong memories
+  const isUsingLocalStorage = !userId && !authLoading;
 
   useEffect(() => {
-    // Wait for auth to finish loading before deciding data source
+    // CRITICAL: Wait for auth to resolve before loading memories
+    // This prevents the "flash of different memories" issue
     if (authLoading) {
-      return;  // Don't load any data while auth is loading
+      return;  // Exit early - don't load ANY memories while auth is determining state
     }
 
     if (!userId) {
