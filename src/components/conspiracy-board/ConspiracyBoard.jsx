@@ -349,19 +349,19 @@ function ConspiracyBoard({
 
   // Coordinate conversion helpers (accounts for canvas offset, pan, and zoom)
   const screenToCanvas = useCallback((screenX, screenY) => {
-    // When zoomed out, screen distances need to be scaled up to canvas distances
-    // For example, at 50% zoom, 100px on screen = 200px on canvas
+    // Account for zoom: screen coordinates need to be divided by zoom to get canvas coordinates
+    // Also need to adjust for pan offset which is in screen space
     return {
-      x: (screenX / zoomLevel) - panOffset.x + CANVAS_OFFSET_X,
-      y: (screenY / zoomLevel) - panOffset.y + CANVAS_OFFSET_Y
+      x: (screenX - panOffset.x) / zoomLevel + CANVAS_OFFSET_X,
+      y: (screenY - panOffset.y) / zoomLevel + CANVAS_OFFSET_Y
     }
   }, [panOffset, zoomLevel])
 
   const canvasToScreen = useCallback((canvasX, canvasY) => {
-    // When zoomed out, canvas distances need to be scaled down to screen distances
+    // Convert canvas coordinates to screen coordinates accounting for zoom
     return {
-      x: (canvasX + panOffset.x - CANVAS_OFFSET_X) * zoomLevel,
-      y: (canvasY + panOffset.y - CANVAS_OFFSET_Y) * zoomLevel
+      x: (canvasX - CANVAS_OFFSET_X) * zoomLevel + panOffset.x,
+      y: (canvasY - CANVAS_OFFSET_Y) * zoomLevel + panOffset.y
     }
   }, [panOffset, zoomLevel])
 
@@ -2233,7 +2233,9 @@ const handleDragEnd = (event) => {
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-                transformOrigin: '0 0',
+                // Fixed origin at roughly the center of a typical viewport
+                // This provides a consistent zoom experience
+                transformOrigin: `${CANVAS_OFFSET_X + 700}px ${CANVAS_OFFSET_Y + 400}px`,
                 width: `${CANVAS_WIDTH}px`,
                 height: `${CANVAS_HEIGHT}px`,
                 position: 'absolute',
