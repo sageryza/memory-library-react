@@ -2438,8 +2438,8 @@ const handleDragEnd = (event) => {
             )}
             </div>
 
-            {/* Zoom level indicator */}
-            {zoomLevel !== 1.0 && (
+            {/* Zoom level indicator - hide when minimap is visible */}
+            {zoomLevel !== 1.0 && !showMinimap && (
               <div style={{
                 position: 'absolute',
                 bottom: '10px',
@@ -2460,7 +2460,7 @@ const handleDragEnd = (event) => {
             {showMinimap && (
               <div style={{
                 position: 'absolute',
-                bottom: zoomLevel !== 1.0 ? '40px' : '10px',
+                bottom: '10px',
                 left: '10px',
                 width: '240px',
                 padding: '12px',
@@ -2546,30 +2546,34 @@ const handleDragEnd = (event) => {
                           key={memory.id}
                           cx={x}
                           cy={y}
-                          r="3"
+                          r="1.5"
                           fill="#dc3545"
-                          opacity="0.8"
+                          opacity="0.9"
                         />
                       )
                     })}
 
                     {/* Draw viewport rectangle */}
                     {(() => {
-                      // Calculate viewport dimensions
-                      const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
+                      // Calculate viewport dimensions accounting for sidebar
+                      const sidebarWidth = isSidebarOpen ? 400 : 0
+                      const viewportWidth = window.innerWidth - sidebarWidth
                       const viewportHeight = window.innerHeight
 
-                      // Calculate viewport position on canvas
-                      const viewportX = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
-                      const viewportY = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
-                      const viewportW = viewportWidth / zoomLevel
-                      const viewportH = viewportHeight / zoomLevel
+                      // Calculate what portion of the canvas is visible
+                      // The viewport shows canvas coordinates from (CANVAS_OFFSET_X - panOffset.x) to (CANVAS_OFFSET_X - panOffset.x + viewportWidth)
+                      const canvasLeft = CANVAS_OFFSET_X - panOffset.x
+                      const canvasTop = CANVAS_OFFSET_Y - panOffset.y
 
-                      // Scale to minimap dimensions
-                      const minimapX = (viewportX / CANVAS_WIDTH) * 216
-                      const minimapY = (viewportY / CANVAS_HEIGHT) * 160
-                      const minimapW = (viewportW / CANVAS_WIDTH) * 216
-                      const minimapH = (viewportH / CANVAS_HEIGHT) * 160
+                      // Account for zoom - when zoomed out, viewport shows more canvas
+                      const canvasVisibleWidth = viewportWidth / zoomLevel
+                      const canvasVisibleHeight = viewportHeight / zoomLevel
+
+                      // Scale to minimap dimensions (216x160)
+                      const minimapX = (canvasLeft / CANVAS_WIDTH) * 216
+                      const minimapY = (canvasTop / CANVAS_HEIGHT) * 160
+                      const minimapW = (canvasVisibleWidth / CANVAS_WIDTH) * 216
+                      const minimapH = (canvasVisibleHeight / CANVAS_HEIGHT) * 160
 
                       return (
                         <rect
@@ -2579,7 +2583,7 @@ const handleDragEnd = (event) => {
                           height={minimapH}
                           fill="rgba(66, 135, 245, 0.1)"
                           stroke="#4287f5"
-                          strokeWidth="2"
+                          strokeWidth="1.5"
                         />
                       )
                     })()}
