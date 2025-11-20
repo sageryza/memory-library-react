@@ -2076,6 +2076,17 @@ const handleDragEnd = (event) => {
                     onClick: () => setShowAllInsights(!showAllInsights),
                     active: showAllInsights
                   },
+                  {
+                    label: 'Minimap',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M15.817.113A.5.5 0 0 1 16 .5v14a.5.5 0 0 1-.402.49l-5 1a.502.502 0 0 1-.196 0L5.5 15.01l-4.902.98A.5.5 0 0 1 0 15.5v-14a.5.5 0 0 1 .402-.49l5-1a.5.5 0 0 1 .196 0L10.5.99l4.902-.98a.5.5 0 0 1 .415.103zM10 1.91l-4-.8v12.98l4 .8V1.91zm1 12.98 4-.8V1.11l-4 .8v12.98zm-6-.8V1.11l-4 .8v12.98l4-.8z"/>
+                      </svg>
+                    ),
+                    onClick: () => setShowMinimap(!showMinimap),
+                    active: showMinimap,
+                    title: 'Toggle minimap'
+                  },
                   { separator: true },
                   {
                     label: stringsInFront ? 'Strings Behind Cards' : 'Strings In Front of Cards',
@@ -2427,53 +2438,29 @@ const handleDragEnd = (event) => {
             )}
             </div>
 
-            {/* Zoom level indicator and minimap toggle */}
-            <div style={{
-              position: 'absolute',
-              bottom: '10px',
-              left: '10px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              zIndex: 1000
-            }}>
-              {zoomLevel !== 1.0 && (
-                <div style={{
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  userSelect: 'none'
-                }}>
-                  {Math.round(zoomLevel * 100)}%
-                </div>
-              )}
-
-              {/* Minimap toggle button */}
-              <button
-                onClick={() => setShowMinimap(!showMinimap)}
-                style={{
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '6px 10px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  userSelect: 'none'
-                }}
-                title={showMinimap ? 'Hide minimap' : 'Show minimap'}
-              >
-                {showMinimap ? '🗺️ Hide Map' : '🗺️ Show Map'}
-              </button>
-            </div>
+            {/* Zoom level indicator */}
+            {zoomLevel !== 1.0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                background: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                zIndex: 1000,
+                userSelect: 'none'
+              }}>
+                {Math.round(zoomLevel * 100)}%
+              </div>
+            )}
 
             {/* Minimap */}
             {showMinimap && (
               <div style={{
                 position: 'absolute',
-                bottom: '60px',
+                bottom: zoomLevel !== 1.0 ? '40px' : '10px',
                 left: '10px',
                 width: '200px',
                 height: '160px',
