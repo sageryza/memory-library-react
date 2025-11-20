@@ -134,6 +134,18 @@ function ConspiracyBoard({
   const [panStart, setPanStart] = useState(null)
   const [smoothPan, setSmoothPan] = useState(false) // Enable smooth transition for programmatic panning
 
+  // Zoom state - Start at 100%, can zoom out to 75% or 50%
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const savedZoom = sessionStorage.getItem('boardZoomLevel')
+    if (savedZoom) {
+      const parsed = parseFloat(savedZoom)
+      if ([1.0, 0.75, 0.5].includes(parsed)) {
+        console.log('🔍 Restored zoom level from sessionStorage:', parsed)
+        return parsed
+      }
+    }
+    return 1.0  // Default to 100% zoom
+  })
 
   // Track cleanup function for event listeners
   const cleanupRef = useRef(null)
@@ -335,20 +347,23 @@ function ConspiracyBoard({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Coordinate conversion helpers (accounts for canvas offset and pan)
+  // Coordinate conversion helpers (accounts for canvas offset, pan, and zoom)
   const screenToCanvas = useCallback((screenX, screenY) => {
+    // When zoomed out, screen distances need to be scaled up to canvas distances
+    // For example, at 50% zoom, 100px on screen = 200px on canvas
     return {
-      x: screenX - panOffset.x + CANVAS_OFFSET_X,
-      y: screenY - panOffset.y + CANVAS_OFFSET_Y
+      x: (screenX / zoomLevel) - panOffset.x + CANVAS_OFFSET_X,
+      y: (screenY / zoomLevel) - panOffset.y + CANVAS_OFFSET_Y
     }
-  }, [panOffset])
+  }, [panOffset, zoomLevel])
 
   const canvasToScreen = useCallback((canvasX, canvasY) => {
+    // When zoomed out, canvas distances need to be scaled down to screen distances
     return {
-      x: canvasX + panOffset.x - CANVAS_OFFSET_X,
-      y: canvasY + panOffset.y - CANVAS_OFFSET_Y
+      x: (canvasX + panOffset.x - CANVAS_OFFSET_X) * zoomLevel,
+      y: (canvasY + panOffset.y - CANVAS_OFFSET_Y) * zoomLevel
     }
-  }, [panOffset])
+  }, [panOffset, zoomLevel])
 
   // Apply optimistic position updates for smooth dragging
   const displayMemories = droppedMemories.map(memory => {
@@ -1553,6 +1568,45 @@ const handleDragEnd = (event) => {
           performUndo()
         }
       }
+
+      // Handle Cmd/Ctrl + Plus/Minus for zoom
+      if ((e.metaKey || e.ctrlKey) && !inlineEditingMemoryId) {
+        // Handle zoom in (Cmd/Ctrl + Plus or Cmd/Ctrl + =)
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault()
+          setZoomLevel(prev => {
+            let newZoom
+            if (prev <= 0.5) newZoom = 0.75
+            else if (prev <= 0.75) newZoom = 1.0
+            else newZoom = 1.0  // Already at max zoom
+
+            console.log('🔍 Zoom in:', newZoom)
+            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+            return newZoom
+          })
+        }
+        // Handle zoom out (Cmd/Ctrl + Minus)
+        else if (e.key === '-' || e.key === '_') {
+          e.preventDefault()
+          setZoomLevel(prev => {
+            let newZoom
+            if (prev >= 1.0) newZoom = 0.75
+            else if (prev >= 0.75) newZoom = 0.5
+            else newZoom = 0.5  // Already at min zoom
+
+            console.log('🔍 Zoom out:', newZoom)
+            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+            return newZoom
+          })
+        }
+        // Handle zoom reset (Cmd/Ctrl + 0)
+        else if (e.key === '0') {
+          e.preventDefault()
+          console.log('🔍 Zoom reset: 1.0')
+          setZoomLevel(1.0)
+          sessionStorage.setItem('boardZoomLevel', '1.0')
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -2178,7 +2232,7 @@ const handleDragEnd = (event) => {
             <div
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
-                transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                 transformOrigin: '0 0',
                 width: `${CANVAS_WIDTH}px`,
                 height: `${CANVAS_HEIGHT}px`,
@@ -2369,6 +2423,24 @@ const handleDragEnd = (event) => {
               </div>
             )}
             </div>
+
+            {/* Zoom level indicator */}
+            {zoomLevel !== 1.0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                right: '10px',
+                background: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                zIndex: 1000,
+                userSelect: 'none'
+              }}>
+                {Math.round(zoomLevel * 100)}%
+              </div>
+            )}
           </div>
           <div className={`sidebar-wrapper ${isSidebarOpen ? 'open' : 'closed'}`}>
             <button
