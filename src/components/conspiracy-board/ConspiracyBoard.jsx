@@ -2462,112 +2462,128 @@ const handleDragEnd = (event) => {
                 position: 'absolute',
                 bottom: zoomLevel !== 1.0 ? '40px' : '10px',
                 left: '10px',
-                width: '200px',
-                height: '160px',
-                background: 'rgba(0, 0, 0, 0.85)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '4px',
+                width: '240px',
+                padding: '12px',
+                background: 'var(--beige-primary)',
+                border: '1px solid var(--beige-border)',
+                borderRadius: 'var(--radius-medium)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                 zIndex: 1000,
-                overflow: 'hidden',
-                cursor: 'pointer'
-              }}
-              onClick={(e) => {
-                // Calculate where user clicked on minimap and pan there
-                const rect = e.currentTarget.getBoundingClientRect()
-                const clickX = e.clientX - rect.left
-                const clickY = e.clientY - rect.top
+                userSelect: 'none'
+              }}>
+                {/* Header with title and zoom level */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  color: '#666'
+                }}>
+                  <span>Minimap</span>
+                  <span>{Math.round(zoomLevel * 100)}%</span>
+                </div>
 
-                // Convert minimap coordinates to canvas pan offset
-                const scaleX = CANVAS_WIDTH / 200
-                const scaleY = CANVAS_HEIGHT / 160
-
-                // Calculate the target pan position (centering on clicked point)
-                const targetCanvasX = clickX * scaleX - CANVAS_OFFSET_X
-                const targetCanvasY = clickY * scaleY - CANVAS_OFFSET_Y
-
-                // Calculate pan offset to center this point
-                const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
-                const viewportHeight = window.innerHeight
-
-                const newPanX = -(targetCanvasX - viewportWidth / 2)
-                const newPanY = -(targetCanvasY - viewportHeight / 2)
-
-                // Clamp to bounds
-                const clampedOffset = {
-                  x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
-                  y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
-                }
-
-                setPanOffset(clampedOffset)
-                savePanOffsetToSession(clampedOffset)
-              }}
-              >
                 {/* Canvas representation */}
-                <svg
-                  width="200"
-                  height="160"
-                  style={{ position: 'absolute', top: 0, left: 0 }}
-                >
-                  {/* Draw memories as small dots */}
-                  {displayMemories.map(memory => {
-                    // Scale memory position to minimap size
-                    const x = (memory.x / CANVAS_WIDTH) * 200
-                    const y = (memory.y / CANVAS_HEIGHT) * 160
+                <div
+                  style={{
+                    width: '100%',
+                    height: '160px',
+                    background: 'white',
+                    border: '1px solid #ccc',
+                    borderRadius: '2px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer'
+                  }}
+                  onClick={(e) => {
+                    // Calculate where user clicked on minimap and pan there
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const clickX = e.clientX - rect.left
+                    const clickY = e.clientY - rect.top
 
-                    return (
-                      <circle
-                        key={memory.id}
-                        cx={x}
-                        cy={y}
-                        r="2"
-                        fill="#FFD700"
-                        opacity="0.8"
-                      />
-                    )
-                  })}
+                    // Convert minimap coordinates to canvas pan offset
+                    const scaleX = CANVAS_WIDTH / rect.width
+                    const scaleY = CANVAS_HEIGHT / rect.height
 
-                  {/* Draw viewport rectangle */}
-                  {(() => {
-                    // Calculate viewport dimensions
+                    // Calculate the target pan position (centering on clicked point)
+                    const targetCanvasX = clickX * scaleX - CANVAS_OFFSET_X
+                    const targetCanvasY = clickY * scaleY - CANVAS_OFFSET_Y
+
+                    // Calculate pan offset to center this point
                     const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
                     const viewportHeight = window.innerHeight
 
-                    // Calculate viewport position on canvas
-                    const viewportX = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
-                    const viewportY = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
-                    const viewportW = viewportWidth / zoomLevel
-                    const viewportH = viewportHeight / zoomLevel
+                    const newPanX = -(targetCanvasX - viewportWidth / 2)
+                    const newPanY = -(targetCanvasY - viewportHeight / 2)
 
-                    // Scale to minimap dimensions
-                    const minimapX = (viewportX / CANVAS_WIDTH) * 200
-                    const minimapY = (viewportY / CANVAS_HEIGHT) * 160
-                    const minimapW = (viewportW / CANVAS_WIDTH) * 200
-                    const minimapH = (viewportH / CANVAS_HEIGHT) * 160
+                    // Clamp to bounds
+                    const clampedOffset = {
+                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                    }
 
-                    return (
-                      <rect
-                        x={minimapX}
-                        y={minimapY}
-                        width={minimapW}
-                        height={minimapH}
-                        fill="none"
-                        stroke="rgba(100, 200, 255, 0.8)"
-                        strokeWidth="2"
-                      />
-                    )
-                  })()}
-                </svg>
+                    setPanOffset(clampedOffset)
+                    savePanOffsetToSession(clampedOffset)
+                  }}
+                >
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 216 160"
+                    preserveAspectRatio="none"
+                    style={{ display: 'block' }}
+                  >
+                    {/* Draw memories as red dots */}
+                    {displayMemories.map(memory => {
+                      // Scale memory position to minimap size
+                      const x = (memory.x / CANVAS_WIDTH) * 216
+                      const y = (memory.y / CANVAS_HEIGHT) * 160
 
-                {/* Minimap label */}
-                <div style={{
-                  position: 'absolute',
-                  top: '4px',
-                  left: '4px',
-                  fontSize: '10px',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  userSelect: 'none'
-                }}>
-                  Minimap
+                      return (
+                        <circle
+                          key={memory.id}
+                          cx={x}
+                          cy={y}
+                          r="3"
+                          fill="#dc3545"
+                          opacity="0.8"
+                        />
+                      )
+                    })}
+
+                    {/* Draw viewport rectangle */}
+                    {(() => {
+                      // Calculate viewport dimensions
+                      const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
+                      const viewportHeight = window.innerHeight
+
+                      // Calculate viewport position on canvas
+                      const viewportX = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+                      const viewportY = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+                      const viewportW = viewportWidth / zoomLevel
+                      const viewportH = viewportHeight / zoomLevel
+
+                      // Scale to minimap dimensions
+                      const minimapX = (viewportX / CANVAS_WIDTH) * 216
+                      const minimapY = (viewportY / CANVAS_HEIGHT) * 160
+                      const minimapW = (viewportW / CANVAS_WIDTH) * 216
+                      const minimapH = (viewportH / CANVAS_HEIGHT) * 160
+
+                      return (
+                        <rect
+                          x={minimapX}
+                          y={minimapY}
+                          width={minimapW}
+                          height={minimapH}
+                          fill="rgba(66, 135, 245, 0.1)"
+                          stroke="#4287f5"
+                          strokeWidth="2"
+                        />
+                      )
+                    })()}
+                  </svg>
                 </div>
               </div>
             )}
