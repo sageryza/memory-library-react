@@ -36,10 +36,12 @@
 .libraries-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-auto-rows: 280px;
   gap: 20px;
   padding: 10px 0;
   overflow-y: auto;
   flex: 1;
+  align-content: start;
 }
 
 /* Library Card */
@@ -99,7 +101,6 @@
   font-size: var(--font-size-base);
   line-height: 1.4;
   margin-bottom: 15px;
-  flex: 1;
 }
 
 /* Search Terms Display */
@@ -107,8 +108,8 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
   align-items: center;
+  margin-top: auto;
 }
 
 /* Hashtag styles now defined in shared/Hashtag.css */
@@ -127,12 +128,7 @@
 }
 
 .library-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid var(--beige-border);
-  margin-top: auto;
+  display: none;
 }
 
 .library-memory-count {
