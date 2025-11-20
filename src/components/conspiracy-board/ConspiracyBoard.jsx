@@ -23,6 +23,7 @@ import Header from '../shared/Header'
 import LibraryIcon from '../shared/LibraryIcon'
 import TabbedSidebar from '../shared/TabbedSidebar'
 import { LibraryCard } from '../archive/LibrarySidebar'
+import { AddMemoryIcon, PlaygroundIcon } from '../icons'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
 import { useUserProfile } from '../../hooks/useUserProfile'
@@ -1875,11 +1876,7 @@ const handleDragEnd = (event) => {
                 items={[
                   {
                     label: 'Add Memory',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M8 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1 .5.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1-.5-.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5-.5v-5A.5.5 0 0 1 8 2z"/>
-                      </svg>
-                    ),
+                    icon: <AddMemoryIcon color="#666666" />,
                     onClick: handleAddMemory,
                     disabled: isConstellationMode,
                     shortcut: '⇧+N'
@@ -1914,12 +1911,7 @@ const handleDragEnd = (event) => {
                   { separator: true },
                   {
                     label: 'Playground',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
-                        <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
-                      </svg>
-                    ),
+                    icon: <PlaygroundIcon color="#666666" />,
                     onClick: handleOpenPlayground
                   },
                   {
@@ -2151,6 +2143,16 @@ const handleDragEnd = (event) => {
                   }
                 ]}
               />
+
+              {/* Add Memory Icon Button */}
+              <button
+                className="add-memory-btn-icon"
+                onClick={handleAddMemory}
+                disabled={isConstellationMode}
+                title="Add Memory (Shift+N)"
+              >
+                <AddMemoryIcon size={20} />
+              </button>
             </>
           }
         />
