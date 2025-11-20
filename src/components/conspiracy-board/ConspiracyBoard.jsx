@@ -33,7 +33,6 @@ import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, ensureStringId } from '../../utils/generateId'
-import constellationIcon from '../../assets/constellation.svg'
 import '../../App.css'
 import './ConspiracyBoard.css'
 import '../../styles/simplifyView.css'
@@ -738,6 +737,7 @@ const handleDragEnd = (event) => {
   }
 
   const handleConnectionDelete = (connection) => {
+    if (isConstellationMode) return // Prevent deletion in constellation mode
     saveStateForUndo('Delete connection')
     updateBoardState({
       ...boardState,
@@ -1176,6 +1176,7 @@ const handleDragEnd = (event) => {
   }, [boardState, droppedMemories, updateBoardState])
 
   const handleEditMemory = async (memory) => {
+    if (isConstellationMode) return // Prevent editing in constellation mode
     // All memories now have Firebase IDs from creation, so just open the modal
     setEditingMemory(memory)
     setShowAddMemoryModal(true)
@@ -1381,8 +1382,8 @@ const handleDragEnd = (event) => {
         return
       }
 
-      // Deselect constellation if one is selected
-      if (constellationSelectedNodes) {
+      // Deselect constellation if one is selected (but not if we're panning)
+      if (constellationSelectedNodes && !isPanning) {
         setConstellationSelectedNodes(null)
         return
       }
@@ -1641,6 +1642,7 @@ const handleDragEnd = (event) => {
   }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, updateMemory])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
+    if (isConstellationMode) return // Prevent deletion in constellation mode
     saveStateForUndo('Delete memory')
     try {
       // Remove from Firestore
@@ -1659,13 +1661,14 @@ const handleDragEnd = (event) => {
   }, [deleteMemory, boardState, droppedMemories, connections, updateBoardState, saveStateForUndo])
 
   const handleDeletePin = useCallback((pinId) => {
+    if (isConstellationMode) return // Prevent deletion in constellation mode
     saveStateForUndo('Delete pin')
     updateBoardState({
       ...boardState,
       standalonePins: standalonePins.filter(p => !compareIds(p.id, pinId)),
       connections: connections.filter(c => !compareIds(c.from, pinId) && !compareIds(c.to, pinId))
     })
-  }, [boardState, standalonePins, connections, updateBoardState, saveStateForUndo])
+  }, [boardState, standalonePins, connections, updateBoardState, saveStateForUndo, isConstellationMode])
 
   const handleClearBoard = useCallback(() => {
     saveStateForUndo('Clear board')
@@ -2079,25 +2082,6 @@ const handleDragEnd = (event) => {
                 ]}
               />
 
-              {/* Standalone buttons */}
-              <button
-                className={`constellation-btn ${isConstellationMode ? 'active' : ''} ${selectedPin ? 'disabled' : ''}`}
-                onClick={() => {
-                  if (selectedPin) return; // Disable during pin selection
-                  const newMode = !isConstellationMode
-                  setIsConstellationMode(newMode)
-                  if (newMode) {
-                    setIsSidebarOpen(true)
-                  } else {
-                    setConstellationSelectedNodes(null)
-                  }
-                }}
-                disabled={!!selectedPin}
-                title="Constellations - Select, Save & Load"
-              >
-                <img src={constellationIcon} alt="Constellation" width="16" height="16" style={{ filter: 'brightness(0) saturate(100%) invert(24%) sepia(7%) saturate(1358%) hue-rotate(128deg) brightness(95%) contrast(87%)' }} />
-              </button>
-
               {/* User Account Dropdown */}
               <Dropdown
                 className="header-dropdown"
@@ -2209,7 +2193,7 @@ const handleDragEnd = (event) => {
               onPinClick={handlePinClick}
               isStackedView={isSimplified}
               onContextMenu={handleContextMenu}
-              onDoubleClick={handleReturnToSidebar}
+              onDoubleClick={isConstellationMode ? () => {} : handleReturnToSidebar}
               onClick={handleMemoryClick}
               connections={connections}
               showOpacityFading={showOpacityFading}
@@ -2478,6 +2462,16 @@ const handleDragEnd = (event) => {
                     </svg>
                   ),
                   onNavigate: undefined, // No navigation for constellations
+                  onClick: () => {
+                    // Toggle constellation mode when clicking the tab
+                    if (!selectedPin) { // Disable during pin selection
+                      const newMode = !isConstellationMode
+                      setIsConstellationMode(newMode)
+                      if (!newMode) {
+                        setConstellationSelectedNodes(null)
+                      }
+                    }
+                  },
                   content: (
                     <ConstellationSidebar
                       droppedMemories={displayMemories}

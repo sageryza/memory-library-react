@@ -2,7 +2,7 @@ import { useState, useEffect, cloneElement, isValidElement } from 'react';
 import './TabbedSidebar.css';
 
 export default function TabbedSidebar({
-  tabs = [],                    // Array of { label, icon, content, onNavigate }
+  tabs = [],                    // Array of { label, icon, content, onNavigate, onClick }
   defaultTabIndex = 0,          // Which tab to show first
   showSearchToggle = false,     // Whether to show search toggle button
   searchContent = null,         // Content to show when in search mode
@@ -53,8 +53,15 @@ export default function TabbedSidebar({
           <div className="sidebar-tabs">
             {tabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
+              // Check if tab has an external active state (for modes like constellation)
+              const isExternallyActive = tab.isActive !== undefined ? tab.isActive : false;
 
               const handleTabClick = () => {
+                // Call the onClick handler if provided (for things like toggling modes)
+                if (tab.onClick) {
+                  tab.onClick();
+                }
+
                 if (isActive && tab.onNavigate) {
                   // Already active - navigate to page
                   tab.onNavigate();
@@ -67,7 +74,7 @@ export default function TabbedSidebar({
               return (
                 <button
                   key={index}
-                  className={`sidebar-tab ${isActive ? 'active' : ''}`}
+                  className={`sidebar-tab ${isActive ? 'active' : ''} ${isExternallyActive ? 'mode-active' : ''}`}
                   onClick={handleTabClick}
                 >
                   {tab.icon && <span className="tab-icon">{tab.icon}</span>}
