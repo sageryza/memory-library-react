@@ -112,6 +112,8 @@ function ConspiracyBoard({
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
   const [showMinimap, setShowMinimap] = useState(false)
+  const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
+  const [minimapDragStart, setMinimapDragStart] = useState(null)
 
   // Pan state - Initialize from sessionStorage to prevent flash on reload
   // CRITICAL: This prevents the "jump to 0,0" issue on page reload
@@ -2495,9 +2497,12 @@ const handleDragEnd = (event) => {
                     borderRadius: '2px',
                     position: 'relative',
                     overflow: 'hidden',
-                    cursor: 'pointer'
+                    cursor: isDraggingMinimap ? 'grabbing' : 'pointer'
                   }}
                   onClick={(e) => {
+                    // Don't pan on click if we just finished dragging
+                    if (isDraggingMinimap) return
+
                     // Calculate where user clicked on minimap and pan there
                     const rect = e.currentTarget.getBoundingClientRect()
                     const clickX = e.clientX - rect.left
@@ -2526,6 +2531,45 @@ const handleDragEnd = (event) => {
 
                     setPanOffset(clampedOffset)
                     savePanOffsetToSession(clampedOffset)
+                  }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingMinimap || !minimapDragStart) return
+
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const mouseX = e.clientX - rect.left
+                    const mouseY = e.clientY - rect.top
+
+                    // Calculate how much the mouse moved
+                    const deltaX = mouseX - minimapDragStart.mouseX
+                    const deltaY = mouseY - minimapDragStart.mouseY
+
+                    // Convert minimap delta to canvas delta
+                    const scaleX = CANVAS_WIDTH / rect.width
+                    const scaleY = CANVAS_HEIGHT / rect.height
+
+                    const canvasDeltaX = deltaX * scaleX
+                    const canvasDeltaY = deltaY * scaleY
+
+                    // Update pan offset (negative because moving viewport right means panning left)
+                    const newPanX = minimapDragStart.panOffset.x - canvasDeltaX
+                    const newPanY = minimapDragStart.panOffset.y - canvasDeltaY
+
+                    // Clamp to bounds
+                    const clampedOffset = {
+                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                    }
+
+                    setPanOffset(clampedOffset)
+                    savePanOffsetToSession(clampedOffset)
+                  }}
+                  onMouseUp={() => {
+                    setIsDraggingMinimap(false)
+                    setMinimapDragStart(null)
+                  }}
+                  onMouseLeave={() => {
+                    setIsDraggingMinimap(false)
+                    setMinimapDragStart(null)
                   }}
                 >
                   <svg
@@ -2584,6 +2628,21 @@ const handleDragEnd = (event) => {
                           fill="rgba(66, 135, 245, 0.1)"
                           stroke="#4287f5"
                           strokeWidth="1.5"
+                          style={{ cursor: isDraggingMinimap ? 'grabbing' : 'grab' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            const container = e.currentTarget.ownerSVGElement.parentElement
+                            const rect = container.getBoundingClientRect()
+                            const mouseX = e.clientX - rect.left
+                            const mouseY = e.clientY - rect.top
+
+                            setIsDraggingMinimap(true)
+                            setMinimapDragStart({
+                              mouseX,
+                              mouseY,
+                              panOffset: { ...panOffset }
+                            })
+                          }}
                         />
                       )
                     })()}
