@@ -111,17 +111,34 @@ function ConspiracyBoard({
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
 
-  // Pan state
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  // Pan state - Initialize from sessionStorage to prevent flash on reload
+  const [panOffset, setPanOffset] = useState(() => {
+    // Try to get pan offset from sessionStorage for immediate restoration
+    const savedPan = sessionStorage.getItem('boardPanOffset')
+    if (savedPan) {
+      try {
+        const parsed = JSON.parse(savedPan)
+        console.log('🔄 Restored pan offset from sessionStorage:', parsed)
+        return parsed
+      } catch (e) {
+        console.warn('Failed to parse saved pan offset:', e)
+      }
+    }
+    return { x: 0, y: 0 }
+  })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState(null)
   const [smoothPan, setSmoothPan] = useState(false) // Enable smooth transition for programmatic panning
+
 
   // Track cleanup function for event listeners
   const cleanupRef = useRef(null)
 
   // Track if we've loaded the initial pan offset to prevent multiple updates causing flash
   const hasLoadedInitialPanOffset = useRef(false)
+
+  // Debounce timer for saving pan offset from wheel events
+  const panSaveTimeoutRef = useRef(null)
 
   // Undo/Redo system
   const MAX_UNDO_STATES = 50
@@ -167,7 +184,7 @@ function ConspiracyBoard({
     updateBoardState
   } = useBoardState(user?.uid)
 
-  const { droppedMemories = [], connections = [], standalonePins = [] } = boardState || {}
+  const { droppedMemories = [], connections = [], standalonePins = [], panOffset: savedPanOffset = { x: 0, y: 0 } } = boardState || {}
 
   // Clear optimistic positions only on mount (to clean up after page reload)
   useEffect(() => {
@@ -175,15 +192,37 @@ function ConspiracyBoard({
     setOptimisticPinPositions({})
   }, [])
 
-  // Load pan offset from boardState when it changes
-  // Only watch the actual x/y values, not the entire boardState object reference
+  // Save pan offset to sessionStorage whenever it changes for instant restoration on reload
+  useEffect(() => {
+    sessionStorage.setItem('boardPanOffset', JSON.stringify(panOffset))
+    console.log('💾 Saved pan offset to sessionStorage:', panOffset)
+  }, [panOffset])
+
+  // Load pan offset from boardState when it changes in Firebase
+  // Only watch the actual x/y values from Firebase, not local panOffset to avoid circular updates
   useEffect(() => {
     // Only load on first time after boardStateLoading is complete to avoid multiple updates causing flash
-    if (!boardStateLoading && boardState?.panOffset && !hasLoadedInitialPanOffset.current) {
-      setPanOffset(boardState.panOffset)
+    if (!boardStateLoading && savedPanOffset && !hasLoadedInitialPanOffset.current) {
+      // Check if Firebase has a different value than what we have in sessionStorage
+      const sessionPan = sessionStorage.getItem('boardPanOffset')
+      let currentPan = { x: 0, y: 0 }
+      if (sessionPan) {
+        try {
+          currentPan = JSON.parse(sessionPan)
+        } catch (e) {}
+      }
+
+      // Only update if Firebase has a significantly different value (not just from rounding)
+      const isDifferent = Math.abs(savedPanOffset.x - currentPan.x) > 1 ||
+                         Math.abs(savedPanOffset.y - currentPan.y) > 1
+
+      if (isDifferent) {
+        console.log('🔵 Loaded different pan offset from Firebase:', savedPanOffset, 'vs current:', currentPan)
+        setPanOffset(savedPanOffset)
+      }
       hasLoadedInitialPanOffset.current = true
     }
-  }, [boardState?.panOffset?.x, boardState?.panOffset?.y, boardStateLoading])
+  }, [savedPanOffset?.x, savedPanOffset?.y, boardStateLoading])
 
   // Save activeBoardName to localStorage whenever it changes
   useEffect(() => {
@@ -191,6 +230,15 @@ function ConspiracyBoard({
       localStorage.setItem('activeBoardName', activeBoardName)
     }
   }, [activeBoardName])
+
+  // Cleanup pan save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (panSaveTimeoutRef.current) {
+        clearTimeout(panSaveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // On component mount, check for existing boards and use the most recent untitled one
   useEffect(() => {
@@ -1375,13 +1423,20 @@ const handleDragEnd = (event) => {
     if (isPanning) {
       setIsPanning(false)
       setPanStart(null)
-      // Save pan offset to Firebase
-      updateBoardState({
-        ...boardState,
-        panOffset
+      // Save pan offset to Firebase - use function to get latest state
+      setPanOffset(currentPanOffset => {
+        console.log('💾 Saving pan offset (drag):', currentPanOffset)
+        // Only update panOffset, don't spread boardState to avoid stale data
+        updateBoardState({
+          droppedMemories,
+          connections,
+          standalonePins,
+          panOffset: currentPanOffset
+        })
+        return currentPanOffset
       })
     }
-  }, [isPanning, panOffset, boardState, updateBoardState])
+  }, [isPanning, droppedMemories, connections, standalonePins, updateBoardState])
 
   // Callback ref to attach wheel event listeners and prevent browser navigation
   const attachCanvasListeners = useCallback((node) => {
@@ -1415,6 +1470,21 @@ const handleDragEnd = (event) => {
       }
 
       setPanOffset(clampedOffset)
+
+      // Debounce saving the pan offset to Firebase/localStorage
+      if (panSaveTimeoutRef.current) {
+        clearTimeout(panSaveTimeoutRef.current)
+      }
+      panSaveTimeoutRef.current = setTimeout(() => {
+        console.log('💾 Saving pan offset (wheel):', clampedOffset)
+        // Get current state values from the component instead of stale closure
+        updateBoardState({
+          droppedMemories,
+          connections,
+          standalonePins,
+          panOffset: clampedOffset
+        })
+      }, 500) // Save after 500ms of no scrolling
     }
 
     const handleTouchStart = (e) => {
@@ -1436,7 +1506,7 @@ const handleDragEnd = (event) => {
       node.removeEventListener('touchstart', handleTouchStart)
       node.removeEventListener('touchmove', handleTouchMove)
     }
-  }, [panOffset, setPanOffset])
+  }, [panOffset, setPanOffset, droppedMemories, connections, standalonePins, updateBoardState])
 
   // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
   useEffect(() => {
