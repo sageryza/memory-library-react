@@ -17,9 +17,26 @@ export const useUserProfile = (user) => {
     // Listen to profile changes
     const profileRef = doc(db, 'users', user.uid, 'profile', 'current');
     const unsubscribe = onSnapshot(profileRef,
-      (doc) => {
+      async (doc) => {
         if (doc.exists()) {
-          setProfile(doc.data());
+          const existingProfile = doc.data();
+          setProfile(existingProfile);
+
+          // Check if we have a Google first name to update with
+          const googleFirstName = localStorage.getItem('googleFirstName');
+          if (googleFirstName && googleFirstName !== existingProfile.firstName) {
+            // User signed in with Google, update their profile with the real name
+            try {
+              await setDoc(profileRef, {
+                ...existingProfile,
+                firstName: googleFirstName,
+                updatedAt: new Date().toISOString()
+              });
+              localStorage.removeItem('googleFirstName');
+            } catch (error) {
+              console.error('Error updating profile with Google name:', error);
+            }
+          }
         } else {
           // Profile doesn't exist, create a basic one
           createInitialProfile(user, profileRef);
