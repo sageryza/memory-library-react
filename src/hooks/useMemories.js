@@ -26,7 +26,7 @@ import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
 import { ensureStringId } from '../utils/generateId';
 
-export const useMemories = (userId) => {
+export const useMemories = (userId, authLoading = false) => {
   const [memories, setMemories] = useState([]);
   const [deletedMemories, setDeletedMemories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +34,14 @@ export const useMemories = (userId) => {
 
   // Use localStorage when not authenticated
   const localStorage = useLocalStorage();
-  const isUsingLocalStorage = !userId;
+  const isUsingLocalStorage = !userId && !authLoading;  // Don't use localStorage if auth is still loading
 
   useEffect(() => {
+    // Wait for auth to finish loading before deciding data source
+    if (authLoading) {
+      return;  // Don't load any data while auth is loading
+    }
+
     if (!userId) {
       // Use localStorage for unauthenticated users
       // Ensure all localStorage memory IDs are strings
@@ -87,7 +92,7 @@ export const useMemories = (userId) => {
     return () => {
       unsubscribe();
     };
-  }, [userId]);
+  }, [userId, authLoading, localStorage.memories]);
 
   // Add a new memory
   const addMemory = useCallback(async (memoryData) => {

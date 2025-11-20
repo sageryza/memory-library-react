@@ -175,7 +175,7 @@ function App() {
     isApproachingLimit,
     hasReachedLimit,
     storageInfo
-  } = useMemories(user?.uid);
+  } = useMemories(user?.uid, authLoading);
   const [migrating, setMigrating] = useState(false);
   const [hasMigrationRun, setHasMigrationRun] = useState(false);
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false);

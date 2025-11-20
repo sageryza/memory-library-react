@@ -146,7 +146,7 @@ function ConspiracyBoard({
   const [redoHistory, setRedoHistory] = useState([])
 
   // Get current user
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
 
   // Use saved boards hook
   const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
@@ -182,7 +182,7 @@ function ConspiracyBoard({
     loading: boardStateLoading,
     error: boardStateError,
     updateBoardState
-  } = useBoardState(user?.uid)
+  } = useBoardState(user?.uid, authLoading)
 
   const { droppedMemories = [], connections = [], standalonePins = [], panOffset: savedPanOffset = { x: 0, y: 0 } } = boardState || {}
 
@@ -193,10 +193,11 @@ function ConspiracyBoard({
   }, [])
 
   // Save pan offset to sessionStorage whenever it changes for instant restoration on reload
-  useEffect(() => {
-    sessionStorage.setItem('boardPanOffset', JSON.stringify(panOffset))
-    console.log('💾 Saved pan offset to sessionStorage:', panOffset)
-  }, [panOffset])
+  // Only save when user actually pans, not when loading from Firebase
+  const savePanOffsetToSession = useCallback((offset) => {
+    sessionStorage.setItem('boardPanOffset', JSON.stringify(offset))
+    console.log('💾 Saved pan offset to sessionStorage:', offset)
+  }, [])
 
   // Load pan offset from boardState when it changes in Firebase
   // Only watch the actual x/y values from Firebase, not local panOffset to avoid circular updates
@@ -1416,8 +1417,9 @@ const handleDragEnd = (event) => {
         y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, e.clientY - panStart.y))
       }
       setPanOffset(newOffset)
+      savePanOffsetToSession(newOffset)  // Save to session during drag
     }
-  }, [isPanning, panStart])
+  }, [isPanning, panStart, savePanOffsetToSession])
 
   const handlePanEnd = useCallback(() => {
     if (isPanning) {
@@ -1470,6 +1472,7 @@ const handleDragEnd = (event) => {
       }
 
       setPanOffset(clampedOffset)
+      savePanOffsetToSession(clampedOffset)  // Save to session immediately on wheel
 
       // Debounce saving the pan offset to Firebase/localStorage
       if (panSaveTimeoutRef.current) {
@@ -1506,7 +1509,7 @@ const handleDragEnd = (event) => {
       node.removeEventListener('touchstart', handleTouchStart)
       node.removeEventListener('touchmove', handleTouchMove)
     }
-  }, [panOffset, setPanOffset, droppedMemories, connections, standalonePins, updateBoardState])
+  }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState])
 
   // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
   useEffect(() => {
@@ -1691,12 +1694,13 @@ const handleDragEnd = (event) => {
   const handleResetView = useCallback(() => {
     const resetOffset = { x: 0, y: 0 }
     setPanOffset(resetOffset)
+    savePanOffsetToSession(resetOffset)  // Save to session when resetting
     // Save reset offset to Firebase
     updateBoardState({
       ...boardState,
       panOffset: resetOffset
     })
-  }, [boardState, updateBoardState])
+  }, [boardState, updateBoardState, savePanOffsetToSession])
 
   // Pan to show a constellation network
   const handlePanToNetwork = useCallback((network) => {
@@ -1754,6 +1758,7 @@ const handleDragEnd = (event) => {
     // Enable smooth transition for this programmatic pan
     setSmoothPan(true)
     setPanOffset(clampedOffset)
+    savePanOffsetToSession(clampedOffset)  // Save to session when panning to network
 
     // Disable smooth transition after animation completes
     setTimeout(() => {
@@ -1765,10 +1770,10 @@ const handleDragEnd = (event) => {
       ...boardState,
       panOffset: clampedOffset
     })
-  }, [panOffset, boardState, updateBoardState])
+  }, [panOffset, boardState, updateBoardState, savePanOffsetToSession])
 
-  // Show loading state while board state or memories are loading
-  if (boardStateLoading || memoriesLoading) {
+  // Show loading state while auth, board state, or memories are loading
+  if (authLoading || boardStateLoading || memoriesLoading) {
     return (
       <div className="App">
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>

@@ -8,7 +8,7 @@ import {
 import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
 
-export const useBoardState = (userId) => {
+export const useBoardState = (userId, authLoading = false) => {
   // Initialize pan offset from sessionStorage to prevent flash on reload
   const getInitialPanOffset = () => {
     const savedPan = sessionStorage.getItem('boardPanOffset');
@@ -33,9 +33,14 @@ export const useBoardState = (userId) => {
 
   // Use localStorage when not authenticated
   const localStorage = useLocalStorage();
-  const isUsingLocalStorage = !userId;
+  const isUsingLocalStorage = !userId && !authLoading;  // Don't use localStorage if auth is still loading
 
   useEffect(() => {
+    // Wait for auth to finish loading before deciding data source
+    if (authLoading) {
+      return;  // Don't load any data while auth is loading
+    }
+
     if (!userId) {
       // Use localStorage for unauthenticated users
       const localBoardState = localStorage.boardState || {
@@ -82,7 +87,7 @@ export const useBoardState = (userId) => {
     );
 
     return () => unsubscribe();
-  }, [userId, localStorage.boardState]);
+  }, [userId, authLoading, localStorage.boardState]);
 
   // Update the board state
   const updateBoardState = async (newState) => {
