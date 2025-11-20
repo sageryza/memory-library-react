@@ -434,11 +434,29 @@ export default function Chronology({ memories = [], memoriesLoading }) {
 
         const newGapIndex = filteredTimeline.findIndex(item => item.id === dropTarget.id);
 
-        filteredTimeline.splice(newGapIndex, 1,
-          { id: `gap-${generateUniqueId()}-before`, type: 'gap' },
-          ...chunk.memories,
-          { id: `gap-${generateUniqueId()}-after`, type: 'gap' }
-        );
+        // Check what's before and after the gap
+        const itemBefore = filteredTimeline[newGapIndex - 1];
+        const itemAfter = filteredTimeline[newGapIndex + 1];
+
+        // Only add gaps where needed (not between memories)
+        const replacementItems = [];
+        if (itemBefore?.type === 'ghost') {
+          // No gap needed before if previous is ghost
+          replacementItems.push(...chunk.memories);
+        } else if (itemBefore?.type === 'memory') {
+          // Add gap between memories
+          replacementItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+          replacementItems.push(...chunk.memories);
+        } else {
+          replacementItems.push(...chunk.memories);
+        }
+
+        if (itemAfter?.type === 'memory') {
+          // Add gap between memories
+          replacementItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+        }
+
+        filteredTimeline.splice(newGapIndex, 1, ...replacementItems);
 
         const cleaned = cleanupGaps(filteredTimeline);
         setTimeline(cleaned);
@@ -448,11 +466,29 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         const memory = draggedItem.item;
         const memoryToAdd = { ...memory, type: 'memory' };
 
-        newTimeline.splice(gapIndex, 1,
-          { id: `gap-${generateUniqueId()}-before`, type: 'gap' },
-          memoryToAdd,
-          { id: `gap-${generateUniqueId()}-after`, type: 'gap' }
-        );
+        // Check what's before and after the gap
+        const itemBefore = newTimeline[gapIndex - 1];
+        const itemAfter = newTimeline[gapIndex + 1];
+
+        // Only add gaps where needed
+        const replacementItems = [];
+        if (itemBefore?.type === 'ghost') {
+          // No gap needed before if previous is ghost
+          replacementItems.push(memoryToAdd);
+        } else if (itemBefore?.type === 'memory') {
+          // Add gap between memories
+          replacementItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+          replacementItems.push(memoryToAdd);
+        } else {
+          replacementItems.push(memoryToAdd);
+        }
+
+        if (itemAfter?.type === 'memory') {
+          // Add gap between memories
+          replacementItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+        }
+
+        newTimeline.splice(gapIndex, 1, ...replacementItems);
 
         if (draggedItem.fromSidebar) {
           setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
@@ -462,10 +498,15 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         setTimeline(cleaned);
         droppedMemoryId = memory.id;
 
-        // Update focus to the dropped memory's position
+        // Update focus to the dropped memory's position immediately
         const newIndex = cleaned.findIndex(item => item.id === memory.id);
         if (newIndex !== -1) {
-          setFocusedIndex(newIndex);
+          // Force immediate focus update
+          requestAnimationFrame(() => {
+            setFocusedIndex(newIndex);
+            // Also force the hover state to clear
+            setDropTarget(null);
+          });
         }
       }
     }
@@ -475,10 +516,16 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       const memoryToAdd = { ...memory, type: 'memory' };
       const ghostStartIndex = newTimeline.findIndex(item => item.id === 'ghost-start');
 
-      newTimeline.splice(ghostStartIndex + 1, 0,
-        memoryToAdd,
-        { id: `gap-${generateUniqueId()}`, type: 'gap' }
-      );
+      // Check what comes after ghost-start
+      const itemAfter = newTimeline[ghostStartIndex + 1];
+      const insertItems = [memoryToAdd];
+
+      // Only add gap if next item is a memory
+      if (itemAfter?.type === 'memory') {
+        insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+      }
+
+      newTimeline.splice(ghostStartIndex + 1, 0, ...insertItems);
 
       if (draggedItem.fromSidebar) {
         setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
@@ -488,10 +535,13 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       setTimeline(cleaned);
       droppedMemoryId = memory.id;
 
-      // Update focus to the dropped memory's position
+      // Update focus to the dropped memory's position immediately
       const newIndex = cleaned.findIndex(item => item.id === memory.id);
       if (newIndex !== -1) {
-        setFocusedIndex(newIndex);
+        requestAnimationFrame(() => {
+          setFocusedIndex(newIndex);
+          setDropTarget(null);
+        });
       }
     }
     // Dropping on ghost-end
@@ -500,10 +550,17 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       const memoryToAdd = { ...memory, type: 'memory' };
       const ghostEndIndex = newTimeline.findIndex(item => item.id === 'ghost-end');
 
-      newTimeline.splice(ghostEndIndex, 0,
-        { id: `gap-${generateUniqueId()}`, type: 'gap' },
-        memoryToAdd
-      );
+      // Check what comes before ghost-end
+      const itemBefore = newTimeline[ghostEndIndex - 1];
+      const insertItems = [];
+
+      // Only add gap if previous item is a memory
+      if (itemBefore?.type === 'memory') {
+        insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+      }
+      insertItems.push(memoryToAdd);
+
+      newTimeline.splice(ghostEndIndex, 0, ...insertItems);
 
       if (draggedItem.fromSidebar) {
         setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
@@ -513,10 +570,13 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       setTimeline(cleaned);
       droppedMemoryId = memory.id;
 
-      // Update focus to the dropped memory's position
+      // Update focus to the dropped memory's position immediately
       const newIndex = cleaned.findIndex(item => item.id === memory.id);
       if (newIndex !== -1) {
-        setFocusedIndex(newIndex);
+        requestAnimationFrame(() => {
+          setFocusedIndex(newIndex);
+          setDropTarget(null);
+        });
       }
     }
     // Dropping on a regular memory edge
@@ -540,16 +600,34 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           }
         }
 
-        filteredTimeline.splice(adjustedDropPosition, 0, ...chunk.memories);
+        // Check what's before and after the drop position
+        const itemBefore = filteredTimeline[adjustedDropPosition - 1];
+        const itemAfter = filteredTimeline[adjustedDropPosition];
+        const insertItems = [];
+
+        // Add gap before if needed
+        if (itemBefore?.type === 'memory' && itemAfter?.type !== 'gap') {
+          insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+        }
+        insertItems.push(...chunk.memories);
+        // Add gap after if needed
+        if (itemAfter?.type === 'memory' && itemBefore?.type !== 'gap') {
+          insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+        }
+
+        filteredTimeline.splice(adjustedDropPosition, 0, ...insertItems);
 
         const cleaned = cleanupGaps(filteredTimeline);
         setTimeline(cleaned);
         droppedMemoryId = chunk.memories[0].id; // Focus on first memory of chunk
 
-        // Update focus
+        // Update focus immediately
         const newIndex = cleaned.findIndex(item => item.id === droppedMemoryId);
         if (newIndex !== -1) {
-          setFocusedIndex(newIndex);
+          requestAnimationFrame(() => {
+            setFocusedIndex(newIndex);
+            setDropTarget(null);
+          });
         }
 
       } else {
@@ -557,7 +635,22 @@ export default function Chronology({ memories = [], memoriesLoading }) {
 
         if (draggedItem.fromSidebar) {
           const memoryToAdd = { ...memory, type: 'memory' };
-          newTimeline.splice(dropPosition, 0, memoryToAdd);
+
+          // Check what's before and after the drop position
+          const itemBefore = newTimeline[dropPosition - 1];
+          const itemAfter = newTimeline[dropPosition];
+          const insertItems = [];
+
+          // Only add gaps between memories, not between memory and ghost/gap
+          if (itemBefore?.type === 'memory' && itemAfter?.type !== 'gap') {
+            insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+          }
+          insertItems.push(memoryToAdd);
+          if (itemAfter?.type === 'memory' && itemBefore?.type !== 'gap') {
+            insertItems.push({ id: `gap-${generateUniqueId()}`, type: 'gap' });
+          }
+
+          newTimeline.splice(dropPosition, 0, ...insertItems);
           setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
         } else {
           const currentIndex = newTimeline.findIndex(item => item.id === memory.id);
@@ -577,15 +670,21 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         setTimeline(cleaned);
         droppedMemoryId = memory.id;
 
-        // Update focus to the dropped memory's position
+        // Update focus to the dropped memory's position immediately
         const newIndex = cleaned.findIndex(item => item.id === memory.id);
         if (newIndex !== -1) {
-          setFocusedIndex(newIndex);
+          requestAnimationFrame(() => {
+            setFocusedIndex(newIndex);
+            setDropTarget(null);
+          });
         }
       }
     }
 
-    handleDragEnd();
+    // Clear drag state but wait a frame to let the focus update happen first
+    requestAnimationFrame(() => {
+      handleDragEnd();
+    });
   };
 
   const handleMemoryDoubleClick = (memory) => {

@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  getAdditionalUserInfo
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import useAuth from '../hooks/useAuth';
@@ -50,7 +51,21 @@ const Login = () => {
 
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      // Request additional user profile fields
+      provider.addScope('profile');
+
+      const result = await signInWithPopup(auth, provider);
+
+      // Get the additional user info which includes the Google profile
+      const additionalInfo = getAdditionalUserInfo(result);
+
+      // Google provides given_name in the profile
+      if (additionalInfo?.profile?.given_name) {
+        // Store the actual first name from Google
+        localStorage.setItem('googleFirstName', additionalInfo.profile.given_name);
+      }
+
+      // Navigation will be handled by the useEffect hook when auth state updates
     } catch (error) {
       setError(error.message);
     } finally {

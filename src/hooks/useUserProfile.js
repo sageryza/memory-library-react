@@ -40,12 +40,19 @@ export const useUserProfile = (user) => {
       // Extract first name from different sources
       let firstName = 'Anonymous';
 
-      // Try to get from Google display name
-      if (user.displayName) {
+      // First, check if we have the Google first name stored
+      const googleFirstName = localStorage.getItem('googleFirstName');
+      if (googleFirstName) {
+        firstName = googleFirstName;
+        // Clean up after using it
+        localStorage.removeItem('googleFirstName');
+      }
+      // Otherwise try to get from Google display name
+      else if (user.displayName) {
         firstName = user.displayName.split(' ')[0];
       }
-      // Or from email (before @ symbol)
-      else if (user.email) {
+      // Last resort: try to extract from email (for email/password signups)
+      else if (user.email && !user.providerData?.some(p => p.providerId === 'google.com')) {
         let emailName = user.email.split('@')[0];
         // Remove any numbers or special characters first
         emailName = emailName.replace(/[^a-zA-Z]/g, '');
