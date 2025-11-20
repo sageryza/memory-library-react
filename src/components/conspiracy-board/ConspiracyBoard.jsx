@@ -17,6 +17,7 @@ import PinEditModal from './PinEditModal'
 import ContextMenu from '../shared/ContextMenu'
 import MemoryPopup from '../shared/MemoryPopup'
 import MemoryCard from '../shared/MemoryCard'
+import UserAvatar from '../shared/UserAvatar'
 import Dropdown from '../shared/Dropdown'
 import Header from '../shared/Header'
 import LibraryIcon from '../shared/LibraryIcon'
@@ -24,6 +25,7 @@ import TabbedSidebar from '../shared/TabbedSidebar'
 import { LibraryCard } from '../archive/LibrarySidebar'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
+import { useUserProfile } from '../../hooks/useUserProfile'
 import useSavedBoards from '../../hooks/useSavedBoards'
 import useSimplifyView from '../../hooks/useSimplifyView'
 import useLibraries from '../../hooks/useLibraries'
@@ -150,6 +152,7 @@ function ConspiracyBoard({
 
   // Get current user
   const { user, loading: authLoading } = useAuth()
+  const { profile } = useUserProfile(user)
 
   // Use saved boards hook
   const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
@@ -2114,8 +2117,14 @@ const handleDragEnd = (event) => {
                 }
                 items={[
                   {
-                    label: user?.email || 'Demo Mode',
-                    icon: (
+                    label: profile?.firstName || (user ? 'User' : 'Demo Mode'),
+                    icon: user ? (
+                      <UserAvatar
+                        firstName={profile?.firstName || 'User'}
+                        size={20}
+                        style={{ flexDirection: 'row', gap: '4px' }}
+                      />
+                    ) : (
                       <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
                         <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
                         <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
@@ -2143,7 +2152,7 @@ const handleDragEnd = (event) => {
                     onClick: () => alert('Tutorial coming soon!')
                   },
                   { separator: true },
-                  {
+                  user ? {
                     label: 'Sign Out',
                     icon: (
                       <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
@@ -2151,8 +2160,16 @@ const handleDragEnd = (event) => {
                         <path fillRule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
                       </svg>
                     ),
-                    onClick: handleSignOut,
-                    disabled: !user
+                    onClick: handleSignOut
+                  } : {
+                    label: 'Sign In / Sign Up',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
+                        <path fillRule="evenodd" d="M.146 8.354a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L1.707 7.5H10.5a.5.5 0 0 1 0 1H1.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3z"/>
+                      </svg>
+                    ),
+                    onClick: () => window.location.href = '/login'
                   }
                 ]}
               />
