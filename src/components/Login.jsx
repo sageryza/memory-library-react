@@ -97,8 +97,8 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Temporarily hidden - Google Sign In not working */}
-        {/* <div style={styles.divider}>
+        <div style={styles.divider}>
+          <div style={styles.dividerLine}></div>
           <span style={styles.dividerText}>OR</span>
         </div>
 
@@ -114,7 +114,7 @@ const Login = () => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Sign in with Google
-        </button> */}
+        </button>
 
         <p style={styles.switchMode}>
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}
@@ -211,6 +211,14 @@ const styles = {
     textAlign: 'center',
     margin: '24px 0',
     position: 'relative',
+  },
+  dividerLine: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    height: '1px',
+    backgroundColor: '#e8e6d5',
   },
   dividerText: {
     background: 'white',

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import useAuth from './hooks/useAuth'
+import { useUserProfile } from './hooks/useUserProfile'
 import useMemories from './hooks/useMemories'
 import migrateLocalStorageToFirestore from './utils/migrateData'
 import { runIdMigration } from './utils/migrateIds'
@@ -15,6 +16,7 @@ import Chronology from './components/Chronology'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import StorageIndicator from './components/shared/StorageIndicator'
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
+import UserAvatar from './components/shared/UserAvatar'
 import './styles/theme.css'
 import './styles/components.css'
 import './App.css'
@@ -53,7 +55,7 @@ function PageTitle() {
   return null;
 }
 
-function Navigation({ user, onOpenRecentlyDeleted }) {
+function Navigation({ user, profile, onOpenRecentlyDeleted }) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -73,9 +75,10 @@ function Navigation({ user, onOpenRecentlyDeleted }) {
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {user ? (
           <>
-            <span style={{ fontSize: '14px', color: '#666' }}>
-              {user.email}
-            </span>
+            <UserAvatar
+              firstName={profile?.firstName || 'Anonymous'}
+              size={32}
+            />
             <button
               onClick={onOpenRecentlyDeleted}
               style={{
@@ -159,6 +162,7 @@ function LoadingSpinner() {
 
 function App() {
   const { user, loading: authLoading } = useAuth();
+  const { profile } = useUserProfile(user);
   const {
     memories,
     deletedMemories,
@@ -241,7 +245,7 @@ function App() {
       )}
       <div className="app">
         {/* Show navigation */}
-        <Navigation user={user} onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)} />
+        <Navigation user={user} profile={profile} onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)} />
 
         {/* Storage indicator for unauthenticated users */}
         {isUsingLocalStorage && (

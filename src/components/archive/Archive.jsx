@@ -41,7 +41,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
-  const [tagsExpanded, setTagsExpanded] = useState(true);
 
   // Libraries hook
   const {
@@ -671,33 +670,22 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                 content: (
                   <div className="sidebar-content">
                     {getAllHashtags().length > 0 ? (
-                      <div className="sidebar-section">
-                        <div
-                          className="sidebar-section-header"
-                          onClick={() => setTagsExpanded(!tagsExpanded)}
-                        >
-                          <h3>All Tags</h3>
-                          <span className="expand-icon">{tagsExpanded ? '−' : '+'}</span>
-                        </div>
-                        {tagsExpanded && (
-                          <div className="sidebar-tags-cloud">
-                            {getAllHashtags().map(({ tag, count }) => {
-                              const isSelected = selectedHashtags.some(h => h.tag === tag);
-                              const fontSize = getFontSize(count, getAllHashtags());
-                              return (
-                                <button
-                                  key={tag}
-                                  className={`hashtag clickable tag-cloud ${isSelected ? 'selected' : ''}`}
-                                  onClick={() => handleHashtagClick(tag)}
-                                  title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
-                                  style={{ fontSize: `${fontSize}px` }}
-                                >
-                                  {tag}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                      <div className="sidebar-tags-cloud">
+                        {getAllHashtags().map(({ tag, count }) => {
+                          const isSelected = selectedHashtags.some(h => h.tag === tag);
+                          const fontSize = getFontSize(count, getAllHashtags());
+                          return (
+                            <button
+                              key={tag}
+                              className={`hashtag clickable tag-cloud ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleHashtagClick(tag)}
+                              title={`${count} ${count === 1 ? 'memory' : 'memories'}`}
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="empty-state">

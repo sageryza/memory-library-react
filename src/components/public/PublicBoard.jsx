@@ -287,6 +287,7 @@ function PublicBoard({ boardId, onBack }) {
               selectedPin={selectedPin}
               onPinClick={handlePinClick}
               isStackedView={false}
+              isPublicBoard={true}
               onContextMenu={(e, type, item) => {
                 e.preventDefault();
                 if (type === 'memory') {

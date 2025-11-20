@@ -132,42 +132,7 @@
   font-size: var(--font-size-base);
 }
 
-/* All Tags Section */
-.sidebar-section {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border-gray);
-}
-
-.sidebar-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  margin-bottom: 12px;
-  user-select: none;
-  padding: 8px 4px;
-  border-radius: var(--radius-medium);
-  transition: background 0.2s ease;
-}
-
-.sidebar-section-header:hover {
-  background: var(--color-bg-hover);
-}
-
-.sidebar-section-header h3 {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.expand-icon {
-  font-size: 18px;
-  font-weight: bold;
-  color: var(--color-text-secondary);
-}
-
+/* Tags Cloud */
 .sidebar-tags-cloud {
   display: flex;
   flex-wrap: wrap;

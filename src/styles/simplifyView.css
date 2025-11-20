@@ -2,6 +2,7 @@
 /* Shared styles for simplified/stacked view across Archive and Conspiracy Board */
 
 /* Hide content and hashtags in simplified view */
+/* Using !important sparingly only where necessary to ensure elements are hidden */
 .memories-container.simplify-view .memory-content,
 .simplify-grid .memory-content,
 .simplify-view .memory-content {
@@ -40,8 +41,8 @@
     flex-wrap: wrap;
     gap: 15px;
     align-content: flex-start;
-    padding: 20px 15px !important;
-    margin-left: 0 !important;
+    padding: 20px 15px;
+    margin-left: 0;
 }
 
 /* Make cards uniform squares in simplify view */
@@ -108,7 +109,7 @@
 .dropped-memory.stacked-view .memory-card-content,
 .dropped-memory.stacked-view .memory-card-tags,
 .dropped-memory.stacked-view .hashtag-container {
-    display: none !important;
+    display: none !important; /* Keep !important here to ensure hiding in stacked view */
 }
 
 .dropped-memory.stacked-view .memory-card-title {

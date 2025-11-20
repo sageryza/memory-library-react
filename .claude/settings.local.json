@@ -78,7 +78,8 @@
       "Bash(git -C \"$worktree\" log --oneline main..HEAD)",
       "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-boards-improvements log --oneline main..HEAD)",
       "Bash(git merge:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(firebase deploy:*)"
     ],
     "deny": [],
     "ask": []

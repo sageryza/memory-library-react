@@ -319,9 +319,7 @@ select {
     background-clip: padding-box;
 }
 
-.memories-container.select-mode .memory-checkbox {
-    display: flex !important;
-}
+/* Checkbox styling moved to MemoryCard.css to avoid duplication */
 
 /* ===== EMPTY STATE ===== */
 .empty-state {

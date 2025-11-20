@@ -1,12 +1,13 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import MemoryCard from '../shared/MemoryCard'
+import PublicMemoryCard from '../public/PublicMemoryCard'
 import InlineMemoryEditor from './InlineMemoryEditor'
 import { calculateOpacityLevels } from '../../utils/opacityCalculations'
 import { setHasId } from '../../utils/idUtils'
 import './Canvas.css'
 import './ConstellationMode.css'
 
-function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onContextMenu, onDoubleClick, onClick, opacity, isConstellationSelected, formatTitleForDisplay, isInlineEditing, onInlineUpdate, onInlineBlur, onInlineEscape }) {
+function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onContextMenu, onDoubleClick, onClick, opacity, isConstellationSelected, formatTitleForDisplay, isInlineEditing, onInlineUpdate, onInlineBlur, onInlineEscape, isPublicBoard }) {
   const {
     attributes,
     listeners,
@@ -69,7 +70,11 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
           isStackedView={isStackedView}
         />
       ) : (
-        <MemoryCard memory={memory} isStackedView={isStackedView} formatTitleForDisplay={formatTitleForDisplay} />
+        isPublicBoard ? (
+          <PublicMemoryCard memory={memory} isStackedView={isStackedView} formatTitleForDisplay={formatTitleForDisplay} />
+        ) : (
+          <MemoryCard memory={memory} isStackedView={isStackedView} formatTitleForDisplay={formatTitleForDisplay} />
+        )
       )}
       {isConstellationSelected ? (
         <div
@@ -112,7 +117,7 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
   )
 }
 
-export default function Canvas({ droppedMemories, selectedPin, onPinClick, isStackedView, onContextMenu, onDoubleClick, onClick, connections, showOpacityFading, constellationSelectedNodes, formatTitleForDisplay, inlineEditingMemoryId, onInlineMemoryUpdate, onInlineMemoryBlur, onInlineMemoryEscape }) {
+export default function Canvas({ droppedMemories, selectedPin, onPinClick, isStackedView, onContextMenu, onDoubleClick, onClick, connections, showOpacityFading, constellationSelectedNodes, formatTitleForDisplay, inlineEditingMemoryId, onInlineMemoryUpdate, onInlineMemoryBlur, onInlineMemoryEscape, isPublicBoard }) {
   const { isOver, setNodeRef } = useDroppable({
     id: 'canvas',
   })
@@ -165,6 +170,7 @@ export default function Canvas({ droppedMemories, selectedPin, onPinClick, isSta
           onInlineUpdate={onInlineMemoryUpdate}
           onInlineBlur={onInlineMemoryBlur}
           onInlineEscape={onInlineMemoryEscape}
+          isPublicBoard={isPublicBoard}
         />
       ))}
     </div>

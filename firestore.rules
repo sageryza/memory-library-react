@@ -15,6 +15,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
+      // User's profile (readable by anyone for attribution, writable only by owner)
+      match /profile/{profileId} {
+        allow read: if true;  // Anyone can read profiles for attribution
+        allow write: if isOwner(userId);
+      }
+
       // User's memories
       match /memories/{memoryId} {
         allow read, write: if isOwner(userId);
