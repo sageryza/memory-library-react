@@ -1042,7 +1042,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                 onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
                 showSearch={true}
                 formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={isSimplified}
+                isSimplified={false}
                 onEditMemory={null}
                 onDeleteMemory={null}
               />
@@ -1058,7 +1058,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                     onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
                     showSearch={false}
                     formatTitleForDisplay={formatTitleForDisplay}
-                    isSimplified={isSimplified}
+                    isSimplified={false}
                     onEditMemory={null}
                     onDeleteMemory={null}
                   />
