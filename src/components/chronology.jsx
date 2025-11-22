@@ -4,9 +4,11 @@ import { useAuth } from '../hooks/useAuth';
 import { ensureStringId } from '../utils/generateId';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
+import { Library } from 'lucide-react';
 import TabbedSidebar from './shared/TabbedSidebar';
 import Sidebar from './conspiracy-board/Sidebar';
 import Header from './shared/Header';
+import LibraryIcon from './shared/LibraryIcon';
 import useLibraries from '../hooks/useLibraries';
 import useSimplifyView from '../hooks/useSimplifyView';
 import { LibraryCard } from './archive/LibrarySidebar';
@@ -57,10 +59,8 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   const initialLoadCompleteRef = useRef(false);
   const processedPositionsRef = useRef(null); // Track which positions we've processed
 
-  // New state for tabbed sidebar
-  const [activeTab, setActiveTab] = useState(0);
+  // New state for sidebar
   const [currentLibrary, setCurrentLibrary] = useState(null);
-  const [showSearch, setShowSearch] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
 
   // Helper function to generate unique IDs for gaps
@@ -294,7 +294,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       setCurrentLibrary(null); // Deselect if clicking same library
     } else {
       setCurrentLibrary(libraryId);
-      setActiveTab(0); // Switch to Available Memories tab
+      // Could switch to Memories tab here if we had control of TabbedSidebar state
     }
   };
 
@@ -1033,57 +1033,64 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           </div>
 
           <TabbedSidebar
-            tabs={[
-              { icon: '📝', label: 'Available Memories' },
-              { icon: '📚', label: 'Libraries' }
-            ]}
-            activeTab={activeTab}
-            onTabClick={setActiveTab}
-            showSearch={showSearch}
-            onToggleSearch={() => setShowSearch(!showSearch)}
+            showSearchToggle={true}
+            defaultTabIndex={0}
             searchContent={
               <Sidebar
                 memories={memories}
                 droppedMemories={timeline.filter(item => item.type === 'memory')}
                 onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
                 showSearch={true}
-                onCloseSearch={() => setShowSearch(false)}
                 formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={false}
+                isSimplified={isSimplified}
                 onEditMemory={null}
                 onDeleteMemory={null}
               />
             }
-          >
-            {activeTab === 0 && (
-              <Sidebar
-                memories={memories}
-                droppedMemories={timeline.filter(item => item.type === 'memory')}
-                onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
-                showSearch={false}
-                onCloseSearch={() => setShowSearch(false)}
-                formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={false}
-                onEditMemory={null}
-                onDeleteMemory={null}
-              />
-            )}
-            {activeTab === 1 && (
-              <div className="sidebar-content">
-                <div className="sidebar-libraries-grid">
-                  {libraries.map(library => (
-                    <LibraryCard
-                      key={library.id}
-                      library={library}
-                      isSelected={currentLibrary === library.id}
-                      onClick={() => handleLibrarySelect(library.id)}
-                      memoryCount={library.memoryIds?.length || 0}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </TabbedSidebar>
+            tabs={[
+              {
+                label: 'Memories',
+                icon: <Library size={16} />,
+                content: (
+                  <Sidebar
+                    memories={memories}
+                    droppedMemories={timeline.filter(item => item.type === 'memory')}
+                    onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
+                    showSearch={false}
+                    formatTitleForDisplay={formatTitleForDisplay}
+                    isSimplified={isSimplified}
+                    onEditMemory={null}
+                    onDeleteMemory={null}
+                  />
+                )
+              },
+              {
+                label: 'Libraries',
+                icon: <LibraryIcon size={16} color="currentColor" />,
+                content: (
+                  <div className="sidebar-content">
+                    <div className="sidebar-libraries-grid">
+                      {libraries.length === 0 ? (
+                        <div className="empty-state">
+                          <p>No libraries yet</p>
+                        </div>
+                      ) : (
+                        libraries.map(library => (
+                          <LibraryCard
+                            key={library.id}
+                            library={library}
+                            isSelected={currentLibrary === library.id}
+                            onClick={() => handleLibrarySelect(library.id)}
+                            memoryCount={library.memoryIds?.length || 0}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+            ]}
+          />
         </div>
       </div>
 

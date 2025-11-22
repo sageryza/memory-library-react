@@ -91,7 +91,9 @@
       "Bash(__NEW_LINE__ mkdir -p \"$BACKUP_DIR\")",
       "Bash(__NEW_LINE__ ls -la \"$BACKUP_DIR\")",
       "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/timeline-optimized.tsx \"$BACKUP_DIR/\")",
-      "Bash(__NEW_LINE__ echo \"Files backed up to: $BACKUP_DIR\")"
+      "Bash(__NEW_LINE__ echo \"Files backed up to: $BACKUP_DIR\")",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
     ],
     "deny": [],
     "ask": []
