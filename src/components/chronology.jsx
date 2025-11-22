@@ -876,7 +876,43 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       <div className="app-container">
         <Header
           title="Chronology"
-          rightContent={null}
+          rightContent={
+            <button
+              className="header-btn"
+              onClick={toggleSimplify}
+              title={isSimplified ? "Switch to normal view" : "Switch to simplified view"}
+              style={{
+                padding: '6px 12px',
+                background: isSimplified ? '#800020' : 'transparent',
+                color: isSimplified ? '#fff' : '#666',
+                border: '1px solid #e0e0e0',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {isSimplified ? (
+                <>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
+                  </svg>
+                  Normal View
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zM1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5V5H1V3.5zM1 6h14v6.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V6z"/>
+                    <path d="M2 8.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
+                  </svg>
+                  Simplify View
+                </>
+              )}
+            </button>
+          }
         />
 
         <div className="main-content">
@@ -1042,7 +1078,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                 onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
                 showSearch={true}
                 formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={false}
+                isSimplified={isSimplified}
                 onEditMemory={null}
                 onDeleteMemory={null}
               />
@@ -1058,7 +1094,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                     onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
                     showSearch={false}
                     formatTitleForDisplay={formatTitleForDisplay}
-                    isSimplified={false}
+                    isSimplified={isSimplified}
                     onEditMemory={null}
                     onDeleteMemory={null}
                   />
