@@ -1087,6 +1087,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
               {
                 label: 'Memories',
                 icon: <Library size={16} />,
+                onNavigate: () => window.location.href = '/archive',
                 content: (
                   <Sidebar
                     memories={memories}
@@ -1103,6 +1104,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
               {
                 label: 'Libraries',
                 icon: <LibraryIcon size={16} color="currentColor" />,
+                onNavigate: () => window.location.href = '/libraries',
                 content: (
                   <div className="sidebar-content">
                     <div className="sidebar-libraries-grid">
