@@ -112,6 +112,9 @@ function ConspiracyBoard({
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [showMinimap, setShowMinimap] = useState(false)
+  const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
+  const [minimapDragStart, setMinimapDragStart] = useState(null)
 
   // Pan state - Initialize from sessionStorage to prevent flash on reload
   // CRITICAL: This prevents the "jump to 0,0" issue on page reload
@@ -135,6 +138,18 @@ function ConspiracyBoard({
   const [panStart, setPanStart] = useState(null)
   const [smoothPan, setSmoothPan] = useState(false) // Enable smooth transition for programmatic panning
 
+  // Zoom state - Start at 100%, can zoom out to 75% or 50%
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const savedZoom = sessionStorage.getItem('boardZoomLevel')
+    if (savedZoom) {
+      const parsed = parseFloat(savedZoom)
+      if ([1.0, 0.75, 0.5].includes(parsed)) {
+        console.log('🔍 Restored zoom level from sessionStorage:', parsed)
+        return parsed
+      }
+    }
+    return 1.0  // Default to 100% zoom
+  })
 
   // Track cleanup function for event listeners
   const cleanupRef = useRef(null)
@@ -336,20 +351,23 @@ function ConspiracyBoard({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Coordinate conversion helpers (accounts for canvas offset and pan)
+  // Coordinate conversion helpers (accounts for canvas offset, pan, and zoom)
   const screenToCanvas = useCallback((screenX, screenY) => {
+    // Account for zoom: screen coordinates need to be divided by zoom to get canvas coordinates
+    // Also need to adjust for pan offset which is in screen space
     return {
-      x: screenX - panOffset.x + CANVAS_OFFSET_X,
-      y: screenY - panOffset.y + CANVAS_OFFSET_Y
+      x: (screenX - panOffset.x) / zoomLevel + CANVAS_OFFSET_X,
+      y: (screenY - panOffset.y) / zoomLevel + CANVAS_OFFSET_Y
     }
-  }, [panOffset])
+  }, [panOffset, zoomLevel])
 
   const canvasToScreen = useCallback((canvasX, canvasY) => {
+    // Convert canvas coordinates to screen coordinates accounting for zoom
     return {
-      x: canvasX + panOffset.x - CANVAS_OFFSET_X,
-      y: canvasY + panOffset.y - CANVAS_OFFSET_Y
+      x: (canvasX - CANVAS_OFFSET_X) * zoomLevel + panOffset.x,
+      y: (canvasY - CANVAS_OFFSET_Y) * zoomLevel + panOffset.y
     }
-  }, [panOffset])
+  }, [panOffset, zoomLevel])
 
   // Apply optimistic position updates for smooth dragging
   const displayMemories = droppedMemories.map(memory => {
@@ -1554,6 +1572,45 @@ const handleDragEnd = (event) => {
           performUndo()
         }
       }
+
+      // Handle Cmd/Ctrl + Plus/Minus for zoom
+      if ((e.metaKey || e.ctrlKey) && !inlineEditingMemoryId) {
+        // Handle zoom in (Cmd/Ctrl + Plus or Cmd/Ctrl + =)
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault()
+          setZoomLevel(prev => {
+            let newZoom
+            if (prev <= 0.5) newZoom = 0.75
+            else if (prev <= 0.75) newZoom = 1.0
+            else newZoom = 1.0  // Already at max zoom
+
+            console.log('🔍 Zoom in:', newZoom)
+            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+            return newZoom
+          })
+        }
+        // Handle zoom out (Cmd/Ctrl + Minus)
+        else if (e.key === '-' || e.key === '_') {
+          e.preventDefault()
+          setZoomLevel(prev => {
+            let newZoom
+            if (prev >= 1.0) newZoom = 0.75
+            else if (prev >= 0.75) newZoom = 0.5
+            else newZoom = 0.5  // Already at min zoom
+
+            console.log('🔍 Zoom out:', newZoom)
+            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+            return newZoom
+          })
+        }
+        // Handle zoom reset (Cmd/Ctrl + 0)
+        else if (e.key === '0') {
+          e.preventDefault()
+          console.log('🔍 Zoom reset: 1.0')
+          setZoomLevel(1.0)
+          sessionStorage.setItem('boardZoomLevel', '1.0')
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -2013,6 +2070,17 @@ const handleDragEnd = (event) => {
                     onClick: () => setShowAllInsights(!showAllInsights),
                     active: showAllInsights
                   },
+                  {
+                    label: 'Minimap',
+                    icon: (
+                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M15.817.113A.5.5 0 0 1 16 .5v14a.5.5 0 0 1-.402.49l-5 1a.502.502 0 0 1-.196 0L5.5 15.01l-4.902.98A.5.5 0 0 1 0 15.5v-14a.5.5 0 0 1 .402-.49l5-1a.5.5 0 0 1 .196 0L10.5.99l4.902-.98a.5.5 0 0 1 .415.103zM10 1.91l-4-.8v12.98l4 .8V1.91zm1 12.98 4-.8V1.11l-4 .8v12.98zm-6-.8V1.11l-4 .8v12.98l4-.8z"/>
+                      </svg>
+                    ),
+                    onClick: () => setShowMinimap(!showMinimap),
+                    active: showMinimap,
+                    title: 'Toggle minimap'
+                  },
                   { separator: true },
                   {
                     label: stringsInFront ? 'Strings Behind Cards' : 'Strings In Front of Cards',
@@ -2180,8 +2248,10 @@ const handleDragEnd = (event) => {
             <div
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
-                transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-                transformOrigin: '0 0',
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                // Fixed origin at roughly the center of a typical viewport
+                // This provides a consistent zoom experience
+                transformOrigin: `${CANVAS_OFFSET_X + 700}px ${CANVAS_OFFSET_Y + 400}px`,
                 width: `${CANVAS_WIDTH}px`,
                 height: `${CANVAS_HEIGHT}px`,
                 position: 'absolute',
@@ -2371,6 +2441,217 @@ const handleDragEnd = (event) => {
               </div>
             )}
             </div>
+
+            {/* Zoom level indicator - hide when minimap is visible */}
+            {zoomLevel !== 1.0 && !showMinimap && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                background: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                zIndex: 1000,
+                userSelect: 'none'
+              }}>
+                {Math.round(zoomLevel * 100)}%
+              </div>
+            )}
+
+            {/* Minimap */}
+            {showMinimap && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                width: '240px',
+                padding: '12px',
+                background: 'var(--beige-primary)',
+                border: '1px solid var(--beige-border)',
+                borderRadius: 'var(--radius-medium)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                zIndex: 1000,
+                userSelect: 'none'
+              }}>
+                {/* Header with title and zoom level */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  color: '#666'
+                }}>
+                  <span>Minimap</span>
+                  <span>{Math.round(zoomLevel * 100)}%</span>
+                </div>
+
+                {/* Canvas representation */}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '160px',
+                    background: 'white',
+                    border: '1px solid #ccc',
+                    borderRadius: '2px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: isDraggingMinimap ? 'grabbing' : 'pointer'
+                  }}
+                  onClick={(e) => {
+                    // Don't pan on click if we just finished dragging
+                    if (isDraggingMinimap) return
+
+                    // Calculate where user clicked on minimap and pan there
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const clickX = e.clientX - rect.left
+                    const clickY = e.clientY - rect.top
+
+                    // Convert minimap coordinates to canvas pan offset
+                    const scaleX = CANVAS_WIDTH / rect.width
+                    const scaleY = CANVAS_HEIGHT / rect.height
+
+                    // Calculate the target pan position (centering on clicked point)
+                    const targetCanvasX = clickX * scaleX - CANVAS_OFFSET_X
+                    const targetCanvasY = clickY * scaleY - CANVAS_OFFSET_Y
+
+                    // Calculate pan offset to center this point
+                    const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
+                    const viewportHeight = window.innerHeight
+
+                    const newPanX = -(targetCanvasX - viewportWidth / 2)
+                    const newPanY = -(targetCanvasY - viewportHeight / 2)
+
+                    // Clamp to bounds
+                    const clampedOffset = {
+                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                    }
+
+                    setPanOffset(clampedOffset)
+                    savePanOffsetToSession(clampedOffset)
+                  }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingMinimap || !minimapDragStart) return
+
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const mouseX = e.clientX - rect.left
+                    const mouseY = e.clientY - rect.top
+
+                    // Calculate how much the mouse moved
+                    const deltaX = mouseX - minimapDragStart.mouseX
+                    const deltaY = mouseY - minimapDragStart.mouseY
+
+                    // Convert minimap delta to canvas delta
+                    const scaleX = CANVAS_WIDTH / rect.width
+                    const scaleY = CANVAS_HEIGHT / rect.height
+
+                    const canvasDeltaX = deltaX * scaleX
+                    const canvasDeltaY = deltaY * scaleY
+
+                    // Update pan offset (negative because moving viewport right means panning left)
+                    const newPanX = minimapDragStart.panOffset.x - canvasDeltaX
+                    const newPanY = minimapDragStart.panOffset.y - canvasDeltaY
+
+                    // Clamp to bounds
+                    const clampedOffset = {
+                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                    }
+
+                    setPanOffset(clampedOffset)
+                    savePanOffsetToSession(clampedOffset)
+                  }}
+                  onMouseUp={() => {
+                    setIsDraggingMinimap(false)
+                    setMinimapDragStart(null)
+                  }}
+                  onMouseLeave={() => {
+                    setIsDraggingMinimap(false)
+                    setMinimapDragStart(null)
+                  }}
+                >
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 216 160"
+                    preserveAspectRatio="none"
+                    style={{ display: 'block' }}
+                  >
+                    {/* Draw memories as red dots */}
+                    {displayMemories.map(memory => {
+                      // Scale memory position to minimap size
+                      const x = (memory.x / CANVAS_WIDTH) * 216
+                      const y = (memory.y / CANVAS_HEIGHT) * 160
+
+                      return (
+                        <circle
+                          key={memory.id}
+                          cx={x}
+                          cy={y}
+                          r="1.5"
+                          fill="#dc3545"
+                          opacity="0.9"
+                        />
+                      )
+                    })}
+
+                    {/* Draw viewport rectangle */}
+                    {(() => {
+                      // Calculate viewport dimensions accounting for sidebar
+                      const sidebarWidth = isSidebarOpen ? 400 : 0
+                      const viewportWidth = window.innerWidth - sidebarWidth
+                      const viewportHeight = window.innerHeight
+
+                      // Calculate what portion of the canvas is visible
+                      // The viewport shows canvas coordinates from (CANVAS_OFFSET_X - panOffset.x) to (CANVAS_OFFSET_X - panOffset.x + viewportWidth)
+                      const canvasLeft = CANVAS_OFFSET_X - panOffset.x
+                      const canvasTop = CANVAS_OFFSET_Y - panOffset.y
+
+                      // Account for zoom - when zoomed out, viewport shows more canvas
+                      const canvasVisibleWidth = viewportWidth / zoomLevel
+                      const canvasVisibleHeight = viewportHeight / zoomLevel
+
+                      // Scale to minimap dimensions (216x160)
+                      const minimapX = (canvasLeft / CANVAS_WIDTH) * 216
+                      const minimapY = (canvasTop / CANVAS_HEIGHT) * 160
+                      const minimapW = (canvasVisibleWidth / CANVAS_WIDTH) * 216
+                      const minimapH = (canvasVisibleHeight / CANVAS_HEIGHT) * 160
+
+                      return (
+                        <rect
+                          x={minimapX}
+                          y={minimapY}
+                          width={minimapW}
+                          height={minimapH}
+                          fill="rgba(66, 135, 245, 0.1)"
+                          stroke="#4287f5"
+                          strokeWidth="1.5"
+                          style={{ cursor: isDraggingMinimap ? 'grabbing' : 'grab' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            const container = e.currentTarget.ownerSVGElement.parentElement
+                            const rect = container.getBoundingClientRect()
+                            const mouseX = e.clientX - rect.left
+                            const mouseY = e.clientY - rect.top
+
+                            setIsDraggingMinimap(true)
+                            setMinimapDragStart({
+                              mouseX,
+                              mouseY,
+                              panOffset: { ...panOffset }
+                            })
+                          }}
+                        />
+                      )
+                    })()}
+                  </svg>
+                </div>
+              </div>
+            )}
           </div>
           <div className={`sidebar-wrapper ${isSidebarOpen ? 'open' : 'closed'}`}>
             <button
