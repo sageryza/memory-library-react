@@ -79,7 +79,19 @@
       "Bash(git -C /Users/sageryza/Documents/timeline/memory-library-boards-improvements log --oneline main..HEAD)",
       "Bash(git merge:*)",
       "Bash(git branch:*)",
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash(BACKUP_DIR=\"/Users/sageryza/Documents/timeline/memory-library-react/timeline-backups-20251121-213915\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/src/components/chronology.jsx \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/src/components/ChronologyChunked.jsx \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/src/hooks/useChronologyState.js \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/src/hooks/useMemories.js \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/src/utils/generateId.js \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/CHRONOLOGY_DOCUMENTATION.md \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ echo \"Backup completed successfully\")",
+      "Bash(__NEW_LINE__ mkdir -p \"$BACKUP_DIR\")",
+      "Bash(__NEW_LINE__ ls -la \"$BACKUP_DIR\")",
+      "Bash(__NEW_LINE__ cp /Users/sageryza/Documents/timeline/memory-library-react/timeline-optimized.tsx \"$BACKUP_DIR/\")",
+      "Bash(__NEW_LINE__ echo \"Files backed up to: $BACKUP_DIR\")"
     ],
     "deny": [],
     "ask": []

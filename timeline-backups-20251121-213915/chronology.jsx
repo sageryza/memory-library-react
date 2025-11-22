@@ -8,9 +8,9 @@ import TabbedSidebar from './shared/TabbedSidebar';
 import Sidebar from './conspiracy-board/Sidebar';
 import Header from './shared/Header';
 import useLibraries from '../hooks/useLibraries';
-import useSimplifyView from '../hooks/useSimplifyView';
 import { LibraryCard } from './archive/LibrarySidebar';
 import MemoryCard from './shared/MemoryCard';
+import { formatTitleForDisplay } from '../utils/formatTitleForDisplay';
 import './shared/Hashtag.css';
 import './archive/LibrarySidebar.css';
 import '../styles/simplifyView.css';
@@ -28,12 +28,6 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     addMemoryToLibrary,
     removeMemoryFromLibrary
   } = useLibraries(user?.uid);
-  const {
-    isSimplified,
-    toggleSimplify,
-    processInputTitle,
-    formatTitleForDisplay,
-  } = useSimplifyView();
 
   // Timeline contains memories, gaps, AND ghost segments - ALL participate in scaling
   const [timeline, setTimeline] = useState([
@@ -777,60 +771,6 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     setSidebarMemories(prev => [...prev, memory]);
   };
 
-  // Handle placing memory randomly on timeline (double-click from sidebar)
-  const handleRandomlyPlaceMemory = (memory) => {
-    // Remove from sidebar
-    setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
-
-    // Find a random position in timeline
-    const newTimeline = [...timeline];
-    const memoryIndices = newTimeline
-      .map((item, idx) => item.type === 'memory' ? idx : null)
-      .filter(idx => idx !== null);
-
-    if (memoryIndices.length > 0) {
-      // Insert after a random existing memory
-      const randomIndex = memoryIndices[Math.floor(Math.random() * memoryIndices.length)];
-      newTimeline.splice(randomIndex + 1, 0,
-        { id: `gap-${generateUniqueId()}`, type: 'gap' },
-        memory
-      );
-    } else {
-      // No memories yet, insert between ghosts
-      newTimeline.splice(1, 0, memory);
-    }
-
-    setTimeline(cleanupGaps(newTimeline));
-  };
-
-  // Handle drop on timeline from dnd-kit
-  const handleTimelineDrop = (memory, position) => {
-    // This will be called when dropping from sidebar onto timeline
-    // Position will indicate where in the timeline to place it
-    const newTimeline = [...timeline];
-
-    // Remove from sidebar
-    setSidebarMemories(prev => prev.filter(m => m.id !== memory.id));
-
-    // Add to timeline at position
-    if (position && position.index !== undefined) {
-      newTimeline.splice(position.index, 0, memory);
-      if (position.needsGap) {
-        newTimeline.splice(position.index, 0, { id: `gap-${generateUniqueId()}`, type: 'gap' });
-      }
-    } else {
-      // Default: add to end before ghost-end
-      const ghostEndIdx = newTimeline.findIndex(item => item.id === 'ghost-end');
-      if (ghostEndIdx > 0 && newTimeline[ghostEndIdx - 1].type === 'memory') {
-        newTimeline.splice(ghostEndIdx, 0, { id: `gap-${generateUniqueId()}`, type: 'gap' }, memory);
-      } else {
-        newTimeline.splice(ghostEndIdx, 0, memory);
-      }
-    }
-
-    setTimeline(cleanupGaps(newTimeline));
-  };
-
   // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -868,18 +808,19 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   }
 
   return (
-    <DndContext
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="app-container">
-        <Header
-          title="Chronology"
-          rightContent={null}
-        />
+    <div className="app-container">
+      <div className="app-header">
+        <div className="header-left">
+          <h1>Chronology</h1>
+        </div>
+        <div className="header-right">
+          <button className="toggle-sidebar-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? 'Close Panel →' : 'Memory Panel'}
+          </button>
+        </div>
+      </div>
 
-        <div className="main-content">
+      <div className="main-content">
         <div className="timeline-area">
           <div className="timeline-container" ref={timelineRef}>
             <div className="timeline-track">
@@ -1013,91 +954,48 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           </div>
         </div>
 
-        <div className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}>
-          <div
-            className="sidebar-toggle-tab"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-          >
-            <div className="sidebar-chevron">
-              {sidebarOpen ? (
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M4 2 L8 6 L4 10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M8 2 L4 6 L8 10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              )}
+        <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+            <div className="sidebar-header-top">
+              <h3>Available Memories</h3>
+              <button className="close-sidebar-btn" onClick={() => setSidebarOpen(false)}>×</button>
             </div>
+            <div className="memory-count">{sidebarMemories.length} available</div>
+            <div className="sidebar-hint">Double-click timeline memories to remove</div>
           </div>
 
-          <TabbedSidebar
-            tabs={[
-              { icon: '📝', label: 'Available Memories' },
-              { icon: '📚', label: 'Libraries' }
-            ]}
-            activeTab={activeTab}
-            onTabClick={setActiveTab}
-            showSearch={showSearch}
-            onToggleSearch={() => setShowSearch(!showSearch)}
-            searchContent={
-              <Sidebar
-                memories={memories}
-                droppedMemories={timeline.filter(item => item.type === 'memory')}
-                onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
-                showSearch={true}
-                onCloseSearch={() => setShowSearch(false)}
-                formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={false}
-                onEditMemory={null}
-                onDeleteMemory={null}
-              />
-            }
-          >
-            {activeTab === 0 && (
-              <Sidebar
-                memories={memories}
-                droppedMemories={timeline.filter(item => item.type === 'memory')}
-                onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
-                showSearch={false}
-                onCloseSearch={() => setShowSearch(false)}
-                formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={false}
-                onEditMemory={null}
-                onDeleteMemory={null}
-              />
-            )}
-            {activeTab === 1 && (
-              <div className="sidebar-content">
-                <div className="sidebar-libraries-grid">
-                  {libraries.map(library => (
-                    <LibraryCard
-                      key={library.id}
-                      library={library}
-                      isSelected={currentLibrary === library.id}
-                      onClick={() => handleLibrarySelect(library.id)}
-                      memoryCount={library.memoryIds?.length || 0}
-                    />
-                  ))}
-                </div>
+          <div className="sidebar-content">
+            {sidebarMemories.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+                <p>All memories are on the timeline!</p>
+                <p style={{ fontSize: '12px', marginTop: '10px' }}>
+                  Double-click any timeline memory to remove it.
+                </p>
               </div>
+            ) : (
+              sidebarMemories.map(memory => (
+                <div
+                  key={memory.id}
+                  className="memory-card-sidebar"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, memory, false)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="memory-card-title">{memory.title}</div>
+                  <div className="memory-card-content">{memory.text}</div>
+                  {memory.hashtags && memory.hashtags.length > 0 && (
+                    <div className="hashtag-container">
+                      {memory.hashtags.map((tag, idx) => (
+                        <span key={idx} className="hashtag">{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
             )}
-          </TabbedSidebar>
+          </div>
         </div>
       </div>
-
-      <DragOverlay>
-        {activeDragId && (
-          <div style={{ opacity: 0.8 }}>
-            <MemoryCard
-              memory={sidebarMemories.find(m => m.id === activeDragId)}
-              isStackedView={false}
-              formatTitleForDisplay={formatTitleForDisplay}
-            />
-          </div>
-        )}
-      </DragOverlay>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Crimson+Text:wght@400;600&display=swap');
@@ -1124,6 +1022,52 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           overflow: hidden;
         }
 
+        .app-header {
+          background: #faf8e9;
+          padding: 15px 30px;
+          border-bottom: 1px solid #E0E0E0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          min-height: 70px;
+          flex-shrink: 0;
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+
+        .app-header h1 {
+          font-size: 24px;
+          color: #800020;
+          margin: 0;
+          font-weight: 600;
+        }
+
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .toggle-sidebar-btn {
+          background: #800020;
+          color: #FFFFFF;
+          border: none;
+          padding: 10px 15px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-family: 'Crimson Text', serif;
+          font-weight: normal;
+          transition: all 0.3s ease;
+        }
+
+        .toggle-sidebar-btn:hover {
+          background: #A0001C;
+        }
 
         .main-content {
           flex: 1;
@@ -1327,6 +1271,137 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           50% { opacity: 1; }
         }
 
+        .sidebar {
+          width: 300px;
+          background: #FFFFFF;
+          border-left: 1px solid #E0E0E0;
+          display: flex;
+          flex-direction: column;
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          transform: translateX(100%);
+          transition: transform 0.3s ease;
+          z-index: 50;
+        }
+
+        .sidebar.open {
+          transform: translateX(0);
+        }
+
+        .sidebar-header {
+          padding: 20px;
+          border-bottom: 1px solid #E0E0E0;
+          background: #FAFAFA;
+        }
+
+        .sidebar-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 5px;
+        }
+
+        .sidebar-header h3 {
+          font-size: 16px;
+          color: #800020;
+          margin-bottom: 5px;
+          font-weight: 600;
+        }
+
+        .close-sidebar-btn {
+          background: none;
+          border: none;
+          padding: 4px 8px;
+          cursor: pointer;
+          color: #800020;
+          transition: all 0.3s ease;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          line-height: 1;
+        }
+
+        .close-sidebar-btn:hover {
+          background: rgba(128, 0, 32, 0.1);
+          color: #A0001C;
+        }
+
+        .memory-count {
+          font-family: 'Courier Prime', monospace;
+          font-size: 12px;
+          color: #666;
+        }
+
+        .sidebar-hint {
+          font-family: 'Courier Prime', monospace;
+          font-size: 10px;
+          color: #999;
+          font-style: italic;
+          margin-top: 5px;
+        }
+
+        .sidebar-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: 15px;
+        }
+
+        .memory-card-sidebar {
+          background: #faf8e9;
+          border: 1px solid #e8e6d5;
+          border-radius: 6px;
+          padding: 12px;
+          margin-bottom: 12px;
+          cursor: move;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .memory-card-sidebar:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border-color: #d8d6c5;
+        }
+
+        .memory-card-sidebar:active {
+          transform: scale(0.98);
+        }
+
+        .memory-card-sidebar .memory-card-title {
+          margin-bottom: 6px;
+        }
+
+        .memory-card-sidebar .memory-card-content {
+          font-size: 12px;
+          color: #666;
+          line-height: 1.4;
+          margin-bottom: 8px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+
+        .sidebar-content::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track {
+          background: #e8e6d5;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+          background: #c8c6b5;
+          border-radius: 3px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb:hover {
+          background: #a8a695;
+        }
 
         @media (max-width: 768px) {
           .sidebar {
@@ -1335,6 +1410,5 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         }
       `}</style>
     </div>
-    </DndContext>
   );
 }
