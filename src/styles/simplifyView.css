@@ -1,14 +1,22 @@
 /* ===== SIMPLIFY VIEW STYLES ===== */
 /* Shared styles for simplified/stacked view across Archive and Conspiracy Board */
 
+/* Add margin-top to memory-list in simplified view */
+.sidebar .memory-list.simplified-grid {
+    margin-top: 16px;
+}
+
 /* Two-column grid layout for sidebar in simplified view */
 .memory-list.simplified-grid {
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    padding: 15px 10px;
+    grid-template-columns: repeat(2, 120px);
+    gap: 16px;
+    justify-content: center;
+    padding: 0 22px 16px 22px;
     box-sizing: border-box;
     overflow-y: auto;
+    overflow-x: hidden;
+    align-content: start;
 }
 
 /* Constrain draggable wrapper size in simplified sidebar */
