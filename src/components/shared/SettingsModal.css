@@ -1,3 +1,9 @@
+/* Override z-index and opacity to appear above ConspiracyBoard elements */
+.modal-overlay {
+  z-index: 10001 !important;
+  opacity: 1 !important;
+}
+
 .settings-modal {
   background: #faf8e9;
   border-radius: 12px;

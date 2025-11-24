@@ -248,7 +248,218 @@ Evaluate whether timeline controls would benefit from dropdown organization.
 
 ---
 
+## Modal System
+
+### Animation Pattern
+The codebase uses a fade-in/scale animation system for modals. **All modals should follow this pattern for consistency.**
+
+#### How It Works
+1. Modal starts invisible (`opacity: 0`) and slightly scaled down (`transform: scale(0.9)`)
+2. When opened, add the `.show` class
+3. CSS transitions handle the smooth fade-in and scale-up animation
+
+#### Correct Implementation
+
+**CSS:**
+```css
+.modal-overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10001; /* Above all board elements */
+}
+
+.modal-overlay.show {
+  opacity: 1;
+}
+
+.modal-content {
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.modal-overlay.show .modal-content {
+  transform: scale(1);
+}
+```
+
+**React Component:**
+```jsx
+function MyModal({ isOpen, onClose }) {
+  return (
+    <div className={`modal-overlay ${isOpen ? 'show' : ''}`} onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        {/* Modal content */}
+      </div>
+    </div>
+  );
+}
+```
+
+#### Current Implementations
+
+✅ **Correctly Implemented:**
+- `VennDiagramModal` - Uses `.venn-popup` with `.show` class toggle
+- `MemoryModal` - Uses `.add-memory-popup` with `.show` class toggle
+
+❌ **Need Fixing (currently using opacity/z-index override workaround):**
+- `SettingsModal` - Missing `.show` class toggle
+- `RecentlyDeletedModal` - Missing `.show` class toggle
+
+### Z-Index Hierarchy
+
+Modals must use consistent z-index values to prevent layering issues:
+
+```css
+/* Regular UI elements */
+.navigation: 100
+.sidebar: 200
+.cards: 500
+
+/* Overlays and dropdowns */
+.dropdown-menu: 1000
+.tooltip: 1500
+.drag-overlay: 2000
+
+/* Modals (should be highest) */
+.modal-overlay: 10001+  /* Must be above board elements (10000) */
+```
+
+**Known Issue:** Some older modals used z-index: 2000-3000 which caused them to appear behind ConspiracyBoard elements (z-index: 10000). Fixed with overrides in modal CSS files.
+
+### Common Modal Pitfalls
+
+1. **Modal Invisible**
+   - **Cause:** Missing `.show` class when `components.css` sets `opacity: 0`
+   - **Fix:** Toggle `.show` class based on `isOpen` state
+
+2. **Modal Behind Content**
+   - **Cause:** z-index too low (below 10000)
+   - **Fix:** Use z-index: 10001 or higher
+
+3. **Click on Content Closes Modal**
+   - **Cause:** onClick propagates from content to overlay
+   - **Fix:** Use `e.stopPropagation()` on content container
+
+4. **No Fade Animation**
+   - **Cause:** Not following the `.show` class pattern
+   - **Fix:** Implement proper class toggling
+
+---
+
+## Critical Data Patterns (MUST FOLLOW)
+
+### 1. ID Generation & Type Consistency
+
+**CRITICAL:** All IDs must be strings. Past bugs were caused by numeric/string ID mismatches.
+
+```javascript
+// ALWAYS use these utilities:
+import { generateLocalId, ensureStringId, compareIds } from './utils/idUtils';
+
+// Generate new ID
+const id = generateLocalId();  // Returns string UUID
+
+// Receive ID from external source (Firebase, localStorage, etc)
+const safeId = ensureStringId(someId);  // Converts to string
+
+// Compare IDs
+if (compareIds(id1, id2)) {  // NEVER use === directly
+  // IDs match
+}
+```
+
+### 2. Authentication Loading Pattern
+
+**CRITICAL:** All hooks that switch between localStorage/Firebase MUST handle authLoading.
+
+```javascript
+// WRONG - causes "flash of wrong data"
+const useMyHook = (userId) => {
+  const isUsingLocalStorage = !userId;  // ❌ Wrong!
+}
+
+// CORRECT - waits for auth to resolve
+const useMyHook = (userId, authLoading = false) => {
+  const isUsingLocalStorage = !userId && !authLoading;  // ✅ Correct!
+
+  useEffect(() => {
+    if (authLoading) return;  // Exit early during auth resolution
+    // ... load data
+  }, [userId, authLoading]);
+}
+```
+
+### 3. Memory Data Structure
+
+**NEVER save these to Firebase:**
+- `x`, `y` (position) - Store in boardState instead
+- `isOnCanvas` - Runtime flag only
+
+```javascript
+// WRONG
+const memory = {
+  id: '123',
+  title: 'My Memory',
+  x: 100,  // ❌ Never save position to memory
+  y: 200,  // ❌ Never save position to memory
+  isOnCanvas: true  // ❌ Runtime only
+}
+
+// CORRECT
+const memory = {
+  id: '123',
+  title: 'My Memory',
+  content: 'Content here',
+  hashtags: ['tag1', 'tag2'],
+  createdAt: serverTimestamp()
+}
+// Save position separately in boardState
+```
+
+### 4. Firebase Update Pattern
+
+**ALWAYS filter out the `id` field before updating:**
+
+```javascript
+// WRONG
+await updateDoc(docRef, memoryData);  // ❌ May include id field
+
+// CORRECT
+const { id, ...dataWithoutId } = memoryData;
+await updateDoc(docRef, dataWithoutId);  // ✅ id removed
+```
+
+### 5. CSS Color Variables
+
+**NEVER hardcode colors:**
+
+```css
+/* WRONG */
+.button { background: #800020; }  /* ❌ Hardcoded */
+
+/* CORRECT */
+.button { background: var(--color-primary); }  /* ✅ Use variable */
+```
+
+Key variables:
+- `--color-primary: #800020` (burgundy)
+- `--color-bg-card: #faf8e9` (cream)
+- `--color-accent-gold: #FFD700` (constellation)
+
+---
+
 ## Changelog
+
+**2025-11-23**
+- Added Modal System documentation
+- Documented z-index hierarchy issues and fixes
+- Added list of modals needing animation pattern updates
+- Added Critical Data Patterns section:
+  - ID type consistency requirements
+  - Authentication loading pattern
+  - Memory data structure rules
+  - Firebase update pattern
+  - CSS color variable requirements
 
 **2025-11-11**
 - Created Dropdown component

@@ -1682,14 +1682,8 @@ const handleDragEnd = (event) => {
   const handleReturnToSidebar = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent returning to sidebar in constellation mode
 
-    // Clear isOnCanvas flag in Firestore for old memories that may still have it
-    // (New memories created after the fix won't have this property at all)
-    try {
-      await updateMemory(memoryId, { isOnCanvas: false })
-    } catch (error) {
-      console.error('Error clearing isOnCanvas flag:', error)
-      // Continue with removal from board even if Firestore update fails
-    }
+    // NOTE: isOnCanvas is a runtime flag only - never save it to Firebase
+    // Canvas positions are stored in boardState.droppedMemories, not in the memory document
 
     saveStateForUndo('Return memory to sidebar')
     updateBoardState({
@@ -1697,7 +1691,7 @@ const handleDragEnd = (event) => {
       droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId)),
       connections: connections.filter(c => !compareIds(c.from, memoryId) && !compareIds(c.to, memoryId))
     })
-  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, updateMemory])
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent deletion in constellation mode
