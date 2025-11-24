@@ -1,8 +1,14 @@
+import { LockIcon, UnlockIcon } from '../shared/LockIcon';
 import LibraryIcon from '../shared/LibraryIcon';
 import '../shared/Hashtag.css';
 
-export default function LibraryCard({ library, memoryCount, onClick }) {
+export default function LibraryCard({ library, memoryCount, onClick, onToggleLock }) {
   const isLocked = library.isLocked;
+
+  const handleLockClick = (e) => {
+    e.stopPropagation();
+    onToggleLock?.(library.id, !isLocked);
+  };
 
   // Render search terms with boolean operators
   const renderSearchTerms = () => {
@@ -59,11 +65,22 @@ export default function LibraryCard({ library, memoryCount, onClick }) {
   };
 
   return (
-    <div className="library-card" onClick={onClick}>
+    <div className={`library-card ${isLocked ? 'locked' : ''}`} onClick={onClick}>
       <div className="library-card-header">
         <div className="library-card-header-top">
-          <LibraryIcon size={24} color="currentColor" />
+          <LibraryIcon size={18} color={isLocked ? "#999" : "#800020"} />
           <h3 className="library-card-title">{library.name}</h3>
+          <button
+            className="library-lock-btn"
+            onClick={handleLockClick}
+            title={isLocked ? "Click to unlock" : "Click to lock"}
+          >
+            {isLocked ? (
+              <LockIcon size={16} color="#999" className="library-lock-icon" />
+            ) : (
+              <UnlockIcon size={16} color="#999" className="library-lock-icon" />
+            )}
+          </button>
         </div>
         <div className="library-card-divider"></div>
       </div>
@@ -78,11 +95,14 @@ export default function LibraryCard({ library, memoryCount, onClick }) {
         <span className="library-memory-count">
           {memoryCount} {memoryCount === 1 ? 'memory' : 'memories'}
         </span>
-        <div className="library-badges">
-          {isLocked && (
-            <span className="library-badge locked">Locked</span>
-          )}
-        </div>
+        {isLocked && (
+          <div className="library-badges">
+            <span className="library-badge locked">
+              <LockIcon size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Locked
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

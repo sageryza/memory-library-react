@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Library, Plus } from 'lucide-react';
 import useLibraries from '../../hooks/useLibraries';
 import LibraryCard from './LibraryCard';
 import CreateLibraryModal from './CreateLibraryModal';
 import EditLibraryModal from './EditLibraryModal';
+import Header from '../shared/Header';
 import './Libraries.css';
 
 export default function Libraries({ memories = [], userId }) {
@@ -42,6 +44,10 @@ export default function Libraries({ memories = [], userId }) {
     setEditingLibrary(null);
   };
 
+  const handleToggleLock = async (libraryId, isLocked) => {
+    await updateLibrary(libraryId, { isLocked });
+  };
+
   if (loading) {
     return (
       <div className="libraries-container">
@@ -53,17 +59,19 @@ export default function Libraries({ memories = [], userId }) {
   return (
     <div className="libraries-container">
       {/* Header */}
-      <div className="libraries-header">
-        <h1>Libraries</h1>
-        <div className="header-actions">
-          <Link to="/archive" className="btn-secondary">
-            ← Back to Archive
-          </Link>
-          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-            + New Library
-          </button>
-        </div>
-      </div>
+      <Header
+        title="Libraries"
+        rightContent={
+          <>
+            <Link to="/archive" className="btn-icon" title="Back to Archive">
+              <Library size={16} />
+            </Link>
+            <button className="btn-icon" onClick={() => setShowCreateModal(true)} title="New Library">
+              <Plus size={16} />
+            </button>
+          </>
+        }
+      />
 
       {/* Libraries Grid */}
       <div className="libraries-grid">
@@ -83,6 +91,7 @@ export default function Libraries({ memories = [], userId }) {
                 library={library}
                 memoryCount={memoryCount}
                 onClick={() => handleEditLibrary(library)}
+                onToggleLock={handleToggleLock}
               />
             );
           })
