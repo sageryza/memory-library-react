@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useDroppable } from '@dnd-kit/core';
 import LibraryIcon from '../shared/LibraryIcon';
+import { LockIcon, UnlockIcon } from '../shared/LockIcon';
 import '../shared/Hashtag.css';
 
-export function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLeave, isDragOver }) {
+export function LibraryCard({ library, memoryCount, onClick, isActive }) {
+  // Use @dnd-kit droppable hook for each library card
+  const {
+    isOver,
+    setNodeRef,
+  } = useDroppable({
+    id: `library-${library.id}`,
+    data: { libraryId: library.id }
+  });
+
   const getLibraryColor = () => {
     if (library.id === 'core-memories') return '#b1872f';
     if (library.id === 'coincidences') return '#9932CC';
     return '#E0E0E0';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    onDragOver(library.id);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    onDrop(library.id);
-  };
-
-  const handleDragLeave = () => {
-    onDragLeave();
   };
 
   // Render search terms with boolean operators
@@ -80,16 +77,20 @@ export function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLe
 
   return (
     <div
-      className={`sidebar-library-card ${isDragOver ? 'drag-over' : ''} ${library.id === 'core-memories' ? 'core-memories' : ''} ${library.id === 'coincidences' ? 'coincidences' : ''}`}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onDragLeave={handleDragLeave}
-      style={{ borderColor: getLibraryColor() }}
+      ref={setNodeRef}
+      className={`sidebar-library-card ${isOver ? 'drag-over' : ''} ${isActive ? 'active' : ''} ${library.id === 'core-memories' ? 'core-memories' : ''} ${library.id === 'coincidences' ? 'coincidences' : ''}`}
+      style={{ borderColor: getLibraryColor(), cursor: 'pointer' }}
+      onClick={onClick}
     >
       <div className="sidebar-library-header">
         <div className="sidebar-library-header-top">
-          <LibraryIcon size={20} color="currentColor" />
+          <LibraryIcon size={20} color="#800020" />
           <h4 className="sidebar-library-name">{library.name}</h4>
+          {library.isLocked ? (
+            <LockIcon size={14} color="#999" className="sidebar-library-lock-icon" />
+          ) : (
+            <UnlockIcon size={14} color="#999" className="sidebar-library-lock-icon" />
+          )}
         </div>
         <div className="sidebar-library-divider"></div>
       </div>
@@ -99,9 +100,6 @@ export function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLe
       {renderSearchTerms()}
       <div className="sidebar-library-stats">
         <span className="sidebar-memory-count">{memoryCount} memories</span>
-        {library.isLocked && (
-          <span className="search-based-indicator">Locked</span>
-        )}
       </div>
     </div>
   );
@@ -110,26 +108,9 @@ export function LibraryCard({ library, memoryCount, onDrop, onDragOver, onDragLe
 export default function LibrarySidebar({
   libraries,
   getLibraryMemoryCount,
-  onMemoryDropToLibrary,
   collapsed,
   onToggleCollapse
 }) {
-  const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
-
-  const handleDragOver = (libraryId) => {
-    setDragOverLibraryId(libraryId);
-  };
-
-  const handleDrop = (libraryId) => {
-    if (onMemoryDropToLibrary) {
-      onMemoryDropToLibrary(libraryId);
-    }
-    setDragOverLibraryId(null);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverLibraryId(null);
-  };
 
   return (
     <div className={`sidebar-wrapper ${collapsed ? 'closed' : ''}`}>
@@ -156,10 +137,6 @@ export default function LibrarySidebar({
                   key={library.id}
                   library={library}
                   memoryCount={getLibraryMemoryCount(library.id)}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  isDragOver={dragOverLibraryId === library.id}
                 />
               ))
             )}

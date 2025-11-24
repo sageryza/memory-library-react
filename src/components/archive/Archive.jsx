@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, ChevronLeft, ChevronRight, Library } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
+import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
 import useLibraries from '../../hooks/useLibraries';
 import useSimplifyView from '../../hooks/useSimplifyView';
 import { usePlaygrounds } from '../../hooks/usePlaygrounds';
+import { getLockedMemoryIds } from '../../utils/getLockedMemoryIds';
 import LibrarySidebar, { LibraryCard } from './LibrarySidebar';
 import MemoryModal from '../shared/MemoryModal';
 import AdvancedSearch from '../shared/AdvancedSearch';
@@ -47,6 +49,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     libraries,
     loading: librariesLoading,
     createLibrary,
+    updateLibrary,
     addMemoryToLibrary,
     getLibraryMemories
   } = useLibraries(userId);
@@ -62,6 +65,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     formatTitleForDisplay,
   } = useSimplifyView();
 
+  // Navigation hook
+  const navigate = useNavigate();
+
   // Filter memories
   useEffect(() => {
     // Use advanced search results if available (check for null specifically)
@@ -71,6 +77,23 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
 
     let filtered = [...memories];
+
+    // Apply locked library filtering
+    // Only filter out locked memories when NOT viewing a locked library
+    if (!currentLibrary || !currentLibrary.isLocked) {
+      const lockedMemoryIds = getLockedMemoryIds(libraries, memories);
+      if (lockedMemoryIds.size > 0) {
+        filtered = filtered.filter(memory => !lockedMemoryIds.has(String(memory.id)));
+      }
+    }
+
+    // If viewing a specific library (including locked ones), filter to only that library's memories
+    if (currentLibrary) {
+      const libraryMemories = getLibraryMemories(currentLibrary);
+      const libraryMemoryIds = new Set(libraryMemories.map(m => String(m.id)));
+      filtered = filtered.filter(memory => libraryMemoryIds.has(String(memory.id)));
+    }
+
 
     // Apply hashtag boolean filtering
     if (selectedHashtags.length > 0) {
@@ -117,7 +140,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
 
     setFilteredMemories(filtered);
-  }, [searchQuery, memories, filteredByAdvanced, selectedHashtags]);
+  }, [searchQuery, memories, filteredByAdvanced, selectedHashtags, libraries, currentLibrary]);
 
   const handleSaveMemory = async (memories, isEditing) => {
     try {
@@ -342,11 +365,26 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     if (draggedMemoryIds.length === 0) return;
 
     try {
-      for (const memoryId of draggedMemoryIds) {
-        await addMemoryToLibrary(libraryId, memoryId);
+      // Get the library and its current memory IDs
+      const library = libraries.find(lib => lib.id === libraryId);
+      if (!library) return;
+
+      const currentIds = library.manualMemoryIds || [];
+      // Filter out IDs that are already in the library
+      const newIds = draggedMemoryIds.filter(id => !currentIds.includes(id));
+
+      if (newIds.length === 0) {
+        alert('All selected memories are already in this library');
+        setDraggedMemoryIds([]);
+        return;
       }
+
+      // Update the library with all new IDs at once
+      const updatedIds = [...currentIds, ...newIds];
+      await updateLibrary(libraryId, { manualMemoryIds: updatedIds });
+
       setDraggedMemoryIds([]);
-      alert(`Added ${draggedMemoryIds.length} memory(ies) to library`);
+      alert(`Added ${newIds.length} memory(ies) to library`);
     } catch (error) {
       console.error('Error adding memories to library:', error);
       alert('Failed to add memories to library');
@@ -357,8 +395,11 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Drag & Drop handlers
-  const handleDragStart = (memoryId) => {
+  // Drag & Drop handlers for @dnd-kit
+  const handleDragStart = (event) => {
+    const { active } = event;
+    const memoryId = active.id;
+
     // Set dragged memory IDs (use selected IDs if in select mode)
     if (selectMode && selectedIds.has(memoryId)) {
       setDraggedMemoryIds(Array.from(selectedIds));
@@ -367,8 +408,29 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
   };
 
-  const handleDragEnd = () => {
-    // Don't clear draggedMemoryIds here - wait for drop to complete
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (over && over.id.startsWith('library-')) {
+      // Extract library ID from the droppable ID
+      const libraryId = over.id.replace('library-', '');
+      handleMemoryDropToLibrary(libraryId);
+    }
+
+    // Clear dragged memory IDs after drop
+    setDraggedMemoryIds([]);
+    setDragOverLibraryId(null);
+  };
+
+  const handleDragOver = (event) => {
+    const { over } = event;
+
+    if (over && over.id.startsWith('library-')) {
+      const libraryId = over.id.replace('library-', '');
+      setDragOverLibraryId(libraryId);
+    } else {
+      setDragOverLibraryId(null);
+    }
   };
 
   const handleOpenPlayground = async () => {
@@ -395,8 +457,14 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   }
 
   return (
-    <div className="app-container">
-      {/* Header */}
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+    >
+      <div className="app-container">
+        {/* Header */}
       <Header
         title="Library"
         centerContent={
@@ -524,9 +592,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   </svg>
                 )}
               </button>
-              <Link to="/libraries" className="toolbar-btn" title="Libraries">
-                <LibraryIcon size={16} />
-              </Link>
               <button className="toolbar-btn" onClick={() => setShowCreateModal(true)} title="Add Memory">
                 <svg width="24" height="24" viewBox="0 -1 24 25" fill="none">
                   {/* Plus sign - longer, moved towards bottom left, thicker */}
@@ -580,8 +645,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   isSelected={selectedIds.has(memory.id)}
                   onSelect={toggleSelection}
                   selectMode={selectMode}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
                   isSimplified={isSimplified}
                   formatTitleForDisplay={formatTitleForDisplay}
                   userId={userId}
@@ -609,8 +672,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   isSelected={selectedIds.has(memory.id)}
                   onSelect={toggleSelection}
                   selectMode={selectMode}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
                   isSimplified={isSimplified}
                   formatTitleForDisplay={formatTitleForDisplay}
                   userId={userId}
@@ -637,6 +698,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               {
                 label: 'Libraries',
                 icon: <LibraryIcon size={16} color="currentColor" />,
+                onNavigate: () => navigate('/libraries'),
                 content: (
                   <div className="sidebar-content">
                     <div className="sidebar-libraries-grid">
@@ -650,13 +712,17 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                             key={library.id}
                             library={library}
                             memoryCount={getLibraryMemoryCount(library.id)}
-                            onDrop={(libraryId) => {
-                              handleMemoryDropToLibrary(libraryId);
-                              setDragOverLibraryId(null);
+                            onClick={() => {
+                              // Toggle library selection
+                              if (currentLibrary?.id === library.id) {
+                                setCurrentLibrary(null); // Deselect if clicking the same library
+                              } else {
+                                setCurrentLibrary(library); // Select the library
+                                setSelectedHashtags([]); // Clear hashtag filters
+                                setSearchQuery(''); // Clear search
+                              }
                             }}
-                            onDragOver={(libraryId) => setDragOverLibraryId(libraryId)}
-                            onDragLeave={() => setDragOverLibraryId(null)}
-                            isDragOver={dragOverLibraryId === library.id}
+                            isActive={currentLibrary?.id === library.id}
                           />
                         ))
                       )}
@@ -791,6 +857,31 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           </div>
         </div>
       )}
+
+      {/* Drag Overlay for visual feedback */}
+      <DragOverlay>
+        {draggedMemoryIds.length > 0 && (
+          <div style={{
+            background: 'white',
+            border: '2px solid #4a5568',
+            borderRadius: '8px',
+            padding: '12px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            cursor: 'grabbing',
+            minWidth: '200px'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+              Moving {draggedMemoryIds.length} {draggedMemoryIds.length === 1 ? 'memory' : 'memories'}
+            </div>
+            {draggedMemoryIds.length === 1 && memories.find(m => m.id === draggedMemoryIds[0]) && (
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                {memories.find(m => m.id === draggedMemoryIds[0]).title || 'Untitled'}
+              </div>
+            )}
+          </div>
+        )}
+      </DragOverlay>
     </div>
+    </DndContext>
   );
 }

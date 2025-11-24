@@ -26,6 +26,12 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.sidebar-library-card.active {
+  background: #faf0f0;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(128, 0, 32, 0.2);
+}
+
 .sidebar-library-card.drag-over {
   border-color: var(--color-primary);
   background: #f8f0f0;
@@ -66,8 +72,25 @@
 .sidebar-library-name {
   font-size: var(--font-size-base);
   font-weight: 600;
-  color: #4A4A4A; /* Neutral gray to match icon */
+  color: var(--color-primary); /* Crimson to match headers */
   margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sidebar-library-lock-icon {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.sidebar-library-lock-icon:hover {
+  color: #800020;
+  transform: scale(1.1);
 }
 
 .sidebar-library-description {

@@ -53,7 +53,7 @@ export default function CreateLibraryModal({ isOpen, onClose, onSave }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New Library"
+      title="New Library"
       footer={
         <button className="btn-icon" onClick={handleSave} title="Create Library">
           <Save size={20} />

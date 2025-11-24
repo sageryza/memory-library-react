@@ -1,0 +1,59 @@
+/* Shared Modal Component - Extends global styles from components.css */
+
+/* Override z-index to ensure modals appear above other content */
+.modal-overlay {
+  z-index: 10001;
+}
+
+/* Override App.css padding on modal-content */
+.modal-overlay .modal-content {
+  padding: 0;
+}
+
+/* Remove border-top from footer (cleaner look) */
+.modal-footer {
+  border-top: none;
+}
+
+/* Form styles within modal body */
+.modal-body .form-group {
+  margin-bottom: 15px;
+}
+
+.modal-body .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.modal-body .form-group input,
+.modal-body .form-group textarea {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.modal-body .form-group input:focus,
+.modal-body .form-group textarea:focus {
+  outline: none;
+  border-color: var(--focus-border-color);
+  box-shadow: var(--focus-shadow);
+}
+
+.modal-body .checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.modal-body .checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin-top: 3px;
+}
