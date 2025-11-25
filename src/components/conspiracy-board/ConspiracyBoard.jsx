@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -119,6 +119,8 @@ function ConspiracyBoard({
   const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
   const [minimapDragStart, setMinimapDragStart] = useState(null)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
+  const [selectedLibraryId, setSelectedLibraryId] = useState(null) // Currently selected library for filtering sidebar
+  const [sidebarTabIndex, setSidebarTabIndex] = useState(0) // Controlled tab index for sidebar
 
   // Hooks
   const { confirm } = useConfirm()
@@ -1657,6 +1659,17 @@ const handleDragEnd = (event) => {
     })
   }, [boardState, standalonePins, updateBoardState, saveStateForUndo, isConstellationMode])
 
+  const handleChangeMemoryPinHead = useCallback((memoryId, pinHead) => {
+    if (isConstellationMode) return
+    saveStateForUndo('Change memory pin head')
+    updateBoardState({
+      ...boardState,
+      droppedMemories: droppedMemories.map(m =>
+        compareIds(m.id, memoryId) ? { ...m, pinHead } : m
+      )
+    })
+  }, [boardState, droppedMemories, updateBoardState, saveStateForUndo, isConstellationMode])
+
   // Context Menu handlers
   const handleContextMenu = useCallback((e, type, data) => {
     e.preventDefault()
@@ -1677,14 +1690,14 @@ const handleDragEnd = (event) => {
 
     if (type === 'memory') {
       items.push(
-        { label: 'Edit Memory', icon: '✏️', onClick: () => handleEditMemory(data) },
-        { label: 'Return to Sidebar', icon: '↩️', onClick: () => handleReturnToSidebar(data.id) },
-        { label: 'Delete Memory', icon: '🗑️', onClick: () => handleDeleteMemory(data.id) }
+        { label: 'Edit Memory', icon: <Pencil size={16} />, onClick: () => handleEditMemory(data) },
+        { label: 'Return to Sidebar', icon: <Undo2 size={16} />, onClick: () => handleReturnToSidebar(data.id) },
+        { label: 'Delete Memory', icon: <Trash2 size={16} />, onClick: () => handleDeleteMemory(data.id) }
       )
     } else if (type === 'canvas') {
       items.push(
-        { label: 'Add Memory', icon: '➕', onClick: () => handleAddMemoryAtPosition(canvasPos) },
-        { label: 'Place Pin', icon: '📍', onClick: () => handlePlacePinAtPosition(canvasPos) }
+        { label: 'Add Memory', icon: <Plus size={16} />, onClick: () => handleAddMemoryAtPosition(canvasPos) },
+        { label: 'Add Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handlePlacePinAtPosition(canvasPos) }
       )
     } else if (type === 'pin') {
       items.push(
@@ -1694,20 +1707,33 @@ const handleDragEnd = (event) => {
           label: 'Change Pin Head',
           icon: <Pin size={16} />,
           submenu: [
-            { label: 'Default Pin', icon: <MapPin size={16} />, onClick: () => handleChangePinHead(data.id, 'default') },
-            { label: 'Star', icon: <Star size={16} />, onClick: () => handleChangePinHead(data.id, 'star') },
-            { label: 'Flag', icon: <Flag size={16} />, onClick: () => handleChangePinHead(data.id, 'flag') }
+            { label: 'Default Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handleChangePinHead(data.id, 'default') },
+            { separator: true },
+            { label: 'Star', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700" stroke="#B8860B" strokeWidth="1" strokeLinejoin="round"/></svg>, onClick: () => handleChangePinHead(data.id, 'star') },
+            { separator: true },
+            { label: 'Flag', icon: <svg width="16" height="16" viewBox="0 0 16 20"><path d="M2 0v20" stroke="#555" strokeWidth="2" fill="none"/><path d="M3 1h11l-3 4 3 4H3z" fill="#DC2626" stroke="#991B1B" strokeWidth="0.5"/></svg>, onClick: () => handleChangePinHead(data.id, 'flag') }
           ]
         },
         { label: gridVisibleForPin === data.id ? 'Hide Grid' : 'View as Grid', icon: gridVisibleForPin === data.id ? <EyeOff size={16} /> : <Grid3x3 size={16} />, onClick: () => setGridVisibleForPin(gridVisibleForPin === data.id ? null : data.id) }
       )
     } else if (type === 'connection') {
-      // TODO: Make connection removal more discoverable
-      // Currently only accessible via right-click context menu
-      // Consider: hover delete button, keyboard shortcut, or button in Venn Modal
       items.push(
-        { label: 'Remove Connection', icon: '🗑️', onClick: () => handleConnectionDelete(data) },
-        { label: 'Specify Commonality', icon: '💡', onClick: () => handleConnectionClick(data) }
+        { label: 'Remove Connection', icon: <Trash2 size={16} />, onClick: () => handleConnectionDelete(data) },
+        { label: 'Specify Commonality', icon: <Lightbulb size={16} />, onClick: () => handleConnectionClick(data) }
+      )
+    } else if (type === 'memoryPin') {
+      items.push(
+        {
+          label: 'Change Pin Head',
+          icon: <Pin size={16} />,
+          submenu: [
+            { label: 'Default Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'default') },
+            { separator: true },
+            { label: 'Star', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700" stroke="#B8860B" strokeWidth="1" strokeLinejoin="round"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'star') },
+            { separator: true },
+            { label: 'Flag', icon: <svg width="16" height="16" viewBox="0 0 16 20"><path d="M2 0v20" stroke="#555" strokeWidth="2" fill="none"/><path d="M3 1h11l-3 4 3 4H3z" fill="#DC2626" stroke="#991B1B" strokeWidth="0.5"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'flag') }
+          ]
+        }
       )
     }
 
@@ -2690,9 +2716,27 @@ const handleDragEnd = (event) => {
             <TabbedSidebar
               showSearchToggle={true}
               defaultTabIndex={0}
+              activeTabIndex={sidebarTabIndex}
+              onTabChange={setSidebarTabIndex}
+              filterIndicator={selectedLibraryId && (() => {
+                const selectedLibrary = libraries.find(lib => lib.id === selectedLibraryId)
+                if (!selectedLibrary) return null
+                return (
+                  <div className="library-filter-indicator">
+                    <span className="library-filter-name">{selectedLibrary.name}</span>
+                    <button
+                      className="library-filter-clear"
+                      onClick={() => setSelectedLibraryId(null)}
+                      title="Clear filter"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )
+              })()}
               searchContent={
                 <Sidebar
-                  memories={memories}
+                  memories={selectedLibraryId ? getLibraryMemories(selectedLibraryId, memories) : memories}
                   droppedMemories={displayMemories}
                   onRandomlyPlaceMemory={randomlyPlaceMemory}
                   showSearch={true}
@@ -2709,7 +2753,7 @@ const handleDragEnd = (event) => {
                   onNavigate: () => window.location.href = '/archive',
                   content: (
                     <Sidebar
-                      memories={memories}
+                      memories={selectedLibraryId ? getLibraryMemories(selectedLibraryId, memories) : memories}
                       droppedMemories={displayMemories}
                       onRandomlyPlaceMemory={randomlyPlaceMemory}
                       showSearch={false}
@@ -2727,16 +2771,21 @@ const handleDragEnd = (event) => {
                   content: (
                     <div className="sidebar-content">
                       <div className="sidebar-libraries-grid">
-                        {libraries.length === 0 ? (
+                        {libraries.filter(lib => !lib.isLocked).length === 0 ? (
                           <div className="empty-state">
                             <p>No libraries yet</p>
                           </div>
                         ) : (
-                          libraries.map(library => (
+                          libraries.filter(lib => !lib.isLocked).map(library => (
                             <LibraryCard
                               key={library.id}
                               library={library}
                               memoryCount={getLibraryMemoryCount(library.id)}
+                              onClick={() => {
+                                setSelectedLibraryId(library.id)
+                                setSidebarTabIndex(0) // Switch to Memories tab
+                              }}
+                              isActive={selectedLibraryId === library.id}
                               onDrop={(libraryId) => {
                                 // Handle drop - for now just a placeholder
                                 // In future, could implement dragging memories from canvas to libraries
