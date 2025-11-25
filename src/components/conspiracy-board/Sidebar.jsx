@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { X } from 'lucide-react'
+import { X, Pencil, Trash2 } from 'lucide-react'
 import MemoryCard from '../shared/MemoryCard'
 import AdvancedSearch from '../shared/AdvancedSearch'
 import SearchInput from '../shared/SearchInput'
@@ -144,7 +144,7 @@ export default function Sidebar({
         </div>
       )}
 
-      <div className="memory-list">
+      <div className={`memory-list ${isSimplified ? 'simplified-grid' : ''}`}>
         {filteredMemories.length === 0 ? (
           <p className="empty-state">
             {searchTerm ? 'No memories match your search' : 'No memories found'}
@@ -201,7 +201,7 @@ export default function Sidebar({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f8f8'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            ✏️ Edit Memory
+            <Pencil size={16} /> Edit Memory
           </div>
           <div
             className="hashtag-context-item"
@@ -221,7 +221,7 @@ export default function Sidebar({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f8f8'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            🗑️ Delete Memory
+            <Trash2 size={16} /> Delete Memory
           </div>
         </div>
       )}
