@@ -2,15 +2,17 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useChronologyState } from '../hooks/useChronologyState';
 import { useAuth } from '../hooks/useAuth';
 import { ensureStringId } from '../utils/generateId';
-import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import { DndContext, DragOverlay, pointerWithin, useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { Library } from 'lucide-react';
 import TabbedSidebar from './shared/TabbedSidebar';
+import SidebarContainer from './shared/Sidebar';
 import Sidebar from './conspiracy-board/Sidebar';
 import Header from './shared/Header';
 import LibraryIcon from './shared/LibraryIcon';
 import useLibraries from '../hooks/useLibraries';
 import useSimplifyView from '../hooks/useSimplifyView';
+import { getLockedMemoryIds } from '../utils/getLockedMemoryIds';
 import { LibraryCard } from './archive/LibrarySidebar';
 import MemoryCard from './shared/MemoryCard';
 import './shared/Hashtag.css';
@@ -130,6 +132,9 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       // RESTORE from Firebase
       console.log('✅ RESTORING FROM FIREBASE:', { timelineIds, sidebarIds });
 
+      // Get locked memory IDs to filter them out
+      const lockedMemoryIds = getLockedMemoryIds(libraries, memories);
+
       const timelineMemories = timelineIds
         .map(id => memories.find(m => m.id === id))
         .filter(Boolean)
@@ -140,10 +145,10 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         .filter(Boolean)
         .map(convertMemory);
 
-      // Find new memories not in saved state
+      // Find new memories not in saved state and not locked
       const allSavedIds = [...timelineIds, ...sidebarIds];
       const newMemories = memories
-        .filter(m => !allSavedIds.includes(m.id))
+        .filter(m => !allSavedIds.includes(m.id) && !lockedMemoryIds.has(String(m.id)))
         .map(convertMemory);
 
       // Rebuild timeline with gaps
@@ -170,7 +175,13 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     } else {
       // FIRST TIME - put all memories in sidebar (confirmed no Firebase data)
       console.log('✅ FIRST TIME LOAD - No saved data, putting all memories in sidebar');
-      const converted = memories.map(convertMemory);
+
+      // Get locked memory IDs to filter them out
+      const lockedMemoryIds = getLockedMemoryIds(libraries, memories);
+
+      // Filter out locked memories
+      const unlockedMemories = memories.filter(m => !lockedMemoryIds.has(String(m.id)));
+      const converted = unlockedMemories.map(convertMemory);
       setSidebarMemories(converted);
       setTimeline([
         { id: 'ghost-start', type: 'ghost' },
@@ -195,7 +206,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
         console.log('✅ Ready to save changes');
       }, 1000);
     }
-  }, [memoriesLoading, chronologyLoading, memories.length, chronologyState.positions]);
+  }, [memoriesLoading, chronologyLoading, memories.length, chronologyState.positions, libraries]);
 
   // Save to Firebase with debounce (FIXED dependencies and error handling)
   useEffect(() => {
@@ -427,8 +438,16 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     setActiveDragId(null);
     setIsDragging(false);
 
-    if (over && draggedItem) {
-      // Handle drop on timeline
+    // If we have a drop target from native drag over, use it
+    if (dropTarget && draggedItem) {
+      // Simulate a drop event with the current dropTarget
+      const syntheticEvent = {
+        preventDefault: () => {},
+        stopPropagation: () => {}
+      };
+      handleDrop(syntheticEvent);
+    } else if (over && draggedItem) {
+      // Handle drop on timeline using dnd-kit zones
       if (over.id && over.data?.current?.type === 'timeline-drop-zone') {
         handleTimelineDrop(draggedItem.item, over.data.current.position);
       }
@@ -454,6 +473,9 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   const handleDragOver = (e, item = null) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Set drop effect for better visual feedback
+    e.dataTransfer.dropEffect = 'copy';
 
     if (!draggedItem || !item) return;
 
@@ -872,10 +894,28 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragOver={(event) => {
+        // Track which element we're over for better drop handling
+        if (event.over && event.active) {
+          // This helps with the drag-drop responsiveness
+          const itemId = event.over.id;
+          const item = timeline.find(t => t.id === itemId);
+          if (item) {
+            handleDragOver({
+              preventDefault: () => {},
+              stopPropagation: () => {},
+              currentTarget: { getBoundingClientRect: () => ({ left: 0, width: 100 }) },
+              clientX: 50
+            }, item);
+          }
+        }
+      }}
     >
       <div className="app-container">
         <Header
-          title="Chronology"
+          centerContent={
+            <h2 className="board-name-display">Chronology</h2>
+          }
           rightContent={
             <button
               className="header-btn"
@@ -1049,25 +1089,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           </div>
         </div>
 
-        <div className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}>
-          <div
-            className="sidebar-toggle-tab"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-          >
-            <div className="sidebar-chevron">
-              {sidebarOpen ? (
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M4 2 L8 6 L4 10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M8 2 L4 6 L8 10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              )}
-            </div>
-          </div>
-
+        <SidebarContainer isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)}>
           <TabbedSidebar
             showSearchToggle={true}
             defaultTabIndex={0}
@@ -1129,7 +1151,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
               }
             ]}
           />
-        </div>
+        </SidebarContainer>
       </div>
 
       <DragOverlay>
