@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { generateLocalId } from '../utils/generateId';
 
 /**
@@ -23,8 +23,50 @@ export default function useLibraries(userId) {
       return;
     }
 
-    // Load from Firestore
-    loadFirestoreLibraries();
+    // Set up real-time listener for Firestore directly in useEffect
+    let unsubscribe;
+
+    try {
+      const librariesRef = collection(db, 'users', userId, 'libraries');
+
+      unsubscribe = onSnapshot(
+        librariesRef,
+        (snapshot) => {
+          const libs = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          console.log('Real-time update: received', libs.length, 'libraries');
+          setLibraries(libs);
+
+          // Create defaults for new Firestore users on first load
+          if (libs.length === 0 && !localStorage.getItem('hasCreatedDefaultLibraries')) {
+            createDefaultLibraries();
+          }
+
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Firestore listener error:', error);
+          setLibraries([]);
+          setLoading(false);
+        }
+      );
+
+      console.log('Firestore listener set up for user:', userId);
+    } catch (error) {
+      console.error('Error setting up listener:', error);
+      setLoading(false);
+    }
+
+    // Cleanup listener on unmount or userId change
+    return () => {
+      if (unsubscribe) {
+        console.log('Cleaning up Firestore listener');
+        unsubscribe();
+      }
+    };
   }, [userId]);
 
   // Create default libraries for new users
@@ -111,32 +153,6 @@ export default function useLibraries(userId) {
     }
   };
 
-  const loadFirestoreLibraries = async () => {
-    try {
-      // Store in user's subcollection: users/{userId}/libraries
-      const librariesRef = collection(db, 'users', userId, 'libraries');
-      const snapshot = await getDocs(librariesRef);
-      const libs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setLibraries(libs);
-
-      // Create defaults for new Firestore users
-      if (libs.length === 0) {
-        const hasCreatedDefaults = localStorage.getItem('hasCreatedDefaultLibraries');
-        if (!hasCreatedDefaults) {
-          await createDefaultLibraries();
-        }
-      }
-    } catch (error) {
-      console.error('Error loading libraries from Firestore:', error);
-      // Fallback to empty libraries if permission denied
-      setLibraries([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Save libraries to storage
   const saveLibraries = async (updatedLibraries) => {
