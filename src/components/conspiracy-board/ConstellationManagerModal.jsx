@@ -1,5 +1,6 @@
 import { useConstellations } from '../../hooks/useConstellations'
 import { useAuth } from '../../hooks/useAuth'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import './ConstellationManagerModal.css'
 
 export default function ConstellationManagerModal({
@@ -9,6 +10,7 @@ export default function ConstellationManagerModal({
 }) {
   const { user } = useAuth()
   const { constellations, loading, deleteConstellation } = useConstellations(user?.uid)
+  const { confirm } = useConfirm()
 
   if (!isOpen) return null
 
@@ -21,7 +23,15 @@ export default function ConstellationManagerModal({
 
   const handleDeleteConstellation = async (constellationId, e) => {
     e.stopPropagation()
-    if (confirm('Delete this constellation? This cannot be undone.')) {
+
+    const confirmed = await confirm({
+      title: 'Delete Constellation',
+      message: 'Delete this constellation? This cannot be undone.',
+      confirmText: 'Delete',
+      danger: true
+    })
+
+    if (confirmed) {
       try {
         await deleteConstellation(constellationId)
       } catch (error) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useConstellations } from '../../hooks/useConstellations'
 import { useAuth } from '../../hooks/useAuth'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import { compareIds } from '../../utils/idUtils'
 import './UnifiedConstellation.css'
 
@@ -14,6 +15,7 @@ export default function UnifiedConstellation({
 }) {
   const { user } = useAuth()
   const { constellations, saveConstellation, loadConstellation, deleteConstellation } = useConstellations(user?.uid)
+  const { confirm } = useConfirm()
   const [activeTab, setActiveTab] = useState('select') // 'select' or 'load'
   const [selectedNodes, setSelectedNodes] = useState(new Set())
   const [constellationName, setConstellationName] = useState('')
@@ -207,7 +209,14 @@ export default function UnifiedConstellation({
       return
     }
 
-    if (window.confirm('Are you sure you want to delete this constellation?')) {
+    const confirmed = await confirm({
+      title: 'Delete Constellation',
+      message: 'Are you sure you want to delete this constellation?',
+      confirmText: 'Delete',
+      danger: true
+    })
+
+    if (confirmed) {
       try {
         await deleteConstellation(selectedConstellationId)
         setSelectedConstellationId(null)

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import './MemoryModal.css';
 import keyword_extractor from 'keyword-extractor';
 import useSimplifyView from '../../hooks/useSimplifyView';
@@ -28,8 +29,9 @@ function Tooltip({ text, children }) {
 
 export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = null }) {
   const { processInputTitle } = useSimplifyView();
+  const { confirm } = useConfirm();
   const [memoryUnits, setMemoryUnits] = useState([{
-    id: 0,
+    id: 'unit-0',
     content: '',
     title: '',
     hashtags: '',
@@ -43,15 +45,18 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
   const [lastAddedUnitId, setLastAddedUnitId] = useState(null); // Track last added unit for toggle behavior
 
   // Intelligent title generation
-  const generateTitle = (unitId) => {
+  const generateTitle = async (unitId) => {
     const unit = memoryUnits.find(u => u.id === unitId);
     if (!unit) return;
 
     // Check if title already has content
     if (unit.title.trim()) {
-      if (!window.confirm('Replace existing title?')) {
-        return;
-      }
+      const confirmed = await confirm({
+        title: 'Replace Title',
+        message: 'Replace existing title?',
+        confirmText: 'Replace'
+      });
+      if (!confirmed) return;
     }
 
     // Combine content and additional context, prioritizing content
@@ -125,7 +130,7 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
         const titleText = editingMemory.title ? editingMemory.title.replace(/<br>/g, ' ') : '';
 
         setMemoryUnits([{
-          id: 0,
+          id: 'unit-0',
           content: editingMemory.content || '',
           title: titleText,
           hashtags: hashtagsText,
@@ -139,7 +144,7 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
       } else {
         // New memory mode - reset to empty
         setMemoryUnits([{
-          id: 0,
+          id: 'unit-0',
           content: '',
           title: '',
           hashtags: '',
@@ -217,7 +222,8 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     }
 
     // Add a new unit
-    const newId = Math.max(...memoryUnits.map(u => u.id)) + 1;
+    const unitCount = memoryUnits.length;
+    const newId = `unit-${unitCount}`;
     setMemoryUnits([...memoryUnits, {
       id: newId,
       content: '',
@@ -231,10 +237,17 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     setLastAddedUnitId(newId);
   };
 
-  const clearAll = () => {
-    if (window.confirm('Clear all memory units?')) {
+  const clearAll = async () => {
+    const confirmed = await confirm({
+      title: 'Clear All',
+      message: 'Clear all memory units?',
+      confirmText: 'Clear All',
+      danger: true
+    });
+
+    if (confirmed) {
       setMemoryUnits([{
-        id: 0,
+        id: 'unit-0',
         content: '',
         title: '',
         hashtags: '',

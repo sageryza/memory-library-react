@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePlaygrounds } from '../../hooks/usePlaygrounds';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { calculateCanvasDimensions } from '../../utils/playgroundUtils';
 import PlaygroundMemoryCard from './PlaygroundMemoryCard';
 import AddPlaygroundMemoryModal from './AddPlaygroundMemoryModal';
@@ -29,6 +30,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 800 });
 
+  const { confirm } = useConfirm();
   const canvasRef = useRef(null);
   const modalContentRef = useRef(null);
   const dragElementRef = useRef(null);
@@ -206,7 +208,14 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   };
 
   const handleDeleteMemory = async (memory) => {
-    if (window.confirm('Delete this memory?')) {
+    const confirmed = await confirm({
+      title: 'Delete Memory',
+      message: 'Delete this memory?',
+      confirmText: 'Delete',
+      danger: true
+    });
+
+    if (confirmed) {
       try {
         await deletePlaygroundMemory(memory.id);
         setMemoryContextMenu(null);
@@ -229,7 +238,13 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   };
 
   const handleCopyAllToArchive = async () => {
-    if (window.confirm('Copy all memories to Archive? They will remain in this playground.')) {
+    const confirmed = await confirm({
+      title: 'Copy All to Archive',
+      message: 'Copy all memories to Archive? They will remain in this playground.',
+      confirmText: 'Copy All'
+    });
+
+    if (confirmed) {
       try {
         await copyAllMemoriesToArchive(playgroundId, memories);
         alert('All memories copied to Archive!');

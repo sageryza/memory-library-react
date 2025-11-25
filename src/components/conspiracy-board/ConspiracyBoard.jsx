@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import Sidebar from './Sidebar'
+import SidebarContainer from '../shared/Sidebar'
 import Canvas from './Canvas'
 import Connections from './Connections'
 import DragConnections from './DragConnections'
@@ -14,6 +16,7 @@ import SettingsModal from '../shared/SettingsModal'
 import RecentlyDeletedModal from '../shared/RecentlyDeletedModal'
 import ConstellationSidebar from './ConstellationSidebar'
 import PinEditModal from './PinEditModal'
+import PinGrid from './PinGrid'
 import ContextMenu from '../shared/ContextMenu'
 import MemoryPopup from '../shared/MemoryPopup'
 import MemoryCard from '../shared/MemoryCard'
@@ -115,6 +118,10 @@ function ConspiracyBoard({
   const [showMinimap, setShowMinimap] = useState(false)
   const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
   const [minimapDragStart, setMinimapDragStart] = useState(null)
+  const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
+
+  // Hooks
+  const { confirm } = useConfirm()
 
   // Pan state - Initialize from sessionStorage to prevent flash on reload
   // CRITICAL: This prevents the "jump to 0,0" issue on page reload
@@ -808,7 +815,14 @@ const handleDragEnd = (event) => {
   }
 
   const handleDeleteBoard = async (boardId) => {
-    if (confirm('Delete this saved board?')) {
+    const confirmed = await confirm({
+      title: 'Delete Board',
+      message: 'Delete this saved board?',
+      confirmText: 'Delete',
+      danger: true
+    })
+
+    if (confirmed) {
       try {
         await deleteBoard(boardId)
       } catch (error) {
@@ -1632,6 +1646,17 @@ const handleDragEnd = (event) => {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [selectedPin, screenToCanvas])
 
+  const handleChangePinHead = useCallback((pinId, pinHead) => {
+    if (isConstellationMode) return
+    saveStateForUndo('Change pin head')
+    updateBoardState({
+      ...boardState,
+      standalonePins: standalonePins.map(p =>
+        compareIds(p.id, pinId) ? { ...p, pinHead } : p
+      )
+    })
+  }, [boardState, standalonePins, updateBoardState, saveStateForUndo, isConstellationMode])
+
   // Context Menu handlers
   const handleContextMenu = useCallback((e, type, data) => {
     e.preventDefault()
@@ -1663,8 +1688,18 @@ const handleDragEnd = (event) => {
       )
     } else if (type === 'pin') {
       items.push(
-        { label: 'Remove Pin', icon: '🗑️', onClick: () => handleDeletePin(data.id) },
-        { label: 'Add Insight', icon: '💡', onClick: () => setEditingPin(data) }
+        { label: 'Remove Pin', icon: <Trash2 size={16} />, onClick: () => handleDeletePin(data.id) },
+        { label: 'Add Insight', icon: <Lightbulb size={16} />, onClick: () => setEditingPin(data) },
+        {
+          label: 'Change Pin Head',
+          icon: <Pin size={16} />,
+          submenu: [
+            { label: 'Default Pin', icon: <MapPin size={16} />, onClick: () => handleChangePinHead(data.id, 'default') },
+            { label: 'Star', icon: <Star size={16} />, onClick: () => handleChangePinHead(data.id, 'star') },
+            { label: 'Flag', icon: <Flag size={16} />, onClick: () => handleChangePinHead(data.id, 'flag') }
+          ]
+        },
+        { label: gridVisibleForPin === data.id ? 'Hide Grid' : 'View as Grid', icon: gridVisibleForPin === data.id ? <EyeOff size={16} /> : <Grid3x3 size={16} />, onClick: () => setGridVisibleForPin(gridVisibleForPin === data.id ? null : data.id) }
       )
     } else if (type === 'connection') {
       // TODO: Make connection removal more discoverable
@@ -1677,7 +1712,7 @@ const handleDragEnd = (event) => {
     }
 
     setContextMenu({ x: e.clientX, y: e.clientY, items })
-  }, [screenToCanvas, isConstellationMode, handlePlacePinAtPosition])  // Add dependencies as needed
+  }, [screenToCanvas, isConstellationMode, handlePlacePinAtPosition, gridVisibleForPin])  // Add dependencies as needed
 
   const handleReturnToSidebar = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent returning to sidebar in constellation mode
@@ -1859,10 +1894,9 @@ const handleDragEnd = (event) => {
     >
       <div className="App">
         <Header
-          title="Conspiracy"
           centerContent={
             <h2 className="board-name-display">
-              {activeBoardName?.startsWith('Untitled Board') ? 'Untitled' : (activeBoardName || 'Untitled')}
+              {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
             </h2>
           }
           rightContent={
@@ -2270,6 +2304,11 @@ const handleDragEnd = (event) => {
               onInlineMemoryBlur={handleInlineMemoryBlur}
               onInlineMemoryEscape={handleInlineMemoryEscape}
             />
+            {/* Grid overlay for standalone pin */}
+            {gridVisibleForPin && (() => {
+              const pin = displayStandalonePins.find(p => p.id === gridVisibleForPin)
+              return pin ? <PinGrid pin={pin} panOffset={panOffset} zoomLevel={zoomLevel} /> : null
+            })()}
             <StandalonePins
               standalonePins={displayStandalonePins}
               selectedPin={selectedPin}
@@ -2647,22 +2686,7 @@ const handleDragEnd = (event) => {
               </div>
             )}
           </div>
-          <div className={`sidebar-wrapper ${isSidebarOpen ? 'open' : 'closed'}`}>
-            <button
-              className="sidebar-toggle-tab"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                {isSidebarOpen ? (
-                  // Arrow pointing right (close)
-                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                ) : (
-                  // Arrow pointing left (open)
-                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                )}
-              </svg>
-            </button>
+          <SidebarContainer isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)}>
             <TabbedSidebar
               showSearchToggle={true}
               defaultTabIndex={0}
@@ -2766,7 +2790,7 @@ const handleDragEnd = (event) => {
                 }
               ]}
             />
-          </div>
+          </SidebarContainer>
         </div>
 
         <VennDiagramModal

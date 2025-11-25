@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor } from '@
 import { usePublicBoard } from '../../hooks/usePublicBoards';
 import { useAuth } from '../../hooks/useAuth';
 import { useMemories } from '../../hooks/useMemories';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import Canvas from '../conspiracy-board/Canvas';
 import Connections from '../conspiracy-board/Connections';
 import StandalonePins from '../conspiracy-board/StandalonePins';
@@ -18,6 +19,7 @@ const CANVAS_OFFSET_Y = 3000;
 
 function PublicBoard({ boardId, onBack }) {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const { memories: userMemories } = useMemories(user?.uid);
   const {
     boardData,
@@ -288,10 +290,16 @@ function PublicBoard({ boardId, onBack }) {
               onPinClick={handlePinClick}
               isStackedView={false}
               isPublicBoard={true}
-              onContextMenu={(e, type, item) => {
+              onContextMenu={async (e, type, item) => {
                 e.preventDefault();
                 if (type === 'memory') {
-                  if (window.confirm('Remove this memory from the board?')) {
+                  const confirmed = await confirm({
+                    title: 'Remove Memory',
+                    message: 'Remove this memory from the board?',
+                    confirmText: 'Remove',
+                    danger: true
+                  });
+                  if (confirmed) {
                     handleMemoryRemove(item.id);
                   }
                 }

@@ -10,11 +10,6 @@
   padding: 0;
 }
 
-/* Remove border-top from footer (cleaner look) */
-.modal-footer {
-  border-top: none;
-}
-
 /* Form styles within modal body */
 .modal-body .form-group {
   margin-bottom: 15px;

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Save, Trash2 } from 'lucide-react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import Modal from '../shared/Modal';
+import './Libraries.css';
 
 export default function EditLibraryModal({ isOpen, onClose, onSave, onDelete, library }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const { confirm } = useConfirm();
 
   // Populate form when library changes
   useEffect(() => {
@@ -33,10 +36,14 @@ export default function EditLibraryModal({ isOpen, onClose, onSave, onDelete, li
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${library.name}"?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete Library',
+      message: `Are you sure you want to delete "${library?.name}"?`,
+      confirmText: 'Delete',
+      danger: true
+    });
 
+    if (!confirmed) return;
     try {
       await onDelete(library.id);
       onClose();
@@ -67,6 +74,7 @@ export default function EditLibraryModal({ isOpen, onClose, onSave, onDelete, li
       isOpen={isOpen}
       onClose={onClose}
       title="Edit Library"
+      className="edit-library-modal"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
           <button className="btn-icon btn-danger" onClick={handleDelete} title="Delete Library">
@@ -96,7 +104,6 @@ export default function EditLibraryModal({ isOpen, onClose, onSave, onDelete, li
           placeholder="Description"
         />
       </div>
-
     </Modal>
   );
 }

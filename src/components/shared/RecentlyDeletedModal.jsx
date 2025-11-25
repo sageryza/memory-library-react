@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import MemoryCard from './MemoryCard'
 import './RecentlyDeletedModal.css'
 
@@ -11,6 +12,7 @@ export default function RecentlyDeletedModal({
   formatTitleForDisplay
 }) {
   const [confirmEmpty, setConfirmEmpty] = useState(false)
+  const { confirm } = useConfirm()
 
   const handleEmptyTrash = async () => {
     if (!confirmEmpty) {
@@ -28,7 +30,14 @@ export default function RecentlyDeletedModal({
   }
 
   const handlePermanentDelete = async (memoryId) => {
-    if (window.confirm('Permanently delete this memory? This cannot be undone.')) {
+    const confirmed = await confirm({
+      title: 'Permanently Delete',
+      message: 'Permanently delete this memory? This cannot be undone.',
+      confirmText: 'Delete Forever',
+      danger: true
+    })
+
+    if (confirmed) {
       try {
         await onPermanentDelete(memoryId)
       } catch (error) {

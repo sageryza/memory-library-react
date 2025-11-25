@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useSavedBoards } from '../../hooks/useSavedBoards'
 import { useAuth } from '../../hooks/useAuth'
+import { useConfirm } from '../../contexts/ConfirmContext'
 
 export default function BoardManager({ currentBoard, onLoadBoard, onSaveBoard, onDeleteBoard }) {
   const { user } = useAuth()
   const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
+  const { confirm } = useConfirm()
   const [boardName, setBoardName] = useState('')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
 
@@ -30,7 +32,14 @@ export default function BoardManager({ currentBoard, onLoadBoard, onSaveBoard, o
   }
 
   const handleDelete = async (boardId, boardName) => {
-    if (confirm(`Delete board "${boardName}"?`)) {
+    const confirmed = await confirm({
+      title: 'Delete Board',
+      message: `Delete board "${boardName}"?`,
+      confirmText: 'Delete',
+      danger: true
+    })
+
+    if (confirmed) {
       try {
         await deleteBoard(boardId)
         onDeleteBoard(boardId)

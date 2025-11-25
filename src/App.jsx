@@ -7,6 +7,7 @@ import { useUserProfile } from './hooks/useUserProfile'
 import useMemories from './hooks/useMemories'
 import migrateLocalStorageToFirestore from './utils/migrateData'
 import { runIdMigration } from './utils/migrateIds'
+import { ConfirmProvider } from './contexts/ConfirmContext'
 import Login from './components/Login'
 import Home from './components/Home'
 import ConspiracyBoard from './components/conspiracy-board/ConspiracyBoard'
@@ -211,8 +212,9 @@ function App() {
 
   // Allow unauthenticated access
   return (
-    <Router>
-      <PageTitle />
+    <ConfirmProvider>
+      <Router>
+        <PageTitle />
       {migrating && (
         <div style={{
           position: 'fixed',
@@ -337,6 +339,7 @@ function App() {
         )}
       </div>
     </Router>
+    </ConfirmProvider>
   );
 }
 

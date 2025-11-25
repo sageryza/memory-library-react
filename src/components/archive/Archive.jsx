@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, ChevronLeft, ChevronRight, Library } from 'lucide-react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
@@ -15,6 +15,8 @@ import PlaygroundModal from '../playgrounds/PlaygroundModal';
 import Header from '../shared/Header';
 import LibraryIcon from '../shared/LibraryIcon';
 import TabbedSidebar from '../shared/TabbedSidebar';
+import SidebarContainer from '../shared/Sidebar';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import './LibrarySidebar.css';
 import './styles/Archive.css';
 import './styles/MemoryCard.css';
@@ -57,6 +59,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   // Playgrounds hook
   const { createPlayground } = usePlaygrounds(userId);
 
+  // Confirm dialog hook
+  const { confirm } = useConfirm();
+
   // Simplify view hook
   const {
     isSimplified,
@@ -89,7 +94,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
 
     // If viewing a specific library (including locked ones), filter to only that library's memories
     if (currentLibrary) {
-      const libraryMemories = getLibraryMemories(currentLibrary);
+      const libraryMemories = getLibraryMemories(currentLibrary.id, memories);
       const libraryMemoryIds = new Set(libraryMemories.map(m => String(m.id)));
       filtered = filtered.filter(memory => libraryMemoryIds.has(String(memory.id)));
     }
@@ -308,24 +313,31 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
-    if (window.confirm(`Delete ${selectedIds.size} selected memories?`)) {
-      try {
-        // Use Promise.allSettled to attempt all deletions regardless of individual failures
-        const deleteResults = await Promise.allSettled(
-          Array.from(selectedIds).map(id =>
-            deleteMemory(id)
-              .then(() => ({ id, success: true }))
-              .catch(error => ({ id, success: false, error }))
-          )
-        );
+    const confirmed = await confirm({
+      title: 'Delete Memories',
+      message: `Delete ${selectedIds.size} selected ${selectedIds.size === 1 ? 'memory' : 'memories'}?`,
+      confirmText: 'Delete',
+      danger: true
+    });
 
-        // Separate successful and failed deletions
-        const successfulDeletions = [];
-        const failedDeletions = [];
+    if (!confirmed) return;
+    try {
+      // Use Promise.allSettled to attempt all deletions regardless of individual failures
+      const deleteResults = await Promise.allSettled(
+        Array.from(selectedIds).map(id =>
+          deleteMemory(id)
+            .then(() => ({ id, success: true }))
+            .catch(error => ({ id, success: false, error }))
+        )
+      );
 
-        deleteResults.forEach((result) => {
-          // Get the memory ID from the result, not by index!
-          const memoryId = result.value.id;
+      // Separate successful and failed deletions
+      const successfulDeletions = [];
+      const failedDeletions = [];
+
+      deleteResults.forEach((result) => {
+        // Get the memory ID from the result, not by index!
+        const memoryId = result.value.id;
           if (result.status === 'fulfilled' && result.value.success) {
             successfulDeletions.push(memoryId);
           } else {
@@ -348,10 +360,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           setSelectMode(false);
         }
 
-      } catch (error) {
-        console.error('Unexpected error during bulk delete:', error);
-        alert('An unexpected error occurred. Please try again.');
-      }
+    } catch (error) {
+      console.error('Unexpected error during bulk delete:', error);
+      alert('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -361,21 +372,34 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     return libraryMemories.length;
   };
 
-  const handleMemoryDropToLibrary = async (libraryId) => {
-    if (draggedMemoryIds.length === 0) return;
+  const handleMemoryDropToLibrary = async (libraryId, memoryIds) => {
+    // Use passed memoryIds instead of state to avoid stale state issues
+    if (!memoryIds || memoryIds.length === 0) return;
+
+    console.log('Dropping memories to library:', { libraryId, memoryIds });
 
     try {
       // Get the library and its current memory IDs
       const library = libraries.find(lib => lib.id === libraryId);
-      if (!library) return;
+      if (!library) {
+        console.error('Library not found:', libraryId);
+        return;
+      }
 
       const currentIds = library.manualMemoryIds || [];
-      // Filter out IDs that are already in the library
-      const newIds = draggedMemoryIds.filter(id => !currentIds.includes(id));
+      // Filter out IDs that are already in the library and remove duplicates
+      const uniqueNewIds = [...new Set(memoryIds)]; // Remove duplicates from dragged IDs
+      const newIds = uniqueNewIds.filter(id => !currentIds.includes(id));
+
+      console.log('Library update details:', {
+        currentCount: currentIds.length,
+        draggedCount: memoryIds.length,
+        uniqueDraggedCount: uniqueNewIds.length,
+        newCount: newIds.length
+      });
 
       if (newIds.length === 0) {
-        alert('All selected memories are already in this library');
-        setDraggedMemoryIds([]);
+        console.log('All selected memories are already in this library');
         return;
       }
 
@@ -383,11 +407,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       const updatedIds = [...currentIds, ...newIds];
       await updateLibrary(libraryId, { manualMemoryIds: updatedIds });
 
-      setDraggedMemoryIds([]);
-      alert(`Added ${newIds.length} memory(ies) to library`);
+      console.log(`Successfully added ${newIds.length} memory(ies) to library`);
     } catch (error) {
       console.error('Error adding memories to library:', error);
-      alert('Failed to add memories to library');
     }
   };
 
@@ -401,11 +423,22 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     const memoryId = active.id;
 
     // Set dragged memory IDs (use selected IDs if in select mode)
+    let idsToSet;
     if (selectMode && selectedIds.has(memoryId)) {
-      setDraggedMemoryIds(Array.from(selectedIds));
+      idsToSet = Array.from(selectedIds);
     } else {
-      setDraggedMemoryIds([memoryId]);
+      idsToSet = [memoryId];
     }
+
+    console.log('Starting drag with memories:', {
+      draggedId: memoryId,
+      selectMode,
+      selectedCount: selectedIds.size,
+      totalDragging: idsToSet.length,
+      ids: idsToSet
+    });
+
+    setDraggedMemoryIds(idsToSet);
   };
 
   const handleDragEnd = (event) => {
@@ -414,7 +447,13 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     if (over && over.id.startsWith('library-')) {
       // Extract library ID from the droppable ID
       const libraryId = over.id.replace('library-', '');
-      handleMemoryDropToLibrary(libraryId);
+      // Pass the current draggedMemoryIds directly to avoid stale state
+      handleMemoryDropToLibrary(libraryId, draggedMemoryIds);
+
+      // Clear selection after successful drop if in select mode
+      if (selectMode && draggedMemoryIds.length > 1) {
+        setSelectedIds(new Set());
+      }
     }
 
     // Clear dragged memory IDs after drop
@@ -466,51 +505,16 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       <div className="app-container">
         {/* Header */}
       <Header
-        title="Library"
         centerContent={
-          (selectedHashtags.length > 0 || currentLibrary) && (
-            <>
-              {selectedHashtags.length > 0 && (
-                <div className="hashtag-filters-display">
-                  {selectedHashtags.map((hashtagObj, index) => (
-                    <React.Fragment key={index}>
-                      {index > 0 && hashtagObj.operator && (
-                        <button
-                          className="operator-toggle"
-                          onClick={() => handleToggleOperator(index)}
-                          title={`Click to toggle to ${hashtagObj.operator === 'AND' ? 'OR' : 'AND'}`}
-                        >
-                          {hashtagObj.operator === 'AND' ? '+' : 'OR'}
-                        </button>
-                      )}
-                      <div
-                        className="hashtag-pill"
-                        onClick={() => handleRemoveHashtag(index)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setContextMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            hashtag: hashtagObj.tag
-                          });
-                        }}
-                      >
-                        {hashtagObj.tag}
-                      </div>
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
-              {currentLibrary && (
-                <div className="current-library-header">
-                  <span onClick={handleClearFilter} style={{ cursor: 'pointer' }}>
-                    📚 Library: {currentLibrary.name}
-                  </span>
-                </div>
-              )}
-            </>
-          )
+          <h2
+            className="board-name-display"
+            onClick={currentLibrary || selectedHashtags.length > 0 ? handleClearFilter : undefined}
+            style={(currentLibrary || selectedHashtags.length > 0) ? { cursor: 'pointer' } : undefined}
+          >
+            {selectedHashtags.length > 0
+              ? selectedHashtags.map(h => h.tag).join(' + ')
+              : (currentLibrary ? currentLibrary.name : 'Library')}
+          </h2>
         }
         rightContent={
           <>
@@ -682,15 +686,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         </div>
 
         {/* Tabbed Sidebar */}
-        <div className={`sidebar-wrapper ${sidebarCollapsed ? 'closed' : ''}`}>
-          <button
-            className="sidebar-toggle-tab"
-            onClick={toggleSidebarCollapse}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
-          </button>
-
+        <SidebarContainer isOpen={!sidebarCollapsed} onToggle={toggleSidebarCollapse}>
           <TabbedSidebar
             showSearchToggle={false}
             defaultTabIndex={0}
@@ -763,7 +759,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               }
             ]}
           />
-        </div>
+        </SidebarContainer>
       </div>
 
       {/* Modals */}
@@ -862,25 +858,21 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       <DragOverlay>
         {draggedMemoryIds.length > 0 && (
           <div style={{
-            background: 'white',
-            border: '2px solid #4a5568',
-            borderRadius: '8px',
-            padding: '12px',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            background: 'rgba(128, 0, 32, 0.9)',
+            color: 'white',
+            borderRadius: '20px',
+            padding: '6px 12px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             cursor: 'grabbing',
-            minWidth: '200px'
+            pointerEvents: 'none'
           }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-              Moving {draggedMemoryIds.length} {draggedMemoryIds.length === 1 ? 'memory' : 'memories'}
-            </div>
-            {draggedMemoryIds.length === 1 && memories.find(m => m.id === draggedMemoryIds[0]) && (
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                {memories.find(m => m.id === draggedMemoryIds[0]).title || 'Untitled'}
-              </div>
-            )}
+            {draggedMemoryIds.length}
           </div>
         )}
       </DragOverlay>
+
     </div>
     </DndContext>
   );
