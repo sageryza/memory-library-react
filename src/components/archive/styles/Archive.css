@@ -19,6 +19,12 @@ select {
     font-family: 'Crimson Text', serif;
 }
 
+/* Re-enable text selection for form inputs where users need to type/edit */
+input,
+textarea {
+    user-select: text;
+}
+
 #root {
     overflow: hidden;
     height: 100vh;
@@ -30,6 +36,7 @@ select {
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    user-select: none; /* Prevent text selection on UI elements */
 }
 
 .archive-main-layout {
@@ -137,7 +144,7 @@ select {
 .search-section {
     display: flex;
     flex-direction: column;
-    width: 300px;
+    width: 200px;
     position: relative;
 }
 
@@ -148,15 +155,17 @@ select {
 
 .search-input-container input {
     width: 100%;
-    padding: 10px 35px 10px 15px;
+    padding: 6px 30px 6px 12px;
     border: 1px solid var(--color-border-medium);
     border-radius: var(--radius-medium);
     font-family: 'Crimson Text', serif;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-small);
+    height: 32px;
+    box-sizing: border-box;
 }
 
 .search-input-container input.with-clear-btn {
-    padding-right: 65px;
+    padding-right: 55px;
 }
 
 /* Focus styles inherited from global input:focus rule in components.css */
@@ -164,14 +173,14 @@ select {
 /* Archive search button positioning - offset to make room for clear button */
 .app-container .advanced-search-btn {
     position: absolute;
-    right: 10px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
     color: var(--color-text-secondary);
-    padding: var(--spacing-xs);
+    padding: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -179,7 +188,7 @@ select {
 }
 
 .app-container .advanced-search-btn.with-clear {
-    right: 35px;
+    right: 28px;
 }
 
 .app-container .advanced-search-btn:hover {
@@ -188,14 +197,14 @@ select {
 
 .clear-search-btn {
     position: absolute;
-    right: 10px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
     color: var(--color-text-muted);
-    padding: var(--spacing-xs);
+    padding: 4px;
     display: flex;
     align-items: center;
 }
@@ -210,12 +219,13 @@ select {
     gap: 8px;
 }
 
-/* Unified toolbar button style - matches simplify view button */
+/* Unified toolbar button style - matches header-dropdown-btn height */
 .toolbar-btn {
     background: none;
     border: 1px solid var(--color-border-standard);
     border-radius: var(--radius-small);
-    padding: 8px 12px;
+    padding: 0 8px;
+    height: 32px;
     cursor: pointer;
     color: var(--color-text-secondary);
     transition: all 0.2s ease;

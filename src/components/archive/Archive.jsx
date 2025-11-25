@@ -597,7 +597,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                 )}
               </button>
               <button className="toolbar-btn" onClick={() => setShowCreateModal(true)} title="Add Memory">
-                <svg width="24" height="24" viewBox="0 -1 24 25" fill="none">
+                <svg width="16" height="16" viewBox="0 -1 24 25" fill="none">
                   {/* Plus sign - longer, moved towards bottom left, thicker */}
                   <line x1="6" y1="10" x2="6" y2="22" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
                   <line x1="0" y1="16" x2="12" y2="16" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
