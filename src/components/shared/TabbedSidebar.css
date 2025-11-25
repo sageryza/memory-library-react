@@ -75,7 +75,7 @@
 
 .sidebar-tab.active {
   background: white;
-  color: var(--color-primary);
+  color: var(--color-text-secondary);
   border-color: var(--color-border-gray);
   border-bottom-color: white;
   z-index: 2;
@@ -104,6 +104,7 @@
   display: flex;
   flex-direction: column;
   background: white;
+  border-top: 1px solid var(--color-border-gray);
   position: relative;
   z-index: 1;
 }
@@ -122,11 +123,23 @@
 /* Static whitespace area above scrollable content */
 .tabbed-sidebar-static-spacer {
   flex-shrink: 0;
-  padding: 6px 15px;
+  padding: 8px 15px;
   background: white;
-  border-top: 1px solid var(--color-border-gray);
   display: flex;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* More padding when filter indicator is present */
+.tabbed-sidebar-static-spacer.has-content {
+  padding: 10px 15px;
+}
+
+/* When filter is active, make the line go all the way across (don't break for active tab) */
+.sidebar.has-filter .sidebar-tab.active {
+  border-bottom-color: var(--color-border-gray);
 }
 
 /* Library filter indicator - shown when a library is selected */

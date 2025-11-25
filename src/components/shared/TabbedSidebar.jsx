@@ -39,7 +39,7 @@ export default function TabbedSidebar({
   }, [isSearchMode]);
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${filterIndicator ? 'has-filter' : ''}`}>
       {/* Only show header when NOT in search mode */}
       {!isSearchMode && (
         <div className="tabbed-sidebar-header">
@@ -93,15 +93,14 @@ export default function TabbedSidebar({
         </div>
       )}
 
-      {/* Static spacer with optional filter indicator - doesn't scroll */}
-      {!isSearchMode && (
-        <div className="tabbed-sidebar-static-spacer">
-          {filterIndicator}
-        </div>
-      )}
-
       {/* Content area */}
       <div className="tabbed-sidebar-content">
+        {/* Static spacer with optional filter indicator - sticky at top, only on Memories tab */}
+        {!isSearchMode && activeTabIndex === 0 && (
+          <div className={`tabbed-sidebar-static-spacer ${filterIndicator ? 'has-content' : ''}`}>
+            {filterIndicator}
+          </div>
+        )}
         {isSearchMode ? (
           // Show search content when in search mode (full Sidebar with search)
           // Clone the searchContent and inject the closeSearchMode callback

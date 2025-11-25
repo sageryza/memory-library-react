@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -1705,13 +1705,13 @@ const handleDragEnd = (event) => {
         { label: 'Add Insight', icon: <Lightbulb size={16} />, onClick: () => setEditingPin(data) },
         {
           label: 'Change Pin Head',
-          icon: <Pin size={16} />,
+          icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>,
           submenu: [
-            { label: 'Default Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handleChangePinHead(data.id, 'default') },
+            { label: '', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangePinHead(data.id, 'default') },
             { separator: true },
-            { label: 'Star', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700" stroke="#B8860B" strokeWidth="1" strokeLinejoin="round"/></svg>, onClick: () => handleChangePinHead(data.id, 'star') },
+            { label: '', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700"/></svg>, onClick: () => handleChangePinHead(data.id, 'star') },
             { separator: true },
-            { label: 'Flag', icon: <svg width="16" height="16" viewBox="0 0 16 20"><path d="M2 0v20" stroke="#555" strokeWidth="2" fill="none"/><path d="M3 1h11l-3 4 3 4H3z" fill="#DC2626" stroke="#991B1B" strokeWidth="0.5"/></svg>, onClick: () => handleChangePinHead(data.id, 'flag') }
+            { label: '', icon: <svg width="12" height="12" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangePinHead(data.id, 'flag') }
           ]
         },
         { label: gridVisibleForPin === data.id ? 'Hide Grid' : 'View as Grid', icon: gridVisibleForPin === data.id ? <EyeOff size={16} /> : <Grid3x3 size={16} />, onClick: () => setGridVisibleForPin(gridVisibleForPin === data.id ? null : data.id) }
@@ -1725,13 +1725,13 @@ const handleDragEnd = (event) => {
       items.push(
         {
           label: 'Change Pin Head',
-          icon: <Pin size={16} />,
+          icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>,
           submenu: [
-            { label: 'Default Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'default') },
+            { label: '', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'default') },
             { separator: true },
-            { label: 'Star', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700" stroke="#B8860B" strokeWidth="1" strokeLinejoin="round"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'star') },
+            { label: '', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'star') },
             { separator: true },
-            { label: 'Flag', icon: <svg width="16" height="16" viewBox="0 0 16 20"><path d="M2 0v20" stroke="#555" strokeWidth="2" fill="none"/><path d="M3 1h11l-3 4 3 4H3z" fill="#DC2626" stroke="#991B1B" strokeWidth="0.5"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'flag') }
+            { label: '', icon: <svg width="12" height="12" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'flag') }
           ]
         }
       )
@@ -2718,7 +2718,7 @@ const handleDragEnd = (event) => {
               defaultTabIndex={0}
               activeTabIndex={sidebarTabIndex}
               onTabChange={setSidebarTabIndex}
-              filterIndicator={selectedLibraryId && (() => {
+              filterIndicator={selectedLibraryId && sidebarTabIndex === 0 && (() => {
                 const selectedLibrary = libraries.find(lib => lib.id === selectedLibraryId)
                 if (!selectedLibrary) return null
                 return (

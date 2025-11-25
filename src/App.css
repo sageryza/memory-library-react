@@ -1234,12 +1234,12 @@ body {
 }
 
 .context-submenu .context-menu-item {
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 13px;
 }
 
 .context-submenu .context-menu-icon {
-  margin-right: 5px;
+  margin-right: 0;
 }
 
 .context-menu-item.has-submenu {
