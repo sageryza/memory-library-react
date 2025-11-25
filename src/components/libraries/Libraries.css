@@ -35,7 +35,7 @@
 .libraries-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  grid-auto-rows: 280px;
+  grid-auto-rows: 280px; /* Original height restored */
   gap: 20px;
   padding: var(--spacing-20);
   overflow-y: auto;
@@ -43,23 +43,24 @@
   align-content: start;
 }
 
-/* Library Card */
+/* Library Card Wrapper */
 .library-card {
-  background: var(--beige-primary);
+  background: var(--library-bg);
   border-radius: var(--radius-large);
-  border: 1px solid var(--color-border-gray);
-  padding: 10px 15px 15px 15px; /* Less top padding */
+  border: 1px solid var(--library-border);
+  padding: 10px 15px 15px 15px;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  min-height: 200px;
+  height: 100%; /* Use full grid cell height */
   display: flex;
   flex-direction: column;
   text-align: left;
+  overflow: hidden; /* Hide any overflow */
 }
 
 .library-card:hover {
-  background: #f5f2e0;
+  background: var(--library-bg-hover);
   border-color: var(--color-border-medium);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -80,131 +81,6 @@
 
 .library-card.locked .library-card-description {
   color: #999;
-}
-
-.library-card-header {
-  margin-bottom: 12px;
-}
-
-.library-card-header-top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-  color: #4A4A4A; /* Neutral gray, no blue tint */
-  padding-left: 0;
-}
-
-.library-card-header-top svg {
-  margin-top: -2px; /* Move icon up to align with text baseline */
-}
-
-.library-card-divider {
-  height: 1px;
-  background: var(--color-border-gray);
-  margin: 0 4px; /* Closer to edges */
-}
-
-.library-card-title {
-  font-size: var(--font-size-large);
-  font-weight: 600;
-  color: var(--color-primary); /* Crimson to match headers */
-  margin: 0;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.library-lock-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  margin-left: auto;
-  flex-shrink: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.library-lock-btn:hover .library-lock-icon {
-  color: #800020;
-  transform: scale(1.1);
-}
-
-.library-lock-icon {
-  transition: all 0.2s ease;
-}
-
-.library-card-description {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-base);
-  line-height: 1.4;
-  margin-bottom: 15px;
-}
-
-/* Search Terms Display */
-.library-search-terms {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-top: auto;
-}
-
-/* Hashtag styles now defined in shared/Hashtag.css */
-
-.library-search-terms .hashtag.exclude {
-  background: #ffe5e5;
-  color: #c62828;
-}
-
-.library-search-terms .operator {
-  font-family: 'Courier Prime', monospace;
-  font-size: 9px;
-  color: #999;
-  font-weight: 500;
-  padding: 0 2px;
-}
-
-.library-card-footer {
-  display: none;
-}
-
-.library-memory-count {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.library-badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.library-badge {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.library-badge.search-based {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.library-badge.manual {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.library-badge.locked {
-  background: #fff3cd;
-  color: #856404;
 }
 
 

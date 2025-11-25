@@ -91,14 +91,31 @@
 
 /* Danger variant for icon buttons (delete, etc.) */
 .btn-icon.btn-danger {
-  color: #dc3545;
-  border-color: #dc3545;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .btn-icon.btn-danger:hover:not(:disabled) {
-  background: #dc3545;
-  border-color: #dc3545;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
+}
+
+/* Danger button - for delete confirmations */
+.btn-danger {
+  background: var(--color-primary);
+  color: white;
+  border: 1px solid var(--color-primary);
+  padding: 8px 16px;
+  border-radius: var(--radius-medium);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: all var(--transition-normal);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 /* Toggle button - for active/inactive states */
@@ -204,7 +221,7 @@
 }
 
 .modal-header h3 {
-  color: var(--color-text-primary);
+  color: var(--color-primary);
   font-size: var(--font-size-large);
   font-weight: normal;
   margin: 0;
@@ -242,7 +259,6 @@
 /* Modal footer */
 .modal-footer {
   padding: var(--spacing-md) 20px;
-  border-top: 1px solid var(--color-border-divider);
   display: flex;
   gap: var(--spacing-sm);
   justify-content: flex-end;

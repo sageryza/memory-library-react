@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Library, Plus } from 'lucide-react';
+import { Library, Plus, Pencil, Trash2 } from 'lucide-react';
 import useLibraries from '../../hooks/useLibraries';
 import LibraryCard from './LibraryCard';
 import CreateLibraryModal from './CreateLibraryModal';
 import EditLibraryModal from './EditLibraryModal';
+import ContextMenu from '../shared/ContextMenu';
+import Modal from '../shared/Modal';
 import Header from '../shared/Header';
 import './Libraries.css';
 
@@ -12,6 +14,8 @@ export default function Libraries({ memories = [], userId }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingLibrary, setEditingLibrary] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const {
     libraries,
@@ -42,6 +46,22 @@ export default function Libraries({ memories = [], userId }) {
     await deleteLibrary(libraryId);
     setShowEditModal(false);
     setEditingLibrary(null);
+  };
+
+  const handleContextMenu = (e, library) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      library
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirm) {
+      await deleteLibrary(deleteConfirm.id);
+      setDeleteConfirm(null);
+    }
   };
 
   const handleToggleLock = async (libraryId, isLocked) => {
@@ -90,7 +110,7 @@ export default function Libraries({ memories = [], userId }) {
                 key={library.id}
                 library={library}
                 memoryCount={memoryCount}
-                onClick={() => handleEditLibrary(library)}
+                onContextMenu={(e) => handleContextMenu(e, library)}
                 onToggleLock={handleToggleLock}
               />
             );
@@ -116,6 +136,50 @@ export default function Libraries({ memories = [], userId }) {
         onDelete={handleDeleteLibrary}
         library={editingLibrary}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            {
+              label: 'Edit',
+              icon: <Pencil size={14} />,
+              onClick: () => handleEditLibrary(contextMenu.library)
+            },
+            { separator: true },
+            {
+              label: 'Delete',
+              icon: <Trash2 size={14} />,
+              onClick: () => setDeleteConfirm(contextMenu.library)
+            }
+          ]}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Delete Library"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setDeleteConfirm(null)}>
+              Cancel
+            </button>
+            <button className="btn-danger" onClick={handleConfirmDelete}>
+              Delete
+            </button>
+          </>
+        }
+      >
+        <p>Are you sure you want to delete "{deleteConfirm?.name}"?</p>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '8px' }}>
+          This action cannot be undone. Memories in this library will not be deleted.
+        </p>
+      </Modal>
     </div>
   );
 }

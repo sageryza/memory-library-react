@@ -1,0 +1,132 @@
+/* Shared Library Card Content Styles */
+
+.library-card-header {
+  margin-bottom: 12px;
+}
+
+.library-card-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #4A4A4A;
+  padding-left: 0;
+}
+
+.library-card-header-top svg {
+  margin-top: -2px;
+  flex-shrink: 0;
+}
+
+.library-card-divider {
+  height: 1px;
+  background: var(--color-border-gray);
+  margin: 0 4px;
+}
+
+.library-card-title {
+  font-size: var(--font-size-large);
+  font-weight: 600;
+  color: #2F4F4F; /* Dark slate gray - matches memory card titles */
+  margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.library-lock-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.library-lock-btn:hover .library-lock-icon {
+  color: #800020;
+  transform: scale(1.1);
+}
+
+.library-lock-icon {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.library-card-description {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  margin-bottom: 15px;
+  max-height: 2.8em; /* Max 2 lines (1.4 * 2) */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Memory Count with Squares */
+.library-memory-count {
+  min-height: 20px; /* Always takes up space even if empty */
+  height: 20px; /* Fixed height for one line */
+  margin-top: auto;
+  margin-bottom: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.memory-squares {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap; /* No wrapping - stay on one line */
+}
+
+.memory-square {
+  font-size: 10px;
+  color: #bbb;
+  line-height: 1;
+}
+
+.memory-square-spacer {
+  width: 4px;
+}
+
+.memory-count-overflow {
+  font-size: 11px;
+  color: #999;
+  margin-left: 6px;
+}
+
+/* Search Terms Display */
+.library-search-terms {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap; /* No wrapping - stay on one line */
+  align-items: center;
+  margin-top: auto;
+  min-height: 24px; /* Always takes up space even if empty */
+  height: 24px; /* Fixed height for one line */
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.library-search-terms .hashtag.exclude {
+  background: #ffe5e5;
+  color: #c62828;
+}
+
+.library-search-terms .operator {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: #999;
+  font-weight: 500;
+  padding: 0 2px;
+}

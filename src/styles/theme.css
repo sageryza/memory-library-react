@@ -43,6 +43,24 @@
   --beige-border: #e8e6d5;         /* Beige borders - card borders, dividers */
   --beige-alt: #f5f5f5;            /* Alternative light beige - neutral hover states */
 
+  /* Library Card Colors - Pick one set, comment out the others */
+  /* Option 1: Soft blue-gray (cool, professional) */
+  /* --library-bg: #f0f4f7;
+  --library-bg-hover: #e5eaef;
+  --library-border: #d0d8e0; */
+  /* Option 2: Soft rose/blush (on-brand with maroon) */
+  /* --library-bg: #faf0f0;
+  --library-bg-hover: #f5e5e5;
+  --library-border: #e8d0d0; */
+  /* Option 3: Soft lavender (unique, calming) */
+  --library-bg: #f5f0fa;
+  --library-bg-hover: #ebe3f2;
+  --library-border: #ddd0e8;
+  /* Option 4: Soft sage/mint (fresh, different) */
+  /* --library-bg: #f0f7f4;
+  --library-bg-hover: #e5f0eb;
+  --library-border: #d0e0d8; */
+
   /* Border Colors */
   --color-border-primary: #e8e6d5; /* Primary borders - cards, subtle dividers */
   --color-border-light: #c0beac;   /* Light borders - inactive buttons */
