@@ -42,8 +42,8 @@ export default function DragConnections({
       const memory = droppedMemories.find(m => compareIds(m.id, nodeId))
       if (!memory) return null
 
-      const cardWidth = isStackedView ? 120 : 250
-      const xAdjustment = isStackedView ? 130 : 0
+      const cardWidth = isStackedView ? 120 : 200
+      const xAdjustment = isStackedView ? 80 : 0
       const pinOffsetFromRight = 8
       const pinOffsetFromTop = 7
 
@@ -66,8 +66,8 @@ export default function DragConnections({
     const memory = droppedMemories.find(m => compareIds(m.id, nodeId))
     if (!memory) return null
 
-    const cardWidth = isStackedView ? 120 : 250
-    const xAdjustment = isStackedView ? 130 : 0
+    const cardWidth = isStackedView ? 120 : 200
+    const xAdjustment = isStackedView ? 80 : 0
     const pinOffsetFromRight = 8
     const pinOffsetFromTop = 7
 

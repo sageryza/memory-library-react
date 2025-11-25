@@ -74,8 +74,8 @@
 
 /* Memory Count with Squares */
 .library-memory-count {
-  min-height: 20px; /* Always takes up space even if empty */
-  height: 20px; /* Fixed height for one line */
+  min-height: 36px; /* Always takes up space even if empty */
+  height: 36px; /* Fixed height for one line */
   margin-top: auto;
   margin-bottom: 8px;
   overflow: hidden;
@@ -84,19 +84,20 @@
 
 .memory-squares {
   display: inline-flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   flex-wrap: nowrap; /* No wrapping - stay on one line */
 }
 
 .memory-square {
-  font-size: 10px;
+  font-size: 28px;
   color: #bbb;
   line-height: 1;
+  margin: 0 -2px;
 }
 
 .memory-square-spacer {
-  width: 4px;
+  width: 2px; /* 6px total: 2px gap + 2px spacer + 2px gap */
 }
 
 .memory-count-overflow {

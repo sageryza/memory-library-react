@@ -70,15 +70,15 @@ export default function Connections({ connections, droppedMemories, standalonePi
     // Pin right edge is 2px outside card, so pin spans from cardWidth-18px to cardWidth+2px
     // Tail center absolute x: cardWidth - 18px + 10px = cardWidth - 8px
     // Tail bottom is at y: -17px + 24px = 7px from card top
-    // Card width is 250px in normal view, 120px in stacked view
-    const normalCardWidth = 250
+    // Card width is 200px in normal view, 120px in stacked view
+    const normalCardWidth = 200
     const stackedCardWidth = 120
     const cardWidth = isStackedView ? stackedCardWidth : normalCardWidth
     const pinOffsetFromRight = 8  // Distance from right edge to center of tail
     const pinOffsetFromTop = 7    // Bottom of pin tail (-17px + 24px)
 
-    // In stacked view, cards are shifted right by 130px to keep pins aligned
-    const xAdjustment = isStackedView ? 130 : 0
+    // In stacked view, cards are shifted right by 80px to keep pins aligned
+    const xAdjustment = isStackedView ? 80 : 0
 
     // Apply transform if memory is being dragged
     // Memory cards have draggable id as `canvas-${memory.id}`

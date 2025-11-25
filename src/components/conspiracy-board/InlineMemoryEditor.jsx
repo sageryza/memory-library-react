@@ -63,7 +63,7 @@ export default function InlineMemoryEditor({ memory, onUpdate, onBlur, onEscape,
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          placeholder="Type here..."
+          placeholder=""
           rows={1}
         />
       </div>

@@ -33,7 +33,7 @@ export default function MemoryCard({
 
   // Format title for stacked view: "word — word — word" (fallback for backwards compatibility)
   const formatStackedTitle = (title) => {
-    if (!title) return 'Untitled Memory';
+    if (!title) return '';
     // Split by spaces and join with em dash
     const words = title.trim().split(/\s+/);
     return words.join(' — ');
@@ -72,16 +72,16 @@ export default function MemoryCard({
   } else {
     displayTitle = isStackedView
       ? formatStackedTitle(memory.title)
-      : (memory.title || 'Untitled Memory');
+      : (memory.title || '');
   }
 
   const hasContent = stripHtml(memory.content);
 
   return (
-    <div className={`memory-card ${isStackedView ? 'stacked-view' : ''}`}>
+    <div className={`memory-card ${isStackedView ? 'stacked-view' : ''} ${!isStackedView && !hasContent ? 'no-content' : ''}`}>
       <div
         ref={titleRef}
-        className={`memory-card-title ${isStackedView ? 'stacked' : ''}`}
+        className={`memory-card-title ${isStackedView ? 'stacked' : ''} ${!isStackedView && !hasContent ? 'title-only' : ''}`}
         style={isStackedView ? { fontSize: `${fontSize}px` } : undefined}
         dangerouslySetInnerHTML={{ __html: displayTitle }}
       />

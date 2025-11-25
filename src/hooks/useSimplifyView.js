@@ -40,7 +40,7 @@ export default function useSimplifyView() {
    * Simplified view: "phrase1<br>—<br>phrase2<br>—<br>phrase3" (first 3 only)
    */
   const formatTitleForDisplay = (title, simplified = isSimplified) => {
-    if (!title) return 'Untitled';
+    if (!title) return '';
 
     if (simplified) {
       // Simplified view: show first 3 phrases with dashes

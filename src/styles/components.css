@@ -232,7 +232,7 @@
   background: none;
   border: none;
   font-size: var(--font-size-xlarge);
-  color: var(--color-text-secondary);
+  color: #999;
   cursor: pointer;
   padding: 0;
   width: 24px;
@@ -240,13 +240,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-small);
-  transition: all var(--transition-normal);
+  transition: color 0.2s ease;
 }
 
 .modal-close:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--color-text-light);
+  color: #333;
 }
 
 /* Modal body */

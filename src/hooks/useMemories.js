@@ -236,12 +236,9 @@ export const useMemories = (userId, authLoading = false) => {
       const memoryRef = doc(db, 'users', userId, 'memories', memoryIdStr);
 
       // Soft delete: Set deletedAt timestamp instead of actually deleting
+      // NOTE: x, y, isOnCanvas are runtime/boardState properties - never save them to Firebase
       await updateDoc(memoryRef, {
-        deletedAt: serverTimestamp(),
-        // Clear board-specific properties
-        x: null,
-        y: null,
-        isOnCanvas: false
+        deletedAt: serverTimestamp()
       });
 
       // Also remove the memory from chronology state

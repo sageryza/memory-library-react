@@ -67,7 +67,7 @@
   border: 0.75px solid #e8e6d5;
   border-radius: 6px;
   padding: 15px;
-  width: 250px;
+  width: 200px;
   min-height: 120px;
   cursor: move;
   transition: box-shadow 0.2s ease;
@@ -110,7 +110,7 @@
   background: radial-gradient(circle at 30% 30%, var(--color-pin-highlight) 30%, var(--color-string-and-pin) 50%);
   border-radius: 50%;
   position: absolute;
-  top: 0;
+  top: 2px;
   left: 8px;
   transition: none;
   z-index: 2;
@@ -118,10 +118,10 @@
 
 .memory-pin-tail {
   width: 2px;
-  height: 14px;
+  height: 12px;
   background: var(--color-text-muted);
   position: absolute;
-  top: 10px;
+  top: 12px;
   left: 12px;
   transform: rotate(15deg);
   transform-origin: top center;
