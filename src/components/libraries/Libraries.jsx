@@ -80,7 +80,9 @@ export default function Libraries({ memories = [], userId }) {
     <div className="libraries-container">
       {/* Header */}
       <Header
-        title="Libraries"
+        centerContent={
+          <h2 className="board-name-display">Libraries</h2>
+        }
         rightContent={
           <>
             <Link to="/archive" className="btn-icon" title="Back to Archive">

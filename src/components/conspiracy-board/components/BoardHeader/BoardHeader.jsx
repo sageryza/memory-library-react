@@ -40,10 +40,9 @@ export default function BoardHeader({
 }) {
   return (
     <Header
-      title="Conspiracy"
       centerContent={
         <h2 className="board-name-display">
-          {activeBoardName?.startsWith('Untitled Board') ? 'Untitled' : (activeBoardName || 'Untitled')}
+          {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
         </h2>
       }
       rightContent={
