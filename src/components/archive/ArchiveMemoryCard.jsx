@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import ConstellationIcon from './ConstellationIcon';
 import ConstellationTooltip from './ConstellationTooltip';
 import { useMemoryConnections } from '../../hooks/useMemoryConnections';
@@ -8,10 +9,30 @@ import '../shared/Hashtag.css';
 const ENABLE_CONSTELLATION_FEATURE = true;
 
 // Memory Card Component for Archive view
-export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSelected, onSelect, selectMode, isDragging, onStartDrag, onDragStart, onDragEnd, isSimplified, formatTitleForDisplay, userId }) {
+export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSelected, onSelect, selectMode, isSimplified, formatTitleForDisplay, userId }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const iconRef = useRef(null);
   const { hasConnections } = useMemoryConnections(userId);
+
+  // Use @dnd-kit draggable hook - only enable when in select mode and selected
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: memory.id,
+    disabled: !selectMode || !isSelected,
+    data: { memory }
+  });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: selectMode ? (isSelected ? 'grab' : 'pointer') : 'pointer'
+  };
+
   const handleClick = () => {
     if (selectMode) {
       onSelect(memory.id);
@@ -25,27 +46,6 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
     onSelect(memory.id);
   };
 
-  const handleMouseDown = (e) => {
-    if (selectMode && isSelected) {
-      e.preventDefault();
-      if (onStartDrag) {
-        onStartDrag();
-      }
-    }
-  };
-
-  const handleDragStart = (e) => {
-    if (onDragStart) {
-      onDragStart(memory.id);
-    }
-  };
-
-  const handleDragEnd = (e) => {
-    if (onDragEnd) {
-      onDragEnd();
-    }
-  };
-
   const handleConstellationClick = (e) => {
     e.stopPropagation();
     setShowTooltip(!showTooltip);
@@ -56,13 +56,12 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
 
   return (
     <div
-      className={`memory-item ${isSelected ? 'selected' : ''} ${isDragging && isSelected ? 'dragging' : ''}`}
+      ref={setNodeRef}
+      className={`memory-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
-      onMouseDown={handleMouseDown}
-      draggable={selectMode && isSelected}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      style={{ cursor: selectMode ? (isSelected ? 'grab' : 'pointer') : 'pointer' }}
+      style={style}
+      {...(selectMode && isSelected ? listeners : {})}
+      {...(selectMode && isSelected ? attributes : {})}
     >
       {selectMode && (
         <div
