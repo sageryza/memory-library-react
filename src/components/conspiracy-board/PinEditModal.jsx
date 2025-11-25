@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Modal from '../shared/Modal'
 import './PinEditModal.css'
 
 export default function PinEditModal({ pin, onSave, onClose }) {
@@ -7,64 +8,59 @@ export default function PinEditModal({ pin, onSave, onClose }) {
 
   useEffect(() => {
     // Focus textarea when modal opens
-    if (textareaRef.current) {
+    if (pin && textareaRef.current) {
       textareaRef.current.focus()
     }
-  }, [])
+  }, [pin])
 
   const handleSave = () => {
     onSave(pin.id, description.trim())
     onClose()
   }
 
-  const handleCancel = () => {
-    onClose()
-  }
-
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      handleCancel()
+    // Enter key to save (since it's a single-line input)
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
     }
   }
 
-  if (!pin) return null
-
   return (
-    <div
-      className="pin-edit-modal-overlay"
-      onClick={handleCancel}
-    >
-      <div
-        className="pin-edit-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3>Edit Pin Description</h3>
-        <p className="pin-edit-subtitle">
-          What do all memories connected to this pin have in common?
-        </p>
-        <textarea
-          ref={textareaRef}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Enter pin description..."
-          className="pin-edit-textarea"
-        />
+    <Modal
+      isOpen={!!pin}
+      onClose={onClose}
+      title="Edit Pin Description"
+      className="pin-edit-modal"
+      footer={
         <div className="pin-edit-buttons">
           <button
-            className="pin-edit-cancel"
-            onClick={handleCancel}
+            className="btn-secondary"
+            onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="pin-edit-save"
+            className="btn-primary"
             onClick={handleSave}
           >
             Save
           </button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <p className="pin-edit-subtitle">
+        What do all memories connected to this pin have in common?
+      </p>
+      <input
+        ref={textareaRef}
+        type="text"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Enter pin description..."
+        className="pin-edit-input"
+      />
+    </Modal>
   )
 }

@@ -2,34 +2,9 @@
    PIN EDIT MODAL
    ============================================ */
 
-.pin-edit-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10002;
-}
-
-.pin-edit-modal {
-  background: white;
-  padding: 30px;
-  border-radius: var(--radius-large);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+/* Modal content sizing */
+.pin-edit-modal .modal-content {
   max-width: 500px;
-  width: 90%;
-  font-family: 'Crimson Text', serif;
-}
-
-.pin-edit-modal h3 {
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  color: var(--color-primary);
-  font-weight: normal;
 }
 
 .pin-edit-subtitle {
@@ -38,28 +13,32 @@
   font-size: var(--font-size-base);
 }
 
-.pin-edit-textarea {
+.pin-edit-input {
   width: 100%;
-  height: 120px;
   padding: var(--spacing-10);
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-small);
   font-family: 'Crimson Text', serif;
   font-size: var(--font-size-base);
-  resize: vertical;
   box-sizing: border-box;
+}
+
+.pin-edit-input:focus {
+  outline: none;
+  border-color: var(--focus-border-color);
+  box-shadow: var(--focus-shadow);
 }
 
 .pin-edit-buttons {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  margin-top: 20px;
 }
 
-.pin-edit-cancel {
+/* Use global button styles */
+.pin-edit-buttons .btn-secondary {
   padding: 8px 20px;
-  background: var(--beige-alt);
+  background: var(--color-bg-white);
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-small);
   cursor: pointer;
@@ -67,21 +46,23 @@
   transition: background 0.2s ease;
 }
 
-.pin-edit-cancel:hover {
-  background: #e8e8e8;
+.pin-edit-buttons .btn-secondary:hover {
+  background: var(--color-bg-tan);
+  border-color: var(--color-border-dark);
 }
 
-.pin-edit-save {
+.pin-edit-buttons .btn-primary {
   padding: 8px 20px;
   background: var(--color-primary);
   color: white;
-  border: none;
+  border: 1px solid var(--color-primary);
   border-radius: var(--radius-small);
   cursor: pointer;
   font-family: 'Crimson Text', serif;
   transition: background 0.2s ease;
 }
 
-.pin-edit-save:hover {
-  background: var(--color-button-destructive);
+.pin-edit-buttons .btn-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
