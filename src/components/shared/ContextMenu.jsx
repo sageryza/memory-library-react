@@ -39,18 +39,22 @@ function SubmenuItem({ item, onClose }) {
           style={getSubmenuPosition()}
         >
           {item.submenu.map((subItem, subIndex) => (
-            <div
-              key={subIndex}
-              className="context-menu-item"
-              onClick={(e) => {
-                e.stopPropagation()
-                subItem.onClick()
-                onClose()
-              }}
-            >
-              {subItem.icon && <span className="context-menu-icon">{subItem.icon}</span>}
-              <span>{subItem.label}</span>
-            </div>
+            subItem.separator ? (
+              <div key={subIndex} className="context-menu-separator" />
+            ) : (
+              <div
+                key={subIndex}
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  subItem.onClick()
+                  onClose()
+                }}
+              >
+                {subItem.icon && <span className="context-menu-icon">{subItem.icon}</span>}
+                <span>{subItem.label}</span>
+              </div>
+            )
           ))}
         </div>
       )}

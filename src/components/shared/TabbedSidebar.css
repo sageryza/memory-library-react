@@ -133,8 +133,9 @@
 .library-filter-indicator {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
+  position: relative;
 }
 
 .library-filter-name {
@@ -145,6 +146,8 @@
 }
 
 .library-filter-clear {
+  position: absolute;
+  right: 0;
   background: none;
   border: none;
   padding: 4px;
