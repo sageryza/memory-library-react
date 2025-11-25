@@ -7,9 +7,16 @@ export default function TabbedSidebar({
   showSearchToggle = false,     // Whether to show search toggle button
   searchContent = null,         // Content to show when in search mode
   onCloseSearch = null,         // Callback to inject into searchContent for closing search
+  activeTabIndex: controlledTabIndex,  // Optional controlled tab index
+  onTabChange,                  // Callback when tab changes (for controlled mode)
+  filterIndicator = null,       // Optional element to show below tabs (e.g., library filter)
 }) {
-  const [activeTabIndex, setActiveTabIndex] = useState(defaultTabIndex);
+  const [internalTabIndex, setInternalTabIndex] = useState(defaultTabIndex);
   const [isSearchMode, setIsSearchMode] = useState(false);
+
+  // Use controlled or internal tab index
+  const activeTabIndex = controlledTabIndex !== undefined ? controlledTabIndex : internalTabIndex;
+  const setActiveTabIndex = onTabChange || setInternalTabIndex;
 
   const toggleSearchMode = () => {
     setIsSearchMode(!isSearchMode);
@@ -83,6 +90,13 @@ export default function TabbedSidebar({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Static spacer with optional filter indicator - doesn't scroll */}
+      {!isSearchMode && (
+        <div className="tabbed-sidebar-static-spacer">
+          {filterIndicator}
         </div>
       )}
 

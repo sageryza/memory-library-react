@@ -104,7 +104,6 @@
   display: flex;
   flex-direction: column;
   background: white;
-  border-top: 1px solid var(--color-border-gray);
   position: relative;
   z-index: 1;
 }
@@ -113,4 +112,52 @@
 .tabbed-sidebar-content .sidebar {
   border-left: none;
   background: transparent;
+}
+
+/* Remove top padding from memory-list inside tabbed sidebar (spacing handled by static area) */
+.tabbed-sidebar-content .memory-list {
+  padding-top: 0;
+}
+
+/* Static whitespace area above scrollable content */
+.tabbed-sidebar-static-spacer {
+  flex-shrink: 0;
+  padding: 6px 15px;
+  background: white;
+  border-top: 1px solid var(--color-border-gray);
+  display: flex;
+  align-items: center;
+}
+
+/* Library filter indicator - shown when a library is selected */
+.library-filter-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.library-filter-name {
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #800020; /* Maroon */
+}
+
+.library-filter-clear {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  transition: all 0.2s ease;
+}
+
+.library-filter-clear:hover {
+  color: var(--color-text-secondary);
+  background: rgba(0, 0, 0, 0.05);
 }
