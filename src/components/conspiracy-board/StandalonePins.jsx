@@ -96,6 +96,36 @@ function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContex
             </svg>
             <div className="star-dazzle"></div>
           </div>
+        ) : pin.pinHead === 'star' ? (
+          <div className="pin-head-star">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path
+                d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z"
+                fill="#FFD700"
+                stroke="#B8860B"
+                strokeWidth="1"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div className="standalone-pin-tail" />
+          </div>
+        ) : pin.pinHead === 'flag' ? (
+          <div className="pin-head-flag">
+            <svg width="16" height="20" viewBox="0 0 16 20">
+              <path
+                d="M2 0v20"
+                stroke="#555"
+                strokeWidth="2"
+                fill="none"
+              />
+              <path
+                d="M3 1h11l-3 4 3 4H3z"
+                fill="#DC2626"
+                stroke="#991B1B"
+                strokeWidth="0.5"
+              />
+            </svg>
+          </div>
         ) : (
           <>
             <div className="standalone-pin-circle" />

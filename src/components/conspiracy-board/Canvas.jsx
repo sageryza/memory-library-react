@@ -21,8 +21,8 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
   })
 
   // When in stacked view, adjust x position so pin stays in same place
-  // Normal card width: 250px, Stacked card width: 120px, Difference: 130px
-  const adjustedX = isStackedView ? memory.x + 130 : memory.x
+  // Normal card width: 200px, Stacked card width: 120px, Difference: 80px
+  const adjustedX = isStackedView ? memory.x + 80 : memory.x
 
   const style = {
     position: 'absolute',
@@ -80,6 +80,11 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
         <div
           className="memory-pin constellation-star"
           onClick={handlePinClick}
+          onContextMenu={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onContextMenu(e, 'memoryPin', memory)
+          }}
           title="Click to connect"
         >
           <div style={{ position: 'relative', width: '60px', height: '60px' }}>
@@ -103,11 +108,68 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
             <div className="star-dazzle"></div>
           </div>
         </div>
+      ) : memory.pinHead === 'star' ? (
+        <div
+          className={`memory-pin ${isSelected ? 'selected' : ''}`}
+          onClick={handlePinClick}
+          onContextMenu={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onContextMenu(e, 'memoryPin', memory)
+          }}
+          title="Click to connect (right-click to change)"
+        >
+          <div className="pin-head-star">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path
+                d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z"
+                fill="#FFD700"
+                stroke="#B8860B"
+                strokeWidth="1"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div className="memory-pin-tail" />
+          </div>
+        </div>
+      ) : memory.pinHead === 'flag' ? (
+        <div
+          className={`memory-pin ${isSelected ? 'selected' : ''}`}
+          onClick={handlePinClick}
+          onContextMenu={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onContextMenu(e, 'memoryPin', memory)
+          }}
+          title="Click to connect (right-click to change)"
+        >
+          <div className="pin-head-flag">
+            <svg width="16" height="20" viewBox="0 0 16 20">
+              <path
+                d="M2 0v20"
+                stroke="#555"
+                strokeWidth="2"
+                fill="none"
+              />
+              <path
+                d="M3 1h11l-3 4 3 4H3z"
+                fill="#DC2626"
+                stroke="#991B1B"
+                strokeWidth="0.5"
+              />
+            </svg>
+          </div>
+        </div>
       ) : (
         <div
           className={`memory-pin ${isSelected ? 'selected' : ''}`}
           onClick={handlePinClick}
-          title="Click to connect"
+          onContextMenu={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onContextMenu(e, 'memoryPin', memory)
+          }}
+          title="Click to connect (right-click to change)"
         >
           <div className="memory-pin-circle" />
           <div className="memory-pin-tail" />
