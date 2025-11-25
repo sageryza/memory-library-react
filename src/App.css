@@ -699,11 +699,10 @@ body {
   font-size: 2rem;
   color: var(--color-primary);
   cursor: pointer;
-  transition: transform 0.2s;
 }
 
 .modal-close:hover {
-  transform: rotate(90deg);
+  color: var(--color-primary-hover);
 }
 
 /* Old venn modal styles removed - now using venn-popup structure from linear.css */
@@ -1224,7 +1223,27 @@ body {
 .context-menu-separator {
   height: 1px;
   background: var(--color-border-gray);
-  margin: 4px 0;
+  margin: 2px 0;
+}
+
+.context-submenu .context-menu-separator {
+  margin: 1px 0;
+}
+
+.context-menu-item.has-submenu {
+  position: relative;
+}
+
+.context-menu-arrow {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  padding-left: 16px;
+}
+
+.context-submenu {
+  position: absolute;
+  min-width: 150px;
 }
 
 .memory-count {
