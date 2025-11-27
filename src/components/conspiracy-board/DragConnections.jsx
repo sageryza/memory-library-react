@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { compareIds } from '../../utils/idUtils'
 
+// Canvas offset constants (must match ConspiracyBoard.jsx)
+const CANVAS_OFFSET_X = 4500
+const CANVAS_OFFSET_Y = 3000
+
 // Simplified connections component that renders only connections for the actively dragged memory
 // This is rendered outside the pan-container so it appears above the DragOverlay
 export default function DragConnections({
@@ -10,6 +14,7 @@ export default function DragConnections({
   droppedMemories,
   standalonePins = [],
   panOffset,
+  zoomLevel = 1,
   isStackedView = false
 }) {
   const svgRef = useRef(null)
@@ -36,6 +41,13 @@ export default function DragConnections({
     return null
   }
 
+  // Convert canvas coordinates to screen coordinates
+  // Formula: screenX = canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X
+  const canvasToScreen = (canvasX, canvasY) => ({
+    x: canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
+    y: canvasY * zoomLevel + panOffset.y - CANVAS_OFFSET_Y
+  })
+
   const getNodePosition = (nodeId) => {
     // Check if this is the actively dragged memory
     if (compareIds(nodeId, activeMemoryData.id)) {
@@ -47,20 +59,24 @@ export default function DragConnections({
       const pinOffsetFromRight = 8
       const pinOffsetFromTop = 7
 
-      // Apply both pan offset and drag transform for the active memory
+      // Canvas coordinates for the pin point
+      const canvasX = memory.x + xAdjustment + cardWidth - pinOffsetFromRight
+      const canvasY = memory.y + pinOffsetFromTop
+
+      // Convert to screen coordinates and add drag delta
+      const screen = canvasToScreen(canvasX, canvasY)
       return {
-        x: memory.x + xAdjustment + cardWidth - pinOffsetFromRight + panOffset.x + (activeTransform?.delta?.x || 0),
-        y: memory.y + pinOffsetFromTop + panOffset.y + (activeTransform?.delta?.y || 0)
+        x: screen.x + (activeTransform?.delta?.x || 0),
+        y: screen.y + (activeTransform?.delta?.y || 0)
       }
     }
 
-    // For non-dragged nodes, just apply pan offset
+    // For non-dragged nodes, convert canvas to screen coordinates
     const standalonePin = standalonePins.find(p => compareIds(p.id, nodeId))
     if (standalonePin) {
-      return {
-        x: standalonePin.x + 10 + panOffset.x,
-        y: standalonePin.y + 24 + panOffset.y
-      }
+      const canvasX = standalonePin.x + 10
+      const canvasY = standalonePin.y + 24
+      return canvasToScreen(canvasX, canvasY)
     }
 
     const memory = droppedMemories.find(m => compareIds(m.id, nodeId))
@@ -71,10 +87,10 @@ export default function DragConnections({
     const pinOffsetFromRight = 8
     const pinOffsetFromTop = 7
 
-    return {
-      x: memory.x + xAdjustment + cardWidth - pinOffsetFromRight + panOffset.x,
-      y: memory.y + pinOffsetFromTop + panOffset.y
-    }
+    const canvasX = memory.x + xAdjustment + cardWidth - pinOffsetFromRight
+    const canvasY = memory.y + pinOffsetFromTop
+
+    return canvasToScreen(canvasX, canvasY)
   }
 
   return (

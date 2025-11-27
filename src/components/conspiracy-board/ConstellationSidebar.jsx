@@ -13,6 +13,7 @@ export default function ConstellationSidebar({
   connections,
   standalonePins,
   panOffset,
+  zoomLevel = 1,
   viewportWidth,
   viewportHeight,
   onLoadConstellation,
@@ -163,13 +164,14 @@ export default function ConstellationSidebar({
     const networksWithVis = unsavedNetworks.map(network => {
       const allItems = [...network.memories, ...network.pins]
 
-      // Calculate viewport bounds considering pan and canvas offset
-      // The formula is: canvasCoord = screenCoord + CANVAS_OFFSET - panOffset
-      // So visible canvas range is [CANVAS_OFFSET - panOffset, CANVAS_OFFSET - panOffset + viewport]
-      const viewportLeft = CANVAS_OFFSET_X - panOffset.x
-      const viewportTop = CANVAS_OFFSET_Y - panOffset.y
-      const viewportRight = viewportLeft + viewportWidth
-      const viewportBottom = viewportTop + viewportHeight
+      // Calculate viewport bounds considering pan, zoom, and canvas offset
+      // screenToCanvas formula: canvasX = (screenX + CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+      // Viewport left edge (screen X=0): canvasX = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+      // Viewport right edge (screen X=viewportWidth): canvasX = (viewportWidth + CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+      const viewportLeft = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+      const viewportTop = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+      const viewportRight = (viewportWidth + CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+      const viewportBottom = (viewportHeight + CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
 
       let visibleCount = 0
       allItems.forEach(item => {
@@ -234,7 +236,7 @@ export default function ConstellationSidebar({
     // Save the stable order
     stableSortOrderRef.current = sorted.map(n => n.id)
     return sorted
-  }, [unsavedNetworks, panOffset, viewportWidth, viewportHeight])
+  }, [unsavedNetworks, panOffset, zoomLevel, viewportWidth, viewportHeight])
 
   // Watch for constellation selection from canvas and update sidebar selection
   useEffect(() => {

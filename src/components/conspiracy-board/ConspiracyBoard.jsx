@@ -361,22 +361,50 @@ function ConspiracyBoard({
   }, [])
 
   // Coordinate conversion helpers (accounts for canvas offset, pan, and zoom)
+  // With transformOrigin: '0 0', the math is:
+  //   screenPos = canvasPos * zoom + panOffset - CANVAS_OFFSET
   const screenToCanvas = useCallback((screenX, screenY) => {
-    // Account for zoom: screen coordinates need to be divided by zoom to get canvas coordinates
-    // Also need to adjust for pan offset which is in screen space
     return {
-      x: (screenX - panOffset.x) / zoomLevel + CANVAS_OFFSET_X,
-      y: (screenY - panOffset.y) / zoomLevel + CANVAS_OFFSET_Y
+      x: (screenX + CANVAS_OFFSET_X - panOffset.x) / zoomLevel,
+      y: (screenY + CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
     }
   }, [panOffset, zoomLevel])
 
   const canvasToScreen = useCallback((canvasX, canvasY) => {
-    // Convert canvas coordinates to screen coordinates accounting for zoom
     return {
-      x: (canvasX - CANVAS_OFFSET_X) * zoomLevel + panOffset.x,
-      y: (canvasY - CANVAS_OFFSET_Y) * zoomLevel + panOffset.y
+      x: canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
+      y: canvasY * zoomLevel + panOffset.y - CANVAS_OFFSET_Y
     }
   }, [panOffset, zoomLevel])
+
+  // Zoom to viewport center - adjusts panOffset to keep center point stable
+  const zoomToCenter = useCallback((newZoom) => {
+    // Get viewport dimensions (account for sidebar if open)
+    const sidebarWidth = document.querySelector('.sidebar-container.open') ? 400 : 0
+    const viewportWidth = window.innerWidth - sidebarWidth
+    const viewportHeight = window.innerHeight
+
+    // Calculate viewport center in canvas coordinates (using current zoom)
+    const centerCanvasX = (viewportWidth / 2 + CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+    const centerCanvasY = (viewportHeight / 2 + CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+
+    // Calculate new panOffset to keep the same canvas point at viewport center
+    const newPanX = viewportWidth / 2 - centerCanvasX * newZoom + CANVAS_OFFSET_X
+    const newPanY = viewportHeight / 2 - centerCanvasY * newZoom + CANVAS_OFFSET_Y
+
+    // Clamp to pan bounds
+    const clampedOffset = {
+      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
+      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+    }
+
+    setZoomLevel(newZoom)
+    setPanOffset(clampedOffset)
+    sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+    savePanOffsetToSession(clampedOffset)
+
+    console.log('🔍 Zoom to center:', newZoom, 'pan:', clampedOffset)
+  }, [panOffset, zoomLevel, savePanOffsetToSession])
 
   // Apply optimistic position updates for smooth dragging
   const displayMemories = droppedMemories.map(memory => {
@@ -1632,43 +1660,39 @@ const handleDragEnd = (event) => {
         // Handle zoom in (Cmd/Ctrl + Plus or Cmd/Ctrl + =)
         if (e.key === '+' || e.key === '=') {
           e.preventDefault()
-          setZoomLevel(prev => {
-            let newZoom
-            if (prev <= 0.5) newZoom = 0.75
-            else if (prev <= 0.75) newZoom = 1.0
-            else newZoom = 1.0  // Already at max zoom
+          let newZoom
+          if (zoomLevel <= 0.5) newZoom = 0.75
+          else if (zoomLevel <= 0.75) newZoom = 1.0
+          else newZoom = 1.0  // Already at max zoom
 
-            console.log('🔍 Zoom in:', newZoom)
-            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
-            return newZoom
-          })
+          if (newZoom !== zoomLevel) {
+            zoomToCenter(newZoom)
+          }
         }
         // Handle zoom out (Cmd/Ctrl + Minus)
         else if (e.key === '-' || e.key === '_') {
           e.preventDefault()
-          setZoomLevel(prev => {
-            let newZoom
-            if (prev >= 1.0) newZoom = 0.75
-            else if (prev >= 0.75) newZoom = 0.5
-            else newZoom = 0.5  // Already at min zoom
+          let newZoom
+          if (zoomLevel >= 1.0) newZoom = 0.75
+          else if (zoomLevel >= 0.75) newZoom = 0.5
+          else newZoom = 0.5  // Already at min zoom
 
-            console.log('🔍 Zoom out:', newZoom)
-            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
-            return newZoom
-          })
+          if (newZoom !== zoomLevel) {
+            zoomToCenter(newZoom)
+          }
         }
         // Handle zoom reset (Cmd/Ctrl + 0)
         else if (e.key === '0') {
           e.preventDefault()
-          console.log('🔍 Zoom reset: 1.0')
-          setZoomLevel(1.0)
-          sessionStorage.setItem('boardZoomLevel', '1.0')
+          if (zoomLevel !== 1.0) {
+            zoomToCenter(1.0)
+          }
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPlacingPin, selectedPin, performUndo, performRedo, isPlacingConstellation, inlineEditingMemoryId])
+  }, [isPlacingPin, selectedPin, performUndo, performRedo, isPlacingConstellation, inlineEditingMemoryId, zoomLevel, zoomToCenter])
 
   // Track cursor position when a pin is selected
   useEffect(() => {
@@ -1881,11 +1905,11 @@ const handleDragEnd = (event) => {
 
     const padding = 100 // Extra space around constellation
 
-    // Calculate what's currently visible
-    const viewportLeft = CANVAS_OFFSET_X - panOffset.x
-    const viewportTop = CANVAS_OFFSET_Y - panOffset.y
-    const viewportRight = viewportLeft + window.innerWidth
-    const viewportBottom = viewportTop + window.innerHeight
+    // Calculate what's currently visible (accounting for zoom)
+    const viewportLeft = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+    const viewportTop = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+    const viewportRight = (window.innerWidth + CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+    const viewportBottom = (window.innerHeight + CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
 
     // Check how much of the constellation is visible
     const visibleLeft = Math.max(minX - padding, viewportLeft)
@@ -1909,10 +1933,13 @@ const handleDragEnd = (event) => {
     const centerX = (minX + maxX) / 2
     const centerY = (minY + maxY) / 2
 
-    // Calculate new pan offset to center the constellation
+    // Calculate new pan offset to center the constellation (accounting for zoom)
+    // canvasToScreen: screenX = canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X
+    // We want: viewportWidth/2 = centerX * zoomLevel + newPanX - CANVAS_OFFSET_X
+    // So: newPanX = viewportWidth/2 - centerX * zoomLevel + CANVAS_OFFSET_X
     const newOffset = {
-      x: CANVAS_OFFSET_X - centerX + window.innerWidth / 2,
-      y: CANVAS_OFFSET_Y - centerY + window.innerHeight / 2
+      x: window.innerWidth / 2 - centerX * zoomLevel + CANVAS_OFFSET_X,
+      y: window.innerHeight / 2 - centerY * zoomLevel + CANVAS_OFFSET_Y
     }
 
     // Clamp to bounds
@@ -1936,7 +1963,7 @@ const handleDragEnd = (event) => {
       ...boardState,
       panOffset: clampedOffset
     })
-  }, [panOffset, boardState, updateBoardState, savePanOffsetToSession])
+  }, [panOffset, zoomLevel, boardState, updateBoardState, savePanOffsetToSession])
 
   // Show loading state while auth, board state, or memories are loading
   if (authLoading || boardStateLoading || memoriesLoading) {
@@ -2341,9 +2368,7 @@ const handleDragEnd = (event) => {
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-                // Fixed origin at roughly the center of a typical viewport
-                // This provides a consistent zoom experience
-                transformOrigin: `${CANVAS_OFFSET_X + 700}px ${CANVAS_OFFSET_Y + 400}px`,
+                transformOrigin: '0 0',
                 width: `${CANVAS_WIDTH}px`,
                 height: `${CANVAS_HEIGHT}px`,
                 position: 'absolute',
@@ -2866,6 +2891,7 @@ const handleDragEnd = (event) => {
                       connections={connections}
                       standalonePins={displayStandalonePins}
                       panOffset={panOffset}
+                      zoomLevel={zoomLevel}
                       viewportWidth={window.innerWidth}
                       viewportHeight={window.innerHeight}
                       onLoadConstellation={handleLoadConstellation}
@@ -2910,6 +2936,7 @@ const handleDragEnd = (event) => {
           droppedMemories={displayMemories}
           standalonePins={displayStandalonePins}
           panOffset={panOffset}
+          zoomLevel={zoomLevel}
           isStackedView={isSimplified}
         />
 
@@ -3076,14 +3103,15 @@ const handleDragEnd = (event) => {
                 className={`selectable-memory ${constellationSelectedNodes?.has(memory.id) ? 'selected' : ''}`}
                 style={{
                   position: 'absolute',
-                  left: memory.x + panOffset.x,
-                  top: memory.y + panOffset.y,
-                  width: '280px',
-                  height: '150px',
+                  // Use canvasToScreen formula: screenX = canvasX * zoom + panOffset - CANVAS_OFFSET
+                  left: memory.x * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
+                  top: memory.y * zoomLevel + panOffset.y - CANVAS_OFFSET_Y,
+                  width: `${280 * zoomLevel}px`,
+                  height: `${150 * zoomLevel}px`,
                   pointerEvents: 'all',
                   cursor: 'pointer',
                   border: constellationSelectedNodes?.has(memory.id) ? '3px solid #FFD700' : '2px solid transparent',
-                  borderRadius: '8px',
+                  borderRadius: `${8 * zoomLevel}px`,
                   transition: 'all 0.2s'
                 }}
                 onClick={(e) => {
@@ -3125,10 +3153,11 @@ const handleDragEnd = (event) => {
                 className={`selectable-pin ${constellationSelectedNodes?.has(pin.id) ? 'selected' : ''}`}
                 style={{
                   position: 'absolute',
-                  left: pin.x + panOffset.x,
-                  top: pin.y + panOffset.y,
-                  width: '30px',
-                  height: '30px',
+                  // Use canvasToScreen formula: screenX = canvasX * zoom + panOffset - CANVAS_OFFSET
+                  left: pin.x * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
+                  top: pin.y * zoomLevel + panOffset.y - CANVAS_OFFSET_Y,
+                  width: `${30 * zoomLevel}px`,
+                  height: `${30 * zoomLevel}px`,
                   pointerEvents: 'all',
                   cursor: 'pointer',
                   border: constellationSelectedNodes?.has(pin.id) ? '3px solid #FFD700' : '2px solid transparent',
