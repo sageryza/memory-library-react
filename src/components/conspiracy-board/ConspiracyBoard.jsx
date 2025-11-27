@@ -36,7 +36,7 @@ import useLibraries from '../../hooks/useLibraries'
 import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
-import { generatePinId, ensureStringId } from '../../utils/generateId'
+import { generatePinId, generateLocalId, ensureStringId } from '../../utils/generateId'
 import '../../App.css'
 import './ConspiracyBoard.css'
 import '../../styles/simplifyView.css'
@@ -1367,17 +1367,55 @@ const handleDragEnd = (event) => {
         const offsetX = clickPos.x - centerX
         const offsetY = clickPos.y - centerY
 
-        // Apply offset to all items
-        const offsetMemories = (placingConstellationData.memories || []).map(mem => ({
-          ...mem,
-          x: mem.x + offsetX,
-          y: mem.y + offsetY
-        }))
+        // Create ID mapping for items that already exist on the board
+        // This ensures connections point to the newly placed items, not existing ones
+        const idMapping = new Map()
 
-        const offsetPins = (placingConstellationData.pins || []).map(pin => ({
-          ...pin,
-          x: pin.x + offsetX,
-          y: pin.y + offsetY
+        // Check which memories already exist and need new IDs
+        const offsetMemories = (placingConstellationData.memories || []).map(mem => {
+          const existsOnBoard = droppedMemories.some(m => compareIds(m.id, mem.id))
+          if (existsOnBoard) {
+            const newId = generateLocalId()
+            idMapping.set(normalizeId(mem.id), newId)
+            return {
+              ...mem,
+              id: newId,
+              x: mem.x + offsetX,
+              y: mem.y + offsetY
+            }
+          }
+          return {
+            ...mem,
+            x: mem.x + offsetX,
+            y: mem.y + offsetY
+          }
+        })
+
+        // Check which pins already exist and need new IDs
+        const offsetPins = (placingConstellationData.pins || []).map(pin => {
+          const existsOnBoard = standalonePins.some(p => compareIds(p.id, pin.id))
+          if (existsOnBoard) {
+            const newId = generatePinId()
+            idMapping.set(normalizeId(pin.id), newId)
+            return {
+              ...pin,
+              id: newId,
+              x: pin.x + offsetX,
+              y: pin.y + offsetY
+            }
+          }
+          return {
+            ...pin,
+            x: pin.x + offsetX,
+            y: pin.y + offsetY
+          }
+        })
+
+        // Update connections to use new IDs where applicable
+        const updatedConstellationConnections = (placingConstellationData.connections || []).map(conn => ({
+          ...conn,
+          from: idMapping.get(normalizeId(conn.from)) || conn.from,
+          to: idMapping.get(normalizeId(conn.to)) || conn.to
         }))
 
         // Add to board
@@ -1385,7 +1423,7 @@ const handleDragEnd = (event) => {
         updateBoardState({
           ...boardState,
           droppedMemories: [...droppedMemories, ...offsetMemories],
-          connections: [...connections, ...(placingConstellationData.connections || [])],
+          connections: [...connections, ...updatedConstellationConnections],
           standalonePins: [...standalonePins, ...offsetPins]
         })
 
