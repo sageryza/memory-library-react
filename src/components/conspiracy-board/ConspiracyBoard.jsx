@@ -1707,11 +1707,11 @@ const handleDragEnd = (event) => {
           label: 'Change Pin Head',
           icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>,
           submenu: [
-            { label: '', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangePinHead(data.id, 'default') },
+            { label: '', icon: <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangePinHead(data.id, 'default') },
             { separator: true },
             { label: '', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700"/></svg>, onClick: () => handleChangePinHead(data.id, 'star') },
             { separator: true },
-            { label: '', icon: <svg width="12" height="12" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangePinHead(data.id, 'flag') }
+            { label: '', icon: <svg width="14" height="14" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangePinHead(data.id, 'flag') }
           ]
         },
         { label: gridVisibleForPin === data.id ? 'Hide Grid' : 'View as Grid', icon: gridVisibleForPin === data.id ? <EyeOff size={16} /> : <Grid3x3 size={16} />, onClick: () => setGridVisibleForPin(gridVisibleForPin === data.id ? null : data.id) }
@@ -1727,11 +1727,11 @@ const handleDragEnd = (event) => {
           label: 'Change Pin Head',
           icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>,
           submenu: [
-            { label: '', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'default') },
+            { label: '', icon: <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dc143c"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'default') },
             { separator: true },
             { label: '', icon: <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 17l-6.3 4 2.3-7.2-6-4.4h7.6z" fill="#FFD700"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'star') },
             { separator: true },
-            { label: '', icon: <svg width="12" height="12" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'flag') }
+            { label: '', icon: <svg width="14" height="14" viewBox="0 0 16 12"><path d="M0 0h14l-4 6 4 6H0z" fill="#DC2626"/></svg>, onClick: () => handleChangeMemoryPinHead(data.id, 'flag') }
           ]
         }
       )
