@@ -1,0 +1,300 @@
+/* ChronologyV2 Styles - ALL selectors scoped to .chronology-v2 */
+
+.chronology-v2 {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  overflow: hidden;
+}
+
+.chronology-v2 .header-title {
+  font-family: 'Crimson Text', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2F4F4F;
+  margin: 0;
+}
+
+.chronology-v2 .chronology-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-width: 0; /* Prevent flex children from overflowing */
+}
+
+.chronology-v2 .loading-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Crimson Text', serif;
+  color: #666;
+}
+
+/* ============================================
+   TIMELINE AREA
+   Full viewport width, line at the bottom
+   ============================================ */
+
+.chronology-v2 .timeline-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chronology-v2 .timeline-container {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  padding: 40px 60px;
+  padding-bottom: 60px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+}
+
+.chronology-v2 .timeline-base {
+  position: absolute;
+  bottom: 40px;
+  left: 60px;
+  right: 60px;
+  height: 4px;
+  background: #b0b0b0;
+  border-radius: 2px;
+}
+
+.chronology-v2 .timeline-cards {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  min-height: 180px;
+  position: relative;
+  z-index: 1;
+}
+
+.chronology-v2 .timeline-empty-text {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Crimson Text', serif;
+  font-size: 16px;
+  color: #999;
+  white-space: nowrap;
+}
+
+/* ============================================
+   TIMELINE CARDS
+   ============================================ */
+
+.chronology-v2 .timeline-card {
+  width: 250px;
+  height: 180px;
+  background: #faf8e9;
+  border: 1px solid #e8e6d5;
+  border-radius: 6px;
+  padding: 12px;
+  cursor: grab;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chronology-v2 .timeline-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #d8d6c5;
+  z-index: 10;
+}
+
+.chronology-v2 .timeline-card.dragging {
+  opacity: 0.3;
+  cursor: grabbing;
+}
+
+.chronology-v2 .timeline-card-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chronology-v2 .timeline-card-title {
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2F4F4F;
+  margin-bottom: 8px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chronology-v2 .timeline-card-content {
+  font-family: 'Crimson Text', serif;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.chronology-v2 .timeline-card-hashtags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.chronology-v2 .timeline-card-hashtags .hashtag {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: #800020;
+  background: rgba(220, 20, 60, 0.1);
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ============================================
+   DROP INDICATORS
+   ============================================ */
+
+.chronology-v2 .drop-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: transparent;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.chronology-v2 .drop-indicator.left {
+  left: -2px;
+}
+
+.chronology-v2 .drop-indicator.right {
+  right: -2px;
+}
+
+.chronology-v2 .drop-indicator.active {
+  background: linear-gradient(180deg, #800020, #A0001C);
+  box-shadow: 0 0 10px rgba(128, 0, 32, 0.5);
+  animation: chronology-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes chronology-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ============================================
+   SIDEBAR STYLES
+   ============================================ */
+
+/* All sidebar styles scoped to chronology-v2 */
+.chronology-v2 .sidebar-memory-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chronology-v2 .sidebar-search {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.chronology-v2 .sidebar-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.chronology-v2 .sidebar-search-input:focus {
+  border-color: #800020;
+}
+
+.chronology-v2 .sidebar-search-input::placeholder {
+  color: #999;
+}
+
+.chronology-v2 .memory-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 15px;
+}
+
+.chronology-v2 .empty-state {
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  color: #999;
+  text-align: center;
+  padding: 20px;
+}
+
+
+.chronology-v2 .sidebar-libraries {
+  padding: 12px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================
+   DRAG OVERLAY
+   ============================================ */
+
+/* Note: DragOverlay uses a portal, renders outside .chronology-v2 */
+.drag-overlay-card {
+  width: 250px;
+  height: 180px;
+  background: #faf8e9;
+  border: 1px solid #e8e6d5;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .chronology-v2 .timeline-container {
+    padding: 20px 30px;
+    padding-bottom: 50px;
+  }
+
+  .chronology-v2 .timeline-base {
+    left: 30px;
+    right: 30px;
+    bottom: 30px;
+  }
+
+  .chronology-v2 .timeline-card {
+    width: 180px;
+    height: 150px;
+  }
+}
