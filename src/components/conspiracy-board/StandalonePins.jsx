@@ -24,6 +24,7 @@ function StandalonePin({ pin, isSelected, onPinClick, onUpdatePosition, onContex
     top: pin.y,
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: 1,
+    zIndex: 2200,
   }
 
   const handleClick = (e) => {

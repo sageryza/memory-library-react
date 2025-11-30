@@ -6,8 +6,6 @@ import './Connections.css'
 // TODO: Add customizable string/connection colors for Advanced Mode
 // Allow users to set custom colors via settings
 // Could use CSS custom properties or inline styles based on user preferences
-// TODO: Fix random Venn Modal triggers - connection click detection too sensitive
-// See ConspiracyBoard.css line 321 for pointer-events issue
 export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null, stringsInFront = true, isDragging = false }) {
   const svgRef = useRef(null)
   const [hoveredConnection, setHoveredConnection] = useState(null)
@@ -136,7 +134,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
           width: '10000px',  // Match canvas width
           height: '8000px',   // Match canvas height
           pointerEvents: 'none',
-          zIndex: isDragging ? 2100 : (stringsInFront ? 2100 : 1) // Always in front while dragging
+          zIndex: isDragging ? 2300 : (stringsInFront ? 100 : 1) // Above pins (2200) while dragging
         }}
         viewBox="0 0 10000 8000"
       >
@@ -155,8 +153,14 @@ export default function Connections({ connections, droppedMemories, standalonePi
           </linearGradient>
         </defs>
 
-        {/* Existing connections */}
-        {connections.map((connection, index) => {
+        {/* Existing connections - skip dragged memory's connections (DragConnections handles those) */}
+        {connections
+          .filter(connection => {
+            if (!isDragging || !activeTransform?.id) return true
+            const draggedId = normalizeId(activeTransform.id).replace('canvas-', '')
+            return !compareIds(connection.from, draggedId) && !compareIds(connection.to, draggedId)
+          })
+          .map((connection, index) => {
         const start = getNodePosition(connection.from)
         const end = getNodePosition(connection.to)
         if (!start || !end) return null
@@ -175,7 +179,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
 
         return (
           <g key={connectionKey}>
-            {/* Invisible thick line for easier clicking */}
+            {/* Invisible thick line for easier right-click targeting */}
             <line
               x1={start.x}
               y1={start.y}
@@ -184,10 +188,6 @@ export default function Connections({ connections, droppedMemories, standalonePi
               stroke="transparent"
               strokeWidth="10"
               style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-              onClick={(e) => {
-                e.stopPropagation()
-                onConnectionClick(connection)
-              }}
               onContextMenu={(e) => {
                 e.preventDefault()
                 e.stopPropagation()

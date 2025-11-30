@@ -7,6 +7,7 @@ const CANVAS_OFFSET_Y = 3000
 
 // Simplified connections component that renders only connections for the actively dragged memory
 // This is rendered outside the pan-container so it appears above the DragOverlay
+// NOTE: Currently disabled - Connections component handles drag rendering with boosted z-index
 export default function DragConnections({
   activeMemoryData,
   activeTransform,
@@ -19,12 +20,7 @@ export default function DragConnections({
 }) {
   const svgRef = useRef(null)
 
-  useEffect(() => {
-    if (svgRef.current) {
-      const container = svgRef.current.parentElement
-      svgRef.current.setAttribute('viewBox', `0 0 ${container.offsetWidth} ${container.offsetHeight}`)
-    }
-  }, [])
+  // No viewBox needed - we use fixed positioning with viewport coordinates
 
   // Return null if nothing is being dragged
   if (!activeMemoryData || !activeMemoryData.isOnCanvas) {
@@ -41,12 +37,17 @@ export default function DragConnections({
     return null
   }
 
-  // Convert canvas coordinates to screen coordinates
-  // Formula: screenX = canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X
-  const canvasToScreen = (canvasX, canvasY) => ({
-    x: canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
-    y: canvasY * zoomLevel + panOffset.y - CANVAS_OFFSET_Y
-  })
+  // Convert canvas coordinates to viewport coordinates
+  // Get canvas-container's position in viewport to account for header/sidebar
+  const canvasToScreen = (canvasX, canvasY) => {
+    const container = document.querySelector('.canvas-container')
+    const containerRect = container?.getBoundingClientRect() || { left: 0, top: 0 }
+
+    return {
+      x: canvasX * zoomLevel + panOffset.x - CANVAS_OFFSET_X + containerRect.left,
+      y: canvasY * zoomLevel + panOffset.y - CANVAS_OFFSET_Y + containerRect.top
+    }
+  }
 
   const getNodePosition = (nodeId) => {
     // Check if this is the actively dragged memory
@@ -98,11 +99,11 @@ export default function DragConnections({
       ref={svgRef}
       className="drag-connections-svg"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
+        width: '100vw',
+        height: '100vh',
         pointerEvents: 'none',
         zIndex: 2500 // Above drag-overlay (2000)
       }}
