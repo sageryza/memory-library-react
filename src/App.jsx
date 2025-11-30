@@ -13,7 +13,7 @@ import Home from './components/Home'
 import ConspiracyBoard from './components/conspiracy-board/ConspiracyBoard'
 import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
-import Chronology from './components/chronology'
+import ChronologyV2 from './components/ChronologyV2'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import StorageIndicator from './components/shared/StorageIndicator'
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
@@ -307,12 +307,9 @@ function App() {
           <Route
             path="/chronology"
             element={
-              <Chronology
+              <ChronologyV2
                 memories={memories}
                 memoriesLoading={memoriesLoading}
-                addMemory={addMemory}
-                updateMemory={updateMemory}
-                deleteMemory={deleteMemory}
               />
             }
           />
