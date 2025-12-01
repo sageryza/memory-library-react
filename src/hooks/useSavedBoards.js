@@ -113,13 +113,46 @@ export const useSavedBoards = (userId) => {
     }
   }, [userId]);
 
+  // Rename a board (creates new doc with new name, copies data, deletes old)
+  const renameBoard = useCallback(async (oldName, newName) => {
+    if (!userId || !oldName || !newName || oldName === newName) return;
+
+    try {
+      // Get the old board data
+      const oldBoard = savedBoards.find(b => b.id === oldName);
+      if (!oldBoard) {
+        throw new Error('Board not found');
+      }
+
+      // Create new board with new name
+      const newBoardRef = doc(db, 'users', userId, 'boards', newName);
+      await setDoc(newBoardRef, {
+        name: newName,
+        droppedMemories: oldBoard.droppedMemories || [],
+        connections: oldBoard.connections || [],
+        standalonePins: oldBoard.standalonePins || [],
+        updatedAt: serverTimestamp()
+      });
+
+      // Delete the old board
+      const oldBoardRef = doc(db, 'users', userId, 'boards', oldName);
+      await deleteDoc(oldBoardRef);
+
+      return newName;
+    } catch (error) {
+      console.error('Error renaming board:', error);
+      throw error;
+    }
+  }, [userId, savedBoards]);
+
   return {
     savedBoards,
     loading,
     error,
     saveBoard,
     loadBoard,
-    deleteBoard
+    deleteBoard,
+    renameBoard
   };
 };
 

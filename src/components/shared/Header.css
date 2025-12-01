@@ -56,6 +56,32 @@
   font-size: var(--font-size-xlarge);
   font-weight: normal;
   color: var(--color-primary-hover);
+  user-select: none;
+}
+
+.board-name-display.editable {
+  cursor: text;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.board-name-display.editable:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.board-name-input {
+  font-family: 'Crimson Text', serif;
+  font-size: var(--font-size-xlarge);
+  font-weight: normal;
+  color: var(--color-primary-hover);
+  background: white;
+  border: none;
+  border-radius: 4px;
+  outline: none;
+  padding: 2px 6px;
+  text-align: center;
+  min-width: 150px;
 }
 
 /* Back/Home Button */
