@@ -1,5 +1,5 @@
 import { useState, useEffect, cloneElement, isValidElement } from 'react';
-import { X } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import LibraryIcon from './LibraryIcon';
 import { LibraryCard } from '../archive/LibrarySidebar';
 import './TabbedSidebar.css';
@@ -75,7 +75,7 @@ export default function TabbedSidebar({
           onClick={() => onLibrarySelect && onLibrarySelect(null)}
           title="Clear filter"
         >
-          <X size={14} />
+          <LogOut size={14} />
         </button>
       </div>
     );
