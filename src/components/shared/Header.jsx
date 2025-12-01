@@ -13,16 +13,12 @@ export default function Header({ leftContent, centerContent, rightContent }) {
         </Link>
         {leftContent}
       </div>
-      {centerContent && (
-        <div className="header-center">
-          {centerContent}
-        </div>
-      )}
-      {rightContent && (
-        <div className="header-right">
-          {rightContent}
-        </div>
-      )}
+      <div className="header-center">
+        {centerContent}
+      </div>
+      <div className="header-right">
+        {rightContent}
+      </div>
     </header>
   );
 }

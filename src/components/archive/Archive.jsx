@@ -503,8 +503,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       onDragOver={handleDragOver}
     >
       <div className="app-container">
-        {/* Header */}
-      <Header
+        <div className="main-content-area">
+          {/* Header */}
+        <Header
         centerContent={
           <h2
             className="board-name-display"
@@ -684,6 +685,8 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             </Masonry>
           )}
         </div>
+        </div>
+        </div>
 
         {/* Tabbed Sidebar */}
         <SidebarContainer isOpen={!sidebarCollapsed} onToggle={toggleSidebarCollapse}>
@@ -760,7 +763,6 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             ]}
           />
         </SidebarContainer>
-      </div>
 
       {/* Modals */}
       <MemoryModal

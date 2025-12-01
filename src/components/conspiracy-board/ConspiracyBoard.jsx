@@ -1990,7 +1990,8 @@ const handleDragEnd = (event) => {
       onDragEnd={handleDragEnd}
     >
       <div className="App">
-        <Header
+        <div className="main-content-area">
+          <Header
           centerContent={
             <h2 className="board-name-display">
               {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
@@ -2781,7 +2782,9 @@ const handleDragEnd = (event) => {
               </div>
             )}
           </div>
-          <SidebarContainer isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)}>
+        </div>
+        </div>
+        <SidebarContainer isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)}>
             <TabbedSidebar
               showSearchToggle={true}
               defaultTabIndex={0}
@@ -2832,6 +2835,7 @@ const handleDragEnd = (event) => {
                     </svg>
                   ),
                   onNavigate: undefined, // No navigation for constellations
+                  isActive: isConstellationMode,
                   onClick: () => {
                     // Toggle constellation mode when clicking the tab
                     if (!selectedPin) { // Disable during pin selection
@@ -2861,7 +2865,6 @@ const handleDragEnd = (event) => {
               ]}
             />
           </SidebarContainer>
-        </div>
 
         <VennDiagramModal
           connection={selectedConnection}

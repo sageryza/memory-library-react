@@ -24,18 +24,18 @@
   align-items: center;
   gap: 12px;
   flex: 1;
-  z-index: 1; /* Above center for clickability */
+  z-index: 1;
 }
 
-/* Header Center - Absolutely positioned for true centering */
+/* Header Center - Offset to avoid left content overlap */
 .header-center {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 120px);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
+  white-space: nowrap;
 }
 
 /* Header Right Side */
@@ -46,7 +46,7 @@
   flex: 1;
   justify-content: flex-end;
   overflow: visible; /* Allow dropdowns to extend beyond container */
-  z-index: 1; /* Above center for clickability */
+  z-index: 1;
 }
 
 /* Board Name Display (for center content) */

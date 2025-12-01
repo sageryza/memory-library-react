@@ -84,6 +84,15 @@
   padding-right: 16px;
 }
 
+/* Mode active state (e.g., constellation mode enabled) */
+.sidebar-tab.mode-active {
+  color: var(--color-primary);
+}
+
+.sidebar-tab.mode-active .tab-icon {
+  color: var(--color-primary);
+}
+
 /* Tab icon */
 .tab-icon {
   display: flex;
