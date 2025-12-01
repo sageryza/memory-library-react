@@ -440,6 +440,11 @@
   opacity: 1;
 }
 
+/* Override dropped-memory positioning when inside drag overlay */
+.drag-overlay .dropped-memory {
+  position: static;
+}
+
 /* Drag overlay - Normal view (200px cards) */
 .drag-overlay .memory-card {
   width: 200px;

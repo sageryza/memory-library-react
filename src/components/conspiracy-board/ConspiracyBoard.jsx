@@ -2943,22 +2943,16 @@ const handleDragEnd = (event) => {
         <DragOverlay dropAnimation={null}>
           {activeMemoryData ? (
             <div className="drag-overlay">
-              <div style={{ position: 'relative' }}>
+              {/* Use dropped-memory class when from canvas so styles match the actual card */}
+              <div className={`${activeMemoryData.isOnCanvas ? 'dropped-memory' : ''} ${isSimplified ? 'stacked-view' : ''}`}>
                 <MemoryCard
                   memory={activeMemoryData}
                   isStackedView={isSimplified}
                   formatTitleForDisplay={formatTitleForDisplay}
                 />
-                {/* Add pin if the memory is from canvas */}
+                {/* Pin inherits positioning from CSS via dropped-memory class */}
                 {activeMemoryData.isOnCanvas && (
-                  <div
-                    className="memory-pin"
-                    style={{
-                      position: 'absolute',
-                      top: '-17px',  // Match the actual pin position
-                      right: '-2px', // Match the actual pin position
-                    }}
-                  >
+                  <div className="memory-pin">
                     <div className="memory-pin-circle" />
                     <div className="memory-pin-tail" />
                   </div>
