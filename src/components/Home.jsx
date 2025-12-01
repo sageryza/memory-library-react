@@ -32,7 +32,7 @@ function Home() {
             <span className="feature">Filter</span>
             <span className="feature">Browse</span>
           </div>
-          <button className="launch-btn" onClick={(e) => e.preventDefault()}>Launch Archive</button>
+          <button className="launch-btn">Launch Archive</button>
         </Link>
 
         {/* Conspiracy Board Module */}
@@ -53,7 +53,7 @@ function Home() {
             <span className="feature">Red Strings</span>
             <span className="feature">Visual Links</span>
           </div>
-          <button className="launch-btn" onClick={(e) => e.preventDefault()}>Launch Conspiracy Board</button>
+          <button className="launch-btn">Launch Conspiracy Board</button>
         </Link>
 
         {/* Chronology Module */}
@@ -73,7 +73,7 @@ function Home() {
             <span className="feature">Drag & Drop</span>
             <span className="feature">Interactive</span>
           </div>
-          <button className="launch-btn" onClick={(e) => e.preventDefault()}>Launch Chronology</button>
+          <button className="launch-btn">Launch Chronology</button>
         </Link>
 
         {/* Libraries Module */}
@@ -90,7 +90,7 @@ function Home() {
             <span className="feature">Memory Clusters</span>
             <span className="feature">Collections</span>
           </div>
-          <button className="launch-btn" onClick={(e) => e.preventDefault()}>Launch Libraries</button>
+          <button className="launch-btn">Launch Libraries</button>
         </Link>
 
         {/* Lessons Module */}
