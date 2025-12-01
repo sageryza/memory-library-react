@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -37,6 +37,7 @@ import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, generateLocalId, ensureStringId } from '../../utils/generateId'
+import { getLockedMemoryIds } from '../../utils/getLockedMemoryIds'
 import '../../App.css'
 import './ConspiracyBoard.css'
 import '../../styles/simplifyView.css'
@@ -206,6 +207,19 @@ function ConspiracyBoard({
     selectLibrary,
     clearFilter: clearLibraryFilter
   } = useLibraryFilter(libraries, memories, getLibraryMemories)
+
+  // Apply locked library filtering
+  // Only filter out locked memories when NOT viewing any specific library
+  const sidebarMemories = useMemo(() => {
+    if (selectedLibraryId) {
+      // When viewing a library, show all its memories (already filtered by useLibraryFilter)
+      return libraryFilteredMemories;
+    }
+    // When not viewing a library, filter out locked memories
+    const lockedMemoryIds = getLockedMemoryIds(libraries, memories);
+    if (lockedMemoryIds.size === 0) return libraryFilteredMemories;
+    return libraryFilteredMemories.filter(memory => !lockedMemoryIds.has(String(memory.id)));
+  }, [selectedLibraryId, libraryFilteredMemories, libraries, memories]);
 
   // Make canvas-container droppable
   const { setNodeRef: setContainerRef } = useDroppable({
@@ -2240,29 +2254,17 @@ const handleDragEnd = (event) => {
                 items={[
                   {
                     label: 'New Board',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z"/>
-                      </svg>
-                    ),
+                    icon: <SquarePlus size={16} style={{ fill: 'none' }} />,
                     onClick: handleNewBoard
                   },
                   {
                     label: 'Save As New Board',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
-                      </svg>
-                    ),
+                    icon: <Copy size={16} style={{ fill: 'none' }} />,
                     onClick: () => setShowSaveBoardModal(true)
                   },
                   {
                     label: 'Load Board',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
-                      </svg>
-                    ),
+                    icon: <BookOpen size={16} style={{ fill: 'none' }} />,
                     onClick: () => setShowLoadBoardModal(true)
                   }
                 ]}
@@ -2796,7 +2798,7 @@ const handleDragEnd = (event) => {
               onLibraryNavigate={() => window.location.href = '/libraries'}
               searchContent={
                 <Sidebar
-                  memories={libraryFilteredMemories}
+                  memories={sidebarMemories}
                   droppedMemories={displayMemories}
                   onRandomlyPlaceMemory={randomlyPlaceMemory}
                   showSearch={true}
@@ -2813,7 +2815,7 @@ const handleDragEnd = (event) => {
                   onNavigate: () => window.location.href = '/archive',
                   content: (
                     <Sidebar
-                      memories={libraryFilteredMemories}
+                      memories={sidebarMemories}
                       droppedMemories={displayMemories}
                       onRandomlyPlaceMemory={randomlyPlaceMemory}
                       showSearch={false}
@@ -2835,7 +2837,6 @@ const handleDragEnd = (event) => {
                     </svg>
                   ),
                   onNavigate: undefined, // No navigation for constellations
-                  isActive: isConstellationMode,
                   onClick: () => {
                     // Toggle constellation mode when clicking the tab
                     if (!selectedPin) { // Disable during pin selection

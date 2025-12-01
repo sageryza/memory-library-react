@@ -84,8 +84,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     let filtered = [...memories];
 
     // Apply locked library filtering
-    // Only filter out locked memories when NOT viewing a locked library
-    if (!currentLibrary || !currentLibrary.isLocked) {
+    // Only filter out locked memories when NOT viewing any specific library
+    // When viewing a library (locked or unlocked), show all its memories
+    if (!currentLibrary) {
       const lockedMemoryIds = getLockedMemoryIds(libraries, memories);
       if (lockedMemoryIds.size > 0) {
         filtered = filtered.filter(memory => !lockedMemoryIds.has(String(memory.id)));
