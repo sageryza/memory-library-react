@@ -1,6 +1,6 @@
 import React from 'react';
+import MemoryCard from '../shared/MemoryCard';
 import { filterVisibleHashtags } from '../../utils/inlineParsingUtils';
-import '../shared/Hashtag.css';
 
 export default function PlaygroundMemoryCard({
   memory,
@@ -8,6 +8,12 @@ export default function PlaygroundMemoryCard({
   onContextMenu,
   isDragging
 }) {
+  // Filter out hidden hashtags for display
+  const displayMemory = {
+    ...memory,
+    hashtags: filterVisibleHashtags(memory.hashtags || [])
+  };
+
   return (
     <div
       className={`playground-memory-card ${isDragging ? 'dragging' : ''}`}
@@ -20,25 +26,7 @@ export default function PlaygroundMemoryCard({
       onMouseDown={(e) => onMouseDown(e, memory)}
       onContextMenu={(e) => onContextMenu(e, memory)}
     >
-      {memory.title && (
-        <div className="memory-header">
-          <div className="memory-title">{memory.title}</div>
-        </div>
-      )}
-
-      {memory.content && (
-        <div className="memory-content">{memory.content}</div>
-      )}
-
-      {memory.hashtags && memory.hashtags.length > 0 && (
-        <div className="memory-footer">
-          <div className="hashtag-container small-gap">
-            {filterVisibleHashtags(memory.hashtags).map((tag, idx) => (
-              <span key={idx} className="hashtag small">{tag}</span>
-            ))}
-          </div>
-        </div>
-      )}
+      <MemoryCard memory={displayMemory} />
     </div>
   );
 }

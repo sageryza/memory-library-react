@@ -19,11 +19,13 @@
   height: 80vh;
   background: white;
   border: 3px solid var(--color-accent-crimson);
-  outline: 4px solid #f5f5dc;
   border-radius: var(--radius-large);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 5px white,
+    0 0 0 9px #f5f5dc,
+    0 10px 25px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
 
@@ -90,32 +92,17 @@
   color: var(--color-text-light);
 }
 
-/* ===== CANVAS CONTAINER (SCROLLABLE) ===== */
+/* ===== CANVAS CONTAINER (PANNABLE) ===== */
 .playground-canvas-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
   background: white;
+  cursor: grab;
 }
 
-/* Custom scrollbar */
-.playground-canvas-container::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-.playground-canvas-container::-webkit-scrollbar-track {
-  background: var(--color-bg-light);
-  border-radius: var(--radius-small);
-}
-
-.playground-canvas-container::-webkit-scrollbar-thumb {
-  background: var(--color-border-medium);
-  border-radius: var(--radius-small);
-}
-
-.playground-canvas-container::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+.playground-canvas-container.panning {
+  cursor: grabbing;
 }
 
 /* ===== CANVAS (1.5X SIZE) ===== */
@@ -151,69 +138,39 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* ===== PLAYGROUND MEMORY CARD (SMALLER THAN ARCHIVE) ===== */
+/* ===== PLAYGROUND MEMORY CARD WRAPPER ===== */
+/* Uses shared MemoryCard component - styles match ConspiracyBoard */
 .playground-memory-card {
   position: absolute;
-  width: 200px;
-  background: var(--beige-primary);
-  border: 0.5px solid var(--color-border-gray);
-  border-radius: var(--radius-large);
-  padding: var(--spacing-md);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  cursor: grab;
-  transition: box-shadow 0.2s ease;
   user-select: none;
-  font-family: 'Crimson Text', serif;
 }
 
-.playground-memory-card:hover:not(.dragging) {
+.playground-memory-card .memory-card {
+  background: #faf8e9;
+  border: 0.75px solid #e8e6d5;
+  border-radius: 6px;
+  padding: 15px;
+  width: 200px;
+  min-height: 120px;
+  cursor: grab;
+  transition: box-shadow 0.2s ease;
+}
+
+.playground-memory-card:hover:not(.dragging) .memory-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
-  background: #f5f2e0;
-  border-color: var(--color-border-medium);
 }
 
 .playground-memory-card.dragging {
-  cursor: grabbing;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  opacity: 0.9;
   z-index: 100;
   pointer-events: none;
   will-change: transform;
 }
 
-/* ===== MEMORY CARD CONTENT ===== */
-.playground-memory-card .memory-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  margin-bottom: 8px;
+.playground-memory-card.dragging .memory-card {
+  cursor: grabbing;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
 }
-
-.playground-memory-card .memory-title {
-  font-weight: 600;
-  font-size: var(--font-size-base);
-  color: var(--color-text-primary);
-  line-height: 1.3;
-  word-wrap: break-word;
-}
-
-.playground-memory-card .memory-content {
-  font-size: 13px;
-  line-height: 1.4;
-  color: #4A4A4A;
-  margin-bottom: 10px;
-  word-wrap: break-word;
-}
-
-.playground-memory-card .memory-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
-}
-
-/* Hashtag styles now defined in shared/Hashtag.css */
 
 /* ===== CONTEXT MENU ===== */
 .playground-context-menu {

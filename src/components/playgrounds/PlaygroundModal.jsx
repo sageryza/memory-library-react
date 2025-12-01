@@ -29,6 +29,9 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const [draggingMemory, setDraggingMemory] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 800 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   const { confirm } = useConfirm();
   const canvasRef = useRef(null);
@@ -36,11 +39,12 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const dragElementRef = useRef(null);
   const dragStartPosRef = useRef(null);
 
-  // Get the current playground
+  // Get the current playground and reset pan offset
   useEffect(() => {
     if (playgroundId && playgrounds.length > 0) {
       const pg = playgrounds.find(p => p.id === playgroundId);
       setPlayground(pg);
+      setPanOffset({ x: 0, y: 0 }); // Reset pan when playground changes
     }
   }, [playgroundId, playgrounds]);
 
@@ -294,6 +298,37 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
     }
   };
 
+  // Canvas panning handlers
+  const handleCanvasPanStart = (e) => {
+    // Only pan if clicking directly on the canvas container or canvas (not on cards)
+    if (e.target.classList.contains('playground-canvas-container') ||
+        e.target.classList.contains('playground-canvas') ||
+        e.target.classList.contains('central-hashtag')) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  const handleCanvasPanMove = (e) => {
+    if (!isPanning) return;
+
+    const newX = e.clientX - panStart.x;
+    const newY = e.clientY - panStart.y;
+
+    // Constrain panning so canvas doesn't go too far off-screen
+    const maxPanX = canvasSize.width - 200;
+    const maxPanY = canvasSize.height - 200;
+
+    setPanOffset({
+      x: Math.max(-maxPanX, Math.min(100, newX)),
+      y: Math.max(-maxPanY, Math.min(100, newY))
+    });
+  };
+
+  const handleCanvasPanEnd = () => {
+    setIsPanning(false);
+  };
+
   const handleCloseAddModal = () => {
     setShowAddModal(false);
     setEditingMemory(null);
@@ -330,13 +365,20 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
           </div>
         </div>
 
-        <div className="playground-canvas-container">
+        <div
+          className={`playground-canvas-container ${isPanning ? 'panning' : ''}`}
+          onMouseDown={handleCanvasPanStart}
+          onMouseMove={handleCanvasPanMove}
+          onMouseUp={handleCanvasPanEnd}
+          onMouseLeave={handleCanvasPanEnd}
+        >
           <div
             className="playground-canvas"
             ref={canvasRef}
             style={{
               width: `${canvasSize.width}px`,
-              height: `${canvasSize.height}px`
+              height: `${canvasSize.height}px`,
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`
             }}
           >
             {playground?.centralHashtag && (

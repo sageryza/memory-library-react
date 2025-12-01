@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "playground-memories",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playgroundId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
