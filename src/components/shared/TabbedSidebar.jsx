@@ -1,4 +1,7 @@
 import { useState, useEffect, cloneElement, isValidElement } from 'react';
+import { X } from 'lucide-react';
+import LibraryIcon from './LibraryIcon';
+import { LibraryCard } from '../archive/LibrarySidebar';
 import './TabbedSidebar.css';
 
 export default function TabbedSidebar({
@@ -9,7 +12,14 @@ export default function TabbedSidebar({
   onCloseSearch = null,         // Callback to inject into searchContent for closing search
   activeTabIndex: controlledTabIndex,  // Optional controlled tab index
   onTabChange,                  // Callback when tab changes (for controlled mode)
-  filterIndicator = null,       // Optional element to show below tabs (e.g., library filter)
+  filterIndicator = null,       // DEPRECATED: Use libraries prop instead. Optional element to show below tabs.
+  // Library filtering props (optional - enables built-in library tab handling)
+  libraries = null,             // Array of library objects - if provided, Libraries tab is rendered internally
+  selectedLibraryId = null,     // Currently selected library ID for filtering
+  onLibrarySelect = null,       // Callback when a library is selected: (libraryId) => void
+  getLibraryMemoryCount = null, // Function to get memory count for a library: (libraryId) => number
+  librariesTabIndex = 1,        // Which tab index the Libraries tab should be at (default: 1, after Memories)
+  onLibraryNavigate = null,     // Navigation callback when Libraries tab is double-clicked
 }) {
   const [internalTabIndex, setInternalTabIndex] = useState(defaultTabIndex);
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -38,8 +48,82 @@ export default function TabbedSidebar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchMode]);
 
+  // Handle library selection - select library and switch to Memories tab
+  const handleLibraryClick = (libraryId) => {
+    if (onLibrarySelect) {
+      onLibrarySelect(libraryId);
+    }
+    setActiveTabIndex(0); // Switch to Memories tab
+  };
+
+  // Build the filter indicator if we have library props and a selected library
+  const builtFilterIndicator = (() => {
+    // If legacy filterIndicator prop is provided, use it
+    if (filterIndicator) return filterIndicator;
+
+    // Otherwise build our own if we have library selection
+    if (!libraries || !selectedLibraryId || activeTabIndex !== 0) return null;
+
+    const selectedLibrary = libraries.find(lib => lib.id === selectedLibraryId);
+    if (!selectedLibrary) return null;
+
+    return (
+      <div className="library-filter-indicator">
+        <span className="library-filter-name">{selectedLibrary.name}</span>
+        <button
+          className="library-filter-clear"
+          onClick={() => onLibrarySelect && onLibrarySelect(null)}
+          title="Clear filter"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    );
+  })();
+
+  // Build the Libraries tab content if libraries prop is provided
+  const librariesTabContent = libraries ? (
+    <div className="sidebar-content">
+      <div className="sidebar-libraries-grid">
+        {libraries.filter(lib => !lib.isLocked).length === 0 ? (
+          <div className="empty-state">
+            <p>No libraries yet</p>
+          </div>
+        ) : (
+          libraries.filter(lib => !lib.isLocked).map(library => (
+            <LibraryCard
+              key={library.id}
+              library={library}
+              memoryCount={getLibraryMemoryCount ? getLibraryMemoryCount(library.id) : 0}
+              onClick={() => handleLibraryClick(library.id)}
+              isActive={selectedLibraryId === library.id}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // Build the full tabs array, inserting Libraries tab if needed
+  const allTabs = (() => {
+    if (!libraries) return tabs;
+
+    // Insert Libraries tab at the specified index
+    const result = [...tabs];
+    const librariesTab = {
+      label: 'Libraries',
+      icon: <LibraryIcon size={16} color="currentColor" />,
+      onNavigate: onLibraryNavigate,
+      content: librariesTabContent
+    };
+
+    // Insert at librariesTabIndex position
+    result.splice(librariesTabIndex, 0, librariesTab);
+    return result;
+  })();
+
   return (
-    <div className={`sidebar ${filterIndicator ? 'has-filter' : ''}`}>
+    <div className={`sidebar ${builtFilterIndicator ? 'has-filter' : ''}`}>
       {/* Only show header when NOT in search mode */}
       {!isSearchMode && (
         <div className="tabbed-sidebar-header">
@@ -58,7 +142,7 @@ export default function TabbedSidebar({
 
           {/* Tabs (right side) */}
           <div className="sidebar-tabs">
-            {tabs.map((tab, index) => {
+            {allTabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
               // Check if tab has an external active state (for modes like constellation)
               const isExternallyActive = tab.isActive !== undefined ? tab.isActive : false;
@@ -97,8 +181,8 @@ export default function TabbedSidebar({
       <div className="tabbed-sidebar-content">
         {/* Static spacer with optional filter indicator - sticky at top, only on Memories tab */}
         {!isSearchMode && activeTabIndex === 0 && (
-          <div className={`tabbed-sidebar-static-spacer ${filterIndicator ? 'has-content' : ''}`}>
-            {filterIndicator}
+          <div className={`tabbed-sidebar-static-spacer ${builtFilterIndicator ? 'has-content' : ''}`}>
+            {builtFilterIndicator}
           </div>
         )}
         {isSearchMode ? (
@@ -109,7 +193,7 @@ export default function TabbedSidebar({
             : searchContent
         ) : (
           // Show active tab content
-          tabs[activeTabIndex]?.content
+          allTabs[activeTabIndex]?.content
         )}
       </div>
     </div>

@@ -4,12 +4,11 @@ import { Library } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useChronologyStateV2 } from '../hooks/useChronologyStateV2';
 import useLibraries from '../hooks/useLibraries';
+import useLibraryFilter from '../hooks/useLibraryFilter';
 import Header from './shared/Header';
 import SidebarWrapper from './shared/Sidebar';
 import TabbedSidebar from './shared/TabbedSidebar';
 import MemoryCard from './shared/MemoryCard';
-import LibraryIcon from './shared/LibraryIcon';
-import { LibraryCard } from './archive/LibrarySidebar';
 import { ensureStringId } from '../utils/generateId';
 import './ChronologyV2.css';
 
@@ -56,7 +55,7 @@ function DraggableSidebarCard({ memory }) {
 }
 
 // Timeline card - draggable with drop indicators
-function TimelineCard({ memory, dropIndicator, onDoubleClick }) {
+function TimelineCard({ memory, dropIndicator }) {
   const cardRef = useRef(null);
 
   const {
@@ -90,7 +89,6 @@ function TimelineCard({ memory, dropIndicator, onDoubleClick }) {
       {...listeners}
       {...attributes}
       className={`timeline-card ${isDragging ? 'dragging' : ''}`}
-      onDoubleClick={() => onDoubleClick?.(memory)}
       data-memory-id={memory.id}
     >
       <div className={`drop-indicator left ${showLeftIndicator ? 'active' : ''}`} />
@@ -114,7 +112,7 @@ function TimelineCard({ memory, dropIndicator, onDoubleClick }) {
 }
 
 // The timeline with continuous base line
-function Timeline({ memories, dropIndicator, onDoubleClickMemory }) {
+function Timeline({ memories, dropIndicator }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'timeline-dropzone',
   });
@@ -132,7 +130,6 @@ function Timeline({ memories, dropIndicator, onDoubleClickMemory }) {
               key={memory.id}
               memory={memory}
               dropIndicator={dropIndicator}
-              onDoubleClick={onDoubleClickMemory}
             />
           ))}
         </div>
@@ -147,6 +144,23 @@ function Timeline({ memories, dropIndicator, onDoubleClickMemory }) {
 
       {/* Continuous timeline line - always visible */}
       <div className="timeline-base" />
+    </div>
+  );
+}
+
+// Droppable sidebar wrapper - allows dropping timeline cards back to sidebar
+function DroppableSidebarArea({ children, isOver }) {
+  const { setNodeRef } = useDroppable({
+    id: 'sidebar-dropzone',
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`sidebar-drop-area ${isOver ? 'drag-over' : ''}`}
+      style={{ height: '100%' }}
+    >
+      {children}
     </div>
   );
 }
@@ -192,13 +206,20 @@ function SidebarMemoryList({ memories, searchTerm, setSearchTerm }) {
 export default function ChronologyV2({ memories = [], memoriesLoading }) {
   const { user } = useAuth();
   const { timelineIds, setTimelineIds, loading: stateLoading } = useChronologyStateV2(user?.uid);
-  const { libraries } = useLibraries(user?.uid);
+  const { libraries, getLibraryMemories } = useLibraries(user?.uid);
+
+  // Library filter hook for sidebar
+  const {
+    selectedLibraryId,
+    filteredMemories: libraryFilteredMemories,
+    selectLibrary
+  } = useLibraryFilter(libraries, memories, getLibraryMemories);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDragData, setActiveDragData] = useState(null);
   const [dropIndicator, setDropIndicator] = useState(null);
-  const [currentLibrary, setCurrentLibrary] = useState(null);
+  const [isOverSidebar, setIsOverSidebar] = useState(false);
 
   // Convert memories to a map for quick lookup
   const memoriesMap = useMemo(() => {
@@ -214,11 +235,11 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
       .filter(Boolean);
   }, [timelineIds, memoriesMap]);
 
-  // Get sidebar memories (not on timeline)
+  // Get sidebar memories (not on timeline, filtered by selected library)
   const sidebarMemories = useMemo(() => {
     const timelineIdSet = new Set(timelineIds.map(id => ensureStringId(id)));
-    return memories.filter(m => !timelineIdSet.has(ensureStringId(m.id)));
-  }, [memories, timelineIds]);
+    return libraryFilteredMemories.filter(m => !timelineIdSet.has(ensureStringId(m.id)));
+  }, [libraryFilteredMemories, timelineIds]);
 
   // Handle drag start
   const handleDragStart = (event) => {
@@ -232,6 +253,9 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
 
     // Get the pointer position from the event
     const { active, over } = event;
+
+    // Track if we're over the sidebar
+    setIsOverSidebar(over?.id === 'sidebar-dropzone');
 
     // If not over the timeline, clear indicator
     if (!over || over.id !== 'timeline-dropzone') {
@@ -268,6 +292,7 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
 
     setActiveDragData(null);
     setDropIndicator(null);
+    setIsOverSidebar(false);
 
     if (!over) return;
 
@@ -276,6 +301,13 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
     if (!memory) return;
 
     const memoryId = ensureStringId(memory.id);
+
+    // Dropping timeline card onto sidebar - remove from timeline
+    if (dragData.source === 'timeline' && over.id === 'sidebar-dropzone') {
+      const newIds = timelineIds.filter(id => ensureStringId(id) !== memoryId);
+      setTimelineIds(newIds);
+      return;
+    }
 
     // Dropping from sidebar
     if (dragData.source === 'sidebar') {
@@ -319,16 +351,9 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
     }
   };
 
-  // Double-click on timeline card returns it to sidebar
-  const handleTimelineDoubleClick = (memory) => {
-    const memoryId = ensureStringId(memory.id);
-    const newIds = timelineIds.filter(id => ensureStringId(id) !== memoryId);
-    setTimelineIds(newIds);
-  };
-
-  // Handle library selection
-  const handleLibrarySelect = (libraryId) => {
-    setCurrentLibrary(currentLibrary === libraryId ? null : libraryId);
+  // Helper to get library memory count
+  const getLibraryMemoryCount = (libraryId) => {
+    return getLibraryMemories(libraryId, memories).length;
   };
 
   // Loading state
@@ -355,48 +380,34 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
           <Timeline
             memories={timelineMemories}
             dropIndicator={activeDragData ? dropIndicator : null}
-            onDoubleClickMemory={handleTimelineDoubleClick}
           />
 
           <SidebarWrapper isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)}>
-            <TabbedSidebar
-              showSearchToggle={false}
-              defaultTabIndex={0}
-              tabs={[
-                {
-                  label: 'Memories',
-                  icon: <Library size={16} />,
-                  content: (
-                    <SidebarMemoryList
-                      memories={sidebarMemories}
-                      searchTerm={searchTerm}
-                      setSearchTerm={setSearchTerm}
-                    />
-                  )
-                },
-                {
-                  label: 'Libraries',
-                  icon: <LibraryIcon size={16} color="currentColor" />,
-                  content: (
-                    <div className="sidebar-libraries">
-                      {libraries.length === 0 ? (
-                        <div className="empty-state">No libraries yet</div>
-                      ) : (
-                        libraries.map(library => (
-                          <LibraryCard
-                            key={library.id}
-                            library={library}
-                            isSelected={currentLibrary === library.id}
-                            onClick={() => handleLibrarySelect(library.id)}
-                            memoryCount={library.memoryIds?.length || 0}
-                          />
-                        ))
-                      )}
-                    </div>
-                  )
-                }
-              ]}
-            />
+            <DroppableSidebarArea isOver={isOverSidebar}>
+              <TabbedSidebar
+                showSearchToggle={false}
+                defaultTabIndex={0}
+                // Library filtering props - TabbedSidebar handles Libraries tab internally
+                libraries={libraries}
+                selectedLibraryId={selectedLibraryId}
+                onLibrarySelect={selectLibrary}
+                getLibraryMemoryCount={getLibraryMemoryCount}
+                onLibraryNavigate={() => window.location.href = '/libraries'}
+                tabs={[
+                  {
+                    label: 'Memories',
+                    icon: <Library size={16} />,
+                    content: (
+                      <SidebarMemoryList
+                        memories={sidebarMemories}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                      />
+                    )
+                  }
+                ]}
+              />
+            </DroppableSidebarArea>
           </SidebarWrapper>
         </div>
 

@@ -258,6 +258,15 @@
   gap: 8px;
 }
 
+/* Sidebar drop area - highlight when dragging over */
+.chronology-v2 .sidebar-drop-area {
+  transition: background-color 0.2s ease;
+}
+
+.chronology-v2 .sidebar-drop-area.drag-over {
+  background-color: rgba(128, 0, 32, 0.08);
+}
+
 /* ============================================
    DRAG OVERLAY
    ============================================ */
