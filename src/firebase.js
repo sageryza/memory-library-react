@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -21,5 +21,16 @@ export const auth = getAuth(app);
 
 // Initialize Firestore and get a reference to the service
 export const db = getFirestore(app);
+
+// Enable offline persistence with multi-tab support
+// All tabs share the same IndexedDB cache and can queue writes when offline
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    console.warn('Firestore persistence unavailable');
+  } else if (err.code === 'unimplemented') {
+    // Browser doesn't support IndexedDB
+    console.warn('Firestore persistence unavailable: browser not supported');
+  }
+});
 
 export default app;

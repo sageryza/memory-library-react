@@ -17,6 +17,7 @@ import ChronologyV2 from './components/ChronologyV2'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import StorageIndicator from './components/shared/StorageIndicator'
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
+import OfflineIndicator from './components/shared/OfflineIndicator'
 import UserAvatar from './components/shared/UserAvatar'
 import './styles/theme.css'
 import './styles/components.css'
@@ -334,6 +335,9 @@ function App() {
             formatTitleForDisplay={(title) => title} // Simple formatter for now
           />
         )}
+
+        {/* Offline indicator */}
+        <OfflineIndicator />
       </div>
     </Router>
     </ConfirmProvider>
