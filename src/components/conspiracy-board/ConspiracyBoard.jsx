@@ -25,7 +25,6 @@ import Dropdown from '../shared/Dropdown'
 import Header from '../shared/Header'
 import LibraryIcon from '../shared/LibraryIcon'
 import TabbedSidebar from '../shared/TabbedSidebar'
-import { LibraryCard } from '../archive/LibrarySidebar'
 import { AddMemoryIcon, PlaygroundIcon } from '../icons'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
@@ -33,6 +32,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import useSavedBoards from '../../hooks/useSavedBoards'
 import useSimplifyView from '../../hooks/useSimplifyView'
 import useLibraries from '../../hooks/useLibraries'
+import useLibraryFilter from '../../hooks/useLibraryFilter'
 import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
@@ -119,8 +119,6 @@ function ConspiracyBoard({
   const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
   const [minimapDragStart, setMinimapDragStart] = useState(null)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
-  const [selectedLibraryId, setSelectedLibraryId] = useState(null) // Currently selected library for filtering sidebar
-  const [sidebarTabIndex, setSidebarTabIndex] = useState(0) // Controlled tab index for sidebar
 
   // Hooks
   const { confirm } = useConfirm()
@@ -200,6 +198,14 @@ function ConspiracyBoard({
     addMemoryToLibrary,
     getLibraryMemories
   } = useLibraries(user?.uid)
+
+  // Library filter hook for sidebar
+  const {
+    selectedLibraryId,
+    filteredMemories: libraryFilteredMemories,
+    selectLibrary,
+    clearFilter: clearLibraryFilter
+  } = useLibraryFilter(libraries, memories, getLibraryMemories)
 
   // Make canvas-container droppable
   const { setNodeRef: setContainerRef } = useDroppable({
@@ -1990,12 +1996,12 @@ const handleDragEnd = (event) => {
               {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
             </h2>
           }
-          rightContent={
+          leftContent={
             <>
               {/* Pages Dropdown Menu */}
               <Dropdown
                 className="header-dropdown"
-                align="right"
+                align="left"
                 triggerOnHover={false}
                 enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
@@ -2038,7 +2044,7 @@ const handleDragEnd = (event) => {
               {/* Tools Dropdown Menu */}
               <Dropdown
                 className="header-dropdown"
-                align="right"
+                align="left"
                 triggerOnHover={false}
                 enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
@@ -2120,7 +2126,7 @@ const handleDragEnd = (event) => {
               {/* View Dropdown Menu */}
               <Dropdown
                 className="header-dropdown"
-                align="right"
+                align="left"
                 triggerOnHover={false}
                 enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
@@ -2218,7 +2224,7 @@ const handleDragEnd = (event) => {
               {/* Board Dropdown Menu */}
               <Dropdown
                 className="header-dropdown board-dropdown"
-                align="right"
+                align="left"
                 triggerOnHover={false}
                 enableHoverSwitching={!!openDropdown}
                 closeOnItemClick={false}
@@ -2264,7 +2270,7 @@ const handleDragEnd = (event) => {
               {/* User Account Dropdown */}
               <Dropdown
                 className="header-dropdown"
-                align="right"
+                align="left"
                 triggerOnHover={false}
                 enableHoverSwitching={!!openDropdown}
                 disabled={!!selectedPin}
@@ -2779,27 +2785,15 @@ const handleDragEnd = (event) => {
             <TabbedSidebar
               showSearchToggle={true}
               defaultTabIndex={0}
-              activeTabIndex={sidebarTabIndex}
-              onTabChange={setSidebarTabIndex}
-              filterIndicator={selectedLibraryId && sidebarTabIndex === 0 && (() => {
-                const selectedLibrary = libraries.find(lib => lib.id === selectedLibraryId)
-                if (!selectedLibrary) return null
-                return (
-                  <div className="library-filter-indicator">
-                    <span className="library-filter-name">{selectedLibrary.name}</span>
-                    <button
-                      className="library-filter-clear"
-                      onClick={() => setSelectedLibraryId(null)}
-                      title="Clear filter"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )
-              })()}
+              // Library filtering props - TabbedSidebar handles Libraries tab internally
+              libraries={libraries}
+              selectedLibraryId={selectedLibraryId}
+              onLibrarySelect={selectLibrary}
+              getLibraryMemoryCount={getLibraryMemoryCount}
+              onLibraryNavigate={() => window.location.href = '/libraries'}
               searchContent={
                 <Sidebar
-                  memories={selectedLibraryId ? getLibraryMemories(selectedLibraryId, memories) : memories}
+                  memories={libraryFilteredMemories}
                   droppedMemories={displayMemories}
                   onRandomlyPlaceMemory={randomlyPlaceMemory}
                   showSearch={true}
@@ -2816,7 +2810,7 @@ const handleDragEnd = (event) => {
                   onNavigate: () => window.location.href = '/archive',
                   content: (
                     <Sidebar
-                      memories={selectedLibraryId ? getLibraryMemories(selectedLibraryId, memories) : memories}
+                      memories={libraryFilteredMemories}
                       droppedMemories={displayMemories}
                       onRandomlyPlaceMemory={randomlyPlaceMemory}
                       showSearch={false}
@@ -2825,43 +2819,6 @@ const handleDragEnd = (event) => {
                       onEditMemory={handleEditMemory}
                       onDeleteMemory={handleDeleteMemory}
                     />
-                  )
-                },
-                {
-                  label: 'Libraries',
-                  icon: <LibraryIcon size={16} color="currentColor" />,
-                  onNavigate: () => window.location.href = '/libraries',
-                  content: (
-                    <div className="sidebar-content">
-                      <div className="sidebar-libraries-grid">
-                        {libraries.filter(lib => !lib.isLocked).length === 0 ? (
-                          <div className="empty-state">
-                            <p>No libraries yet</p>
-                          </div>
-                        ) : (
-                          libraries.filter(lib => !lib.isLocked).map(library => (
-                            <LibraryCard
-                              key={library.id}
-                              library={library}
-                              memoryCount={getLibraryMemoryCount(library.id)}
-                              onClick={() => {
-                                setSelectedLibraryId(library.id)
-                                setSidebarTabIndex(0) // Switch to Memories tab
-                              }}
-                              isActive={selectedLibraryId === library.id}
-                              onDrop={(libraryId) => {
-                                // Handle drop - for now just a placeholder
-                                // In future, could implement dragging memories from canvas to libraries
-                                setDragOverLibraryId(null)
-                              }}
-                              onDragOver={(libraryId) => setDragOverLibraryId(libraryId)}
-                              onDragLeave={() => setDragOverLibraryId(null)}
-                              isDragOver={dragOverLibraryId === library.id}
-                            />
-                          ))
-                        )}
-                      </div>
-                    </div>
                   )
                 },
                 {
