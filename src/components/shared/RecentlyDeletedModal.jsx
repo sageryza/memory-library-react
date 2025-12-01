@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useConfirm } from '../../contexts/ConfirmContext'
+import { ArrowLeft, Trash2, RotateCcw } from 'lucide-react'
 import MemoryCard from './MemoryCard'
 import './RecentlyDeletedModal.css'
 
@@ -9,6 +10,7 @@ export default function RecentlyDeletedModal({
   onPermanentDelete,
   onEmptyTrash,
   onClose,
+  onBackToSettings,
   formatTitleForDisplay
 }) {
   const [confirmEmpty, setConfirmEmpty] = useState(false)
@@ -60,7 +62,14 @@ export default function RecentlyDeletedModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="recently-deleted-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Recently Deleted</h2>
+          <div className="header-left">
+            {onBackToSettings && (
+              <button className="back-button" onClick={onBackToSettings}>
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <h2>Recently Deleted</h2>
+          </div>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
@@ -85,7 +94,8 @@ export default function RecentlyDeletedModal({
                 </div>
               ) : (
                 <button className="empty-trash-button" onClick={handleEmptyTrash}>
-                  🗑️ Empty Trash
+                  <Trash2 size={14} />
+                  Empty Trash
                 </button>
               )}
             </div>
@@ -108,13 +118,15 @@ export default function RecentlyDeletedModal({
                       className="restore-button"
                       onClick={() => handleRestore(memory.id)}
                     >
-                      ↩️ Restore
+                      <RotateCcw size={14} />
+                      Restore
                     </button>
                     <button
                       className="permanent-delete-button"
                       onClick={() => handlePermanentDelete(memory.id)}
                     >
-                      🗑️ Delete Forever
+                      <Trash2 size={14} />
+                      Delete Forever
                     </button>
                   </div>
                 </div>

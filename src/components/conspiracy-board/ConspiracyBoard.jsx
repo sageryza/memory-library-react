@@ -16,6 +16,7 @@ import SettingsModal from '../shared/SettingsModal'
 import RecentlyDeletedModal from '../shared/RecentlyDeletedModal'
 import ConstellationSidebar from './ConstellationSidebar'
 import PinEditModal from './PinEditModal'
+import Modal from '../shared/Modal'
 import PinGrid from './PinGrid'
 import ContextMenu from '../shared/ContextMenu'
 import MemoryPopup from '../shared/MemoryPopup'
@@ -25,6 +26,7 @@ import Dropdown from '../shared/Dropdown'
 import Header from '../shared/Header'
 import LibraryIcon from '../shared/LibraryIcon'
 import TabbedSidebar from '../shared/TabbedSidebar'
+import ToolRail from '../shared/ToolRail'
 import { AddMemoryIcon, PlaygroundIcon } from '../icons'
 import useBoardState from '../../hooks/useBoardState'
 import useAuth from '../../hooks/useAuth'
@@ -102,13 +104,16 @@ function ConspiracyBoard({
   const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
   const [boardNameInput, setBoardNameInput] = useState('')
   const [openDropdown, setOpenDropdown] = useState(null) // Track which dropdown is currently open
+  const [isEditingBoardName, setIsEditingBoardName] = useState(false)
+  const [editingBoardNameValue, setEditingBoardNameValue] = useState('')
   // Get saved board name from localStorage or use null initially
   const [activeBoardName, setActiveBoardName] = useState(() => {
     return localStorage.getItem('activeBoardName') || null
   })
-  const [showSearch, setShowSearch] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [sidebarSearchTerm, setSidebarSearchTerm] = useState('')
+  const [sidebarAdvancedFiltered, setSidebarAdvancedFiltered] = useState(null)
   const [inlineEditingMemoryId, setInlineEditingMemoryId] = useState(null)
   const [contextMenuPosition, setContextMenuPosition] = useState(null)
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
@@ -178,7 +183,7 @@ function ConspiracyBoard({
   const { profile } = useUserProfile(user)
 
   // Use saved boards hook
-  const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
+  const { savedBoards, saveBoard, loadBoard, deleteBoard, renameBoard } = useSavedBoards(user?.uid)
 
   // Simplify view hook
   const {
@@ -899,6 +904,41 @@ const handleDragEnd = (event) => {
     })
     setActiveBoardName(newBoardName)
     setShowBoardDropdown(false)
+  }
+
+  // Board name editing handlers
+  const handleStartEditingBoardName = () => {
+    // Only allow editing if there's an active named board (not default "Conspiracy")
+    if (activeBoardName && !activeBoardName.startsWith('Untitled Board')) {
+      setEditingBoardNameValue(activeBoardName)
+      setIsEditingBoardName(true)
+    }
+  }
+
+  const handleSaveBoardName = async () => {
+    const newName = editingBoardNameValue.trim()
+    if (!newName || newName === activeBoardName) {
+      setIsEditingBoardName(false)
+      return
+    }
+
+    try {
+      await renameBoard(activeBoardName, newName)
+      setActiveBoardName(newName)
+      localStorage.setItem('activeBoardName', newName)
+    } catch (error) {
+      console.error('Failed to rename board:', error)
+    }
+    setIsEditingBoardName(false)
+  }
+
+  const handleBoardNameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveBoardName()
+    } else if (e.key === 'Escape') {
+      setIsEditingBoardName(false)
+    }
   }
 
   // Constellation management handlers
@@ -2007,9 +2047,24 @@ const handleDragEnd = (event) => {
         <div className="main-content-area">
           <Header
           centerContent={
-            <h2 className="board-name-display">
-              {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
-            </h2>
+            isEditingBoardName ? (
+              <input
+                type="text"
+                className="board-name-input"
+                value={editingBoardNameValue}
+                onChange={(e) => setEditingBoardNameValue(e.target.value)}
+                onBlur={handleSaveBoardName}
+                onKeyDown={handleBoardNameKeyDown}
+                autoFocus
+              />
+            ) : (
+              <h2
+                className={`board-name-display ${activeBoardName && !activeBoardName.startsWith('Untitled Board') ? 'editable' : ''}`}
+                onClick={handleStartEditingBoardName}
+              >
+                {(!activeBoardName || activeBoardName.startsWith('Untitled Board')) ? 'Conspiracy' : activeBoardName}
+              </h2>
+            )
           }
           leftContent={
             <>
@@ -2181,25 +2236,6 @@ const handleDragEnd = (event) => {
                     active: isSimplified
                   },
                   {
-                    label: showOpacityFading ? 'remember' : 'forget',
-                    icon: showOpacityFading ? (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                      </svg>
-                    ) : (
-                      <>
-                        <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                          <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
-                          <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
-                          <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
-                        </svg>
-                      </>
-                    ),
-                    onClick: () => setShowOpacityFading(!showOpacityFading),
-                    active: showOpacityFading
-                  },
-                  {
                     label: showAllInsights ? 'hide insights' : 'show insights',
                     icon: (
                       <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
@@ -2209,17 +2245,6 @@ const handleDragEnd = (event) => {
                     ),
                     onClick: () => setShowAllInsights(!showAllInsights),
                     active: showAllInsights
-                  },
-                  {
-                    label: 'Minimap',
-                    icon: (
-                      <svg width="16" height="16" fill="#666666" viewBox="0 0 16 16">
-                        <path fillRule="evenodd" d="M15.817.113A.5.5 0 0 1 16 .5v14a.5.5 0 0 1-.402.49l-5 1a.502.502 0 0 1-.196 0L5.5 15.01l-4.902.98A.5.5 0 0 1 0 15.5v-14a.5.5 0 0 1 .402-.49l5-1a.5.5 0 0 1 .196 0L10.5.99l4.902-.98a.5.5 0 0 1 .415.103zM10 1.91l-4-.8v12.98l4 .8V1.91zm1 12.98 4-.8V1.11l-4 .8v12.98zm-6-.8V1.11l-4 .8v12.98l4-.8z"/>
-                      </svg>
-                    ),
-                    onClick: () => setShowMinimap(!showMinimap),
-                    active: showMinimap,
-                    title: 'Toggle minimap'
                   },
                   { separator: true },
                   {
@@ -2373,6 +2398,33 @@ const handleDragEnd = (event) => {
             onContextMenu={(e) => handleContextMenu(e, 'canvas')}
             style={{ cursor: isPanning ? 'grabbing' : 'default' }}
           >
+            <ToolRail
+              toolGroups={[
+                [
+                  {
+                    icon: <Plus size={20} />,
+                    label: 'Add Memory',
+                    onClick: () => setShowAddMemoryModal(true),
+                    disabled: isConstellationMode
+                  }
+                ],
+                [
+                  {
+                    icon: <Pin size={20} />,
+                    label: 'Place Pin',
+                    onClick: handleStartPlacingPin,
+                    isActive: isPlacingPin,
+                    disabled: isConstellationMode
+                  },
+                  {
+                    icon: isSimplified ? <BookOpen size={20} /> : <Grid3x3 size={20} />,
+                    label: isSimplified ? 'Narrative' : 'Intuitive',
+                    onClick: toggleSimplify,
+                    isActive: isSimplified
+                  }
+                ]
+              ]}
+            />
             <div
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
@@ -2788,7 +2840,6 @@ const handleDragEnd = (event) => {
         </div>
         <SidebarContainer isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)}>
             <TabbedSidebar
-              showSearchToggle={true}
               defaultTabIndex={0}
               // Library filtering props - TabbedSidebar handles Libraries tab internally
               libraries={libraries}
@@ -2796,18 +2847,12 @@ const handleDragEnd = (event) => {
               onLibrarySelect={selectLibrary}
               getLibraryMemoryCount={getLibraryMemoryCount}
               onLibraryNavigate={() => window.location.href = '/libraries'}
-              searchContent={
-                <Sidebar
-                  memories={sidebarMemories}
-                  droppedMemories={displayMemories}
-                  onRandomlyPlaceMemory={randomlyPlaceMemory}
-                  showSearch={true}
-                  formatTitleForDisplay={formatTitleForDisplay}
-                  isSimplified={isSimplified}
-                  onEditMemory={handleEditMemory}
-                  onDeleteMemory={handleDeleteMemory}
-                />
-              }
+              // Search props
+              memories={sidebarMemories}
+              onSearchFilter={(advancedFiltered, searchTerm) => {
+                setSidebarAdvancedFiltered(advancedFiltered)
+                setSidebarSearchTerm(searchTerm)
+              }}
               tabs={[
                 {
                   label: 'Memories',
@@ -2818,11 +2863,12 @@ const handleDragEnd = (event) => {
                       memories={sidebarMemories}
                       droppedMemories={displayMemories}
                       onRandomlyPlaceMemory={randomlyPlaceMemory}
-                      showSearch={false}
                       formatTitleForDisplay={formatTitleForDisplay}
                       isSimplified={isSimplified}
                       onEditMemory={handleEditMemory}
                       onDeleteMemory={handleDeleteMemory}
+                      searchTerm={sidebarSearchTerm}
+                      advancedFilteredMemories={sidebarAdvancedFiltered}
                     />
                   )
                 },
@@ -2860,6 +2906,7 @@ const handleDragEnd = (event) => {
                       onConstellationSelect={setConstellationSelectedNodes}
                       selectedConstellationNodes={constellationSelectedNodes}
                       onPanToNetwork={handlePanToNetwork}
+                      searchTerm={sidebarSearchTerm}
                     />
                   )
                 }
@@ -2941,45 +2988,45 @@ const handleDragEnd = (event) => {
           />
         )}
 
-        {showSaveBoardModal && (
-          <div className="board-modal-overlay" onClick={() => setShowSaveBoardModal(false)}>
-            <div className="board-modal" onClick={(e) => e.stopPropagation()}>
-              <h3>Save As New Board</h3>
-              <p className="board-modal-subtitle">
-                Enter a name for this board configuration
-              </p>
-              <input
-                type="text"
-                value={boardNameInput}
-                onChange={(e) => setBoardNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSaveBoard()
-                  } else if (e.key === 'Escape') {
-                    setShowSaveBoardModal(false)
-                  }
-                }}
-                placeholder="Board name..."
-                className="board-modal-input"
-                autoFocus
-              />
-              <div className="board-modal-buttons">
-                <button
-                  className="board-modal-cancel"
-                  onClick={() => setShowSaveBoardModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="board-modal-save"
-                  onClick={handleSaveBoard}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Modal
+          isOpen={showSaveBoardModal}
+          onClose={() => setShowSaveBoardModal(false)}
+          title="Save As New Board"
+          className="save-board-modal"
+          footer={
+            <>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowSaveBoardModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveBoard}
+              >
+                Save
+              </button>
+            </>
+          }
+        >
+          <p className="board-modal-subtitle">
+            Enter a name for this board configuration
+          </p>
+          <input
+            type="text"
+            value={boardNameInput}
+            onChange={(e) => setBoardNameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSaveBoard()
+              }
+            }}
+            placeholder="Board name..."
+            className="board-modal-input"
+            autoFocus
+          />
+        </Modal>
 
         {showLoadBoardModal && (
           <div className="board-modal-overlay" onClick={() => setShowLoadBoardModal(false)}>
@@ -3166,6 +3213,10 @@ const handleDragEnd = (event) => {
             onClose={() => setShowSettingsModal(false)}
             onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)}
             deletedCount={deletedMemories.length}
+            showOpacityFading={showOpacityFading}
+            setShowOpacityFading={setShowOpacityFading}
+            showMinimap={showMinimap}
+            setShowMinimap={setShowMinimap}
           />
         )}
 
@@ -3177,6 +3228,10 @@ const handleDragEnd = (event) => {
             onPermanentDelete={permanentlyDeleteMemory}
             onEmptyTrash={emptyTrash}
             onClose={() => setShowRecentlyDeleted(false)}
+            onBackToSettings={() => {
+              setShowRecentlyDeleted(false)
+              setShowSettingsModal(true)
+            }}
             formatTitleForDisplay={formatTitleForDisplay}
           />
         )}
