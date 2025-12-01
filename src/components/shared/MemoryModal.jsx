@@ -27,7 +27,7 @@ function Tooltip({ text, children }) {
   );
 }
 
-export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = null }) {
+export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = null, isSimplified = false }) {
   const { processInputTitle } = useSimplifyView();
   const { confirm } = useConfirm();
   const [memoryUnits, setMemoryUnits] = useState([{
@@ -41,7 +41,7 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     breadcrumbs: ['', '', ''] // Start with 3 empty breadcrumb inputs
   }]);
   const [showBackupStatus, setShowBackupStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState('narrative'); // 'narrative' or 'intuitive'
+  const [activeTab, setActiveTab] = useState(isSimplified ? 'intuitive' : 'narrative');
   const [lastAddedUnitId, setLastAddedUnitId] = useState(null); // Track last added unit for toggle behavior
 
   // Intelligent title generation
@@ -156,8 +156,9 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
       }
       setShowBackupStatus(false);
       setLastAddedUnitId(null); // Reset toggle tracking
+      setActiveTab(isSimplified ? 'intuitive' : 'narrative'); // Sync tab with view mode
     }
-  }, [isOpen, editingMemory]);
+  }, [isOpen, editingMemory, isSimplified]);
 
   const updateUnit = (id, field, value) => {
     setMemoryUnits(units => units.map(unit =>

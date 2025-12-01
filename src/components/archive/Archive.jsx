@@ -581,7 +581,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               <button
                 className={`toolbar-btn ${isSimplified ? 'active' : ''}`}
                 onClick={toggleSimplify}
-                title={isSimplified ? "Normal View" : "Simplified View"}
+                title={isSimplified ? "Narrative View" : "Intuitive View"}
               >
                 {isSimplified ? (
                   // When simplified, show "normal view" icon (grid)
@@ -768,6 +768,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         onClose={() => setShowCreateModal(false)}
         onSave={handleSaveMemory}
         editingMemory={null}
+        isSimplified={isSimplified}
       />
 
       <MemoryModal
@@ -778,6 +779,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         }}
         onSave={handleSaveMemory}
         editingMemory={editingMemory}
+        isSimplified={isSimplified}
       />
 
       {/* Playground Modal */}
