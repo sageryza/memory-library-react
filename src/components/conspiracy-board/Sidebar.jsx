@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { X, Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import MemoryCard from '../shared/MemoryCard'
-import AdvancedSearch from '../shared/AdvancedSearch'
-import SearchInput from '../shared/SearchInput'
 
 function DraggableMemoryCard({ memory, onDoubleClick, onContextMenu, formatTitleForDisplay, isSimplified }) {
   const {
@@ -57,16 +55,14 @@ export default function Sidebar({
   memories,
   droppedMemories = [],
   onRandomlyPlaceMemory,
-  showSearch = false,
-  onCloseSearch,
   formatTitleForDisplay,
   isSimplified,
   onEditMemory,
-  onDeleteMemory
+  onDeleteMemory,
+  // Search props from TabbedSidebar
+  searchTerm = '',
+  advancedFilteredMemories = null
 }) {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
-  const [filteredByAdvanced, setFilteredByAdvanced] = useState(null)
   const [contextMenu, setContextMenu] = useState(null)
 
   // Handle context menu for sidebar memories
@@ -93,10 +89,10 @@ export default function Sidebar({
 
   // Apply advanced filter if active, otherwise use search filter
   let filteredMemories
-  if (filteredByAdvanced) {
+  if (advancedFilteredMemories) {
     // Use advanced search results, but still exclude dropped memories
-    filteredMemories = filteredByAdvanced.filter(memory => !droppedMemoryIds.has(memory.id))
-  } else {
+    filteredMemories = advancedFilteredMemories.filter(memory => !droppedMemoryIds.has(memory.id))
+  } else if (searchTerm) {
     // Use regular search
     filteredMemories = availableMemories.filter(memory => {
       const searchLower = searchTerm.toLowerCase()
@@ -106,62 +102,28 @@ export default function Sidebar({
         (memory.hashtags || []).some(tag => tag.toLowerCase().includes(searchLower))
       )
     })
+  } else {
+    filteredMemories = availableMemories
   }
 
   return (
-    <div className="sidebar">
-      {/* Search Section - Only render when showSearch is true */}
-      {showSearch && (
-        <div className="sidebar-search">
-          <div className="sidebar-search-header">
-            <SearchInput
-              value={searchTerm}
-              onChange={setSearchTerm}
-              onToggleAdvanced={() => setShowAdvancedSearch(!showAdvancedSearch)}
-            />
-            {onCloseSearch && (
-              <button
-                className="close-search-bar-btn"
-                onClick={onCloseSearch}
-                title="Close search"
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-
-          {/* Advanced Search Panel - Inline */}
-          <AdvancedSearch
-            isOpen={showAdvancedSearch}
-            memories={memories}
-            onFilter={(filtered) => {
-              setFilteredByAdvanced(filtered)
-              if (filtered) {
-                setSearchTerm('') // Clear regular search when using advanced
-              }
-            }}
+    <>
+      {filteredMemories.length === 0 ? (
+        <p className="empty-state">
+          {searchTerm ? 'No memories match your search' : 'No memories found'}
+        </p>
+      ) : (
+        filteredMemories.map(memory => (
+          <DraggableMemoryCard
+            key={memory.id}
+            memory={memory}
+            onDoubleClick={onRandomlyPlaceMemory}
+            onContextMenu={handleSidebarContextMenu}
+            formatTitleForDisplay={formatTitleForDisplay}
+            isSimplified={isSimplified}
           />
-        </div>
+        ))
       )}
-
-      <div className={`memory-list ${isSimplified ? 'simplified-grid' : ''}`}>
-        {filteredMemories.length === 0 ? (
-          <p className="empty-state">
-            {searchTerm ? 'No memories match your search' : 'No memories found'}
-          </p>
-        ) : (
-          filteredMemories.map(memory => (
-            <DraggableMemoryCard
-              key={memory.id}
-              memory={memory}
-              onDoubleClick={onRandomlyPlaceMemory}
-              onContextMenu={handleSidebarContextMenu}
-              formatTitleForDisplay={formatTitleForDisplay}
-              isSimplified={isSimplified}
-            />
-          ))
-        )}
-      </div>
 
       {/* Context Menu */}
       {contextMenu && (
@@ -225,6 +187,6 @@ export default function Sidebar({
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
