@@ -1,0 +1,129 @@
+/* ToolRail - Vertical icon toolbar with hover expansion */
+
+.tool-rail {
+  position: absolute;
+  top: var(--spacing-sm);
+  bottom: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--beige-primary);
+  border: 1px solid var(--color-border-gray);
+  border-radius: var(--radius-medium);
+  padding: 0;
+  z-index: 100;
+  transition: width var(--transition-normal);
+  width: 48px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tool-rail.left {
+  left: var(--spacing-sm);
+}
+
+.tool-rail.right {
+  right: var(--spacing-sm);
+}
+
+/* Expanded state */
+.tool-rail.expanded {
+  width: 140px;
+}
+
+/* Tool groups */
+.tool-group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Individual tool button */
+.tool-rail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 12px;
+  cursor: pointer;
+  color: #2F4F4F;
+  transition: all var(--transition-normal);
+  white-space: nowrap;
+  position: relative;
+}
+
+/* When expanded, align left */
+.tool-rail.expanded .tool-rail-btn {
+  justify-content: flex-start;
+}
+
+/* Separator line - only when expanded, inset from edges */
+.tool-rail-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  height: 1px;
+  background: var(--color-border-gray);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.tool-rail.expanded .tool-rail-btn::after {
+  opacity: 1;
+}
+
+/* Last button - no separator */
+.tool-group:last-child .tool-rail-btn:last-child::after {
+  display: none;
+}
+
+.tool-rail-btn:hover {
+  /* No hover background change */
+}
+
+.tool-rail-btn:active {
+  transform: translateY(1px);
+}
+
+.tool-rail-btn.active {
+  background: var(--color-border-primary);
+}
+
+.tool-rail-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Tool icon */
+.tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.tool-icon svg {
+  opacity: 0.9;
+}
+
+.tool-rail-btn:hover .tool-icon svg {
+  opacity: 1;
+}
+
+/* Tool label - hidden when collapsed */
+.tool-label {
+  display: none;
+  font-family: 'Crimson Text', serif;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+.tool-rail.expanded .tool-label {
+  display: block;
+}
