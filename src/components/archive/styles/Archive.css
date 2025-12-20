@@ -61,6 +61,7 @@ textarea {
     overflow-y: auto;
     overflow-x: hidden;
     min-width: 0;
+    position: relative; /* For ToolRail positioning */
 }
 
 /* ===== CENTER CONTENT (Active Hashtag/Library Display) ===== */

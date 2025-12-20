@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { DndContext, DragOverlay, useDroppable, useDraggable, pointerWithin } from '@dnd-kit/core';
-import { Library } from 'lucide-react';
+import { Library, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useChronologyStateV2 } from '../hooks/useChronologyStateV2';
 import useLibraries from '../hooks/useLibraries';
@@ -8,6 +8,7 @@ import useLibraryFilter from '../hooks/useLibraryFilter';
 import Header from './shared/Header';
 import SidebarWrapper from './shared/Sidebar';
 import TabbedSidebar from './shared/TabbedSidebar';
+import ToolRail from './shared/ToolRail';
 import MemoryCard from './shared/MemoryCard';
 import { ensureStringId } from '../utils/generateId';
 import './ChronologyV2.css';
@@ -166,8 +167,11 @@ function DroppableSidebarArea({ children, isOver }) {
 }
 
 // Sidebar content with memory list
-function SidebarMemoryList({ memories, searchTerm, setSearchTerm }) {
+function SidebarMemoryList({ memories, searchTerm = '', advancedFilteredMemories = null }) {
   const filteredMemories = useMemo(() => {
+    // Use advanced filter if available
+    if (advancedFilteredMemories) return advancedFilteredMemories;
+    // Otherwise use text search
     if (!searchTerm) return memories;
     const lower = searchTerm.toLowerCase();
     return memories.filter(m =>
@@ -175,31 +179,20 @@ function SidebarMemoryList({ memories, searchTerm, setSearchTerm }) {
       (m.content || '').toLowerCase().includes(lower) ||
       (m.hashtags || []).some(t => t.toLowerCase().includes(lower))
     );
-  }, [memories, searchTerm]);
+  }, [memories, searchTerm, advancedFilteredMemories]);
 
   return (
-    <div className="sidebar-memory-list">
-      <div className="sidebar-search">
-        <input
-          type="text"
-          placeholder="Search memories..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="sidebar-search-input"
-        />
-      </div>
-      <div className="memory-list">
-        {filteredMemories.length === 0 ? (
-          <p className="empty-state">
-            {searchTerm ? 'No memories match your search' : 'All memories are on the timeline'}
-          </p>
-        ) : (
-          filteredMemories.map(memory => (
-            <DraggableSidebarCard key={memory.id} memory={memory} />
-          ))
-        )}
-      </div>
-    </div>
+    <>
+      {filteredMemories.length === 0 ? (
+        <p className="empty-state">
+          {searchTerm ? 'No memories match your search' : 'All memories are on the timeline'}
+        </p>
+      ) : (
+        filteredMemories.map(memory => (
+          <DraggableSidebarCard key={memory.id} memory={memory} />
+        ))
+      )}
+    </>
   );
 }
 
@@ -217,6 +210,7 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [advancedFilteredMemories, setAdvancedFilteredMemories] = useState(null);
   const [activeDragData, setActiveDragData] = useState(null);
   const [dropIndicator, setDropIndicator] = useState(null);
   const [isOverSidebar, setIsOverSidebar] = useState(false);
@@ -374,18 +368,31 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
       onDragEnd={handleDragEnd}
     >
       <div className="chronology-v2">
-        <Header centerContent={<h2 className="header-title">Chronology</h2>} />
+        <div className="main-content-area">
+          <Header centerContent={<h2 className="header-title">Chronology</h2>} />
 
-        <div className="chronology-main">
-          <Timeline
-            memories={timelineMemories}
-            dropIndicator={activeDragData ? dropIndicator : null}
-          />
+          <div className="chronology-main">
+            <ToolRail
+              toolGroups={[
+                [
+                  {
+                    icon: <Plus size={20} />,
+                    label: 'Add Memory',
+                    onClick: () => window.location.href = '/archive'
+                  }
+                ]
+              ]}
+            />
+            <Timeline
+              memories={timelineMemories}
+              dropIndicator={activeDragData ? dropIndicator : null}
+            />
+          </div>
+        </div>
 
-          <SidebarWrapper isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)}>
+        <SidebarWrapper isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)}>
             <DroppableSidebarArea isOver={isOverSidebar}>
               <TabbedSidebar
-                showSearchToggle={false}
                 defaultTabIndex={0}
                 // Library filtering props - TabbedSidebar handles Libraries tab internally
                 libraries={libraries}
@@ -393,6 +400,12 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
                 onLibrarySelect={selectLibrary}
                 getLibraryMemoryCount={getLibraryMemoryCount}
                 onLibraryNavigate={() => window.location.href = '/libraries'}
+                // Search props
+                memories={sidebarMemories}
+                onSearchFilter={(advancedFiltered, term) => {
+                  setAdvancedFilteredMemories(advancedFiltered);
+                  setSearchTerm(term);
+                }}
                 tabs={[
                   {
                     label: 'Memories',
@@ -401,7 +414,7 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
                       <SidebarMemoryList
                         memories={sidebarMemories}
                         searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
+                        advancedFilteredMemories={advancedFilteredMemories}
                       />
                     )
                   }
@@ -409,7 +422,6 @@ export default function ChronologyV2({ memories = [], memoriesLoading }) {
               />
             </DroppableSidebarArea>
           </SidebarWrapper>
-        </div>
 
         <DragOverlay>
           {activeDragData?.memory && (

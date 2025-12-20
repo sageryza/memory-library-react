@@ -16,6 +16,7 @@ import Header from '../shared/Header';
 import LibraryIcon from '../shared/LibraryIcon';
 import TabbedSidebar from '../shared/TabbedSidebar';
 import SidebarContainer from '../shared/Sidebar';
+import ToolRail from '../shared/ToolRail';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import './LibrarySidebar.css';
 import './styles/Archive.css';
@@ -630,6 +631,17 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       <div className="archive-main-layout">
         {/* Main Content */}
         <div className="archive-content-area">
+          <ToolRail
+            toolGroups={[
+              [
+                {
+                  icon: <Plus size={20} />,
+                  label: 'Add Memory',
+                  onClick: () => setShowCreateModal(true)
+                }
+              ]
+            ]}
+          />
           {filteredMemories.length === 0 ? (
             <div className="empty-state">
               <h3>No Memories Found</h3>

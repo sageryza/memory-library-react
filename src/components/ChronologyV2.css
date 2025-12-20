@@ -3,8 +3,17 @@
 .chronology-v2 {
   height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* Row for full-height sidebar */
   background: #FFFFFF;
+  overflow: hidden;
+}
+
+/* Main content area (header + timeline) */
+.chronology-v2 > .main-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -21,6 +30,7 @@
   display: flex;
   overflow: hidden;
   min-width: 0; /* Prevent flex children from overflowing */
+  position: relative; /* For ToolRail positioning */
 }
 
 .chronology-v2 .loading-state {
