@@ -15,7 +15,6 @@ import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
 import ChronologyV2 from './components/ChronologyV2'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
-import StorageIndicator from './components/shared/StorageIndicator'
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import OfflineIndicator from './components/shared/OfflineIndicator'
 import UserAvatar from './components/shared/UserAvatar'
@@ -38,20 +37,7 @@ function PageTitle() {
     };
 
     document.title = titles[location.pathname] || 'Memory Library';
-
-    // Allow scrolling on Home page, prevent on other pages
-    const root = document.getElementById('root');
-    const body = document.body;
-
-    if (location.pathname === '/') {
-      root.style.overflow = 'auto';
-      root.style.height = 'auto';
-      body.style.overflow = 'auto';
-    } else {
-      root.style.overflow = 'hidden';
-      root.style.height = '100vh';
-      body.style.overflow = 'hidden';
-    }
+    // Scrolling is handled via CSS - see PAGE TYPE SYSTEM in App.css
   }, [location]);
 
   return null;
@@ -174,13 +160,7 @@ function App() {
     deleteMemory,
     restoreMemory,
     permanentlyDeleteMemory,
-    emptyTrash,
-    isUsingLocalStorage,
-    memoryCount,
-    maxMemories,
-    isApproachingLimit,
-    hasReachedLimit,
-    storageInfo
+    emptyTrash
   } = useMemories(user?.uid, authLoading);
   const [migrating, setMigrating] = useState(false);
   const [hasMigrationRun, setHasMigrationRun] = useState(false);
@@ -250,17 +230,6 @@ function App() {
         {/* Show navigation */}
         <Navigation user={user} profile={profile} onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)} />
 
-        {/* Storage indicator for unauthenticated users */}
-        {isUsingLocalStorage && (
-          <StorageIndicator
-            isUsingLocalStorage={isUsingLocalStorage}
-            memoryCount={memoryCount}
-            maxMemories={maxMemories}
-            isApproachingLimit={isApproachingLimit}
-            hasReachedLimit={hasReachedLimit}
-            storageInfo={storageInfo}
-          />
-        )}
 
         <Routes>
           <Route

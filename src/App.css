@@ -35,6 +35,35 @@ body {
   overflow: hidden;
 }
 
+/* ===========================================
+   PAGE TYPE SYSTEM
+   ===========================================
+
+   This app has two types of pages:
+
+   1. FIXED PAGES (default) - App-like views that fill the viewport
+      - Examples: Conspiracy Board, Archive, Chronology
+      - Have internal scrolling, sidebars, canvas panning
+      - Body/root overflow is hidden (prevents browser bounce effects)
+      - No wrapper class needed - this is the default behavior
+
+   2. SCROLLABLE PAGES - Traditional website-style pages
+      - Examples: Home, Login
+      - Content flows down and page scrolls normally
+      - Wrap content in .scrollable-page class
+
+   To make a page scrollable, wrap its content:
+   <div className="scrollable-page">
+     <YourContent />
+   </div>
+=========================================== */
+
+.scrollable-page {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* Navigation */
 .app-navigation {
   display: none; /* Hidden */
@@ -379,12 +408,10 @@ body {
 /* Sidebar Toggle Tab */
 .sidebar-toggle-tab {
   position: absolute;
-  right: 300px;
-  top: 45px;
+  left: -20px;
+  top: 55px;
   width: 20px;
   height: 30px;
-  max-height: 30px;
-  min-height: 30px;
   background: #FFFFFF;
   border: 1px solid var(--color-border-gray);
   border-right: 1px solid #FFFFFF;
@@ -395,62 +422,20 @@ body {
   justify-content: center;
   transition: all 0.2s ease;
   z-index: 11;
-  padding: 0 !important;
-  margin: 0 !important;
-  color: transparent;
-  outline: none !important;
-  box-sizing: border-box !important;
-  overflow: hidden;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  flex-shrink: 0;
-}
-
-.sidebar-toggle-tab svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
-.sidebar-toggle-tab * {
-  outline: none !important;
+  color: var(--color-text-muted);
 }
 
 .sidebar-toggle-tab:hover {
-  width: 30px !important;
-  max-width: 30px !important;
-  min-width: 30px !important;
-  height: 30px !important;
-  max-height: 30px !important;
-  min-height: 30px !important;
-  color: var(--color-border-medium);
-  outline: none !important;
-  border: 1px solid var(--color-border-gray);
-  border-right: 1px solid #FFFFFF;
-  line-height: 1 !important;
-}
-
-.sidebar-toggle-tab:focus {
-  outline: none !important;
-}
-
-.sidebar-toggle-tab:active {
-  outline: none !important;
-}
-
-.sidebar-toggle-tab:focus-visible {
-  outline: none !important;
+  width: 30px;
+  left: -30px;
+  color: var(--color-text-secondary);
 }
 
 .sidebar-wrapper.closed .sidebar-toggle-tab {
-  width: 20px;
   left: -20px;
-  right: auto;
 }
 
 .sidebar-wrapper.closed .sidebar-toggle-tab:hover {
-  width: 30px;
   left: -30px;
 }
 
@@ -1418,6 +1403,11 @@ body {
   border-radius: var(--radius-small);
   margin-bottom: 20px;
   box-sizing: border-box;
+}
+
+/* Remove margin when inside shared Modal (footer provides spacing) */
+.modal-body .board-modal-input {
+  margin-bottom: 0;
 }
 
 /* Focus styles inherited from global input:focus rule in components.css */

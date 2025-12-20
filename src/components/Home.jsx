@@ -4,7 +4,7 @@ import './Home.css';
 
 function Home() {
   return (
-    <div className="home-container">
+    <div className="scrollable-page home-container">
       <header className="home-header">
         <div className="header-content">
           <h1>Memory Library</h1>

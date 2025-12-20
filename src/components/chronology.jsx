@@ -9,11 +9,9 @@ import TabbedSidebar from './shared/TabbedSidebar';
 import SidebarContainer from './shared/Sidebar';
 import Sidebar from './conspiracy-board/Sidebar';
 import Header from './shared/Header';
-import LibraryIcon from './shared/LibraryIcon';
 import useLibraries from '../hooks/useLibraries';
 import useSimplifyView from '../hooks/useSimplifyView';
 import { getLockedMemoryIds } from '../utils/getLockedMemoryIds';
-import { LibraryCard } from './archive/LibrarySidebar';
 import MemoryCard from './shared/MemoryCard';
 import './shared/Hashtag.css';
 import './archive/LibrarySidebar.css';
@@ -48,6 +46,8 @@ export default function Chronology({ memories = [], memoriesLoading }) {
   const [focusedIndex, setFocusedIndex] = useState(1); // Timeline index (not memory index)
   const [sidebarMemories, setSidebarMemories] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarSearchTerm, setSidebarSearchTerm] = useState('');
+  const [sidebarAdvancedFiltered, setSidebarAdvancedFiltered] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const timelineRef = useRef(null);
@@ -912,7 +912,8 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       }}
     >
       <div className="app-container">
-        <Header
+        <div className="main-content-area">
+          <Header
           centerContent={
             <h2 className="board-name-display">Chronology</h2>
           }
@@ -1088,23 +1089,26 @@ export default function Chronology({ memories = [], memoriesLoading }) {
             </div>
           </div>
         </div>
+        </div>
 
         <SidebarContainer isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)}>
           <TabbedSidebar
-            showSearchToggle={true}
             defaultTabIndex={0}
-            searchContent={
-              <Sidebar
-                memories={memories}
-                droppedMemories={timeline.filter(item => item.type === 'memory')}
-                onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
-                showSearch={true}
-                formatTitleForDisplay={formatTitleForDisplay}
-                isSimplified={isSimplified}
-                onEditMemory={null}
-                onDeleteMemory={null}
-              />
-            }
+            // Library filtering props - TabbedSidebar handles Libraries tab internally
+            libraries={libraries}
+            selectedLibraryId={currentLibrary}
+            onLibrarySelect={handleLibrarySelect}
+            getLibraryMemoryCount={(libraryId) => {
+              const library = libraries.find(lib => lib.id === libraryId);
+              return library?.memoryIds?.length || 0;
+            }}
+            onLibraryNavigate={() => window.location.href = '/libraries'}
+            // Search props
+            memories={memories}
+            onSearchFilter={(advancedFiltered, searchTerm) => {
+              setSidebarAdvancedFiltered(advancedFiltered);
+              setSidebarSearchTerm(searchTerm);
+            }}
             tabs={[
               {
                 label: 'Memories',
@@ -1115,44 +1119,18 @@ export default function Chronology({ memories = [], memoriesLoading }) {
                     memories={memories}
                     droppedMemories={timeline.filter(item => item.type === 'memory')}
                     onRandomlyPlaceMemory={handleRandomlyPlaceMemory}
-                    showSearch={false}
                     formatTitleForDisplay={formatTitleForDisplay}
                     isSimplified={isSimplified}
                     onEditMemory={null}
                     onDeleteMemory={null}
+                    searchTerm={sidebarSearchTerm}
+                    advancedFilteredMemories={sidebarAdvancedFiltered}
                   />
-                )
-              },
-              {
-                label: 'Libraries',
-                icon: <LibraryIcon size={16} color="currentColor" />,
-                onNavigate: () => window.location.href = '/libraries',
-                content: (
-                  <div className="sidebar-content">
-                    <div className="sidebar-libraries-grid">
-                      {libraries.length === 0 ? (
-                        <div className="empty-state">
-                          <p>No libraries yet</p>
-                        </div>
-                      ) : (
-                        libraries.map(library => (
-                          <LibraryCard
-                            key={library.id}
-                            library={library}
-                            isSelected={currentLibrary === library.id}
-                            onClick={() => handleLibrarySelect(library.id)}
-                            memoryCount={library.memoryIds?.length || 0}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
                 )
               }
             ]}
           />
         </SidebarContainer>
-      </div>
 
       <DragOverlay>
         {activeDragId && (

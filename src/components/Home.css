@@ -1,11 +1,9 @@
 .home-container {
+    /* Scrolling handled by .scrollable-page class */
     min-height: 100vh;
-    height: auto;
     display: flex;
     flex-direction: column;
     background: rgba(255, 255, 255, 0.8);
-    overflow-y: auto;
-    overflow-x: hidden;
 }
 
 /* Header */
