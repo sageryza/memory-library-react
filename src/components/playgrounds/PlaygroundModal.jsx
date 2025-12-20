@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePlaygrounds } from '../../hooks/usePlaygrounds';
+import useSimplifyView from '../../hooks/useSimplifyView';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { calculateCanvasDimensions } from '../../utils/playgroundUtils';
 import PlaygroundMemoryCard from './PlaygroundMemoryCard';
@@ -20,6 +21,8 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
     removeCentralHashtag
   } = usePlaygrounds(userId);
 
+  const { processInputTitle } = useSimplifyView();
+
   const [playground, setPlayground] = useState(null);
   const [memories, setMemories] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,12 +35,14 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [inlineEditingMemoryId, setInlineEditingMemoryId] = useState(null);
 
   const { confirm } = useConfirm();
   const canvasRef = useRef(null);
   const modalContentRef = useRef(null);
   const dragElementRef = useRef(null);
   const dragStartPosRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
 
   // Get the current playground and reset pan offset
   useEffect(() => {
@@ -89,7 +94,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
     };
 
     const handleMouseUp = () => {
-      if (draggingMemory && dragElementRef.current) {
+      if (draggingMemory && dragElementRef.current && dragStartPosRef.current) {
         // Get current transform values
         const transformMatch = dragElementRef.current.style.transform.match(/translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\)/);
         const deltaX = transformMatch ? parseFloat(transformMatch[1]) : 0;
@@ -149,6 +154,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
 
   const handleMouseDown = (e, memory) => {
     if (e.button !== 0) return; // Only left click
+    if (!memory.position) return; // Safety check
 
     // Store reference to the dragging element
     dragElementRef.current = e.currentTarget;
@@ -312,6 +318,9 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const handleCanvasPanMove = (e) => {
     if (!isPanning) return;
 
+    // Mark that we actually panned (to distinguish from simple clicks)
+    didPanRef.current = true;
+
     const newX = e.clientX - panStart.x;
     const newY = e.clientY - panStart.y;
 
@@ -328,6 +337,141 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const handleCanvasPanEnd = () => {
     setIsPanning(false);
   };
+
+  // Calculate position on canvas from click event
+  const getCanvasPosition = (e) => {
+    if (!canvasRef.current) return null;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: e.clientX - canvasRect.left,
+      y: e.clientY - canvasRect.top
+    };
+  };
+
+  // Track if we actually panned (moved the mouse while holding down)
+  const didPanRef = useRef(false);
+  // Track if we're currently creating a memory (to prevent rapid clicks)
+  const isCreatingMemoryRef = useRef(false);
+
+  // Create inline memory at click position
+  const handleCanvasClick = async (e) => {
+    // Only create memory if clicking directly on canvas (not on cards or hashtag)
+    if (!e.target.classList.contains('playground-canvas')) return;
+
+    // Don't create if we actually panned (moved the canvas)
+    if (didPanRef.current) {
+      didPanRef.current = false;
+      return;
+    }
+
+    // Prevent rapid clicks from creating multiple memories
+    if (isCreatingMemoryRef.current) return;
+
+    // If already inline editing, save that memory first
+    if (inlineEditingMemoryId) {
+      const memory = memories.find(m => m.id === inlineEditingMemoryId);
+      if (memory) {
+        handleInlineMemoryBlur(inlineEditingMemoryId, memory.title || '');
+      }
+      return;
+    }
+
+    const position = getCanvasPosition(e);
+    if (!position) return;
+
+    isCreatingMemoryRef.current = true;
+
+    try {
+      // Create memory data
+      const memoryData = {
+        title: '',
+        content: '',
+        hashtags: [],
+        timestamp: new Date().toISOString()
+      };
+
+      // Add to playground (this saves to Firebase and returns the new memory)
+      const newMemoryId = await addMemoryToPlayground(playgroundId, memoryData, memories, canvasSize, position);
+
+      // Set as inline editing
+      if (newMemoryId) {
+        setInlineEditingMemoryId(newMemoryId);
+      }
+    } catch (error) {
+      console.error('Failed to create memory:', error);
+    } finally {
+      isCreatingMemoryRef.current = false;
+    }
+  };
+
+  // Inline editing handlers
+  const handleInlineMemoryUpdate = useCallback((memoryId, newTitle) => {
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Update local state immediately for responsive UI
+    setMemories(prev => prev.map(m =>
+      m.id === memoryId ? { ...m, title: newTitle } : m
+    ));
+
+    // Debounce the Firebase update
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        const titleWithCommas = newTitle.replace(/\n/g, ', ');
+        const processedTitle = processInputTitle(titleWithCommas);
+        await updatePlaygroundMemory(memoryId, { title: processedTitle });
+      } catch (error) {
+        console.error('Failed to auto-save memory update:', error);
+      }
+    }, 1000);
+  }, [updatePlaygroundMemory, processInputTitle]);
+
+  const handleInlineMemoryBlur = useCallback(async (memoryId, finalTitle) => {
+    // Clear any pending debounce
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    setInlineEditingMemoryId(null);
+
+    // If blank, delete the memory
+    if (!finalTitle || !finalTitle.trim()) {
+      try {
+        await deletePlaygroundMemory(memoryId);
+      } catch (error) {
+        console.error('Failed to delete empty memory:', error);
+      }
+      return;
+    }
+
+    // Save final title
+    const titleWithCommas = finalTitle.replace(/\n/g, ', ');
+    const processedTitle = processInputTitle(titleWithCommas);
+
+    try {
+      await updatePlaygroundMemory(memoryId, { title: processedTitle });
+    } catch (error) {
+      console.error('Failed to update memory:', error);
+    }
+  }, [updatePlaygroundMemory, deletePlaygroundMemory, processInputTitle]);
+
+  const handleInlineMemoryEscape = useCallback(async (memoryId) => {
+    // Clear any pending debounce
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    setInlineEditingMemoryId(null);
+
+    // Delete the memory
+    try {
+      await deletePlaygroundMemory(memoryId);
+    } catch (error) {
+      console.error('Failed to delete memory:', error);
+    }
+  }, [deletePlaygroundMemory]);
 
   const handleCloseAddModal = () => {
     setShowAddModal(false);
@@ -375,6 +519,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
           <div
             className="playground-canvas"
             ref={canvasRef}
+            onClick={handleCanvasClick}
             style={{
               width: `${canvasSize.width}px`,
               height: `${canvasSize.height}px`,
@@ -397,6 +542,10 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
                 onMouseDown={handleMouseDown}
                 onContextMenu={handleMemoryContextMenu}
                 isDragging={draggingMemory?.id === memory.id}
+                isInlineEditing={inlineEditingMemoryId === memory.id}
+                onInlineUpdate={handleInlineMemoryUpdate}
+                onInlineBlur={handleInlineMemoryBlur}
+                onInlineEscape={handleInlineMemoryEscape}
               />
             ))}
           </div>

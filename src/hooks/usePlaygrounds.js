@@ -158,16 +158,16 @@ export const usePlaygrounds = (userId) => {
   };
 
   // Add memory to playground
-  const addMemoryToPlayground = async (playgroundId, memoryData, existingMemories = [], canvasSize) => {
+  const addMemoryToPlayground = async (playgroundId, memoryData, existingMemories = [], canvasSize, customPosition = null) => {
     if (!userId || !playgroundId) return null;
 
     try {
       // Get the playground to check for central hashtag
       const playground = playgrounds.find(p => p.id === playgroundId);
 
-      // Generate random position with collision detection
+      // Use custom position if provided, otherwise generate random position
       const cardSize = { width: 200, height: 150 };
-      const position = generateRandomPosition(existingMemories, canvasSize, cardSize);
+      const position = customPosition || generateRandomPosition(existingMemories, canvasSize, cardSize);
 
       // Add central hashtag if it exists
       let hashtags = memoryData.hashtags || [];
@@ -195,14 +195,8 @@ export const usePlaygrounds = (userId) => {
         updatedAt: serverTimestamp()
       });
 
-      return {
-        id: docRef.id,
-        ...memoryData,
-        playgroundId,
-        hashtags,
-        position,
-        isPractice: true
-      };
+      // Return just the ID for inline editing, the Firestore listener will update state
+      return docRef.id;
     } catch (error) {
       console.error('Error adding memory to playground:', error);
       throw error;
