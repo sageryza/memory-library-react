@@ -1,6 +1,11 @@
 /* Constellation Sidebar Styles */
-/* Base sidebar structure comes from App.css (.sidebar, .sidebar-header, .sidebar-content) */
 /* 📖 For styling guidelines, see /STYLING-GUIDE.md */
+
+.constellation-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 
 /* Customize header for constellation tabs */
 .constellation-header {
@@ -50,10 +55,11 @@
   padding-bottom: 7px;
 }
 
-/* Content area - extends global .sidebar-content */
+/* Content area */
 .constellation-content {
-  /* Global styles from .sidebar-content are inherited */
-  min-height: 100%;
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
   cursor: default;
 }
 

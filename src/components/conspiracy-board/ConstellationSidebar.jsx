@@ -19,7 +19,9 @@ export default function ConstellationSidebar({
   onLoadConstellation,
   onConstellationSelect,
   selectedConstellationNodes,
-  onPanToNetwork
+  onPanToNetwork,
+  // Search props from TabbedSidebar
+  searchTerm = ''
 }) {
   const { user } = useAuth()
   const { constellations, saveConstellation, loadConstellation, deleteConstellation } = useConstellations(user?.uid)
@@ -537,7 +539,7 @@ export default function ConstellationSidebar({
   }
 
   return (
-    <div className="sidebar" onClick={handleDeselectAll}>
+    <div className="constellation-sidebar" onClick={handleDeselectAll}>
       {/* File folder tabs */}
       {/* TODO: Fix tab styling issues:
           - Add space above Select/Load tabs
@@ -563,8 +565,8 @@ export default function ConstellationSidebar({
         </button>
       </div>
 
-      {/* Tab content - using memory-list class for consistent styling */}
-      <div className="memory-list constellation-content">
+      {/* Tab content */}
+      <div className="constellation-content">
         {activeTab === 'select' ? (
           <div className="select-content">
             {networksWithVisibility.length === 0 ? (
@@ -607,40 +609,52 @@ export default function ConstellationSidebar({
           </div>
         ) : (
           <div className="load-content">
-            {constellations.length === 0 ? (
-              <p className="no-constellations">No saved constellations yet</p>
-            ) : (
-              <div className="saved-list">
-                {constellations.map(constellation => (
-                  <div
-                    key={constellation.id}
-                    className={`saved-item ${selectedSavedId === constellation.id ? 'selected' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedSavedId(constellation.id)
-                    }}
-                  >
-                    {createMiniVisualization({
-                      memories: constellation.memories || [],
-                      pins: constellation.pins || [],
-                      connections: constellation.connections || []
-                    })}
-                    <div className="saved-name">{constellation.name || 'Untitled'}</div>
+            {(() => {
+              // Filter constellations by search term
+              const filteredConstellations = constellations.filter(c => {
+                if (!searchTerm) return true
+                return (c.name || 'Untitled').toLowerCase().includes(searchTerm.toLowerCase())
+              })
 
-                    {selectedSavedId === constellation.id && (
-                      <div className="saved-actions">
-                        <button onClick={handleLoadConstellation} className="btn-load">
-                          Add to current board
-                        </button>
-                        <button onClick={handleDeleteConstellation} className="btn-delete">
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+              if (constellations.length === 0) {
+                return <p className="no-constellations">No saved constellations yet</p>
+              }
+              if (filteredConstellations.length === 0) {
+                return <p className="no-constellations">No constellations match your search</p>
+              }
+              return (
+                <div className="saved-list">
+                  {filteredConstellations.map(constellation => (
+                    <div
+                      key={constellation.id}
+                      className={`saved-item ${selectedSavedId === constellation.id ? 'selected' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedSavedId(constellation.id)
+                      }}
+                    >
+                      {createMiniVisualization({
+                        memories: constellation.memories || [],
+                        pins: constellation.pins || [],
+                        connections: constellation.connections || []
+                      })}
+                      <div className="saved-name">{constellation.name || 'Untitled'}</div>
+
+                      {selectedSavedId === constellation.id && (
+                        <div className="saved-actions">
+                          <button onClick={handleLoadConstellation} className="btn-load">
+                            Add to current board
+                          </button>
+                          <button onClick={handleDeleteConstellation} className="btn-delete">
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>

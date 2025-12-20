@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -2421,6 +2421,12 @@ const handleDragEnd = (event) => {
                     label: isSimplified ? 'Narrative' : 'Intuitive',
                     onClick: toggleSimplify,
                     isActive: isSimplified
+                  },
+                  {
+                    icon: <Map size={20} />,
+                    label: 'Minimap',
+                    onClick: () => setShowMinimap(!showMinimap),
+                    isActive: showMinimap
                   }
                 ]
               ]}
@@ -2790,9 +2796,9 @@ const handleDragEnd = (event) => {
                       const viewportHeight = window.innerHeight
 
                       // Calculate what portion of the canvas is visible
-                      // The viewport shows canvas coordinates from (CANVAS_OFFSET_X - panOffset.x) to (CANVAS_OFFSET_X - panOffset.x + viewportWidth)
-                      const canvasLeft = CANVAS_OFFSET_X - panOffset.x
-                      const canvasTop = CANVAS_OFFSET_Y - panOffset.y
+                      // Convert screen origin to canvas coordinates (must account for zoom)
+                      const canvasLeft = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
+                      const canvasTop = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
 
                       // Account for zoom - when zoomed out, viewport shows more canvas
                       const canvasVisibleWidth = viewportWidth / zoomLevel
@@ -3217,6 +3223,8 @@ const handleDragEnd = (event) => {
             setShowOpacityFading={setShowOpacityFading}
             showMinimap={showMinimap}
             setShowMinimap={setShowMinimap}
+            user={user}
+            memoryCount={memories.length}
           />
         )}
 
