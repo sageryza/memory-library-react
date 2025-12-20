@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Minus, BookOpen, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Minus, BookOpen, Trash2, ChevronRight, Database, LogOut } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import './SettingsModal.css'
 
 function ToggleSwitch({ enabled, onChange }) {
@@ -38,9 +39,12 @@ export default function SettingsModal({
   showOpacityFading,
   setShowOpacityFading,
   showMinimap,
-  setShowMinimap
+  setShowMinimap,
+  user = null,
+  memoryCount = 0
 }) {
-  const [openSection, setOpenSection] = useState('conspiracy')
+  const [openSection, setOpenSection] = useState('account')
+  const isUsingLocalStorage = !user
 
   const toggleSection = (section) => {
     setOpenSection(openSection === section ? null : section)
@@ -55,7 +59,48 @@ export default function SettingsModal({
         </div>
 
         <div className="settings-content">
-          {/* Tutorial - standalone at top */}
+          {/* Account Section */}
+          <AccordionSection
+            title="Account"
+            isOpen={openSection === 'account'}
+            onToggle={() => toggleSection('account')}
+          >
+            {isUsingLocalStorage ? (
+              <div className="account-section">
+                <div className="account-status">
+                  <Database size={16} />
+                  <span>Demo Mode</span>
+                </div>
+                <p className="account-info">Data stored locally in browser</p>
+                <div className="storage-stats">
+                  <span>Memories: {memoryCount}</span>
+                </div>
+                <Link
+                  to="/login"
+                  className="account-button"
+                  onClick={onClose}
+                >
+                  Sign Up to Sync
+                </Link>
+              </div>
+            ) : (
+              <div className="account-section">
+                <div className="account-status signed-in">
+                  <span>{user.email}</span>
+                </div>
+                <Link
+                  to="/login?action=signout"
+                  className="account-button secondary"
+                  onClick={onClose}
+                >
+                  <LogOut size={14} />
+                  Sign Out
+                </Link>
+              </div>
+            )}
+          </AccordionSection>
+
+          {/* Tutorial - standalone */}
           <button
             className="settings-row standalone"
             onClick={() => alert('Tutorial coming soon!')}

@@ -444,6 +444,40 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
                   </div>
                 )}
 
+                {/* Additional Context Section - now above toggle buttons */}
+                {unit.showContext && (
+                  <div className="form-group additional-context-group context-section">
+                    <div className="form-row">
+                      <label>Context:</label>
+                      <textarea
+                        className="additional-context"
+                        rows="4"
+                        placeholder="why do you think you remembered this for so long?"
+                        value={unit.additionalContext}
+                        onChange={(e) => updateUnit(unit.id, 'additionalContext', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Tags Section - now above toggle buttons */}
+                {unit.showSort && (
+                  <div className="sort-section">
+                    <div className="form-group">
+                      <div className="form-row">
+                        <label>Hashtags:</label>
+                        <input
+                          type="text"
+                          className="memory-hashtags-input"
+                          placeholder=""
+                          value={unit.hashtags}
+                          onChange={(e) => updateUnit(unit.id, 'hashtags', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Toggle buttons for expandable sections */}
                 <div className="form-toggle-buttons">
                   <button
@@ -469,53 +503,21 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
                       Add New
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn-toggle-section save-btn"
-                    onClick={handleSave}
-                  >
-                    Save
-                  </button>
-                </div>
-
-                {/* Additional Context Section */}
-                <div
-                  className="form-group additional-context-group context-section"
-                  style={{ display: unit.showContext ? 'block' : 'none' }}
-                >
-                  <div className="form-row">
-                    <label>Context:</label>
-                    <textarea
-                      className="additional-context"
-                      rows="4"
-                      placeholder="why do you think you remembered this for so long?"
-                      value={unit.additionalContext}
-                      onChange={(e) => updateUnit(unit.id, 'additionalContext', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Tags Section */}
-                <div
-                  className="sort-section"
-                  style={{ display: unit.showSort ? 'block' : 'none' }}
-                >
-                  <div className="form-group">
-                    <div className="form-row">
-                      <label>Hashtags:</label>
-                      <input
-                        type="text"
-                        className="memory-hashtags-input"
-                        placeholder=""
-                        value={unit.hashtags}
-                        onChange={(e) => updateUnit(unit.id, 'hashtags', e.target.value)}
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Footer with Save button */}
+        <div className="add-memory-footer">
+          <button
+            type="button"
+            className="btn-primary save-btn"
+            onClick={handleSave}
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>
