@@ -40,6 +40,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
   const { confirm } = useConfirm();
   const canvasRef = useRef(null);
   const modalContentRef = useRef(null);
+  const canvasContainerRef = useRef(null);
   const dragElementRef = useRef(null);
   const dragStartPosRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
@@ -151,6 +152,54 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, []);
+
+  // Prevent browser gestures on canvas (back swipe, pinch zoom, etc.)
+  useEffect(() => {
+    const node = canvasContainerRef.current;
+    if (!node) return;
+
+    const handleWheel = (e) => {
+      // Prevent browser back/forward navigation from trackpad swipe
+      e.preventDefault();
+    };
+
+    const handleTouchStart = (e) => {
+      // Prevent multi-touch gestures
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      // Prevent multi-touch gestures
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // iOS Safari gesture events (pinch-to-zoom)
+    const handleGestureStart = (e) => {
+      e.preventDefault();
+    };
+
+    const handleGestureChange = (e) => {
+      e.preventDefault();
+    };
+
+    node.addEventListener('wheel', handleWheel, { passive: false });
+    node.addEventListener('touchstart', handleTouchStart, { passive: false });
+    node.addEventListener('touchmove', handleTouchMove, { passive: false });
+    node.addEventListener('gesturestart', handleGestureStart, { passive: false });
+    node.addEventListener('gesturechange', handleGestureChange, { passive: false });
+
+    return () => {
+      node.removeEventListener('wheel', handleWheel);
+      node.removeEventListener('touchstart', handleTouchStart);
+      node.removeEventListener('touchmove', handleTouchMove);
+      node.removeEventListener('gesturestart', handleGestureStart);
+      node.removeEventListener('gesturechange', handleGestureChange);
+    };
+  }, [isOpen]);
 
   const handleMouseDown = (e, memory) => {
     if (e.button !== 0) return; // Only left click
@@ -510,6 +559,7 @@ export default function PlaygroundModal({ isOpen, onClose, playgroundId, userId 
         </div>
 
         <div
+          ref={canvasContainerRef}
           className={`playground-canvas-container ${isPanning ? 'panning' : ''}`}
           onMouseDown={handleCanvasPanStart}
           onMouseMove={handleCanvasPanMove}

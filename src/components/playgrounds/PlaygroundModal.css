@@ -99,6 +99,11 @@
   position: relative;
   background: white;
   cursor: grab;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .playground-canvas-container.panning {

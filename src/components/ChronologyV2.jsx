@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { DndContext, DragOverlay, useDroppable, useDraggable, pointerWithin } from '@dnd-kit/core';
 import { Library, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -118,8 +118,62 @@ function Timeline({ memories, dropIndicator }) {
     id: 'timeline-dropzone',
   });
 
+  // Track cleanup function for gesture prevention listeners
+  const gestureCleanupRef = useRef(null);
+
+  // Callback ref to attach gesture prevention listeners
+  const attachGestureListeners = useCallback((node) => {
+    // Clean up previous listeners if they exist
+    if (gestureCleanupRef.current) {
+      gestureCleanupRef.current();
+      gestureCleanupRef.current = null;
+    }
+
+    if (!node) return;
+
+    const handleWheel = (e) => {
+      // Prevent browser back/forward navigation from trackpad swipe
+      e.preventDefault();
+    };
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // iOS Safari gesture events
+    const handleGestureStart = (e) => {
+      e.preventDefault();
+    };
+
+    const handleGestureChange = (e) => {
+      e.preventDefault();
+    };
+
+    node.addEventListener('wheel', handleWheel, { passive: false });
+    node.addEventListener('touchstart', handleTouchStart, { passive: false });
+    node.addEventListener('touchmove', handleTouchMove, { passive: false });
+    node.addEventListener('gesturestart', handleGestureStart, { passive: false });
+    node.addEventListener('gesturechange', handleGestureChange, { passive: false });
+
+    gestureCleanupRef.current = () => {
+      node.removeEventListener('wheel', handleWheel);
+      node.removeEventListener('touchstart', handleTouchStart);
+      node.removeEventListener('touchmove', handleTouchMove);
+      node.removeEventListener('gesturestart', handleGestureStart);
+      node.removeEventListener('gesturechange', handleGestureChange);
+    };
+  }, []);
+
   return (
-    <div className="timeline-area">
+    <div className="timeline-area" ref={attachGestureListeners}>
       <div
         ref={setNodeRef}
         className={`timeline-container ${isOver ? 'drag-over' : ''}`}

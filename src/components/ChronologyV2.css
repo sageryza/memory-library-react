@@ -54,6 +54,11 @@
   position: relative;
   min-width: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .chronology-v2 .timeline-container {

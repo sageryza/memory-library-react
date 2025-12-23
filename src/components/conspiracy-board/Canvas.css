@@ -9,6 +9,9 @@
   overflow: hidden; /* Clips content to viewport */
   overscroll-behavior: none;
   touch-action: none;
+  -webkit-touch-callout: none; /* Disable iOS long-press preview */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Canvas (droppable area for memories) */

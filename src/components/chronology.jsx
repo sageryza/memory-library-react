@@ -869,6 +869,66 @@ export default function Chronology({ memories = [], memoriesLoading }) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [focusedIndex, timeline.length]);
 
+  // Track cleanup function for gesture prevention listeners
+  const gestureCleanupRef = useRef(null);
+
+  // Callback ref to attach gesture prevention listeners (ensures attachment when DOM is ready)
+  const attachGestureListeners = useCallback((node) => {
+    // Clean up previous listeners if they exist
+    if (gestureCleanupRef.current) {
+      gestureCleanupRef.current();
+      gestureCleanupRef.current = null;
+    }
+
+    if (!node) return;
+
+    // Also store in timelineRef for other uses
+    timelineRef.current = node;
+
+    const handleWheel = (e) => {
+      // Prevent browser back/forward navigation from trackpad swipe
+      e.preventDefault();
+    };
+
+    const handleTouchStart = (e) => {
+      // Prevent multi-touch gestures
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      // Prevent multi-touch gestures
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // iOS Safari gesture events (pinch-to-zoom)
+    const handleGestureStart = (e) => {
+      e.preventDefault();
+    };
+
+    const handleGestureChange = (e) => {
+      e.preventDefault();
+    };
+
+    node.addEventListener('wheel', handleWheel, { passive: false });
+    node.addEventListener('touchstart', handleTouchStart, { passive: false });
+    node.addEventListener('touchmove', handleTouchMove, { passive: false });
+    node.addEventListener('gesturestart', handleGestureStart, { passive: false });
+    node.addEventListener('gesturechange', handleGestureChange, { passive: false });
+
+    // Store cleanup function
+    gestureCleanupRef.current = () => {
+      node.removeEventListener('wheel', handleWheel);
+      node.removeEventListener('touchstart', handleTouchStart);
+      node.removeEventListener('touchmove', handleTouchMove);
+      node.removeEventListener('gesturestart', handleGestureStart);
+      node.removeEventListener('gesturechange', handleGestureChange);
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -877,6 +937,9 @@ export default function Chronology({ memories = [], memoriesLoading }) {
       }
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+      }
+      if (gestureCleanupRef.current) {
+        gestureCleanupRef.current();
       }
     };
   }, []);
@@ -958,7 +1021,7 @@ export default function Chronology({ memories = [], memoriesLoading }) {
 
         <div className="main-content">
         <div className="timeline-area">
-          <div className="timeline-container" ref={timelineRef}>
+          <div className="timeline-container" ref={attachGestureListeners}>
             <div className="timeline-track">
               {(() => {
                 const elements = [];
@@ -1184,6 +1247,11 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          overscroll-behavior: none;
+          touch-action: none;
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          user-select: none;
         }
 
         .timeline-container {
@@ -1195,6 +1263,11 @@ export default function Chronology({ memories = [], memoriesLoading }) {
           display: flex;
           align-items: flex-end;
           justify-content: center;
+          overscroll-behavior: none;
+          touch-action: none;
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          user-select: none;
         }
 
         .timeline-track {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -124,7 +124,31 @@ function ConspiracyBoard({
   const [showMinimap, setShowMinimap] = useState(false)
   const [isDraggingMinimap, setIsDraggingMinimap] = useState(false)
   const [minimapDragStart, setMinimapDragStart] = useState(null)
+  const minimapDragJustEnded = useRef(false)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
+
+  // Dynamic canvas bounds - starts at 2x viewport, expandable by half viewport increments
+  // Store as { width, height, offsetX, offsetY } where offset is distance from left/top edge to origin
+  const [canvasBounds, setCanvasBounds] = useState(() => {
+    // Try to restore from sessionStorage first
+    const savedBounds = sessionStorage.getItem('boardCanvasBounds')
+    if (savedBounds) {
+      try {
+        return JSON.parse(savedBounds)
+      } catch (e) {
+        console.warn('Failed to parse saved canvas bounds:', e)
+      }
+    }
+    // Default to 2x viewport (half screen pan in each direction)
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    return {
+      width: viewportWidth * 2,
+      height: viewportHeight * 2,
+      offsetX: viewportWidth,  // Origin is centered
+      offsetY: viewportHeight
+    }
+  })
 
   // Hooks
   const { confirm } = useConfirm()
@@ -1665,23 +1689,42 @@ const handleDragEnd = (event) => {
     }
 
     const handleTouchStart = (e) => {
-      // Prevent touch gestures from triggering browser navigation
+      // Prevent multi-touch gestures from triggering browser navigation/zoom
+      if (e.touches.length > 1) {
+        e.preventDefault()
+      }
     }
 
     const handleTouchMove = (e) => {
       // Prevent touch gestures from triggering browser navigation
+      if (e.touches.length > 1) {
+        e.preventDefault()
+      }
+    }
+
+    // iOS Safari gesture events (pinch-to-zoom)
+    const handleGestureStart = (e) => {
+      e.preventDefault()
+    }
+
+    const handleGestureChange = (e) => {
+      e.preventDefault()
     }
 
     // Add event listener with passive: false to allow preventDefault
     node.addEventListener('wheel', handleWheel, { passive: false })
     node.addEventListener('touchstart', handleTouchStart, { passive: false })
     node.addEventListener('touchmove', handleTouchMove, { passive: false })
+    node.addEventListener('gesturestart', handleGestureStart, { passive: false })
+    node.addEventListener('gesturechange', handleGestureChange, { passive: false })
 
     // Store cleanup function
     cleanupRef.current = () => {
       node.removeEventListener('wheel', handleWheel)
       node.removeEventListener('touchstart', handleTouchStart)
       node.removeEventListener('touchmove', handleTouchMove)
+      node.removeEventListener('gesturestart', handleGestureStart)
+      node.removeEventListener('gesturechange', handleGestureChange)
     }
   }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState])
 
@@ -2692,7 +2735,7 @@ const handleDragEnd = (event) => {
                   }}
                   onClick={(e) => {
                     // Don't pan on click if we just finished dragging
-                    if (isDraggingMinimap) return
+                    if (isDraggingMinimap || minimapDragJustEnded.current) return
 
                     // Calculate where user clicked on minimap and pan there
                     const rect = e.currentTarget.getBoundingClientRect()
@@ -2755,10 +2798,18 @@ const handleDragEnd = (event) => {
                     savePanOffsetToSession(clampedOffset)
                   }}
                   onMouseUp={() => {
+                    if (isDraggingMinimap) {
+                      minimapDragJustEnded.current = true
+                      setTimeout(() => { minimapDragJustEnded.current = false }, 50)
+                    }
                     setIsDraggingMinimap(false)
                     setMinimapDragStart(null)
                   }}
                   onMouseLeave={() => {
+                    if (isDraggingMinimap) {
+                      minimapDragJustEnded.current = true
+                      setTimeout(() => { minimapDragJustEnded.current = false }, 50)
+                    }
                     setIsDraggingMinimap(false)
                     setMinimapDragStart(null)
                   }}
@@ -2805,10 +2856,31 @@ const handleDragEnd = (event) => {
                       const canvasVisibleHeight = viewportHeight / zoomLevel
 
                       // Scale to minimap dimensions (216x160)
-                      const minimapX = (canvasLeft / CANVAS_WIDTH) * 216
-                      const minimapY = (canvasTop / CANVAS_HEIGHT) * 160
-                      const minimapW = (canvasVisibleWidth / CANVAS_WIDTH) * 216
-                      const minimapH = (canvasVisibleHeight / CANVAS_HEIGHT) * 160
+                      let minimapX = (canvasLeft / CANVAS_WIDTH) * 216
+                      let minimapY = (canvasTop / CANVAS_HEIGHT) * 160
+                      let minimapW = (canvasVisibleWidth / CANVAS_WIDTH) * 216
+                      let minimapH = (canvasVisibleHeight / CANVAS_HEIGHT) * 160
+
+                      // Clamp rectangle to stay within minimap bounds
+                      // If rectangle extends beyond left/top edge, adjust x/y and reduce width/height
+                      if (minimapX < 0) {
+                        minimapW += minimapX // reduce width by amount off-screen
+                        minimapX = 0
+                      }
+                      if (minimapY < 0) {
+                        minimapH += minimapY // reduce height by amount off-screen
+                        minimapY = 0
+                      }
+                      // Clamp right/bottom edges
+                      if (minimapX + minimapW > 216) {
+                        minimapW = 216 - minimapX
+                      }
+                      if (minimapY + minimapH > 160) {
+                        minimapH = 160 - minimapY
+                      }
+                      // Ensure minimum visible size
+                      minimapW = Math.max(4, minimapW)
+                      minimapH = Math.max(4, minimapH)
 
                       return (
                         <rect
