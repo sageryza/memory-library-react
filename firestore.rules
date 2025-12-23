@@ -75,6 +75,11 @@ service cloud.firestore {
       match /constellations/{constellationId} {
         allow read, write: if isOwner(userId);
       }
+
+      // User's preferences
+      match /preferences/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Public boards - accessible to everyone

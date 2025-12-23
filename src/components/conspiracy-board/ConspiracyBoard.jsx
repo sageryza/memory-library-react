@@ -39,6 +39,7 @@ import { usePlaygrounds } from '../../hooks/usePlaygrounds'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, generateLocalId, ensureStringId } from '../../utils/generateId'
+import { CARD_WIDTH, CARD_HEIGHT } from './constants'
 import { getLockedMemoryIds } from '../../utils/getLockedMemoryIds'
 import '../../App.css'
 import './ConspiracyBoard.css'
@@ -126,6 +127,7 @@ function ConspiracyBoard({
   const [minimapDragStart, setMinimapDragStart] = useState(null)
   const minimapDragJustEnded = useRef(false)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
+  const [showExpandArrow, setShowExpandArrow] = useState({ left: false, right: false, up: false, down: false })
 
   // Dynamic canvas bounds - starts at 2x viewport, expandable by half viewport increments
   // Store as { width, height, offsetX, offsetY } where offset is distance from left/top edge to origin
@@ -235,7 +237,7 @@ function ConspiracyBoard({
     filteredMemories: libraryFilteredMemories,
     selectLibrary,
     clearFilter: clearLibraryFilter
-  } = useLibraryFilter(libraries, memories, getLibraryMemories)
+  } = useLibraryFilter(libraries, memories, getLibraryMemories, librariesLoading, user?.uid)
 
   // Apply locked library filtering
   // Only filter out locked memories when NOT viewing any specific library
@@ -279,6 +281,85 @@ function ConspiracyBoard({
     console.log('💾 Saved pan offset to sessionStorage:', offset)
   }, [])
 
+  // Save canvas bounds to sessionStorage
+  const saveCanvasBoundsToSession = useCallback((bounds) => {
+    sessionStorage.setItem('boardCanvasBounds', JSON.stringify(bounds))
+  }, [])
+
+  // Calculate canvas bounds that fit all existing content
+  const calculateBoundsForContent = useCallback((memories, pins, currentBounds) => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Start with default 2x viewport bounds
+    let minX = -viewportWidth   // Left edge relative to origin
+    let maxX = viewportWidth    // Right edge relative to origin
+    let minY = -viewportHeight  // Top edge relative to origin
+    let maxY = viewportHeight   // Bottom edge relative to origin
+
+    // Check all memories - positions are in large canvas coords
+    // Origin (panOffset=0) is at CANVAS_OFFSET_X, CANVAS_OFFSET_Y in large canvas
+    memories.forEach(memory => {
+      const relX = memory.x - CANVAS_OFFSET_X  // Position relative to origin
+      const relY = memory.y - CANVAS_OFFSET_Y
+      minX = Math.min(minX, relX - 100)  // Add padding
+      maxX = Math.max(maxX, relX + 100)
+      minY = Math.min(minY, relY - 100)
+      maxY = Math.max(maxY, relY + 100)
+    })
+
+    // Check all pins
+    pins.forEach(pin => {
+      const relX = pin.x - CANVAS_OFFSET_X
+      const relY = pin.y - CANVAS_OFFSET_Y
+      minX = Math.min(minX, relX - 50)
+      maxX = Math.max(maxX, relX + 50)
+      minY = Math.min(minY, relY - 50)
+      maxY = Math.max(maxY, relY + 50)
+    })
+
+    // Calculate bounds that contain all content
+    const width = maxX - minX
+    const height = maxY - minY
+    const offsetX = -minX  // Distance from left edge to origin
+
+    const offsetY = -minY  // Distance from top edge to origin
+
+    return { width, height, offsetX, offsetY }
+  }, [])
+
+  // Expand canvas in a specific direction by half viewport
+  const expandCanvas = useCallback((direction) => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const halfWidth = viewportWidth / 2
+    const halfHeight = viewportHeight / 2
+
+    setCanvasBounds(prev => {
+      let newBounds = { ...prev }
+
+      switch (direction) {
+        case 'left':
+          newBounds.width += halfWidth
+          newBounds.offsetX += halfWidth // Push origin right to maintain positions
+          break
+        case 'right':
+          newBounds.width += halfWidth
+          break
+        case 'up':
+          newBounds.height += halfHeight
+          newBounds.offsetY += halfHeight // Push origin down to maintain positions
+          break
+        case 'down':
+          newBounds.height += halfHeight
+          break
+      }
+
+      saveCanvasBoundsToSession(newBounds)
+      return newBounds
+    })
+  }, [])
+
   // Firebase sync logic - handles loading saved positions from database
   // CRITICAL: This runs AFTER sessionStorage initialization to handle cross-device sync
   useEffect(() => {
@@ -309,6 +390,30 @@ function ConspiracyBoard({
       hasLoadedInitialPanOffset.current = true
     }
   }, [savedPanOffset?.x, savedPanOffset?.y, boardStateLoading])
+
+  // Adjust canvas bounds on initial load to fit existing content
+  const hasAdjustedInitialBounds = useRef(false)
+  useEffect(() => {
+    if (!boardStateLoading && !hasAdjustedInitialBounds.current && droppedMemories.length > 0) {
+      const contentBounds = calculateBoundsForContent(droppedMemories, standalonePins, canvasBounds)
+
+      // Only expand if content is outside current bounds
+      if (contentBounds.width > canvasBounds.width ||
+          contentBounds.height > canvasBounds.height ||
+          contentBounds.offsetX > canvasBounds.offsetX ||
+          contentBounds.offsetY > canvasBounds.offsetY) {
+        const expandedBounds = {
+          width: Math.max(canvasBounds.width, contentBounds.width),
+          height: Math.max(canvasBounds.height, contentBounds.height),
+          offsetX: Math.max(canvasBounds.offsetX, contentBounds.offsetX),
+          offsetY: Math.max(canvasBounds.offsetY, contentBounds.offsetY)
+        }
+        setCanvasBounds(expandedBounds)
+        saveCanvasBoundsToSession(expandedBounds)
+      }
+      hasAdjustedInitialBounds.current = true
+    }
+  }, [boardStateLoading, droppedMemories, standalonePins, canvasBounds, calculateBoundsForContent, saveCanvasBoundsToSession])
 
   // Save activeBoardName to localStorage whenever it changes
   useEffect(() => {
@@ -441,10 +546,12 @@ function ConspiracyBoard({
     const newPanX = viewportWidth / 2 - centerCanvasX * newZoom + CANVAS_OFFSET_X
     const newPanY = viewportHeight / 2 - centerCanvasY * newZoom + CANVAS_OFFSET_Y
 
-    // Clamp to pan bounds
+    // Clamp to pan bounds using dynamic canvas bounds
+    const maxPanX = canvasBounds.offsetX
+    const maxPanY = canvasBounds.offsetY
     const clampedOffset = {
-      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
-      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+      x: Math.max(-maxPanX, Math.min(maxPanX, newPanX)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, newPanY))
     }
 
     setZoomLevel(newZoom)
@@ -453,7 +560,7 @@ function ConspiracyBoard({
     savePanOffsetToSession(clampedOffset)
 
     console.log('🔍 Zoom to center:', newZoom, 'pan:', clampedOffset)
-  }, [panOffset, zoomLevel, savePanOffsetToSession])
+  }, [panOffset, zoomLevel, savePanOffsetToSession, canvasBounds])
 
   // Apply optimistic position updates for smooth dragging
   const displayMemories = droppedMemories.map(memory => {
@@ -864,7 +971,8 @@ const handleDragEnd = (event) => {
     // Sometimes shows "Failed to save" even though the save actually worked
     // Check useSavedBoards.js saveBoard implementation for promise/timing issues
     try {
-      await saveBoard(boardNameInput.trim(), boardState)
+      // Include canvasBounds when saving the board
+      await saveBoard(boardNameInput.trim(), { ...boardState, canvasBounds })
       setActiveBoardName(boardNameInput.trim())
       setBoardNameInput('')
       setShowSaveBoardModal(false)
@@ -879,7 +987,8 @@ const handleDragEnd = (event) => {
   const handleLoadBoardClick = (boardId) => {
     // Only save current board if we're loading a different board
     if (boardState && activeBoardName && activeBoardName !== boardId && user?.uid) {
-      saveBoard(activeBoardName, boardState).catch(error => {
+      // Include canvasBounds when auto-saving the current board
+      saveBoard(activeBoardName, { ...boardState, canvasBounds }).catch(error => {
         console.error('Failed to save current board before loading:', error)
       })
     }
@@ -887,6 +996,28 @@ const handleDragEnd = (event) => {
     const boardData = loadBoard(boardId)
     if (boardData) {
       updateBoardState(boardData)
+
+      // Calculate bounds that fit all existing content
+      const memories = boardData.droppedMemories || []
+      const pins = boardData.standalonePins || []
+      const contentBounds = calculateBoundsForContent(memories, pins, null)
+
+      // Use saved bounds if they exist and are large enough, otherwise use content bounds
+      let finalBounds
+      if (boardData.canvasBounds) {
+        // Merge saved bounds with content bounds (take the larger of each dimension)
+        finalBounds = {
+          width: Math.max(boardData.canvasBounds.width, contentBounds.width),
+          height: Math.max(boardData.canvasBounds.height, contentBounds.height),
+          offsetX: Math.max(boardData.canvasBounds.offsetX, contentBounds.offsetX),
+          offsetY: Math.max(boardData.canvasBounds.offsetY, contentBounds.offsetY)
+        }
+      } else {
+        finalBounds = contentBounds
+      }
+
+      setCanvasBounds(finalBounds)
+      saveCanvasBoundsToSession(finalBounds)
       setActiveBoardName(boardId)
       setShowLoadBoardModal(false)
       setShowBoardDropdown(false)
@@ -1609,20 +1740,40 @@ const handleDragEnd = (event) => {
   const handlePanMove = useCallback((e) => {
     if (isPanning && panStart) {
       e.preventDefault()
-      // Pan bounds match canvas offsets to prevent panning beyond canvas
+      // Pan bounds use dynamic canvas bounds (starts at 2x viewport, expandable)
+      const maxPanX = canvasBounds.offsetX
+      const maxPanY = canvasBounds.offsetY
+      const rawX = e.clientX - panStart.x
+      const rawY = e.clientY - panStart.y
+
+      // Detect if user is trying to pan beyond limits
+      const tryingLeft = rawX > maxPanX
+      const tryingRight = rawX < -maxPanX
+      const tryingUp = rawY > maxPanY
+      const tryingDown = rawY < -maxPanY
+
+      setShowExpandArrow({
+        left: tryingLeft,
+        right: tryingRight,
+        up: tryingUp,
+        down: tryingDown
+      })
+
       const newOffset = {
-        x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, e.clientX - panStart.x)),
-        y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, e.clientY - panStart.y))
+        x: Math.max(-maxPanX, Math.min(maxPanX, rawX)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, rawY))
       }
       setPanOffset(newOffset)
       savePanOffsetToSession(newOffset)  // Save to session during drag
     }
-  }, [isPanning, panStart, savePanOffsetToSession])
+  }, [isPanning, panStart, savePanOffsetToSession, canvasBounds])
 
   const handlePanEnd = useCallback(() => {
     if (isPanning) {
       setIsPanning(false)
       setPanStart(null)
+      // Hide expand arrows when panning ends
+      setShowExpandArrow({ left: false, right: false, up: false, down: false })
       // Save pan offset to Firebase - use function to get latest state
       setPanOffset(currentPanOffset => {
         console.log('💾 Saving pan offset (drag):', currentPanOffset)
@@ -1663,10 +1814,33 @@ const handleDragEnd = (event) => {
         y: panOffset.y - (e.deltaY * SCROLL_SENSITIVITY)
       }
 
-      // Clamp to pan bounds to prevent panning beyond canvas
+      // Clamp to pan bounds using dynamic canvas bounds
+      const maxPanX = canvasBounds.offsetX
+      const maxPanY = canvasBounds.offsetY
+
+      // Detect if user is trying to scroll beyond limits
+      const tryingLeft = newOffset.x > maxPanX
+      const tryingRight = newOffset.x < -maxPanX
+      const tryingUp = newOffset.y > maxPanY
+      const tryingDown = newOffset.y < -maxPanY
+
+      // Show arrows briefly when hitting edges
+      if (tryingLeft || tryingRight || tryingUp || tryingDown) {
+        setShowExpandArrow({
+          left: tryingLeft,
+          right: tryingRight,
+          up: tryingUp,
+          down: tryingDown
+        })
+        // Hide arrows after a short delay
+        setTimeout(() => {
+          setShowExpandArrow({ left: false, right: false, up: false, down: false })
+        }, 1500)
+      }
+
       const clampedOffset = {
-        x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newOffset.x)),
-        y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newOffset.y))
+        x: Math.max(-maxPanX, Math.min(maxPanX, newOffset.x)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, newOffset.y))
       }
 
       setPanOffset(clampedOffset)
@@ -1726,7 +1900,7 @@ const handleDragEnd = (event) => {
       node.removeEventListener('gesturestart', handleGestureStart)
       node.removeEventListener('gesturechange', handleGestureChange)
     }
-  }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState])
+  }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState, canvasBounds])
 
   // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
   useEffect(() => {
@@ -2045,10 +2219,12 @@ const handleDragEnd = (event) => {
       y: window.innerHeight / 2 - centerY * zoomLevel + CANVAS_OFFSET_Y
     }
 
-    // Clamp to bounds
+    // Clamp to bounds using dynamic canvas bounds
+    const maxPanX = canvasBounds.offsetX
+    const maxPanY = canvasBounds.offsetY
     const clampedOffset = {
-      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newOffset.x)),
-      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newOffset.y))
+      x: Math.max(-maxPanX, Math.min(maxPanX, newOffset.x)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, newOffset.y))
     }
 
     // Enable smooth transition for this programmatic pan
@@ -2066,7 +2242,7 @@ const handleDragEnd = (event) => {
       ...boardState,
       panOffset: clampedOffset
     })
-  }, [panOffset, zoomLevel, boardState, updateBoardState, savePanOffsetToSession])
+  }, [panOffset, zoomLevel, boardState, updateBoardState, savePanOffsetToSession, canvasBounds])
 
   // Show loading state while auth, board state, or memories are loading
   if (authLoading || boardStateLoading || memoriesLoading) {
@@ -2742,13 +2918,13 @@ const handleDragEnd = (event) => {
                     const clickX = e.clientX - rect.left
                     const clickY = e.clientY - rect.top
 
-                    // Convert minimap coordinates to canvas pan offset
-                    const scaleX = CANVAS_WIDTH / rect.width
-                    const scaleY = CANVAS_HEIGHT / rect.height
+                    // Convert minimap coordinates to canvas pan offset (using dynamic bounds)
+                    const scaleX = canvasBounds.width / rect.width
+                    const scaleY = canvasBounds.height / rect.height
 
                     // Calculate the target pan position (centering on clicked point)
-                    const targetCanvasX = clickX * scaleX - CANVAS_OFFSET_X
-                    const targetCanvasY = clickY * scaleY - CANVAS_OFFSET_Y
+                    const targetCanvasX = clickX * scaleX - canvasBounds.offsetX
+                    const targetCanvasY = clickY * scaleY - canvasBounds.offsetY
 
                     // Calculate pan offset to center this point
                     const viewportWidth = window.innerWidth - (isSidebarOpen ? 400 : 0)
@@ -2757,10 +2933,12 @@ const handleDragEnd = (event) => {
                     const newPanX = -(targetCanvasX - viewportWidth / 2)
                     const newPanY = -(targetCanvasY - viewportHeight / 2)
 
-                    // Clamp to bounds
+                    // Clamp to bounds using dynamic canvas bounds
+                    const maxPanX = canvasBounds.offsetX
+                    const maxPanY = canvasBounds.offsetY
                     const clampedOffset = {
-                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
-                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                      x: Math.max(-maxPanX, Math.min(maxPanX, newPanX)),
+                      y: Math.max(-maxPanY, Math.min(maxPanY, newPanY))
                     }
 
                     setPanOffset(clampedOffset)
@@ -2777,9 +2955,9 @@ const handleDragEnd = (event) => {
                     const deltaX = mouseX - minimapDragStart.mouseX
                     const deltaY = mouseY - minimapDragStart.mouseY
 
-                    // Convert minimap delta to canvas delta
-                    const scaleX = CANVAS_WIDTH / rect.width
-                    const scaleY = CANVAS_HEIGHT / rect.height
+                    // Convert minimap delta to canvas delta (using dynamic bounds)
+                    const scaleX = canvasBounds.width / rect.width
+                    const scaleY = canvasBounds.height / rect.height
 
                     const canvasDeltaX = deltaX * scaleX
                     const canvasDeltaY = deltaY * scaleY
@@ -2788,10 +2966,12 @@ const handleDragEnd = (event) => {
                     const newPanX = minimapDragStart.panOffset.x - canvasDeltaX
                     const newPanY = minimapDragStart.panOffset.y - canvasDeltaY
 
-                    // Clamp to bounds
+                    // Clamp to bounds using dynamic canvas bounds
+                    const maxPanX = canvasBounds.offsetX
+                    const maxPanY = canvasBounds.offsetY
                     const clampedOffset = {
-                      x: Math.max(-CANVAS_OFFSET_X, Math.min(CANVAS_OFFSET_X, newPanX)),
-                      y: Math.max(-CANVAS_OFFSET_Y, Math.min(CANVAS_OFFSET_Y, newPanY))
+                      x: Math.max(-maxPanX, Math.min(maxPanX, newPanX)),
+                      y: Math.max(-maxPanY, Math.min(maxPanY, newPanY))
                     }
 
                     setPanOffset(clampedOffset)
@@ -2823,9 +3003,15 @@ const handleDragEnd = (event) => {
                   >
                     {/* Draw memories as red dots */}
                     {displayMemories.map(memory => {
-                      // Scale memory position to minimap size
-                      const x = (memory.x / CANVAS_WIDTH) * 216
-                      const y = (memory.y / CANVAS_HEIGHT) * 160
+                      // Scale memory position to minimap size (adjusted for dynamic bounds)
+                      // Memory positions are in large canvas coords, need to map to dynamic bounds
+                      const adjustedX = memory.x - CANVAS_OFFSET_X + canvasBounds.offsetX
+                      const adjustedY = memory.y - CANVAS_OFFSET_Y + canvasBounds.offsetY
+                      const x = (adjustedX / canvasBounds.width) * 216
+                      const y = (adjustedY / canvasBounds.height) * 160
+
+                      // Only show dots that are within the current dynamic bounds
+                      if (x < 0 || x > 216 || y < 0 || y > 160) return null
 
                       return (
                         <circle
@@ -2846,20 +3032,21 @@ const handleDragEnd = (event) => {
                       const viewportWidth = window.innerWidth - sidebarWidth
                       const viewportHeight = window.innerHeight
 
-                      // Calculate what portion of the canvas is visible
-                      // Convert screen origin to canvas coordinates (must account for zoom)
-                      const canvasLeft = (CANVAS_OFFSET_X - panOffset.x) / zoomLevel
-                      const canvasTop = (CANVAS_OFFSET_Y - panOffset.y) / zoomLevel
+                      // Calculate what portion of the canvas is visible (using dynamic bounds)
+                      // panOffset controls position within the pannable area
+                      // At panOffset=0, viewport is centered in the dynamic bounds
+                      const canvasLeft = (canvasBounds.offsetX - panOffset.x) / zoomLevel
+                      const canvasTop = (canvasBounds.offsetY - panOffset.y) / zoomLevel
 
                       // Account for zoom - when zoomed out, viewport shows more canvas
                       const canvasVisibleWidth = viewportWidth / zoomLevel
                       const canvasVisibleHeight = viewportHeight / zoomLevel
 
                       // Scale to minimap dimensions (216x160)
-                      let minimapX = (canvasLeft / CANVAS_WIDTH) * 216
-                      let minimapY = (canvasTop / CANVAS_HEIGHT) * 160
-                      let minimapW = (canvasVisibleWidth / CANVAS_WIDTH) * 216
-                      let minimapH = (canvasVisibleHeight / CANVAS_HEIGHT) * 160
+                      let minimapX = (canvasLeft / canvasBounds.width) * 216
+                      let minimapY = (canvasTop / canvasBounds.height) * 160
+                      let minimapW = (canvasVisibleWidth / canvasBounds.width) * 216
+                      let minimapH = (canvasVisibleHeight / canvasBounds.height) * 160
 
                       // Clamp rectangle to stay within minimap bounds
                       // If rectangle extends beyond left/top edge, adjust x/y and reduce width/height
@@ -2913,6 +3100,81 @@ const handleDragEnd = (event) => {
                 </div>
               </div>
             )}
+
+            {/* Canvas expansion arrows - appear when user tries to pan past canvas edge */}
+            {(() => {
+              const sidebarWidth = isSidebarOpen ? 400 : 0
+
+              // Maroon rectangle with white arrow styling
+              const baseStyle = {
+                position: 'absolute',
+                background: '#800020', // Maroon
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 100,
+                color: 'white',
+                transition: 'opacity 0.2s',
+                borderRadius: '1px'
+              }
+
+              // Horizontal arrows (left/right) - slim rectangles
+              const horizontalStyle = {
+                ...baseStyle,
+                width: '20px',
+                height: '48px'
+              }
+
+              // Vertical arrows (up/down) - slim rectangles
+              const verticalStyle = {
+                ...baseStyle,
+                width: '48px',
+                height: '20px'
+              }
+
+              return (
+                <>
+                  {showExpandArrow.left && (
+                    <button
+                      style={{ ...horizontalStyle, left: 0, top: '50%', transform: 'translateY(-50%)' }}
+                      onClick={() => expandCanvas('left')}
+                      title="Expand canvas left"
+                    >
+                      <ChevronLeft size={16} color="white" />
+                    </button>
+                  )}
+                  {showExpandArrow.right && (
+                    <button
+                      style={{ ...horizontalStyle, right: sidebarWidth, top: '50%', transform: 'translateY(-50%)' }}
+                      onClick={() => expandCanvas('right')}
+                      title="Expand canvas right"
+                    >
+                      <ChevronRight size={16} color="white" />
+                    </button>
+                  )}
+                  {showExpandArrow.up && (
+                    <button
+                      style={{ ...verticalStyle, left: `calc(50% - ${sidebarWidth / 2}px)`, top: 0, transform: 'translateX(-50%)' }}
+                      onClick={() => expandCanvas('up')}
+                      title="Expand canvas up"
+                    >
+                      <ChevronUp size={16} color="white" />
+                    </button>
+                  )}
+                  {showExpandArrow.down && (
+                    <button
+                      style={{ ...verticalStyle, left: `calc(50% - ${sidebarWidth / 2}px)`, bottom: 0, transform: 'translateX(-50%)' }}
+                      onClick={() => expandCanvas('down')}
+                      title="Expand canvas down"
+                    >
+                      <ChevronDown size={16} color="white" />
+                    </button>
+                  )}
+                </>
+              )
+            })()}
           </div>
         </div>
         </div>
@@ -3187,8 +3449,8 @@ const handleDragEnd = (event) => {
                   // Use canvasToScreen formula: screenX = canvasX * zoom + panOffset - CANVAS_OFFSET
                   left: memory.x * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
                   top: memory.y * zoomLevel + panOffset.y - CANVAS_OFFSET_Y,
-                  width: `${280 * zoomLevel}px`,
-                  height: `${150 * zoomLevel}px`,
+                  width: `${CARD_WIDTH * zoomLevel}px`,
+                  height: `${CARD_HEIGHT * zoomLevel}px`,
                   pointerEvents: 'all',
                   cursor: 'pointer',
                   border: constellationSelectedNodes?.has(memory.id) ? '3px solid #FFD700' : '2px solid transparent',

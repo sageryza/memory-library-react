@@ -253,14 +253,14 @@ function SidebarMemoryList({ memories, searchTerm = '', advancedFilteredMemories
 export default function ChronologyV2({ memories = [], memoriesLoading }) {
   const { user } = useAuth();
   const { timelineIds, setTimelineIds, loading: stateLoading } = useChronologyStateV2(user?.uid);
-  const { libraries, getLibraryMemories } = useLibraries(user?.uid);
+  const { libraries, getLibraryMemories, loading: librariesLoading } = useLibraries(user?.uid);
 
   // Library filter hook for sidebar
   const {
     selectedLibraryId,
     filteredMemories: libraryFilteredMemories,
     selectLibrary
-  } = useLibraryFilter(libraries, memories, getLibraryMemories);
+  } = useLibraryFilter(libraries, memories, getLibraryMemories, librariesLoading, user?.uid);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

@@ -99,7 +99,7 @@ export default function TabbedSidebar({
         <button
           className="library-filter-clear"
           onClick={() => onLibrarySelect && onLibrarySelect(null)}
-          title="Clear filter"
+          title="Exit library"
         >
           <LogOut size={14} />
         </button>
