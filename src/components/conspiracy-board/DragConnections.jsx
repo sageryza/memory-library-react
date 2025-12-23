@@ -1,9 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { compareIds } from '../../utils/idUtils'
-
-// Canvas offset constants (must match ConspiracyBoard.jsx)
-const CANVAS_OFFSET_X = 4500
-const CANVAS_OFFSET_Y = 3000
+import { CANVAS_OFFSET_X, CANVAS_OFFSET_Y, CARD_WIDTH, CARD_WIDTH_STACKED, PIN_OFFSET_FROM_RIGHT, PIN_OFFSET_FROM_TOP, STANDALONE_PIN_CENTER_X, STANDALONE_PIN_BOTTOM_Y } from './constants'
 
 // Simplified connections component that renders only connections for the actively dragged memory
 // This is rendered outside the pan-container so it appears above the DragOverlay
@@ -55,14 +52,12 @@ export default function DragConnections({
       const memory = droppedMemories.find(m => compareIds(m.id, nodeId))
       if (!memory) return null
 
-      const cardWidth = isStackedView ? 120 : 200
+      const cardWidth = isStackedView ? CARD_WIDTH_STACKED : CARD_WIDTH
       const xAdjustment = isStackedView ? 80 : 0
-      const pinOffsetFromRight = 8
-      const pinOffsetFromTop = 7
 
       // Canvas coordinates for the pin point
-      const canvasX = memory.x + xAdjustment + cardWidth - pinOffsetFromRight
-      const canvasY = memory.y + pinOffsetFromTop
+      const canvasX = memory.x + xAdjustment + cardWidth - PIN_OFFSET_FROM_RIGHT
+      const canvasY = memory.y + PIN_OFFSET_FROM_TOP
 
       // Convert to screen coordinates and add drag delta
       const screen = canvasToScreen(canvasX, canvasY)
@@ -75,21 +70,19 @@ export default function DragConnections({
     // For non-dragged nodes, convert canvas to screen coordinates
     const standalonePin = standalonePins.find(p => compareIds(p.id, nodeId))
     if (standalonePin) {
-      const canvasX = standalonePin.x + 10
-      const canvasY = standalonePin.y + 24
+      const canvasX = standalonePin.x + STANDALONE_PIN_CENTER_X
+      const canvasY = standalonePin.y + STANDALONE_PIN_BOTTOM_Y
       return canvasToScreen(canvasX, canvasY)
     }
 
     const memory = droppedMemories.find(m => compareIds(m.id, nodeId))
     if (!memory) return null
 
-    const cardWidth = isStackedView ? 120 : 200
+    const cardWidth = isStackedView ? CARD_WIDTH_STACKED : CARD_WIDTH
     const xAdjustment = isStackedView ? 80 : 0
-    const pinOffsetFromRight = 8
-    const pinOffsetFromTop = 7
 
-    const canvasX = memory.x + xAdjustment + cardWidth - pinOffsetFromRight
-    const canvasY = memory.y + pinOffsetFromTop
+    const canvasX = memory.x + xAdjustment + cardWidth - PIN_OFFSET_FROM_RIGHT
+    const canvasY = memory.y + PIN_OFFSET_FROM_TOP
 
     return canvasToScreen(canvasX, canvasY)
   }

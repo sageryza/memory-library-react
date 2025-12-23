@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { calculateOpacityLevels } from '../../utils/opacityCalculations'
 import { compareIds, normalizeId, setHasId } from '../../utils/idUtils'
+import { CARD_WIDTH, CARD_WIDTH_STACKED, PIN_OFFSET_FROM_RIGHT, PIN_OFFSET_FROM_TOP, STANDALONE_PIN_CENTER_X, STANDALONE_PIN_BOTTOM_Y } from './constants'
 import './Connections.css'
 
 // TODO: Add customizable string/connection colors for Advanced Mode
@@ -51,10 +52,9 @@ export default function Connections({ connections, droppedMemories, standalonePi
       }
 
       // Standalone pins - connect to bottom of tail
-      // Tail starts at top: 10px, height: 14px, so bottom is at y + 24
       return {
-        x: standalonePin.x + 10 + deltaX, // Pin is 20px wide, center is at +10
-        y: standalonePin.y + 24 + deltaY  // Bottom of tail (top: 10px + height: 14px)
+        x: standalonePin.x + STANDALONE_PIN_CENTER_X + deltaX,
+        y: standalonePin.y + STANDALONE_PIN_BOTTOM_Y + deltaY
       }
     }
 
@@ -68,12 +68,7 @@ export default function Connections({ connections, droppedMemories, standalonePi
     // Pin right edge is 2px outside card, so pin spans from cardWidth-18px to cardWidth+2px
     // Tail center absolute x: cardWidth - 18px + 10px = cardWidth - 8px
     // Tail bottom is at y: -17px + 24px = 7px from card top
-    // Card width is 200px in normal view, 120px in stacked view
-    const normalCardWidth = 200
-    const stackedCardWidth = 120
-    const cardWidth = isStackedView ? stackedCardWidth : normalCardWidth
-    const pinOffsetFromRight = 8  // Distance from right edge to center of tail
-    const pinOffsetFromTop = 7    // Bottom of pin tail (-17px + 24px)
+    const cardWidth = isStackedView ? CARD_WIDTH_STACKED : CARD_WIDTH
 
     // In stacked view, cards are shifted right by 80px to keep pins aligned
     const xAdjustment = isStackedView ? 80 : 0
@@ -89,8 +84,8 @@ export default function Connections({ connections, droppedMemories, standalonePi
     }
 
     return {
-      x: memory.x + xAdjustment + cardWidth - pinOffsetFromRight + deltaX,
-      y: memory.y + pinOffsetFromTop + deltaY
+      x: memory.x + xAdjustment + cardWidth - PIN_OFFSET_FROM_RIGHT + deltaX,
+      y: memory.y + PIN_OFFSET_FROM_TOP + deltaY
     }
   }
 
