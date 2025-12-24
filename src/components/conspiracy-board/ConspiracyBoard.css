@@ -73,11 +73,10 @@
   white-space: normal; /* Allow wrapping */
   margin-bottom: 0;
   text-align: left;
-  display: flex;
-  align-items: center; /* Center vertically */
-  justify-content: flex-start; /* Left aligned */
+  display: -webkit-box; /* Required for line-clamp */
+  -webkit-line-clamp: 5; /* Truncate to 5 lines */
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  max-height: none; /* Override base constraint */
   width: 100%;
   line-height: 1.2;
   min-height: 52px; /* Match title (18px) + content (34px) height */
@@ -98,7 +97,10 @@
 
 /* Canvas cards: align title to top instead of center */
 .dropped-memory .memory-card.no-content .memory-card-title.title-only {
-  align-items: flex-start;
+  display: -webkit-box; /* Required for line-clamp */
+  -webkit-line-clamp: 5; /* Truncate to 5 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   min-height: 90px; /* Match inline editor height for consistency */
 }
 
