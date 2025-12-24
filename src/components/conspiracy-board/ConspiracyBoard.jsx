@@ -1075,16 +1075,13 @@ const handleDragEnd = (event) => {
       return
     }
 
-    // TODO: Fix false error popup when board saves successfully
-    // Sometimes shows "Failed to save" even though the save actually worked
-    // Check useSavedBoards.js saveBoard implementation for promise/timing issues
     try {
       // Include canvasBounds when saving the board
       await saveBoard(boardNameInput.trim(), { ...boardState, canvasBounds })
       setActiveBoardName(boardNameInput.trim())
       setBoardNameInput('')
       setShowSaveBoardModal(false)
-      setShowBoardDropdown(false)
+      setOpenDropdown(null)
     } catch (error) {
       console.error('Error saving board:', error)
       // TODO: Replace native alert() with custom Dialog component
@@ -1128,7 +1125,7 @@ const handleDragEnd = (event) => {
       saveCanvasBoundsToSession(finalBounds)
       setActiveBoardName(boardId)
       setShowLoadBoardModal(false)
-      setShowBoardDropdown(false)
+      setOpenDropdown(null)
     }
   }
 
@@ -1166,7 +1163,7 @@ const handleDragEnd = (event) => {
       standalonePins: []
     })
     setActiveBoardName(newBoardName)
-    setShowBoardDropdown(false)
+    setOpenDropdown(null)
   }
 
   // Board name editing handlers
