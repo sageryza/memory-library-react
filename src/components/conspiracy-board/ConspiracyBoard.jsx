@@ -114,7 +114,11 @@ function ConspiracyBoard({
     return localStorage.getItem('activeBoardName') || null
   })
   const [cursorPosition, setCursorPosition] = useState(null)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // Sidebar starts closed on mobile, open on desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    return !isMobile
+  })
   const [sidebarSearchTerm, setSidebarSearchTerm] = useState('')
   const [sidebarAdvancedFiltered, setSidebarAdvancedFiltered] = useState(null)
   const [inlineEditingMemoryId, setInlineEditingMemoryId] = useState(null)
@@ -182,10 +186,14 @@ function ConspiracyBoard({
 
   // Zoom state - Start at 75% on mobile, 100% on desktop
   const [zoomLevel, setZoomLevel] = useState(() => {
-    // Clear any broken saved state from previous zoom attempts
-    sessionStorage.removeItem('boardZoomLevel')
-    sessionStorage.removeItem('boardPanOffset')
-
+    const savedZoom = sessionStorage.getItem('boardZoomLevel')
+    if (savedZoom) {
+      const parsed = parseFloat(savedZoom)
+      // Valid zoom levels: 25%, 50%, 75%, 100%
+      if ([0.25, 0.5, 0.75, 1.0].includes(parsed)) {
+        return parsed
+      }
+    }
     // Default to 75% on mobile (touch devices), 100% on desktop
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     return isMobile ? 0.75 : 1.0
@@ -209,6 +217,9 @@ function ConspiracyBoard({
 
   // Debounce timer for saving pan offset from wheel events
   const panSaveTimeoutRef = useRef(null)
+
+  // Timer for keeping expand arrows visible
+  const expandArrowTimeoutRef = useRef(null)
 
   // Undo/Redo system
   const MAX_UNDO_STATES = 50
@@ -1867,7 +1878,9 @@ const handleDragEnd = (event) => {
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
 
       setIsPanning(true)
-      setPanStart({ x: clientX - panOffset.x, y: clientY - panOffset.y })
+      // Store starting position and current pan offset separately
+      // We'll calculate delta in handlePanMove and scale by zoom
+      setPanStart({ x: clientX, y: clientY, startPanX: panOffset.x, startPanY: panOffset.y })
 
       // For touch, also store the last position for move tracking
       if (e.touches) {
@@ -1884,11 +1897,16 @@ const handleDragEnd = (event) => {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
 
+      // Calculate delta from start position, scaled by zoom level
+      // At lower zoom levels, we need more pan offset change for the same visual movement
+      const deltaX = (clientX - panStart.x) / zoomLevel
+      const deltaY = (clientY - panStart.y) / zoomLevel
+
       // Pan bounds use dynamic canvas bounds (starts at 2x viewport, expandable)
       const maxPanX = canvasBounds.offsetX
       const maxPanY = canvasBounds.offsetY
-      const rawX = clientX - panStart.x
-      const rawY = clientY - panStart.y
+      const rawX = panStart.startPanX + deltaX
+      const rawY = panStart.startPanY + deltaY
 
       // Detect if user is trying to pan beyond limits
       const tryingLeft = rawX > maxPanX
@@ -1910,14 +1928,19 @@ const handleDragEnd = (event) => {
       setPanOffset(newOffset)
       savePanOffsetToSession(newOffset)  // Save to session during drag
     }
-  }, [isPanning, panStart, savePanOffsetToSession, canvasBounds])
+  }, [isPanning, panStart, savePanOffsetToSession, canvasBounds, zoomLevel])
 
   const handlePanEnd = useCallback(() => {
     if (isPanning) {
       setIsPanning(false)
       setPanStart(null)
-      // Hide expand arrows when panning ends
-      setShowExpandArrow({ left: false, right: false, up: false, down: false })
+      // Keep expand arrows visible for 3 seconds after panning ends so user can tap them
+      if (expandArrowTimeoutRef.current) {
+        clearTimeout(expandArrowTimeoutRef.current)
+      }
+      expandArrowTimeoutRef.current = setTimeout(() => {
+        setShowExpandArrow({ left: false, right: false, up: false, down: false })
+      }, 3000)
       // Save pan offset to Firebase - use function to get latest state
       setPanOffset(currentPanOffset => {
         console.log('💾 Saving pan offset (drag):', currentPanOffset)
@@ -2084,10 +2107,11 @@ const handleDragEnd = (event) => {
       const SCROLL_SENSITIVITY = 1.0
 
       // Calculate new pan offset based on wheel delta
+      // Scale by zoom level so panning feels consistent at all zoom levels
       // Note: We subtract deltaX/Y because scrolling right should move content left (pan right)
       const newOffset = {
-        x: panOffset.x - (e.deltaX * SCROLL_SENSITIVITY),
-        y: panOffset.y - (e.deltaY * SCROLL_SENSITIVITY)
+        x: panOffset.x - (e.deltaX * SCROLL_SENSITIVITY / zoomLevel),
+        y: panOffset.y - (e.deltaY * SCROLL_SENSITIVITY / zoomLevel)
       }
 
       // Clamp to pan bounds using dynamic canvas bounds
@@ -2100,7 +2124,7 @@ const handleDragEnd = (event) => {
       const tryingUp = newOffset.y > maxPanY
       const tryingDown = newOffset.y < -maxPanY
 
-      // Show arrows briefly when hitting edges
+      // Show arrows when hitting edges, keep visible for 3 seconds
       if (tryingLeft || tryingRight || tryingUp || tryingDown) {
         setShowExpandArrow({
           left: tryingLeft,
@@ -2108,10 +2132,13 @@ const handleDragEnd = (event) => {
           up: tryingUp,
           down: tryingDown
         })
-        // Hide arrows after a short delay
-        setTimeout(() => {
+        // Clear previous timeout and set new 3 second timeout
+        if (expandArrowTimeoutRef.current) {
+          clearTimeout(expandArrowTimeoutRef.current)
+        }
+        expandArrowTimeoutRef.current = setTimeout(() => {
           setShowExpandArrow({ left: false, right: false, up: false, down: false })
-        }, 1500)
+        }, 3000)
       }
 
       const clampedOffset = {
@@ -2171,9 +2198,11 @@ const handleDragEnd = (event) => {
           let newZoom = pinchStartRef.current.zoom * scale
 
           // Clamp to allowed zoom levels (snap to nearest)
+          // Levels: 25%, 50%, 75%, 100%
           if (newZoom >= 0.875) newZoom = 1.0
           else if (newZoom >= 0.625) newZoom = 0.75
-          else newZoom = 0.5
+          else if (newZoom >= 0.375) newZoom = 0.5
+          else newZoom = 0.25
 
           const currentZoom = zoomLevelRef.current
           if (newZoom !== currentZoom) {
@@ -2265,7 +2294,8 @@ const handleDragEnd = (event) => {
         if (e.key === '+' || e.key === '=') {
           e.preventDefault()
           let newZoom
-          if (zoomLevel <= 0.5) newZoom = 0.75
+          if (zoomLevel <= 0.25) newZoom = 0.5
+          else if (zoomLevel <= 0.5) newZoom = 0.75
           else if (zoomLevel <= 0.75) newZoom = 1.0
           else newZoom = 1.0  // Already at max zoom
 
@@ -2279,7 +2309,8 @@ const handleDragEnd = (event) => {
           let newZoom
           if (zoomLevel >= 1.0) newZoom = 0.75
           else if (zoomLevel >= 0.75) newZoom = 0.5
-          else newZoom = 0.5  // Already at min zoom
+          else if (zoomLevel >= 0.5) newZoom = 0.25
+          else newZoom = 0.25  // Already at min zoom
 
           if (newZoom !== zoomLevel) {
             zoomToCenter(newZoom)
