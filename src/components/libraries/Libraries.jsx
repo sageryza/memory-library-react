@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Library, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Library, Plus, Pencil, Trash2, LogIn } from 'lucide-react';
 import useLibraries from '../../hooks/useLibraries';
 import LibraryCard from './LibraryCard';
 import CreateLibraryModal from './CreateLibraryModal';
@@ -16,6 +16,8 @@ export default function Libraries({ memories = [], userId }) {
   const [editingLibrary, setEditingLibrary] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const navigate = useNavigate();
 
   const {
     libraries,
@@ -66,6 +68,10 @@ export default function Libraries({ memories = [], userId }) {
 
   const handleToggleLock = async (libraryId, isLocked) => {
     await updateLibrary(libraryId, { isLocked });
+  };
+
+  const handleEnterLibrary = (libraryId) => {
+    navigate(`/archive?library=${libraryId}`);
   };
 
   if (loading) {
@@ -147,11 +153,16 @@ export default function Libraries({ memories = [], userId }) {
           onClose={() => setContextMenu(null)}
           items={[
             {
+              label: 'Enter',
+              icon: <LogIn size={14} />,
+              onClick: () => handleEnterLibrary(contextMenu.library.id)
+            },
+            { separator: true },
+            {
               label: 'Edit',
               icon: <Pencil size={14} />,
               onClick: () => handleEditLibrary(contextMenu.library)
             },
-            { separator: true },
             {
               label: 'Delete',
               icon: <Trash2 size={14} />,

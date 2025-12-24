@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
 import useLibraries from '../../hooks/useLibraries';
@@ -75,6 +75,22 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
 
   // Navigation hook
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle library URL parameter (from Libraries page "Enter" action)
+  useEffect(() => {
+    const libraryId = searchParams.get('library');
+    if (libraryId && libraries.length > 0) {
+      const library = libraries.find(lib => lib.id === libraryId);
+      if (library) {
+        setCurrentLibrary(library);
+        setSelectedHashtags([]);
+        setSearchQuery('');
+        // Clear the URL param after applying
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, libraries, setSearchParams]);
 
   // Filter memories
   useEffect(() => {

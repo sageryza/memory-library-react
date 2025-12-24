@@ -6,6 +6,7 @@
   flex-direction: column;
   background: #FFFFFF;
   overflow: hidden;
+  user-select: none;
 }
 
 /* Header */
