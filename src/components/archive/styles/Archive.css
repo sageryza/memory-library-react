@@ -154,7 +154,7 @@ textarea {
 .search-section {
     display: flex;
     flex-direction: column;
-    width: 200px;
+    width: 130px;
     position: relative;
 }
 

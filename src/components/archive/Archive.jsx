@@ -725,7 +725,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                 <input
                   type="text"
                   className={searchQuery ? 'with-clear-btn' : ''}
-                  placeholder="Search memories..."
+                  placeholder="Search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
