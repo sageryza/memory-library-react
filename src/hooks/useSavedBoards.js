@@ -72,7 +72,8 @@ export const useSavedBoards = (userId) => {
         name,
         droppedMemories: boardState.droppedMemories || [],
         connections: boardState.connections || [],
-        standalonePins: boardState.standalonePins || []
+        standalonePins: boardState.standalonePins || [],
+        canvasBounds: boardState.canvasBounds || null
       };
 
       // Only update timestamp for manual saves, not auto-saves
@@ -94,7 +95,8 @@ export const useSavedBoards = (userId) => {
       return {
         droppedMemories: board.droppedMemories || [],
         connections: board.connections || [],
-        standalonePins: board.standalonePins || []
+        standalonePins: board.standalonePins || [],
+        canvasBounds: board.canvasBounds || null
       };
     }
     return null;
@@ -131,6 +133,7 @@ export const useSavedBoards = (userId) => {
         droppedMemories: oldBoard.droppedMemories || [],
         connections: oldBoard.connections || [],
         standalonePins: oldBoard.standalonePins || [],
+        canvasBounds: oldBoard.canvasBounds || null,
         updatedAt: serverTimestamp()
       });
 

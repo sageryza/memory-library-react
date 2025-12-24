@@ -107,6 +107,9 @@ export const useBoardState = (userId, authLoading = false) => {
     if (!userId) return;
 
     try {
+      // Optimistic update - update local state immediately for responsive UI
+      setBoardState(newState);
+
       const boardStateRef = doc(db, 'users', userId, 'boardState', 'current');
       console.log('✅ Saved to Firebase - panOffset:', newState.panOffset);
       await setDoc(boardStateRef, {
