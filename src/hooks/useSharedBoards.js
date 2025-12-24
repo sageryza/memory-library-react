@@ -5,6 +5,7 @@ import {
   onSnapshot,
   setDoc,
   getDoc,
+  addDoc,
   serverTimestamp,
   query,
   where,
@@ -276,6 +277,99 @@ export const useSharedBoard = (shareId) => {
     }
   }, [shareId]);
 
+  /**
+   * Import the shared board into a user's account
+   * - Imports all memories into user's memories collection
+   * - Creates ID mapping and updates board references
+   * - Saves board to user's saved boards
+   * - Sets as current board state
+   * @param {string} userId - The user's ID to import into
+   * @returns {Object} { success, boardName, memoryCount }
+   */
+  const importToAccount = useCallback(async (userId) => {
+    if (!shareId || !userId || !sharedBoard) {
+      throw new Error('Missing required data for import');
+    }
+
+    try {
+      const {
+        name,
+        droppedMemories = [],
+        connections = [],
+        standalonePins = []
+      } = sharedBoard;
+
+      // Step 1: Import each memory and create ID mapping
+      const idMapping = new Map(); // oldId -> newId
+      const memoriesRef = collection(db, 'users', userId, 'memories');
+
+      for (const memory of droppedMemories) {
+        // Extract memory data (excluding position info)
+        const { id: oldId, x, y, ...memoryData } = memory;
+
+        // Add memory to user's collection
+        const docRef = await addDoc(memoriesRef, {
+          ...memoryData,
+          importedFrom: shareId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        idMapping.set(String(oldId), docRef.id);
+      }
+
+      // Step 2: Update droppedMemories with new IDs
+      const updatedDroppedMemories = droppedMemories.map(memory => ({
+        ...memory,
+        id: idMapping.get(String(memory.id)) || memory.id
+      }));
+
+      // Step 3: Update connections with new IDs
+      const updatedConnections = connections.map(conn => ({
+        ...conn,
+        from: idMapping.get(String(conn.from)) || conn.from,
+        to: idMapping.get(String(conn.to)) || conn.to
+      }));
+
+      // Step 4: Save as a saved board
+      const boardName = name || 'Shared Board';
+      const boardRef = doc(db, 'users', userId, 'boards', boardName);
+      await setDoc(boardRef, {
+        name: boardName,
+        droppedMemories: updatedDroppedMemories,
+        connections: updatedConnections,
+        standalonePins: standalonePins,
+        importedFrom: shareId,
+        updatedAt: serverTimestamp()
+      });
+
+      // Step 5: Set as current board state
+      const boardStateRef = doc(db, 'users', userId, 'boardState', 'current');
+      await setDoc(boardStateRef, {
+        droppedMemories: updatedDroppedMemories,
+        connections: updatedConnections,
+        standalonePins: standalonePins,
+        panOffset: { x: 0, y: 0 },
+        updatedAt: serverTimestamp()
+      });
+
+      // Step 6: Record that import happened
+      await recordAction('imported_to_account', {
+        importedByUserId: userId,
+        memoryCount: droppedMemories.length
+      });
+
+      return {
+        success: true,
+        boardName,
+        memoryCount: droppedMemories.length
+      };
+    } catch (error) {
+      console.error('Error importing shared board:', error);
+      throw error;
+    }
+  }, [shareId, sharedBoard, recordAction]);
+
   return {
     sharedBoard,
     loading,
@@ -283,7 +377,8 @@ export const useSharedBoard = (shareId) => {
     updateSharedBoard,
     recordView,
     recordMemoryView,
-    recordAction
+    recordAction,
+    importToAccount
   };
 };
 

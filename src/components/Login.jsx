@@ -5,26 +5,29 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  getAdditionalUserInfo
+  getAdditionalUserInfo,
+  linkWithCredential,
+  EmailAuthProvider,
+  linkWithPopup
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import useAuth from '../hooks/useAuth';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAnonymous } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirect to conspiracy board if user is already logged in
+  // Redirect to conspiracy board if user is logged in (and not anonymous)
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !isAnonymous) {
       navigate('/conspiracy-board');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAnonymous, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,13 +36,28 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // If user is anonymous, link the account instead of creating new
+        if (user && isAnonymous) {
+          const credential = EmailAuthProvider.credential(email, password);
+          await linkWithCredential(user, credential);
+        } else {
+          await createUserWithEmailAndPassword(auth, email, password);
+        }
       } else {
+        // For sign in, if anonymous user exists, we need to handle data migration
+        // For now, just sign in (this will replace anonymous account)
         await signInWithEmailAndPassword(auth, email, password);
       }
       // Navigation will be handled by the useEffect hook when auth state updates
     } catch (error) {
-      setError(error.message);
+      // Handle the case where email is already in use
+      if (error.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please sign in instead.');
+      } else if (error.code === 'auth/credential-already-in-use') {
+        setError('This account is already linked. Please sign in instead.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -54,7 +72,14 @@ const Login = () => {
       // Request additional user profile fields
       provider.addScope('profile');
 
-      const result = await signInWithPopup(auth, provider);
+      let result;
+
+      // If user is anonymous, link with Google instead
+      if (user && isAnonymous) {
+        result = await linkWithPopup(user, provider);
+      } else {
+        result = await signInWithPopup(auth, provider);
+      }
 
       // Get the additional user info which includes the Google profile
       const additionalInfo = getAdditionalUserInfo(result);
@@ -67,7 +92,11 @@ const Login = () => {
 
       // Navigation will be handled by the useEffect hook when auth state updates
     } catch (error) {
-      setError(error.message);
+      if (error.code === 'auth/credential-already-in-use') {
+        setError('This Google account is already linked to another user.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -77,7 +106,18 @@ const Login = () => {
     <div style={styles.container}>
       <div style={styles.loginBox}>
         <h1 style={styles.title}>Memory Library</h1>
-        <h2 style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Sign In'}</h2>
+        <h2 style={styles.subtitle}>
+          {isAnonymous
+            ? 'Create Your Account'
+            : (isSignUp ? 'Create Account' : 'Sign In')}
+        </h2>
+
+        {isAnonymous && (
+          <p style={styles.anonymousNotice}>
+            Create an account to save your memories and boards permanently.
+            Your imported content will be preserved.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
@@ -239,6 +279,16 @@ const styles = {
     color: '#d32f2f',
     fontSize: '14px',
     marginTop: '-8px',
+  },
+  anonymousNotice: {
+    backgroundColor: '#e8f4e8',
+    color: '#2e7d32',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    marginBottom: '16px',
+    textAlign: 'center',
+    lineHeight: '1.4',
   },
   switchMode: {
     textAlign: 'center',

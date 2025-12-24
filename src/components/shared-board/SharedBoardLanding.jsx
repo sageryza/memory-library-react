@@ -1,7 +1,7 @@
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Loader } from 'lucide-react';
 import './SharedBoard.css';
 
-export default function SharedBoardLanding({ sharedBoard, onEnter }) {
+export default function SharedBoardLanding({ sharedBoard, onEnter, isImporting, importError }) {
   const { sharedBy, sharedWith, memoryCount } = sharedBoard;
   const sharerName = sharedBy?.firstName || 'Someone';
   const recipientName = sharedWith?.name || 'you';
@@ -21,11 +21,23 @@ export default function SharedBoardLanding({ sharedBoard, onEnter }) {
           You've been invited to view and collaborate on a memory board.
         </p>
 
+        {importError && (
+          <p className="landing-error">{importError}</p>
+        )}
+
         <button
           className="btn btn-primary landing-cta"
           onClick={onEnter}
+          disabled={isImporting}
         >
-          View Memories
+          {isImporting ? (
+            <>
+              <Loader size={18} className="spinner" />
+              Loading...
+            </>
+          ) : (
+            'View Memories'
+          )}
         </button>
 
         <p className="landing-footer">

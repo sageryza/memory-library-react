@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useSharedBoard } from '../../hooks/useSharedBoards';
+import { useAuth } from '../../hooks/useAuth';
 import SharedBoardLanding from './SharedBoardLanding';
-import SharedBoardView from './SharedBoardView';
 import './SharedBoard.css';
 
 export default function SharedBoardContainer() {
   const { shareId } = useParams();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signInAnonymously } = useAuth();
   const {
     sharedBoard,
     loading,
     error,
-    updateSharedBoard,
     recordView,
-    recordMemoryView,
-    recordAction
+    recordAction,
+    importToAccount
   } = useSharedBoard(shareId);
-  const [hasEntered, setHasEntered] = useState(false);
   const [hasRecordedLandingView, setHasRecordedLandingView] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState(null);
 
   // Record view when landing page loads (first time only)
   useEffect(() => {
@@ -27,7 +29,35 @@ export default function SharedBoardContainer() {
     }
   }, [sharedBoard, hasRecordedLandingView, recordView]);
 
-  if (loading) {
+  // Handle the "View Memories" button click
+  const handleEnter = async () => {
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      let currentUser = user;
+
+      // If not logged in, create anonymous account
+      if (!currentUser) {
+        currentUser = await signInAnonymously();
+      }
+
+      // Record that they clicked to view
+      await recordAction('entered_board');
+
+      // Import the shared board into their account
+      await importToAccount(currentUser.uid);
+
+      // Redirect to the conspiracy board
+      navigate('/conspiracy-board');
+    } catch (err) {
+      console.error('Failed to import board:', err);
+      setImportError('Failed to load the board. Please try again.');
+      setIsImporting(false);
+    }
+  };
+
+  if (loading || authLoading) {
     return (
       <div className="shared-board-loading">
         <div className="loading-spinner" />
@@ -45,26 +75,12 @@ export default function SharedBoardContainer() {
     );
   }
 
-  // Show landing page first, then the board view
-  if (!hasEntered) {
-    return (
-      <SharedBoardLanding
-        sharedBoard={sharedBoard}
-        onEnter={() => {
-          // Record that they clicked to view the board
-          recordAction('entered_board');
-          setHasEntered(true);
-        }}
-      />
-    );
-  }
-
   return (
-    <SharedBoardView
+    <SharedBoardLanding
       sharedBoard={sharedBoard}
-      updateSharedBoard={updateSharedBoard}
-      recordMemoryView={recordMemoryView}
-      recordAction={recordAction}
+      onEnter={handleEnter}
+      isImporting={isImporting}
+      importError={importError}
     />
   );
 }

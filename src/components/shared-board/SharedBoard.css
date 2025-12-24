@@ -102,6 +102,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 14px 32px;
   font-size: 16px;
   font-weight: 600;
@@ -114,8 +115,23 @@
   transition: background-color 0.2s;
 }
 
-.landing-cta:hover {
+.landing-cta:hover:not(:disabled) {
   background-color: #600018;
+}
+
+.landing-cta:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.landing-cta .spinner {
+  animation: spin 1s linear infinite;
+}
+
+.landing-error {
+  color: #c0392b;
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
 .landing-footer {
