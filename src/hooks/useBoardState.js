@@ -29,7 +29,8 @@ export const useBoardState = (userId, authLoading = false) => {
     droppedMemories: [],
     connections: [],
     standalonePins: [],
-    panOffset: getInitialPanOffset()
+    panOffset: getInitialPanOffset(),
+    importedFrom: null
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,7 +53,8 @@ export const useBoardState = (userId, authLoading = false) => {
         droppedMemories: [],
         connections: [],
         standalonePins: [],
-        panOffset: getInitialPanOffset()
+        panOffset: getInitialPanOffset(),
+        importedFrom: null
       };
       setBoardState(localBoardState);
       setLoading(false);
@@ -70,7 +72,8 @@ export const useBoardState = (userId, authLoading = false) => {
             droppedMemories: data.droppedMemories || [],
             connections: data.connections || [],
             standalonePins: data.standalonePins || [],
-            panOffset: data.panOffset || getInitialPanOffset()
+            panOffset: data.panOffset || getInitialPanOffset(),
+            importedFrom: data.importedFrom || null
           });
         } else {
           // Initialize with empty state if document doesn't exist
@@ -78,7 +81,8 @@ export const useBoardState = (userId, authLoading = false) => {
             droppedMemories: [],
             connections: [],
             standalonePins: [],
-            panOffset: getInitialPanOffset()
+            panOffset: getInitialPanOffset(),
+            importedFrom: null
           });
         }
         setLoading(false);

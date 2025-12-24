@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Share2 } from 'lucide-react'
+import { Library, Grid3x3, Eye, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Share2 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -37,6 +37,7 @@ import useSimplifyView from '../../hooks/useSimplifyView'
 import useLibraries from '../../hooks/useLibraries'
 import useLibraryFilter from '../../hooks/useLibraryFilter'
 import { usePlaygrounds } from '../../hooks/usePlaygrounds'
+import { useSharedBoardTracking } from '../../hooks/useSharedBoardTracking'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, generateLocalId, ensureStringId } from '../../utils/generateId'
@@ -89,6 +90,7 @@ function ConspiracyBoard({
   const [showVennModal, setShowVennModal] = useState(false)
   const [showAddMemoryModal, setShowAddMemoryModal] = useState(false)
   const [editingMemory, setEditingMemory] = useState(null)
+  const [viewMode, setViewMode] = useState(false)
   const [showOpacityFading, setShowOpacityFading] = useState(false)
   const [showAllInsights, setShowAllInsights] = useState(false)
   const [stringsInFront, setStringsInFront] = useState(true) // Default: strings appear in front of cards
@@ -288,6 +290,9 @@ function ConspiracyBoard({
   } = useBoardState(user?.uid, authLoading)
 
   const { droppedMemories = [], connections = [], standalonePins = [], panOffset: savedPanOffset = { x: 0, y: 0 } } = boardState || {}
+
+  // Track activity on imported shared boards
+  const { trackMemoryView, trackConnectionMade } = useSharedBoardTracking(boardState?.importedFrom)
 
   // Clear optimistic positions only on mount (to clean up after page reload)
   useEffect(() => {
@@ -968,11 +973,18 @@ const handleDragEnd = (event) => {
             insight: ''
           }]
         })
+
+        // Track connection on imported shared boards
+        if (trackConnectionMade) {
+          const fromMemory = droppedMemories.find(m => compareIds(m.id, selectedPin))
+          const toMemory = droppedMemories.find(m => compareIds(m.id, memoryId))
+          trackConnectionMade(fromMemory?.title, toMemory?.title)
+        }
       }
       setSelectedPin(null)
       setCursorPosition(null)
     }
-  }, [selectedPin, connections, boardState, updateBoardState, saveStateForUndo, standalonePins, isConstellationMode, findConnectedNetwork, setConstellationSelectedNodes, isPlacingConstellation])
+  }, [selectedPin, connections, boardState, updateBoardState, saveStateForUndo, standalonePins, isConstellationMode, findConnectedNetwork, setConstellationSelectedNodes, isPlacingConstellation, trackConnectionMade, droppedMemories])
 
   // Pin description save handler
   const handleSavePinDescription = useCallback((pinId, description) => {
@@ -1564,10 +1576,17 @@ const handleDragEnd = (event) => {
     })
   }, [boardState, droppedMemories, updateBoardState])
 
+  const handleViewMemory = (memory) => {
+    setEditingMemory(memory)
+    setViewMode(true)
+    setShowAddMemoryModal(true)
+  }
+
   const handleEditMemory = async (memory) => {
     if (isConstellationMode) return // Prevent editing in constellation mode
     // All memories now have Firebase IDs from creation, so just open the modal
     setEditingMemory(memory)
+    setViewMode(false)
     setShowAddMemoryModal(true)
   }
 
@@ -2397,6 +2416,7 @@ const handleDragEnd = (event) => {
 
     if (type === 'memory') {
       items.push(
+        { label: 'View Memory', icon: <Eye size={16} />, onClick: () => handleViewMemory(data) },
         { label: 'Edit Memory', icon: <Pencil size={16} />, onClick: () => handleEditMemory(data) },
         { label: 'Return to Sidebar', icon: <Undo2 size={16} />, onClick: () => handleReturnToSidebar(data.id) },
         { label: 'Delete Memory', icon: <Trash2 size={16} />, onClick: () => handleDeleteMemory(data.id) }
@@ -2512,6 +2532,11 @@ const handleDragEnd = (event) => {
   }, [updateBoardState, saveStateForUndo])
 
   const handleMemoryClick = useCallback((e, memory) => {
+    // Track memory view on imported shared boards
+    if (trackMemoryView && memory) {
+      trackMemoryView(memory.id, memory.title)
+    }
+
     // In constellation mode (but not during placement), select the connected network instead
     if (isConstellationMode && !isPlacingConstellation) {
       const network = findConnectedNetwork(memory.id)
@@ -2535,7 +2560,7 @@ const handleDragEnd = (event) => {
     //   x: e.clientX,
     //   y: e.clientY
     // })
-  }, [selectedPin, handlePinClick, isConstellationMode, findConnectedNetwork, setConstellationSelectedNodes, isPlacingConstellation])
+  }, [selectedPin, handlePinClick, isConstellationMode, findConnectedNetwork, setConstellationSelectedNodes, isPlacingConstellation, trackMemoryView])
 
   // Reset view to center on canvas origin (0, 0)
   const handleResetView = useCallback(() => {

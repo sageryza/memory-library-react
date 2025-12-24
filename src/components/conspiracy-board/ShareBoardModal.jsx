@@ -264,6 +264,9 @@ export default function ShareBoardModal({
                                 {activity.type === 'entered_board' && (
                                   <span>Entered the board</span>
                                 )}
+                                {activity.type === 'imported_to_account' && (
+                                  <span>Imported the board</span>
+                                )}
                                 <span className="activity-time">
                                   {formatTimeAgo(activity.timestamp)}
                                 </span>

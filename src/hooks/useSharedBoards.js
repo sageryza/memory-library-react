@@ -350,6 +350,7 @@ export const useSharedBoard = (shareId) => {
         connections: updatedConnections,
         standalonePins: standalonePins,
         panOffset: { x: 0, y: 0 },
+        importedFrom: shareId,
         updatedAt: serverTimestamp()
       });
 
