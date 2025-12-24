@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, useDroppable } from '@dnd-kit/core'
 import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Share2 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
@@ -130,6 +130,7 @@ function ConspiracyBoard({
   const minimapDragJustEnded = useRef(false)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
   const [showExpandArrow, setShowExpandArrow] = useState({ left: false, right: false, up: false, down: false })
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false) // Show zoom level briefly on change
 
   // Dynamic canvas bounds - starts at 2x viewport, expandable by half viewport increments
   // Store as { width, height, offsetX, offsetY } where offset is distance from left/top edge to origin
@@ -179,21 +180,29 @@ function ConspiracyBoard({
   const [panStart, setPanStart] = useState(null)
   const [smoothPan, setSmoothPan] = useState(false) // Enable smooth transition for programmatic panning
 
-  // Zoom state - Start at 100%, can zoom out to 75% or 50%
+  // Zoom state - Start at 75% on mobile, 100% on desktop
   const [zoomLevel, setZoomLevel] = useState(() => {
-    const savedZoom = sessionStorage.getItem('boardZoomLevel')
-    if (savedZoom) {
-      const parsed = parseFloat(savedZoom)
-      if ([1.0, 0.75, 0.5].includes(parsed)) {
-        console.log('🔍 Restored zoom level from sessionStorage:', parsed)
-        return parsed
-      }
-    }
-    return 1.0  // Default to 100% zoom
+    // Clear any broken saved state from previous zoom attempts
+    sessionStorage.removeItem('boardZoomLevel')
+    sessionStorage.removeItem('boardPanOffset')
+
+    // Default to 75% on mobile (touch devices), 100% on desktop
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    return isMobile ? 0.75 : 1.0
   })
 
   // Track cleanup function for event listeners
   const cleanupRef = useRef(null)
+
+  // Touch/pinch zoom tracking
+  const pinchStartRef = useRef(null) // { distance, zoom } when pinch started
+  const lastTouchRef = useRef(null) // Track last touch position for single-finger pan
+  const zoomLevelRef = useRef(zoomLevel) // Keep current zoom level in ref for native listeners
+  const panOffsetRef = useRef(panOffset) // Keep current pan offset in ref for native listeners
+
+  // Long-press for context menu on mobile
+  const longPressTimerRef = useRef(null)
+  const longPressTouchRef = useRef(null) // { x, y, type, data } - track touch start position and context
 
   // Track if we've loaded the initial pan offset to prevent multiple updates causing flash
   const hasLoadedInitialPanOffset = useRef(false)
@@ -274,6 +283,15 @@ function ConspiracyBoard({
     setOptimisticPositions({})
     setOptimisticPinPositions({})
   }, [])
+
+  // Keep refs updated for native event listeners
+  useEffect(() => {
+    zoomLevelRef.current = zoomLevel
+  }, [zoomLevel])
+
+  useEffect(() => {
+    panOffsetRef.current = panOffset
+  }, [panOffset])
 
   // CRITICAL: Controlled sessionStorage saving - prevents conflicts
   // This function is ONLY called on user interaction (drag, wheel, reset)
@@ -688,6 +706,12 @@ function ConspiracyBoard({
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms hold before drag starts (helps distinguish from scrolling)
+        tolerance: 5, // 5px movement tolerance during delay
       },
     })
   )
@@ -1832,24 +1856,39 @@ const handleDragEnd = (event) => {
     })
   }, [boardState, standalonePins, updateBoardState])
 
-  // Pan handlers
+  // Pan handlers - support both mouse and touch
   const handlePanStart = useCallback((e) => {
     // Only pan if clicking on canvas background (not on cards or other elements)
     if (e.target.classList.contains('canvas') || e.target.classList.contains('canvas-container')) {
       e.preventDefault()
+
+      // Get coordinates from either mouse or touch event
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+
       setIsPanning(true)
-      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y })
+      setPanStart({ x: clientX - panOffset.x, y: clientY - panOffset.y })
+
+      // For touch, also store the last position for move tracking
+      if (e.touches) {
+        lastTouchRef.current = { x: clientX, y: clientY }
+      }
     }
   }, [panOffset])
 
   const handlePanMove = useCallback((e) => {
     if (isPanning && panStart) {
       e.preventDefault()
+
+      // Get coordinates from either mouse or touch event
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+
       // Pan bounds use dynamic canvas bounds (starts at 2x viewport, expandable)
       const maxPanX = canvasBounds.offsetX
       const maxPanY = canvasBounds.offsetY
-      const rawX = e.clientX - panStart.x
-      const rawY = e.clientY - panStart.y
+      const rawX = clientX - panStart.x
+      const rawY = clientY - panStart.y
 
       // Detect if user is trying to pan beyond limits
       const tryingLeft = rawX > maxPanX
@@ -1893,6 +1932,138 @@ const handleDragEnd = (event) => {
       })
     }
   }, [isPanning, droppedMemories, connections, standalonePins, updateBoardState])
+
+  // Helper to calculate distance between two touch points
+  const getTouchDistance = (touches) => {
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  // Long-press delay for context menu
+  const LONG_PRESS_DELAY = 500 // ms
+
+  // Touch handlers for mobile panning and pinch-to-zoom
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      // Pinch gesture starting - store initial distance and zoom
+      e.preventDefault()
+      const distance = getTouchDistance(e.touches)
+      pinchStartRef.current = { distance, zoom: zoomLevel }
+      setIsPanning(false) // Stop any panning when pinching
+      // Cancel any long-press in progress
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+      longPressTouchRef.current = null
+    } else if (e.touches.length === 1) {
+      // Single finger - start panning
+      handlePanStart(e)
+
+      // Start long-press timer for canvas context menu
+      if (e.target.classList.contains('canvas') || e.target.classList.contains('canvas-container')) {
+        const touch = e.touches[0]
+        longPressTouchRef.current = {
+          x: touch.clientX,
+          y: touch.clientY,
+          type: 'canvas',
+          data: null
+        }
+
+        longPressTimerRef.current = setTimeout(() => {
+          if (longPressTouchRef.current) {
+            // Create a synthetic event for context menu
+            const syntheticEvent = {
+              preventDefault: () => {},
+              clientX: longPressTouchRef.current.x,
+              clientY: longPressTouchRef.current.y
+            }
+
+            // Capture canvas position for inline memory creation
+            const container = document.querySelector('.canvas-container')
+            if (container) {
+              const rect = container.getBoundingClientRect()
+              const canvasPos = screenToCanvas(
+                longPressTouchRef.current.x - rect.left,
+                longPressTouchRef.current.y - rect.top
+              )
+
+              // Show context menu with canvas options
+              setContextMenu({
+                x: longPressTouchRef.current.x,
+                y: longPressTouchRef.current.y,
+                items: [
+                  { label: 'Add Memory', icon: <Plus size={16} />, onClick: () => handleAddMemoryAtPosition(canvasPos) },
+                  { label: 'Add Pin', icon: <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="4" fill="#dc143c"/><rect x="7" y="8" width="2" height="6" fill="#666"/></svg>, onClick: () => handlePlacePinAtPosition(canvasPos) }
+                ]
+              })
+            }
+            longPressTouchRef.current = null
+          }
+        }, LONG_PRESS_DELAY)
+      }
+    }
+  }, [zoomLevel, handlePanStart, screenToCanvas, handleAddMemoryAtPosition, handlePlacePinAtPosition])
+
+  const handleTouchMove = useCallback((e) => {
+    // Cancel long-press if moving
+    if (longPressTouchRef.current && e.touches?.length) {
+      const touch = e.touches[0]
+      const dx = touch.clientX - longPressTouchRef.current.x
+      const dy = touch.clientY - longPressTouchRef.current.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = null
+        }
+        longPressTouchRef.current = null
+      }
+    }
+
+    if (e.touches.length === 2 && pinchStartRef.current) {
+      // Pinch-to-zoom
+      e.preventDefault()
+      const currentDistance = getTouchDistance(e.touches)
+      const scale = currentDistance / pinchStartRef.current.distance
+
+      // Calculate new zoom level based on initial zoom and scale factor
+      let newZoom = pinchStartRef.current.zoom * scale
+
+      // Clamp to allowed zoom levels (snap to nearest)
+      if (newZoom >= 0.875) newZoom = 1.0
+      else if (newZoom >= 0.625) newZoom = 0.75
+      else newZoom = 0.5
+
+      if (newZoom !== zoomLevel) {
+        setZoomLevel(newZoom)
+        sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+      }
+    } else if (e.touches.length === 1 && isPanning) {
+      // Single finger panning
+      handlePanMove(e)
+    }
+  }, [zoomLevel, isPanning, handlePanMove])
+
+  const handleTouchEnd = useCallback((e) => {
+    // Clear long-press timer
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressTouchRef.current = null
+
+    if (e.touches.length === 0) {
+      // All fingers lifted
+      pinchStartRef.current = null
+      lastTouchRef.current = null
+      handlePanEnd()
+    } else if (e.touches.length === 1 && pinchStartRef.current) {
+      // Went from 2 fingers to 1 - could start panning
+      pinchStartRef.current = null
+    }
+  }, [handlePanEnd])
 
   // Callback ref to attach wheel event listeners and prevent browser navigation
   const attachCanvasListeners = useCallback((node) => {
@@ -1967,10 +2138,22 @@ const handleDragEnd = (event) => {
       }, 500) // Save after 500ms of no scrolling
     }
 
+    // Helper to calculate distance between two touch points
+    const getTouchDist = (touches) => {
+      const dx = touches[0].clientX - touches[1].clientX
+      const dy = touches[0].clientY - touches[1].clientY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
     const handleTouchStart = (e) => {
       // Prevent multi-touch gestures from triggering browser navigation/zoom
       if (e.touches.length > 1) {
         e.preventDefault()
+        // Start pinch tracking - use ref for current zoom level
+        pinchStartRef.current = {
+          distance: getTouchDist(e.touches),
+          zoom: zoomLevelRef.current
+        }
       }
     }
 
@@ -1978,6 +2161,43 @@ const handleDragEnd = (event) => {
       // Prevent touch gestures from triggering browser navigation
       if (e.touches.length > 1) {
         e.preventDefault()
+
+        // Handle pinch-to-zoom
+        if (pinchStartRef.current && e.touches.length === 2) {
+          const currentDistance = getTouchDist(e.touches)
+          const scale = currentDistance / pinchStartRef.current.distance
+
+          // Calculate new zoom level based on initial zoom and scale factor
+          let newZoom = pinchStartRef.current.zoom * scale
+
+          // Clamp to allowed zoom levels (snap to nearest)
+          if (newZoom >= 0.875) newZoom = 1.0
+          else if (newZoom >= 0.625) newZoom = 0.75
+          else newZoom = 0.5
+
+          const currentZoom = zoomLevelRef.current
+          if (newZoom !== currentZoom) {
+            // With dynamic transformOrigin at viewport center, no pan adjustment needed
+            setZoomLevel(newZoom)
+            sessionStorage.setItem('boardZoomLevel', newZoom.toString())
+
+            // Show zoom indicator
+            setShowZoomIndicator(true)
+            setTimeout(() => setShowZoomIndicator(false), 1500)
+
+            // Reset pinch start with new zoom to allow continuous zooming
+            pinchStartRef.current = {
+              distance: currentDistance,
+              zoom: newZoom
+            }
+          }
+        }
+      }
+    }
+
+    const handleTouchEnd = (e) => {
+      if (e.touches.length < 2) {
+        pinchStartRef.current = null
       }
     }
 
@@ -1994,6 +2214,7 @@ const handleDragEnd = (event) => {
     node.addEventListener('wheel', handleWheel, { passive: false })
     node.addEventListener('touchstart', handleTouchStart, { passive: false })
     node.addEventListener('touchmove', handleTouchMove, { passive: false })
+    node.addEventListener('touchend', handleTouchEnd, { passive: false })
     node.addEventListener('gesturestart', handleGestureStart, { passive: false })
     node.addEventListener('gesturechange', handleGestureChange, { passive: false })
 
@@ -2002,10 +2223,11 @@ const handleDragEnd = (event) => {
       node.removeEventListener('wheel', handleWheel)
       node.removeEventListener('touchstart', handleTouchStart)
       node.removeEventListener('touchmove', handleTouchMove)
+      node.removeEventListener('touchend', handleTouchEnd)
       node.removeEventListener('gesturestart', handleGestureStart)
       node.removeEventListener('gesturechange', handleGestureChange)
     }
-  }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState, canvasBounds])
+  }, [panOffset, setPanOffset, savePanOffsetToSession, droppedMemories, connections, standalonePins, updateBoardState, canvasBounds, zoomLevel])
 
   // Handle ESC key to cancel pin placement or connection, and Cmd/Ctrl+Z for undo
   useEffect(() => {
@@ -2736,10 +2958,32 @@ const handleDragEnd = (event) => {
             }}
             onMouseUp={handlePanEnd}
             onMouseLeave={handlePanEnd}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             onClick={handleCanvasClick}
             onContextMenu={(e) => handleContextMenu(e, 'canvas')}
             style={{ cursor: isPanning ? 'grabbing' : 'default' }}
           >
+            {/* Zoom indicator for mobile */}
+            {showZoomIndicator && (
+              <div style={{
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(0,0,0,0.8)',
+                color: 'white',
+                padding: '16px 24px',
+                borderRadius: '8px',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                zIndex: 9999,
+                pointerEvents: 'none'
+              }}>
+                {Math.round(zoomLevel * 100)}%
+              </div>
+            )}
             <ToolRail
               toolGroups={[
                 [
@@ -2777,7 +3021,8 @@ const handleDragEnd = (event) => {
               className={`pan-container ${isPanning ? 'dragging' : ''} ${smoothPan ? 'smooth-pan' : ''}`}
               style={{
                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-                transformOrigin: '0 0',
+                // Transform origin at viewport center (in element coords) so zoom feels natural
+                transformOrigin: `${CANVAS_OFFSET_X + (window.innerWidth / 2) - panOffset.x}px ${CANVAS_OFFSET_Y + (window.innerHeight / 2) - panOffset.y}px`,
                 width: `${CANVAS_WIDTH}px`,
                 height: `${CANVAS_HEIGHT}px`,
                 position: 'absolute',
