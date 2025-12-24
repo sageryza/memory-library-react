@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react'
+import { Library, Grid3x3, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Share2 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -18,6 +18,7 @@ import ConstellationSidebar from './ConstellationSidebar'
 import PinEditModal from './PinEditModal'
 import Modal from '../shared/Modal'
 import PinGrid from './PinGrid'
+import ShareBoardModal from './ShareBoardModal'
 import ContextMenu from '../shared/ContextMenu'
 import MemoryPopup from '../shared/MemoryPopup'
 import MemoryCard from '../shared/MemoryCard'
@@ -103,6 +104,7 @@ function ConspiracyBoard({
   const [editingPin, setEditingPin] = useState(null)
   const [showSaveBoardModal, setShowSaveBoardModal] = useState(false)
   const [showLoadBoardModal, setShowLoadBoardModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [boardNameInput, setBoardNameInput] = useState('')
   const [openDropdown, setOpenDropdown] = useState(null) // Track which dropdown is currently open
   const [isEditingBoardName, setIsEditingBoardName] = useState(false)
@@ -2625,6 +2627,12 @@ const handleDragEnd = (event) => {
                     label: 'Load Board',
                     icon: <BookOpen size={16} style={{ fill: 'none' }} />,
                     onClick: () => setShowLoadBoardModal(true)
+                  },
+                  { separator: true },
+                  {
+                    label: 'Share Board',
+                    icon: <Share2 size={16} style={{ fill: 'none' }} />,
+                    onClick: () => setShowShareModal(true)
                   }
                 ]}
               />
@@ -3526,6 +3534,13 @@ const handleDragEnd = (event) => {
           </div>
         )}
 
+        {/* Share Board Modal */}
+        <ShareBoardModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          boardState={boardState}
+          boardName={activeBoardName || 'My Board'}
+        />
 
         {memoryPopup && (
           <MemoryPopup

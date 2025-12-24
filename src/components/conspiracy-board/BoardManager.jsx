@@ -1,14 +1,17 @@
 import { useState } from 'react'
+import { Share2 } from 'lucide-react'
 import { useSavedBoards } from '../../hooks/useSavedBoards'
 import { useAuth } from '../../hooks/useAuth'
 import { useConfirm } from '../../contexts/ConfirmContext'
+import ShareBoardModal from './ShareBoardModal'
 
-export default function BoardManager({ currentBoard, onLoadBoard, onSaveBoard, onDeleteBoard }) {
+export default function BoardManager({ currentBoard, currentBoardName, onLoadBoard, onSaveBoard, onDeleteBoard }) {
   const { user } = useAuth()
   const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
   const { confirm } = useConfirm()
   const [boardName, setBoardName] = useState('')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
 
   const handleSave = async () => {
     if (boardName.trim()) {
@@ -59,6 +62,14 @@ export default function BoardManager({ currentBoard, onLoadBoard, onSaveBoard, o
         >
           Save Board
         </button>
+        <button
+          className="btn btn-share-board"
+          onClick={() => setShowShareModal(true)}
+          title="Share this board"
+        >
+          <Share2 size={16} />
+          Share
+        </button>
       </div>
 
       {showSaveDialog && (
@@ -95,6 +106,13 @@ export default function BoardManager({ currentBoard, onLoadBoard, onSaveBoard, o
           </div>
         </div>
       )}
+
+      <ShareBoardModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        boardState={currentBoard}
+        boardName={currentBoardName || 'My Board'}
+      />
     </div>
   )
 }

@@ -1,0 +1,138 @@
+/* ShareBoardModal styles */
+
+.share-board-modal .modal-content {
+  max-width: 440px;
+}
+
+.share-form,
+.share-success {
+  text-align: center;
+}
+
+.share-description {
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+  font-size: 15px;
+}
+
+.share-form .form-group {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.share-form .helper-text {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  padding: 12px 20px;
+  font-size: 15px;
+}
+
+.error-message {
+  color: #c0392b;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.sign-in-prompt {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+/* Success state */
+.share-success {
+  padding: 10px 0;
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background-color: var(--color-bg-tan);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+.share-success h4 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--color-text-primary);
+}
+
+.preview-message {
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.link-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.share-link-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--beige-border);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  background-color: var(--color-bg-tan);
+  color: var(--color-text-primary);
+}
+
+.share-link-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  white-space: nowrap;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+  background-color: #600018;
+}
+
+.copy-btn.copied {
+  background-color: #27ae60;
+}
+
+.share-instructions {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.share-success .btn-secondary {
+  width: 100%;
+  padding: 12px;
+}

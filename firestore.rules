@@ -82,6 +82,22 @@ service cloud.firestore {
       }
     }
 
+    // Shared boards - link-based sharing
+    match /sharedBoards/{shareId} {
+      // Anyone with the link can read
+      allow read: if true;
+
+      // Only authenticated users can create shares
+      allow create: if isAuthenticated();
+
+      // Anyone can update (collaborative editing)
+      allow update: if true;
+
+      // Only the creator can delete
+      allow delete: if isAuthenticated()
+                    && resource.data.sharedBy.userId == request.auth.uid;
+    }
+
     // Public boards - accessible to everyone
     match /publicBoards/{boardId} {
       // Anyone can read public boards

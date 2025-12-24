@@ -17,6 +17,7 @@ import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
 import ChronologyV2 from './components/ChronologyV2'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
+import SharedBoardContainer from './components/shared-board/SharedBoardContainer'
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import OfflineIndicator from './components/shared/OfflineIndicator'
 import UserAvatar from './components/shared/UserAvatar'
@@ -38,7 +39,12 @@ function PageTitle() {
       '/login': 'Login'
     };
 
-    document.title = titles[location.pathname] || 'Memory Library';
+    // Handle dynamic routes
+    let title = titles[location.pathname];
+    if (!title && location.pathname.startsWith('/share/')) {
+      title = 'Shared Board';
+    }
+    document.title = title || 'Memory Library';
     // Scrolling is handled via CSS - see PAGE TYPE SYSTEM in App.css
   }, [location]);
 
@@ -292,6 +298,10 @@ function App() {
           <Route
             path="/login"
             element={<Login />}
+          />
+          <Route
+            path="/share/:shareId"
+            element={<SharedBoardContainer />}
           />
         </Routes>
 
