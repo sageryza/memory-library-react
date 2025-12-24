@@ -528,7 +528,8 @@ function ConspiracyBoard({
     if (activeBoardName && boardState && user?.uid) {
       // Debounce the auto-save to avoid too many writes
       const timeoutId = setTimeout(() => {
-        saveBoard(activeBoardName, boardState).catch(error => {
+        // Pass false to avoid updating timestamp (prevents board list reordering on auto-save)
+        saveBoard(activeBoardName, boardState, false).catch(error => {
           console.error('Auto-save failed:', error)
         })
       }, 1000)
