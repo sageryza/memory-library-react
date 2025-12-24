@@ -53,8 +53,8 @@
 .board-name-display {
   margin: 0;
   font-family: 'Crimson Text', serif;
-  font-size: var(--font-size-xlarge);
-  font-weight: normal;
+  font-size: 28px;
+  font-weight: 600;
   color: var(--color-primary);
   user-select: none;
 }
@@ -72,8 +72,8 @@
 
 .board-name-input {
   font-family: 'Crimson Text', serif;
-  font-size: var(--font-size-xlarge);
-  font-weight: normal;
+  font-size: 28px;
+  font-weight: 600;
   color: var(--color-primary);
   background: white;
   border: none;
