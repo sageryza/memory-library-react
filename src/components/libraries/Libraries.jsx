@@ -87,7 +87,7 @@ export default function Libraries({ memories = [], userId }) {
       {/* Header */}
       <Header
         centerContent={
-          <h2 className="board-name-display">Libraries</h2>
+          <div className="current-library-header">Libraries</div>
         }
         rightContent={
           <>

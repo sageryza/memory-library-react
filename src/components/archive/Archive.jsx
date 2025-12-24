@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil, Eye } from 'lucide-react';
+import { Search, X, Plus, Minus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil, Eye } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MasonryLayout from 'masonry-layout';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
@@ -48,6 +48,9 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
+  const [hashtagModalMode, setHashtagModalMode] = useState(null); // 'add' | 'remove' | null
+  const [hashtagDropdownOpen, setHashtagDropdownOpen] = useState(false);
+  const [newHashtagInput, setNewHashtagInput] = useState('');
 
   // Masonry ref and instance
   const masonryContainerRef = useRef(null);
@@ -329,6 +332,20 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
   }, [contextMenu]);
 
+  // Close hashtag dropdown on outside click
+  useEffect(() => {
+    if (hashtagDropdownOpen) {
+      const handleClick = () => setHashtagDropdownOpen(false);
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClick);
+      }, 100);
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClick);
+      };
+    }
+  }, [hashtagDropdownOpen]);
+
   // Initialize masonry layout (only once)
   useEffect(() => {
     return () => {
@@ -539,6 +556,57 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }
   };
 
+  // Bulk hashtag management
+  const handleBulkAddHashtag = async (hashtag) => {
+    if (!hashtag.trim()) return;
+
+    const normalized = hashtag.trim().startsWith('#')
+      ? hashtag.trim().toLowerCase()
+      : `#${hashtag.trim().toLowerCase()}`;
+
+    try {
+      for (const id of selectedIds) {
+        const memory = memories.find(m => m.id === id);
+        if (memory && !memory.hashtags?.includes(normalized)) {
+          await updateMemory(id, {
+            hashtags: [...(memory.hashtags || []), normalized]
+          });
+        }
+      }
+      setHashtagModalMode(null);
+      setNewHashtagInput('');
+    } catch (error) {
+      console.error('Error adding hashtag to memories:', error);
+      alert('Failed to add hashtag to some memories.');
+    }
+  };
+
+  const handleBulkRemoveHashtag = async (hashtag) => {
+    try {
+      for (const id of selectedIds) {
+        const memory = memories.find(m => m.id === id);
+        if (memory?.hashtags?.includes(hashtag)) {
+          await updateMemory(id, {
+            hashtags: memory.hashtags.filter(t => t !== hashtag)
+          });
+        }
+      }
+      setHashtagModalMode(null);
+    } catch (error) {
+      console.error('Error removing hashtag from memories:', error);
+      alert('Failed to remove hashtag from some memories.');
+    }
+  };
+
+  const getSelectedMemoriesHashtags = () => {
+    const tags = new Set();
+    for (const id of selectedIds) {
+      const memory = memories.find(m => m.id === id);
+      memory?.hashtags?.forEach(tag => tags.add(tag));
+    }
+    return Array.from(tags).sort();
+  };
+
   // Library sidebar functions
   const getLibraryMemoryCount = (libraryId) => {
     const libraryMemories = getLibraryMemories(libraryId, memories);
@@ -720,7 +788,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               {currentLibrary.name}
             </div>
           ) : (
-            <h2 className="board-name-display">Library</h2>
+            <div className="current-library-header">Library</div>
           )
         }
         rightContent={
@@ -822,9 +890,42 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                 <CheckSquare size={16} />
               </button>
               {selectMode && selectedIds.size > 0 && (
-                <button className="toolbar-btn active" onClick={handleBulkDelete}>
-                  <Trash2 size={16} /> Delete ({selectedIds.size})
-                </button>
+                <>
+                  <div className="tag-dropdown-container">
+                    <button
+                      className="toolbar-btn"
+                      onClick={() => setHashtagDropdownOpen(!hashtagDropdownOpen)}
+                      title="Manage Tags"
+                    >
+                      <Tag size={16} /> Tag
+                    </button>
+                    {hashtagDropdownOpen && (
+                      <div className="tag-dropdown-menu">
+                        <div
+                          className="tag-dropdown-item"
+                          onClick={() => {
+                            setHashtagModalMode('add');
+                            setHashtagDropdownOpen(false);
+                          }}
+                        >
+                          <Plus size={14} /> Add hashtag
+                        </div>
+                        <div
+                          className="tag-dropdown-item"
+                          onClick={() => {
+                            setHashtagModalMode('remove');
+                            setHashtagDropdownOpen(false);
+                          }}
+                        >
+                          <Minus size={14} /> Remove hashtag
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button className="toolbar-btn active" onClick={handleBulkDelete}>
+                    <Trash2 size={16} /> Delete ({selectedIds.size})
+                  </button>
+                </>
               )}
             </div>
           </>
@@ -1128,23 +1229,129 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         />
       )}
 
-      {/* Drag Overlay for visual feedback */}
-      <DragOverlay>
-        {draggedMemoryIds.length > 0 && (
-          <div style={{
-            background: 'rgba(128, 0, 32, 0.9)',
-            color: 'white',
-            borderRadius: '20px',
-            padding: '6px 12px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            cursor: 'grabbing',
-            pointerEvents: 'none'
-          }}>
-            {draggedMemoryIds.length}
+      {/* Bulk Hashtag Modal */}
+      {hashtagModalMode && (
+        <div className="hashtag-modal-overlay" onClick={() => {
+          setHashtagModalMode(null);
+          setNewHashtagInput('');
+        }}>
+          <div className="hashtag-modal" onClick={(e) => e.stopPropagation()}>
+            {hashtagModalMode === 'add' ? (
+              <>
+                <h3>Add Hashtag</h3>
+                <p className="hashtag-modal-subtitle">
+                  Add to {selectedIds.size} selected {selectedIds.size === 1 ? 'memory' : 'memories'}
+                </p>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleBulkAddHashtag(newHashtagInput);
+                }}>
+                  <input
+                    type="text"
+                    value={newHashtagInput}
+                    onChange={(e) => setNewHashtagInput(e.target.value)}
+                    placeholder="Enter hashtag..."
+                    autoFocus
+                    className="hashtag-input"
+                  />
+                  <div className="hashtag-modal-actions">
+                    <button
+                      type="button"
+                      className="hashtag-modal-btn cancel"
+                      onClick={() => {
+                        setHashtagModalMode(null);
+                        setNewHashtagInput('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="hashtag-modal-btn confirm"
+                      disabled={!newHashtagInput.trim()}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <h3>Remove Hashtag</h3>
+                <p className="hashtag-modal-subtitle">
+                  Remove from {selectedIds.size} selected {selectedIds.size === 1 ? 'memory' : 'memories'}
+                </p>
+                <div className="hashtag-list">
+                  {getSelectedMemoriesHashtags().length === 0 ? (
+                    <p className="no-hashtags">No hashtags in selected memories</p>
+                  ) : (
+                    getSelectedMemoriesHashtags().map((tag) => (
+                      <button
+                        key={tag}
+                        className="hashtag-remove-item"
+                        onClick={() => handleBulkRemoveHashtag(tag)}
+                      >
+                        <span className="hashtag-tag">{tag}</span>
+                        <X size={14} />
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="hashtag-modal-actions">
+                  <button
+                    type="button"
+                    className="hashtag-modal-btn cancel"
+                    onClick={() => setHashtagModalMode(null)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Drag Overlay - renders outside overflow:hidden containers */}
+      <DragOverlay>
+        {draggedMemoryIds.length > 0 && (() => {
+          const draggedMemory = memories.find(m => m.id === draggedMemoryIds[0]);
+          const title = draggedMemory?.title || 'Memory';
+          // Strip HTML tags for plain text display
+          const plainTitle = title.replace(/<[^>]*>/g, ' ').trim();
+          const displayTitle = plainTitle.length > 40 ? plainTitle.substring(0, 40) + '...' : plainTitle;
+
+          return (
+            <div style={{
+              background: '#faf8e9',
+              border: '1px solid #d9bbc2',
+              borderRadius: '8px',
+              padding: '16px 20px',
+              boxShadow: '0 8px 32px rgba(128, 0, 32, 0.3)',
+              cursor: 'grabbing',
+              maxWidth: '280px',
+              fontFamily: 'Crimson Text, serif'
+            }}>
+              <div style={{
+                fontSize: '15px',
+                color: '#2F4F4F',
+                lineHeight: 1.3
+              }}>
+                {displayTitle}
+              </div>
+              {draggedMemoryIds.length > 1 && (
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: '12px',
+                  color: '#800020',
+                  fontWeight: 'bold'
+                }}>
+                  +{draggedMemoryIds.length - 1} more
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </DragOverlay>
 
     </div>
