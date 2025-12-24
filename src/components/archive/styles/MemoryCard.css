@@ -81,10 +81,7 @@
     color: #4A4A4A;
     margin-bottom: 12px;
     flex: 1;
-    overflow: hidden;
-}
-
-.memory-content.truncated {
+    /* Truncate long content to 4 lines with ellipsis */
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
