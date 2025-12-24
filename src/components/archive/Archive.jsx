@@ -319,8 +319,13 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   useEffect(() => {
     if (contextMenu) {
       const handleClick = () => setContextMenu(null);
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClick);
+      }, 100);
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClick);
+      };
     }
   }, [contextMenu]);
 

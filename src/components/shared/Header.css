@@ -36,6 +36,7 @@
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+  z-index: 2;
 }
 
 /* Header Right Side */
