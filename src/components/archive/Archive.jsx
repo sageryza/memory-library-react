@@ -675,15 +675,48 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           {/* Header */}
         <Header
         centerContent={
-          <h2
-            className="board-name-display"
-            onClick={currentLibrary || selectedHashtags.length > 0 ? handleClearFilter : undefined}
-            style={(currentLibrary || selectedHashtags.length > 0) ? { cursor: 'pointer' } : undefined}
-          >
-            {selectedHashtags.length > 0
-              ? selectedHashtags.map(h => h.tag).join(' + ')
-              : (currentLibrary ? currentLibrary.name : 'Library')}
-          </h2>
+          selectedHashtags.length > 0 ? (
+            <div className="hashtag-filters-display">
+              {selectedHashtags.map((hashtagObj, index) => (
+                <React.Fragment key={index}>
+                  {index > 0 && hashtagObj.operator && (
+                    <button
+                      className="operator-toggle"
+                      onClick={() => handleToggleOperator(index)}
+                      title={`Click to toggle to ${hashtagObj.operator === 'AND' ? 'OR' : 'AND'}`}
+                    >
+                      {hashtagObj.operator === 'AND' ? '+' : 'OR'}
+                    </button>
+                  )}
+                  <div
+                    className="hashtag-pill"
+                    onClick={() => handleRemoveHashtag(index)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        hashtag: hashtagObj.tag
+                      });
+                    }}
+                  >
+                    {hashtagObj.tag}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          ) : currentLibrary ? (
+            <div
+              className="current-library-header"
+              onClick={handleClearFilter}
+              style={{ cursor: 'pointer' }}
+            >
+              {currentLibrary.name}
+            </div>
+          ) : (
+            <h2 className="board-name-display">Library</h2>
+          )
         }
         rightContent={
           <>
