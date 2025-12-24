@@ -41,7 +41,6 @@ import { useSharedBoardTracking } from '../../hooks/useSharedBoardTracking'
 import PlaygroundModal from '../playgrounds/PlaygroundModal'
 import { normalizeId, compareIds, findById } from '../../utils/idUtils'
 import { generatePinId, generateLocalId, ensureStringId } from '../../utils/generateId'
-import { CARD_WIDTH, CARD_HEIGHT } from './constants'
 import { getLockedMemoryIds } from '../../utils/getLockedMemoryIds'
 import '../../App.css'
 import './ConspiracyBoard.css'
@@ -3935,122 +3934,6 @@ const handleDragEnd = (event) => {
             y={memoryPopup.y}
             onClose={() => setMemoryPopup(null)}
           />
-        )}
-
-        {/* Constellation Selection Overlay */}
-        {isConstellationMode && (
-          <div
-            className="constellation-selection-overlay"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              zIndex: 8999
-            }}
-          >
-            {/* Overlay for memories */}
-            {displayMemories.filter(m => {
-              return connections.some(conn =>
-                compareIds(conn.from, m.id) || compareIds(conn.to, m.id)
-              )
-            }).map(memory => (
-              <div
-                key={memory.id}
-                className={`selectable-memory ${constellationSelectedNodes?.has(memory.id) ? 'selected' : ''}`}
-                style={{
-                  position: 'absolute',
-                  // Use canvasToScreen formula: screenX = canvasX * zoom + panOffset - CANVAS_OFFSET
-                  left: memory.x * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
-                  top: memory.y * zoomLevel + panOffset.y - CANVAS_OFFSET_Y,
-                  width: `${CARD_WIDTH * zoomLevel}px`,
-                  height: `${CARD_HEIGHT * zoomLevel}px`,
-                  pointerEvents: 'all',
-                  cursor: 'pointer',
-                  border: constellationSelectedNodes?.has(memory.id) ? '3px solid #FFD700' : '2px solid transparent',
-                  borderRadius: `${8 * zoomLevel}px`,
-                  transition: 'all 0.2s'
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  // Find and select the entire connected network
-                  const network = new Set([memory.id])
-                  const toProcess = [memory.id]
-
-                  while (toProcess.length > 0) {
-                    const current = toProcess.pop()
-                    connections.forEach(conn => {
-                      const fromMatch = compareIds(conn.from, current)
-                      const toMatch = compareIds(conn.to, current)
-
-                      if (fromMatch && !network.has(conn.to)) {
-                        network.add(conn.to)
-                        toProcess.push(conn.to)
-                      }
-                      if (toMatch && !network.has(conn.from)) {
-                        network.add(conn.from)
-                        toProcess.push(conn.from)
-                      }
-                    })
-                  }
-
-                  setConstellationSelectedNodes(network)
-                }}
-              />
-            ))}
-
-            {/* Overlay for pins */}
-            {displayStandalonePins.filter(p => {
-              return connections.some(conn =>
-                compareIds(conn.from, p.id) || compareIds(conn.to, p.id)
-              )
-            }).map(pin => (
-              <div
-                key={pin.id}
-                className={`selectable-pin ${constellationSelectedNodes?.has(pin.id) ? 'selected' : ''}`}
-                style={{
-                  position: 'absolute',
-                  // Use canvasToScreen formula: screenX = canvasX * zoom + panOffset - CANVAS_OFFSET
-                  left: pin.x * zoomLevel + panOffset.x - CANVAS_OFFSET_X,
-                  top: pin.y * zoomLevel + panOffset.y - CANVAS_OFFSET_Y,
-                  width: `${30 * zoomLevel}px`,
-                  height: `${30 * zoomLevel}px`,
-                  pointerEvents: 'all',
-                  cursor: 'pointer',
-                  border: constellationSelectedNodes?.has(pin.id) ? '3px solid #FFD700' : '2px solid transparent',
-                  borderRadius: '50%',
-                  transition: 'all 0.2s'
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  // Find and select the entire connected network
-                  const network = new Set([pin.id])
-                  const toProcess = [pin.id]
-
-                  while (toProcess.length > 0) {
-                    const current = toProcess.pop()
-                    connections.forEach(conn => {
-                      const fromMatch = compareIds(conn.from, current)
-                      const toMatch = compareIds(conn.to, current)
-
-                      if (fromMatch && !network.has(conn.to)) {
-                        network.add(conn.to)
-                        toProcess.push(conn.to)
-                      }
-                      if (toMatch && !network.has(conn.from)) {
-                        network.add(conn.from)
-                        toProcess.push(conn.from)
-                      }
-                    })
-                  }
-
-                  setConstellationSelectedNodes(network)
-                }}
-              />
-            ))}
-          </div>
         )}
 
         {/* Playground Modal */}
