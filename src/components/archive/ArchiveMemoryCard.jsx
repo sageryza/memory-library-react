@@ -9,7 +9,7 @@ import '../shared/Hashtag.css';
 const ENABLE_CONSTELLATION_FEATURE = true;
 
 // Memory Card Component for Archive view
-export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSelected, onSelect, selectMode, isSimplified, formatTitleForDisplay, userId }) {
+export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSelected, onSelect, selectMode, isSimplified, formatTitleForDisplay, userId, onContextMenu }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const iconRef = useRef(null);
   const { hasConnections } = useMemoryConnections(userId);
@@ -54,11 +54,19 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
   // Format title based on simplified view
   const displayTitle = formatTitleForDisplay ? formatTitleForDisplay(memory.title) : (memory.title || 'Untitled');
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    if (onContextMenu) {
+      onContextMenu(e, memory);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       className={`memory-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       style={style}
       {...(selectMode && isSelected ? listeners : {})}
       {...(selectMode && isSelected ? attributes : {})}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library } from 'lucide-react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
@@ -17,6 +17,7 @@ import LibraryIcon from '../shared/LibraryIcon';
 import TabbedSidebar from '../shared/TabbedSidebar';
 import SidebarContainer from '../shared/Sidebar';
 import ToolRail from '../shared/ToolRail';
+import ContextMenu from '../shared/ContextMenu';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import './LibrarySidebar.css';
 import './styles/Archive.css';
@@ -43,6 +44,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [currentLibrary, setCurrentLibrary] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [memoryContextMenu, setMemoryContextMenu] = useState(null);
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
@@ -281,6 +283,16 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       window.location.href = `/?hashtag=${encodeURIComponent(contextMenu.hashtag)}`;
     }
     setContextMenu(null);
+  };
+
+  // Handle right-click on memory card
+  const handleMemoryContextMenu = (e, memory) => {
+    e.preventDefault();
+    setMemoryContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      memory
+    });
   };
 
   // Close context menu on outside click
@@ -666,6 +678,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   isSimplified={isSimplified}
                   formatTitleForDisplay={formatTitleForDisplay}
                   userId={userId}
+                  onContextMenu={handleMemoryContextMenu}
                 />
               ))}
             </div>
@@ -693,6 +706,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   isSimplified={isSimplified}
                   formatTitleForDisplay={formatTitleForDisplay}
                   userId={userId}
+                  onContextMenu={handleMemoryContextMenu}
                 />
               ))}
             </Masonry>
@@ -869,6 +883,45 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
             View in Boards
           </div>
         </div>
+      )}
+
+      {/* Memory Context Menu */}
+      {memoryContextMenu && (
+        <ContextMenu
+          x={memoryContextMenu.x}
+          y={memoryContextMenu.y}
+          items={[
+            {
+              label: 'Edit',
+              icon: <Pencil size={16} />,
+              onClick: () => {
+                setEditingMemory(memoryContextMenu.memory);
+                setMemoryContextMenu(null);
+              }
+            },
+            {
+              label: 'Delete',
+              icon: <Trash2 size={16} />,
+              onClick: async () => {
+                const memory = memoryContextMenu.memory;
+                setMemoryContextMenu(null);
+                // Strip HTML tags from title for display
+                const plainTitle = (memory.title || 'Untitled').replace(/<[^>]*>/g, ' ').trim();
+                const confirmed = await confirm({
+                  title: 'Delete Memory',
+                  message: `Are you sure you want to delete "${plainTitle}"?`,
+                  confirmText: 'Delete',
+                  cancelText: 'Cancel',
+                  danger: true
+                });
+                if (confirmed) {
+                  deleteMemory(memory.id);
+                }
+              }
+            }
+          ]}
+          onClose={() => setMemoryContextMenu(null)}
+        />
       )}
 
       {/* Drag Overlay for visual feedback */}
