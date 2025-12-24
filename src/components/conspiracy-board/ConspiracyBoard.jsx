@@ -292,7 +292,19 @@ function ConspiracyBoard({
   const { droppedMemories = [], connections = [], standalonePins = [], panOffset: savedPanOffset = { x: 0, y: 0 } } = boardState || {}
 
   // Track activity on imported shared boards
-  const { trackMemoryView, trackConnectionMade } = useSharedBoardTracking(boardState?.importedFrom)
+  const {
+    trackMemoryView,
+    trackMemoryMoved,
+    trackMemoryEdited,
+    trackMemoryRemoved,
+    trackConnectionMade,
+    trackConnectionDeleted,
+    trackConnectionInsightEdited,
+    trackPinCreated,
+    trackPinMoved,
+    trackPinEdited,
+    trackPinDeleted
+  } = useSharedBoardTracking(boardState?.importedFrom)
 
   // Clear optimistic positions only on mount (to clean up after page reload)
   useEffect(() => {
@@ -843,6 +855,11 @@ const handleDragEnd = (event) => {
         })
       })
 
+      // Track memory movement on imported shared boards
+      if (trackMemoryMoved) {
+        trackMemoryMoved(memory.title)
+      }
+
       // Clear optimistic position after update completes
       // Using requestAnimationFrame to ensure DOM has updated
       requestAnimationFrame(() => {
@@ -881,6 +898,11 @@ const handleDragEnd = (event) => {
           return p
         })
       })
+
+      // Track pin movement on imported shared boards
+      if (trackPinMoved) {
+        trackPinMoved(pin.text)
+      }
 
       // Clear optimistic position after update completes
       // Using requestAnimationFrame to ensure DOM has updated
@@ -988,6 +1010,7 @@ const handleDragEnd = (event) => {
 
   // Pin description save handler
   const handleSavePinDescription = useCallback((pinId, description) => {
+    const pin = standalonePins.find(p => compareIds(p.id, pinId))
     const updatedPins = standalonePins.map(p =>
       compareIds(p.id, pinId) ? { ...p, description } : p
     )
@@ -996,7 +1019,12 @@ const handleDragEnd = (event) => {
       ...boardState,
       standalonePins: updatedPins
     })
-  }, [standalonePins, boardState, updateBoardState])
+
+    // Track pin editing on imported shared boards
+    if (trackPinEdited && pin) {
+      trackPinEdited(pin.text)
+    }
+  }, [standalonePins, boardState, updateBoardState, trackPinEdited])
 
   // Connection handlers
   const handleConnectionClick = (connection) => {
@@ -1030,6 +1058,13 @@ const handleDragEnd = (event) => {
         conn => !(compareIds(conn.from, connection.from) && compareIds(conn.to, connection.to))
       )
     })
+
+    // Track connection deletion on imported shared boards
+    if (trackConnectionDeleted) {
+      const fromMemory = droppedMemories.find(m => compareIds(m.id, connection.from))
+      const toMemory = droppedMemories.find(m => compareIds(m.id, connection.to))
+      trackConnectionDeleted(fromMemory?.title, toMemory?.title)
+    }
   }
 
   // Board management handlers
@@ -1195,6 +1230,13 @@ const handleDragEnd = (event) => {
       ...boardState,
       connections: updatedConnections
     })
+
+    // Track connection insight editing on imported shared boards
+    if (trackConnectionInsightEdited) {
+      const fromMemory = droppedMemories.find(m => compareIds(m.id, connection.from))
+      const toMemory = droppedMemories.find(m => compareIds(m.id, connection.to))
+      trackConnectionInsightEdited(fromMemory?.title, toMemory?.title)
+    }
   }
 
   // Randomly place a single memory on canvas
@@ -1628,6 +1670,11 @@ const handleDragEnd = (event) => {
               String(m.id) === memoryId ? { ...m, ...cleanUpdates } : m
             )
           })
+
+          // Track memory editing on imported shared boards
+          if (trackMemoryEdited) {
+            trackMemoryEdited(cleanUpdates.title || droppedMemory.title)
+          }
         }
 
         // Close modal after successful edit
@@ -1701,7 +1748,12 @@ const handleDragEnd = (event) => {
       ...boardState,
       standalonePins: [...standalonePins, newPin]
     })
-  }, [boardState, standalonePins, updateBoardState, saveStateForUndo])
+
+    // Track pin creation on imported shared boards
+    if (trackPinCreated) {
+      trackPinCreated('New pin')
+    }
+  }, [boardState, standalonePins, updateBoardState, saveStateForUndo, trackPinCreated])
 
   const handleCanvasMouseMove = useCallback((e) => {
     if (isPlacingPin) {
@@ -2480,12 +2532,20 @@ const handleDragEnd = (event) => {
     // NOTE: isOnCanvas is a runtime flag only - never save it to Firebase
     // Canvas positions are stored in boardState.droppedMemories, not in the memory document
 
+    // Find memory title for tracking before removing
+    const removedMemory = droppedMemories.find(m => compareIds(m.id, memoryId))
+
     saveStateForUndo('Return memory to sidebar')
     updateBoardState({
       ...boardState,
       droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId)),
       connections: connections.filter(c => !compareIds(c.from, memoryId) && !compareIds(c.to, memoryId))
     })
+
+    // Track memory removal on imported shared boards
+    if (trackMemoryRemoved && removedMemory) {
+      trackMemoryRemoved(removedMemory.title)
+    }
 
     // Remove this board from memory's boardIds (but keep sourceBoardId)
     if (activeBoardName) {
@@ -2498,7 +2558,7 @@ const handleDragEnd = (event) => {
         })
       }
     }
-  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, activeBoardName, memories, updateMemory])
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, activeBoardName, memories, updateMemory, trackMemoryRemoved])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent deletion in constellation mode
@@ -2521,13 +2581,22 @@ const handleDragEnd = (event) => {
 
   const handleDeletePin = useCallback((pinId) => {
     if (isConstellationMode) return // Prevent deletion in constellation mode
+
+    // Find pin text for tracking before deleting
+    const deletedPin = standalonePins.find(p => compareIds(p.id, pinId))
+
     saveStateForUndo('Delete pin')
     updateBoardState({
       ...boardState,
       standalonePins: standalonePins.filter(p => !compareIds(p.id, pinId)),
       connections: connections.filter(c => !compareIds(c.from, pinId) && !compareIds(c.to, pinId))
     })
-  }, [boardState, standalonePins, connections, updateBoardState, saveStateForUndo, isConstellationMode])
+
+    // Track pin deletion on imported shared boards
+    if (trackPinDeleted && deletedPin) {
+      trackPinDeleted(deletedPin.text)
+    }
+  }, [boardState, standalonePins, connections, updateBoardState, saveStateForUndo, isConstellationMode, trackPinDeleted])
 
   const handleClearBoard = useCallback(() => {
     saveStateForUndo('Clear board')

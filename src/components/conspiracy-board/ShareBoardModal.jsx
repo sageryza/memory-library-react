@@ -258,8 +258,35 @@ export default function ShareBoardModal({
                                 {activity.type === 'memory_view' && (
                                   <span>Viewed "{activity.memoryTitle}"</span>
                                 )}
+                                {activity.type === 'memory_moved' && (
+                                  <span>Moved "{activity.memoryTitle}"</span>
+                                )}
+                                {activity.type === 'memory_edited' && (
+                                  <span>Edited "{activity.memoryTitle}"</span>
+                                )}
+                                {activity.type === 'memory_removed' && (
+                                  <span>Removed "{activity.memoryTitle}"</span>
+                                )}
                                 {activity.type === 'connection_made' && (
                                   <span>Connected "{activity.fromMemoryTitle}" to "{activity.toMemoryTitle}"</span>
+                                )}
+                                {activity.type === 'connection_deleted' && (
+                                  <span>Disconnected "{activity.fromMemoryTitle}" from "{activity.toMemoryTitle}"</span>
+                                )}
+                                {activity.type === 'connection_insight_edited' && (
+                                  <span>Added insight to connection</span>
+                                )}
+                                {activity.type === 'pin_created' && (
+                                  <span>Added a pin</span>
+                                )}
+                                {activity.type === 'pin_moved' && (
+                                  <span>Moved a pin</span>
+                                )}
+                                {activity.type === 'pin_edited' && (
+                                  <span>Edited a pin</span>
+                                )}
+                                {activity.type === 'pin_deleted' && (
+                                  <span>Deleted a pin</span>
                                 )}
                                 {activity.type === 'entered_board' && (
                                   <span>Entered the board</span>
