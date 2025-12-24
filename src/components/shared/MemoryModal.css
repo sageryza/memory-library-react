@@ -62,6 +62,10 @@
   font-size: var(--font-size-large);
   font-weight: normal;
   color: var(--color-text-primary);
+}
+
+/* View mode - center the memory title */
+.add-memory-header:has(+ .add-memory-form .memory-view-content) h3 {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
