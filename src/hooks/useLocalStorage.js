@@ -19,6 +19,7 @@ const getDefaultData = () => ({
     standalonePins: [],
     panOffset: { x: 0, y: 0 }
   },
+  savedBoards: [],
   libraries: [],
   metadata: {
     version: CURRENT_VERSION,
@@ -191,6 +192,104 @@ export const useLocalStorage = () => {
     }));
   }, []);
 
+  // Saved board operations
+  const saveBoard = useCallback((name, boardState) => {
+    const now = new Date().toISOString();
+    setData(prev => {
+      // Check if board with this name already exists
+      const existingIndex = prev.savedBoards.findIndex(b => b.id === name);
+
+      const boardData = {
+        id: name,
+        name,
+        droppedMemories: boardState.droppedMemories || [],
+        connections: boardState.connections || [],
+        standalonePins: boardState.standalonePins || [],
+        canvasBounds: boardState.canvasBounds || null,
+        updatedAt: now
+      };
+
+      let newSavedBoards;
+      if (existingIndex >= 0) {
+        // Update existing board
+        newSavedBoards = [...prev.savedBoards];
+        newSavedBoards[existingIndex] = boardData;
+      } else {
+        // Add new board
+        newSavedBoards = [boardData, ...prev.savedBoards];
+      }
+
+      // Sort by updatedAt descending
+      newSavedBoards.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      return {
+        ...prev,
+        savedBoards: newSavedBoards,
+        metadata: {
+          ...prev.metadata,
+          lastUpdated: now
+        }
+      };
+    });
+  }, []);
+
+  const loadBoard = useCallback((boardId) => {
+    const board = data.savedBoards.find(b => b.id === boardId);
+    if (board) {
+      return {
+        droppedMemories: board.droppedMemories || [],
+        connections: board.connections || [],
+        standalonePins: board.standalonePins || [],
+        canvasBounds: board.canvasBounds || null
+      };
+    }
+    return null;
+  }, [data.savedBoards]);
+
+  const deleteBoard = useCallback((boardId) => {
+    setData(prev => ({
+      ...prev,
+      savedBoards: prev.savedBoards.filter(b => b.id !== boardId),
+      metadata: {
+        ...prev.metadata,
+        lastUpdated: new Date().toISOString()
+      }
+    }));
+  }, []);
+
+  const renameBoard = useCallback((oldName, newName) => {
+    if (oldName === newName) return;
+
+    setData(prev => {
+      const board = prev.savedBoards.find(b => b.id === oldName);
+      if (!board) return prev;
+
+      const now = new Date().toISOString();
+      const renamedBoard = {
+        ...board,
+        id: newName,
+        name: newName,
+        updatedAt: now
+      };
+
+      const newSavedBoards = prev.savedBoards
+        .filter(b => b.id !== oldName)
+        .concat(renamedBoard)
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      return {
+        ...prev,
+        savedBoards: newSavedBoards,
+        metadata: {
+          ...prev.metadata,
+          lastUpdated: now
+        }
+      };
+    });
+
+    return newName;
+  }, []);
+
   // Check if approaching limit
   const isApproachingLimit = data.memories.length >= MAX_MEMORIES - 5;
   const hasReachedLimit = data.memories.length >= MAX_MEMORIES;
@@ -225,6 +324,7 @@ export const useLocalStorage = () => {
     // Data
     memories: data.memories,
     boardState: data.boardState,
+    savedBoards: data.savedBoards || [],
     libraries: data.libraries,
     metadata: data.metadata,
 
@@ -235,6 +335,12 @@ export const useLocalStorage = () => {
 
     // Board state operations
     updateBoardState,
+
+    // Saved board operations
+    saveBoard,
+    loadBoard,
+    deleteBoard,
+    renameBoard,
 
     // Library operations
     addLibrary,

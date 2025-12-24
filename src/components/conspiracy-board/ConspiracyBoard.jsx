@@ -233,7 +233,7 @@ function ConspiracyBoard({
   const { profile } = useUserProfile(user)
 
   // Use saved boards hook
-  const { savedBoards, saveBoard, loadBoard, deleteBoard, renameBoard } = useSavedBoards(user?.uid)
+  const { savedBoards, saveBoard, loadBoard, deleteBoard, renameBoard } = useSavedBoards(user?.uid, authLoading)
 
   // Simplify view hook
   const {

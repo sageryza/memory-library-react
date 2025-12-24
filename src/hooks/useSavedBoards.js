@@ -10,15 +10,28 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import useLocalStorage from './useLocalStorage';
 
-export const useSavedBoards = (userId) => {
+export const useSavedBoards = (userId, authLoading = false) => {
   const [savedBoards, setSavedBoards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Get localStorage functions for unauthenticated users
+  const localStorage = useLocalStorage();
+
+  // Determine if we should use localStorage
+  const isUsingLocalStorage = !userId && !authLoading;
+
   useEffect(() => {
+    // Wait for auth to resolve before choosing data source
+    if (authLoading) {
+      return;
+    }
+
     if (!userId) {
-      setSavedBoards([]);
+      // Use localStorage for unauthenticated users
+      setSavedBoards(localStorage.savedBoards || []);
       setLoading(false);
       return;
     }
@@ -58,13 +71,21 @@ export const useSavedBoards = (userId) => {
     );
 
     return () => unsubscribe();
-  }, [userId]);
+  }, [userId, authLoading, localStorage.savedBoards]);
 
   // Save a board
   // updateTimestamp: if true, updates the updatedAt timestamp (for manual saves)
   //                  if false, doesn't update timestamp (for auto-saves to prevent re-ordering)
   const saveBoard = useCallback(async (name, boardState, updateTimestamp = true) => {
-    if (!userId || !name) return;
+    if (!name) return;
+
+    // Use localStorage for unauthenticated users
+    if (isUsingLocalStorage) {
+      localStorage.saveBoard(name, boardState);
+      return;
+    }
+
+    if (!userId) return;
 
     try {
       const boardRef = doc(db, 'users', userId, 'boards', name);
@@ -86,10 +107,15 @@ export const useSavedBoards = (userId) => {
       console.error('Error saving board:', error);
       throw error;
     }
-  }, [userId]);
+  }, [userId, isUsingLocalStorage, localStorage]);
 
   // Load a board
   const loadBoard = useCallback((boardId) => {
+    // Use localStorage for unauthenticated users
+    if (isUsingLocalStorage) {
+      return localStorage.loadBoard(boardId);
+    }
+
     const board = savedBoards.find(b => b.id === boardId);
     if (board) {
       return {
@@ -100,11 +126,19 @@ export const useSavedBoards = (userId) => {
       };
     }
     return null;
-  }, [savedBoards]);
+  }, [savedBoards, isUsingLocalStorage, localStorage]);
 
   // Delete a board
   const deleteBoard = useCallback(async (boardId) => {
-    if (!userId || !boardId) return;
+    if (!boardId) return;
+
+    // Use localStorage for unauthenticated users
+    if (isUsingLocalStorage) {
+      localStorage.deleteBoard(boardId);
+      return;
+    }
+
+    if (!userId) return;
 
     try {
       const boardRef = doc(db, 'users', userId, 'boards', boardId);
@@ -113,11 +147,18 @@ export const useSavedBoards = (userId) => {
       console.error('Error deleting board:', error);
       throw error;
     }
-  }, [userId]);
+  }, [userId, isUsingLocalStorage, localStorage]);
 
   // Rename a board (creates new doc with new name, copies data, deletes old)
   const renameBoard = useCallback(async (oldName, newName) => {
-    if (!userId || !oldName || !newName || oldName === newName) return;
+    if (!oldName || !newName || oldName === newName) return;
+
+    // Use localStorage for unauthenticated users
+    if (isUsingLocalStorage) {
+      return localStorage.renameBoard(oldName, newName);
+    }
+
+    if (!userId) return;
 
     try {
       // Get the old board data
@@ -146,7 +187,7 @@ export const useSavedBoards = (userId) => {
       console.error('Error renaming board:', error);
       throw error;
     }
-  }, [userId, savedBoards]);
+  }, [userId, savedBoards, isUsingLocalStorage, localStorage]);
 
   return {
     savedBoards,

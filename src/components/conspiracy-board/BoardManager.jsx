@@ -6,8 +6,8 @@ import { useConfirm } from '../../contexts/ConfirmContext'
 import ShareBoardModal from './ShareBoardModal'
 
 export default function BoardManager({ currentBoard, currentBoardName, onLoadBoard, onSaveBoard, onDeleteBoard }) {
-  const { user } = useAuth()
-  const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid)
+  const { user, loading: authLoading } = useAuth()
+  const { savedBoards, saveBoard, loadBoard, deleteBoard } = useSavedBoards(user?.uid, authLoading)
   const { confirm } = useConfirm()
   const [boardName, setBoardName] = useState('')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
