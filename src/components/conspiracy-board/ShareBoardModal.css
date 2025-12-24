@@ -277,6 +277,25 @@
   margin: 0;
 }
 
+.activity-list-scrollable {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.activity-list-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-list-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.activity-list-scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
 .activity-item {
   display: flex;
   align-items: center;

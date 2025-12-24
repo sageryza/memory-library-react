@@ -251,9 +251,9 @@ export default function ShareBoardModal({
 
                       {share.activityLog && share.activityLog.length > 0 && (
                         <div className="activity-log">
-                          <h5>Recent Activity</h5>
-                          <ul>
-                            {share.activityLog.slice(-5).reverse().map((activity, idx) => (
+                          <h5>Activity ({share.activityLog.length})</h5>
+                          <ul className="activity-list-scrollable">
+                            {[...share.activityLog].reverse().map((activity, idx) => (
                               <li key={idx} className="activity-item">
                                 {activity.type === 'memory_view' && (
                                   <span>Viewed "{activity.memoryTitle}"</span>
