@@ -749,6 +749,30 @@ const handleDragEnd = (event) => {
         ...boardState,
         droppedMemories: [...droppedMemories, newDroppedMemory]
       })
+
+      // Update memory's board provenance
+      if (activeBoardName) {
+        const originalMemory = memories.find(m => compareIds(m.id, memoryData.id))
+        const currentBoardIds = originalMemory?.boardIds || []
+        const updates = {}
+
+        // Set sourceBoardId if not already set (first board wins)
+        if (!originalMemory?.sourceBoardId) {
+          updates.sourceBoardId = activeBoardName
+        }
+
+        // Add to boardIds if not already present
+        if (!currentBoardIds.includes(activeBoardName)) {
+          updates.boardIds = [...currentBoardIds, activeBoardName]
+        }
+
+        // Only update if there are changes
+        if (Object.keys(updates).length > 0) {
+          updateMemory(memoryData.id, updates).catch(error => {
+            console.error('Failed to update memory board provenance:', error)
+          })
+        }
+      }
     }
   }
   // If moving memory within canvas
@@ -1186,6 +1210,29 @@ const handleDragEnd = (event) => {
             y: canvasPos.y
           }]
         })
+
+        // Update memory's board provenance
+        if (activeBoardName) {
+          const currentBoardIds = memory?.boardIds || []
+          const updates = {}
+
+          // Set sourceBoardId if not already set (first board wins)
+          if (!memory?.sourceBoardId) {
+            updates.sourceBoardId = activeBoardName
+          }
+
+          // Add to boardIds if not already present
+          if (!currentBoardIds.includes(activeBoardName)) {
+            updates.boardIds = [...currentBoardIds, activeBoardName]
+          }
+
+          if (Object.keys(updates).length > 0) {
+            updateMemory(memory.id, updates).catch(error => {
+              console.error('Failed to update memory board provenance:', error)
+            })
+          }
+        }
+
         placed = true
         break
       }
@@ -1194,7 +1241,7 @@ const handleDragEnd = (event) => {
     if (!placed) {
       alert('Canvas is too crowded. Try manually placing or clearing some space.')
     }
-  }, [droppedMemories, boardState, updateBoardState, saveStateForUndo, screenToCanvas])
+  }, [droppedMemories, boardState, updateBoardState, saveStateForUndo, screenToCanvas, activeBoardName, updateMemory])
 
   // Scatter Memories functionality
   const scatterMemories = useCallback(() => {
@@ -1280,8 +1327,32 @@ const handleDragEnd = (event) => {
         ...boardState,
         droppedMemories: [...droppedMemories, ...newDroppedMemories]
       })
+
+      // Update board provenance for all scattered memories
+      if (activeBoardName) {
+        newDroppedMemories.forEach(memory => {
+          const currentBoardIds = memory?.boardIds || []
+          const updates = {}
+
+          // Set sourceBoardId if not already set (first board wins)
+          if (!memory?.sourceBoardId) {
+            updates.sourceBoardId = activeBoardName
+          }
+
+          // Add to boardIds if not already present
+          if (!currentBoardIds.includes(activeBoardName)) {
+            updates.boardIds = [...currentBoardIds, activeBoardName]
+          }
+
+          if (Object.keys(updates).length > 0) {
+            updateMemory(memory.id, updates).catch(error => {
+              console.error('Failed to update memory board provenance:', error)
+            })
+          }
+        })
+      }
     }
-  }, [memories, droppedMemories, boardState, updateBoardState, saveStateForUndo])
+  }, [memories, droppedMemories, boardState, updateBoardState, saveStateForUndo, activeBoardName, updateMemory])
 
   // Add Memory Modal handlers
   const handleAddMemory = () => {
@@ -1322,7 +1393,10 @@ const handleDragEnd = (event) => {
         content: '',
         hashtags: [],
         timestamp: new Date().toISOString(),
-        dateTime: new Date().toLocaleDateString()
+        dateTime: new Date().toLocaleDateString(),
+        // Board provenance: track which board this memory was created on
+        sourceBoardId: activeBoardName || null,
+        boardIds: activeBoardName ? [activeBoardName] : []
       }
 
       // Save to Firebase immediately to get proper ID (like normal memories)
@@ -1507,7 +1581,10 @@ const handleDragEnd = (event) => {
             ...memoryData,
             title: processInputTitle(memoryData.title || ''),
             breadcrumbs: Array.isArray(memoryData.breadcrumbs) ?
-                        memoryData.breadcrumbs.filter(crumb => crumb && crumb.trim()) : []
+                        memoryData.breadcrumbs.filter(crumb => crumb && crumb.trim()) : [],
+            // Board provenance: track which board this memory was created on
+            sourceBoardId: activeBoardName || null,
+            boardIds: activeBoardName ? [activeBoardName] : []
           }
           await addMemory(processedMemory)
         }
@@ -1669,6 +1746,32 @@ const handleDragEnd = (event) => {
           connections: [...connections, ...updatedConstellationConnections],
           standalonePins: [...standalonePins, ...offsetPins]
         })
+
+        // Update board provenance for constellation memories
+        if (activeBoardName) {
+          offsetMemories.forEach(memory => {
+            // Find the original memory data from the memories array
+            const originalMemory = memories.find(m => compareIds(m.id, memory.id))
+            const currentBoardIds = originalMemory?.boardIds || []
+            const updates = {}
+
+            // Set sourceBoardId if not already set (first board wins)
+            if (!originalMemory?.sourceBoardId) {
+              updates.sourceBoardId = activeBoardName
+            }
+
+            // Add to boardIds if not already present
+            if (!currentBoardIds.includes(activeBoardName)) {
+              updates.boardIds = [...currentBoardIds, activeBoardName]
+            }
+
+            if (Object.keys(updates).length > 0) {
+              updateMemory(memory.id, updates).catch(error => {
+                console.error('Failed to update memory board provenance:', error)
+              })
+            }
+          })
+        }
 
       }
 
@@ -2091,7 +2194,19 @@ const handleDragEnd = (event) => {
       droppedMemories: droppedMemories.filter(m => !compareIds(m.id, memoryId)),
       connections: connections.filter(c => !compareIds(c.from, memoryId) && !compareIds(c.to, memoryId))
     })
-  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode])
+
+    // Remove this board from memory's boardIds (but keep sourceBoardId)
+    if (activeBoardName) {
+      const originalMemory = memories.find(m => compareIds(m.id, memoryId))
+      const currentBoardIds = originalMemory?.boardIds || []
+      if (currentBoardIds.includes(activeBoardName)) {
+        const newBoardIds = currentBoardIds.filter(id => id !== activeBoardName)
+        updateMemory(memoryId, { boardIds: newBoardIds }).catch(error => {
+          console.error('Failed to update memory board provenance:', error)
+        })
+      }
+    }
+  }, [boardState, droppedMemories, connections, updateBoardState, saveStateForUndo, isConstellationMode, activeBoardName, memories, updateMemory])
 
   const handleDeleteMemory = useCallback(async (memoryId) => {
     if (isConstellationMode) return // Prevent deletion in constellation mode
