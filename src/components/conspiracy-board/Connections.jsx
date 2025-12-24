@@ -7,11 +7,17 @@ import './Connections.css'
 // TODO: Add customizable string/connection colors for Advanced Mode
 // Allow users to set custom colors via settings
 // Could use CSS custom properties or inline styles based on user preferences
+const LONG_PRESS_DELAY = 500 // ms
+
 export default function Connections({ connections, droppedMemories, standalonePins = [], activeTransform, onConnectionClick, onConnectionDelete, onConnectionContextMenu, showOpacityFading = false, isStackedView = false, showAllInsights = false, selectedPin = null, cursorPosition = null, constellationSelectedNodes = null, stringsInFront = true, isDragging = false }) {
   const svgRef = useRef(null)
   const [hoveredConnection, setHoveredConnection] = useState(null)
   const [tooltipPositions, setTooltipPositions] = useState({})
   const [, forceUpdate] = useState({})
+
+  // Long-press for context menu on mobile
+  const longPressTimerRef = useRef(null)
+  const longPressTouchRef = useRef(null)
 
   useEffect(() => {
     // Set SVG viewBox to match the full canvas size
@@ -116,6 +122,49 @@ export default function Connections({ connections, droppedMemories, standalonePi
   // Get position for temporary connection line
   const tempConnectionStart = selectedPin ? getNodePosition(selectedPin) : null
 
+  // Touch handlers for long-press context menu on connections
+  const handleConnectionTouchStart = (e, connection) => {
+    const touch = e.touches[0]
+    longPressTouchRef.current = { x: touch.clientX, y: touch.clientY, connection }
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (longPressTouchRef.current) {
+        const syntheticEvent = {
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          clientX: longPressTouchRef.current.x,
+          clientY: longPressTouchRef.current.y
+        }
+        onConnectionContextMenu(syntheticEvent, longPressTouchRef.current.connection)
+        longPressTouchRef.current = null
+      }
+    }, LONG_PRESS_DELAY)
+  }
+
+  const handleConnectionTouchMove = (e) => {
+    if (longPressTouchRef.current && e.touches?.length) {
+      const touch = e.touches[0]
+      const dx = touch.clientX - longPressTouchRef.current.x
+      const dy = touch.clientY - longPressTouchRef.current.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = null
+        }
+        longPressTouchRef.current = null
+      }
+    }
+  }
+
+  const handleConnectionTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressTouchRef.current = null
+  }
+
   return (
     <>
       {/* String z-index: always in front while dragging, otherwise controlled by stringsInFront toggle */}
@@ -200,6 +249,9 @@ export default function Connections({ connections, droppedMemories, standalonePi
               onMouseLeave={() => {
                 setHoveredConnection(null)
               }}
+              onTouchStart={(e) => handleConnectionTouchStart(e, connection)}
+              onTouchMove={handleConnectionTouchMove}
+              onTouchEnd={handleConnectionTouchEnd}
             />
             {/* Visible line - gray dashed if selected, crimson otherwise */}
             <line

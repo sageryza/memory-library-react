@@ -1164,6 +1164,26 @@ body {
   padding: 4px 0;
 }
 
+/* Mobile-friendly touch targets for context menus */
+@media (max-width: 768px) {
+  .context-menu-item {
+    min-height: 44px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  .context-menu-icon {
+    width: 20px;
+    margin-right: 12px;
+  }
+
+  .context-submenu .context-menu-item {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}
+
 .memory-count {
   font-family: 'Courier Prime', monospace;
   font-size: var(--font-size-small);

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import MemoryCard from '../shared/MemoryCard'
 import PublicMemoryCard from '../public/PublicMemoryCard'
@@ -6,6 +7,8 @@ import { calculateOpacityLevels } from '../../utils/opacityCalculations'
 import { setHasId } from '../../utils/idUtils'
 import './Canvas.css'
 import './ConstellationMode.css'
+
+const LONG_PRESS_DELAY = 500 // ms
 
 function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onContextMenu, onDoubleClick, onClick, opacity, isConstellationSelected, formatTitleForDisplay, isInlineEditing, onInlineUpdate, onInlineBlur, onInlineEscape, isPublicBoard }) {
   const {
@@ -19,6 +22,55 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
     data: { ...memory, isOnCanvas: true },
     disabled: isInlineEditing, // Disable dragging while inline editing
   })
+
+  // Long-press for context menu on mobile
+  const longPressTimerRef = useRef(null)
+  const longPressTouchRef = useRef(null)
+
+  const handleTouchStart = (e) => {
+    if (isInlineEditing) return
+    const touch = e.touches[0]
+    longPressTouchRef.current = { x: touch.clientX, y: touch.clientY }
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (longPressTouchRef.current) {
+        // Trigger context menu
+        const syntheticEvent = {
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          clientX: longPressTouchRef.current.x,
+          clientY: longPressTouchRef.current.y
+        }
+        onContextMenu(syntheticEvent, 'memory', memory)
+        longPressTouchRef.current = null
+      }
+    }, LONG_PRESS_DELAY)
+  }
+
+  const handleTouchMove = (e) => {
+    if (longPressTouchRef.current && e.touches?.length) {
+      const touch = e.touches[0]
+      const dx = touch.clientX - longPressTouchRef.current.x
+      const dy = touch.clientY - longPressTouchRef.current.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      // Cancel if finger moved more than 10px
+      if (distance > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = null
+        }
+        longPressTouchRef.current = null
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressTouchRef.current = null
+  }
 
   // When in stacked view, adjust x position so pin stays in same place
   // Normal card width: 200px, Stacked card width: 120px, Difference: 80px
@@ -60,6 +112,9 @@ function DroppedMemoryCard({ memory, isSelected, onPinClick, isStackedView, onCo
         e.stopPropagation()
         onClick(e, memory)
       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {isInlineEditing ? (
         <InlineMemoryEditor
