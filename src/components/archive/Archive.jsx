@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil } from 'lucide-react';
+import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil, Eye } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MasonryLayout from 'masonry-layout';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
@@ -1050,7 +1050,15 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           y={memoryContextMenu.y}
           items={[
             {
-              label: 'Edit',
+              label: 'View Memory',
+              icon: <Eye size={16} />,
+              onClick: () => {
+                setViewingMemory(memoryContextMenu.memory);
+                setMemoryContextMenu(null);
+              }
+            },
+            {
+              label: 'Edit Memory',
               icon: <Pencil size={16} />,
               onClick: () => {
                 setEditingMemory(memoryContextMenu.memory);
@@ -1058,7 +1066,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               }
             },
             {
-              label: 'Delete',
+              label: 'Delete Memory',
               icon: <Trash2 size={16} />,
               onClick: async () => {
                 const memory = memoryContextMenu.memory;

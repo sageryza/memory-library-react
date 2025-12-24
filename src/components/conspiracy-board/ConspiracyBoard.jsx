@@ -1582,6 +1582,13 @@ const handleDragEnd = (event) => {
     setShowAddMemoryModal(true)
   }
 
+  const handleDoubleClickMemory = (memoryId) => {
+    const memory = droppedMemories.find(m => compareIds(m.id, memoryId))
+    if (memory) {
+      handleViewMemory(memory)
+    }
+  }
+
   const handleEditMemory = async (memory) => {
     if (isConstellationMode) return // Prevent editing in constellation mode
     // All memories now have Firebase IDs from creation, so just open the modal
@@ -3102,7 +3109,7 @@ const handleDragEnd = (event) => {
               onPinClick={handlePinClick}
               isStackedView={isSimplified}
               onContextMenu={handleContextMenu}
-              onDoubleClick={isConstellationMode ? () => {} : handleReturnToSidebar}
+              onDoubleClick={isConstellationMode ? () => {} : handleDoubleClickMemory}
               onClick={handleMemoryClick}
               connections={connections}
               showOpacityFading={showOpacityFading}
@@ -3705,10 +3712,12 @@ const handleDragEnd = (event) => {
           onClose={() => {
             setShowAddMemoryModal(false)
             setEditingMemory(null)
+            setViewMode(false)
           }}
           onSave={handleSaveMemories}
           editingMemory={editingMemory}
           isSimplified={isSimplified}
+          viewMode={viewMode}
         />
 
         {/* Render connections for actively dragged memory above the drag overlay */}
