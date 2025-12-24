@@ -339,41 +339,28 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const calculateColumnWidth = useCallback(() => {
     if (!masonryContainerRef.current) return 280;
 
-    const containerElement = masonryContainerRef.current;
-
     // Get container's padding
-    const style = window.getComputedStyle(containerElement);
+    const style = window.getComputedStyle(masonryContainerRef.current);
     const paddingLeft = parseFloat(style.paddingLeft) || 0;
     const paddingRight = parseFloat(style.paddingRight) || 0;
 
-    // Content width = container width minus its padding
-    const contentWidth = containerElement.clientWidth - paddingLeft - paddingRight;
+    // Content width is offsetWidth minus padding
+    const contentWidth = masonryContainerRef.current.offsetWidth - paddingLeft - paddingRight;
 
     const gutter = 15;
     const minColumnWidth = 250;
-    const maxColumnWidth = 400;
+    const maxColumnWidth = 350;
 
-    // Calculate how many columns fit with min width
-    const maxColumns = Math.floor((contentWidth + gutter) / (minColumnWidth + gutter));
-    const columns = Math.max(1, maxColumns);
+    // Calculate how many columns fit
+    const columns = Math.max(1, Math.floor((contentWidth + gutter) / (minColumnWidth + gutter)));
 
-    // Calculate column width to fill the space evenly
-    const columnWidth = (contentWidth - (gutter * (columns - 1))) / columns;
+    // Calculate column width to fill space evenly
+    const columnWidth = Math.floor((contentWidth - (gutter * (columns - 1))) / columns);
 
-    console.log('Masonry calc:', {
-      clientWidth: containerElement.clientWidth,
-      paddingLeft,
-      paddingRight,
-      contentWidth,
-      columns,
-      columnWidth: Math.floor(columnWidth)
-    });
-
-    // Clamp to reasonable range and floor to avoid subpixel issues
-    return Math.min(maxColumnWidth, Math.max(minColumnWidth, Math.floor(columnWidth)));
+    return Math.min(maxColumnWidth, Math.max(minColumnWidth, columnWidth));
   }, []);
 
-  // ResizeObserver to recalculate masonry when container size changes (e.g., sidebar toggle)
+  // Recalculate masonry when sidebar toggles or container resizes
   useEffect(() => {
     if (!masonryContainerRef.current || isSimplified) return;
 
@@ -406,25 +393,22 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       });
     };
 
-    // Observe the parent container (.archive-content-area) for size changes
-    // This is what actually resizes when sidebar toggles
-    const parentElement = masonryContainerRef.current.closest('.archive-content-area');
+    // Small delay to let CSS transitions complete
+    const timeoutId = setTimeout(initMasonry, 150);
 
-    let resizeTimeout;
+    // Also observe for window resize
     const resizeObserver = new ResizeObserver(() => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(initMasonry, 100);
+      clearTimeout(timeoutId);
+      setTimeout(initMasonry, 100);
     });
 
-    if (parentElement) {
-      resizeObserver.observe(parentElement);
-    }
+    resizeObserver.observe(masonryContainerRef.current);
 
     return () => {
-      clearTimeout(resizeTimeout);
+      clearTimeout(timeoutId);
       resizeObserver.disconnect();
     };
-  }, [isSimplified, calculateColumnWidth]);
+  }, [isSimplified, calculateColumnWidth, sidebarCollapsed]);
 
   // Update masonry when items or view mode changes
   useEffect(() => {

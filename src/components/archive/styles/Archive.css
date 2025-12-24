@@ -330,14 +330,26 @@ textarea {
 /* ===== MASONRY CONTAINER ===== */
 .memories-container {
     padding: 20px 30px;
-    display: flex;
-    margin-left: -15px;
 }
 
-.masonry-column {
-    padding-left: 15px;
-    background-clip: padding-box;
+/* True masonry grid layout */
+.memories-container.masonry-grid {
+    position: relative;
+    width: 100%; /* Ensure it fills parent width */
+    box-sizing: border-box;
 }
+
+/* Masonry sizer - width set dynamically by JS */
+.masonry-sizer {
+    width: 280px; /* Default, overridden by JS */
+}
+
+/* Masonry items - width set dynamically by JS */
+.memories-container.masonry-grid .memory-item {
+    width: 280px; /* Default, overridden by JS */
+    margin-bottom: 15px; /* Vertical spacing - matches gutter */
+}
+
 
 /* Checkbox styling moved to MemoryCard.css to avoid duplication */
 
