@@ -8,6 +8,7 @@ import useMemories from './hooks/useMemories'
 import migrateLocalStorageToFirestore from './utils/migrateData'
 import { runIdMigration } from './utils/migrateIds'
 import './utils/cleanupDuplicates' // Temporary: exposes window.scanDuplicates() and window.deleteDuplicates()
+import './utils/backfillBoardProvenance' // Temporary: exposes window.scanProvenance() and window.backfillProvenance()
 import { ConfirmProvider } from './contexts/ConfirmContext'
 import Login from './components/Login'
 import Home from './components/Home'
