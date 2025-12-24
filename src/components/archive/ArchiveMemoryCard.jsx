@@ -78,7 +78,7 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
         />
       )}
 
-      {ENABLE_CONSTELLATION_FEATURE && hasConnections(memory.id) && (
+      {ENABLE_CONSTELLATION_FEATURE && !selectMode && hasConnections(memory.id) && (
         <div className="constellation-icon-wrapper">
           <ConstellationIcon
             ref={iconRef}
