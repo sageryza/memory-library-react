@@ -1,4 +1,4 @@
-import { BookOpen, Loader } from 'lucide-react';
+import { Loader } from 'lucide-react';
 import './SharedBoard.css';
 
 export default function SharedBoardLanding({ sharedBoard, onEnter, isImporting, importError }) {
@@ -10,7 +10,7 @@ export default function SharedBoardLanding({ sharedBoard, onEnter, isImporting, 
     <div className="shared-board-landing">
       <div className="landing-card">
         <div className="landing-icon">
-          <BookOpen size={48} />
+          <img src="/favicon.svg" alt="Memory Library" width={64} height={64} />
         </div>
 
         <h1 className="landing-title">
@@ -39,10 +39,6 @@ export default function SharedBoardLanding({ sharedBoard, onEnter, isImporting, 
             'View Memories'
           )}
         </button>
-
-        <p className="landing-footer">
-          Powered by Memory Library
-        </p>
       </div>
     </div>
   );
