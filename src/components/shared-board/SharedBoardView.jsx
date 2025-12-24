@@ -14,7 +14,7 @@ const CANVAS_HEIGHT = 8000;
 const CANVAS_OFFSET_X = 4500;
 const CANVAS_OFFSET_Y = 3000;
 
-export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
+export default function SharedBoardView({ sharedBoard, updateSharedBoard, recordMemoryView, recordAction }) {
   const {
     name,
     sharedBy,
@@ -118,6 +118,17 @@ export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
       const updatedConnections = [...connections, newConnection];
       setConnections(updatedConnections);
       saveToFirebase({ connections: updatedConnections });
+
+      // Record the connection action
+      if (recordAction) {
+        const fromMemory = droppedMemories.find(m => String(m.id) === String(selectedPin));
+        const toMemory = droppedMemories.find(m => String(m.id) === String(memoryId));
+        recordAction('connection_made', {
+          fromMemoryTitle: fromMemory?.title || 'Unknown',
+          toMemoryTitle: toMemory?.title || 'Unknown'
+        });
+      }
+
       setSelectedPin(null);
     } else {
       // Clicking same pin again, deselect
@@ -136,6 +147,11 @@ export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
   // Handle memory click to show popup
   const handleMemoryClick = (e, memory) => {
     if (e.target.classList.contains('memory-pin')) return;
+
+    // Record that this memory was viewed
+    if (recordMemoryView) {
+      recordMemoryView(memory.id, memory.title);
+    }
 
     setMemoryPopup({
       memory,
@@ -224,7 +240,7 @@ export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
         onDragEnd={handleDragEnd}
       >
         <div
-          className="shared-canvas-container"
+          className="shared-canvas-container canvas-container"
           onMouseDown={handleMouseDown}
           onClick={handleCanvasClick}
           style={{
@@ -232,33 +248,17 @@ export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
           }}
         >
           <div
-            className="shared-canvas-inner"
+            className="pan-container"
             style={{
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+              transformOrigin: '0 0',
+              width: `${CANVAS_WIDTH}px`,
+              height: `${CANVAS_HEIGHT}px`,
+              position: 'absolute',
+              left: `-${CANVAS_OFFSET_X}px`,
+              top: `-${CANVAS_OFFSET_Y}px`
             }}
           >
-            <svg
-              className="connections-svg"
-              style={{
-                width: CANVAS_WIDTH,
-                height: CANVAS_HEIGHT,
-                position: 'absolute',
-                left: -CANVAS_OFFSET_X,
-                top: -CANVAS_OFFSET_Y,
-                pointerEvents: 'none'
-              }}
-            >
-              <Connections
-                connections={connections}
-                droppedMemories={droppedMemories}
-                standalonePins={standalonePins}
-                selectedConnection={selectedConnection}
-                setSelectedConnection={setSelectedConnection}
-                panOffset={{ x: 0, y: 0 }}
-                canvasOffset={{ x: CANVAS_OFFSET_X, y: CANVAS_OFFSET_Y }}
-              />
-            </svg>
-
             <Canvas
               droppedMemories={droppedMemories}
               selectedPin={selectedPin}
@@ -282,9 +282,32 @@ export default function SharedBoardView({ sharedBoard, updateSharedBoard }) {
             <StandalonePins
               standalonePins={standalonePins}
               selectedPin={selectedPin}
-              setSelectedPin={setSelectedPin}
-              panOffset={{ x: 0, y: 0 }}
-              canvasOffset={{ x: CANVAS_OFFSET_X, y: CANVAS_OFFSET_Y }}
+              onPinClick={handlePinClick}
+              onUpdatePosition={() => {}}
+              onContextMenu={(e) => e.preventDefault()}
+              isPlacingPin={false}
+              placementPosition={null}
+              showAllInsights={false}
+              constellationSelectedNodes={null}
+              panOffset={panOffset}
+            />
+
+            <Connections
+              connections={connections}
+              droppedMemories={droppedMemories}
+              standalonePins={standalonePins}
+              activeTransform={null}
+              onConnectionClick={() => {}}
+              onConnectionDelete={() => {}}
+              onConnectionContextMenu={(e) => e.preventDefault()}
+              showOpacityFading={false}
+              isStackedView={false}
+              showAllInsights={false}
+              selectedPin={selectedPin}
+              cursorPosition={null}
+              constellationSelectedNodes={null}
+              stringsInFront={true}
+              isDragging={false}
             />
           </div>
         </div>

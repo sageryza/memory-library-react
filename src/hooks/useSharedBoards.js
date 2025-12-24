@@ -178,11 +178,112 @@ export const useSharedBoard = (shareId) => {
     }
   }, [shareId]);
 
+  /**
+   * Record that the recipient viewed the shared board
+   */
+  const recordView = useCallback(async () => {
+    if (!shareId) return;
+
+    try {
+      const sharedBoardRef = doc(db, 'sharedBoards', shareId);
+      const docSnap = await getDoc(sharedBoardRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const updates = {
+          lastViewedAt: serverTimestamp(),
+          viewCount: (data.viewCount || 0) + 1
+        };
+
+        // Only set firstViewedAt if it hasn't been set yet
+        if (!data.firstViewedAt) {
+          updates.firstViewedAt = serverTimestamp();
+        }
+
+        await setDoc(sharedBoardRef, updates, { merge: true });
+      }
+    } catch (error) {
+      console.error('Error recording view:', error);
+    }
+  }, [shareId]);
+
+  /**
+   * Record that a specific memory was viewed
+   */
+  const recordMemoryView = useCallback(async (memoryId, memoryTitle) => {
+    if (!shareId || !memoryId) return;
+
+    try {
+      const sharedBoardRef = doc(db, 'sharedBoards', shareId);
+      const docSnap = await getDoc(sharedBoardRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const activityLog = data.activityLog || [];
+
+        // Add to activity log
+        activityLog.push({
+          type: 'memory_view',
+          memoryId,
+          memoryTitle: memoryTitle || 'Untitled',
+          timestamp: new Date().toISOString()
+        });
+
+        // Keep only last 100 activities
+        const trimmedLog = activityLog.slice(-100);
+
+        await setDoc(sharedBoardRef, {
+          activityLog: trimmedLog,
+          lastActivityAt: serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.error('Error recording memory view:', error);
+    }
+  }, [shareId]);
+
+  /**
+   * Record an action (connection made, pin added, etc.)
+   */
+  const recordAction = useCallback(async (actionType, details = {}) => {
+    if (!shareId) return;
+
+    try {
+      const sharedBoardRef = doc(db, 'sharedBoards', shareId);
+      const docSnap = await getDoc(sharedBoardRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const activityLog = data.activityLog || [];
+
+        // Add to activity log
+        activityLog.push({
+          type: actionType,
+          ...details,
+          timestamp: new Date().toISOString()
+        });
+
+        // Keep only last 100 activities
+        const trimmedLog = activityLog.slice(-100);
+
+        await setDoc(sharedBoardRef, {
+          activityLog: trimmedLog,
+          lastActivityAt: serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.error('Error recording action:', error);
+    }
+  }, [shareId]);
+
   return {
     sharedBoard,
     loading,
     error,
-    updateSharedBoard
+    updateSharedBoard,
+    recordView,
+    recordMemoryView,
+    recordAction
   };
 };
 

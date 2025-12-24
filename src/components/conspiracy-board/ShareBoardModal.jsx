@@ -1,10 +1,27 @@
 import { useState } from 'react';
-import { Share2, Copy, Check, Link } from 'lucide-react';
+import { Share2, Copy, Check, Link, Eye, Clock, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { useSharedBoards } from '../../hooks/useSharedBoards';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import './ShareBoardModal.css';
+
+// Helper to format timestamps
+const formatTimeAgo = (timestamp) => {
+  if (!timestamp) return null;
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
 
 export default function ShareBoardModal({
   isOpen,
@@ -14,13 +31,15 @@ export default function ShareBoardModal({
 }) {
   const { user } = useAuth();
   const { profile } = useUserProfile(user);
-  const { createShare } = useSharedBoards(user?.uid);
+  const { sharedBoards, createShare } = useSharedBoards(user?.uid);
 
   const [recipientName, setRecipientName] = useState('');
   const [shareLink, setShareLink] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
+  const [showPreviousShares, setShowPreviousShares] = useState(false);
+  const [expandedShareId, setExpandedShareId] = useState(null);
 
   const handleGenerateLink = async () => {
     if (!user) {
@@ -165,6 +184,117 @@ export default function ShareBoardModal({
           >
             Done
           </button>
+        </div>
+      )}
+
+      {/* Previous Shares Section */}
+      {user && sharedBoards.length > 0 && (
+        <div className="previous-shares-section">
+          <button
+            className="previous-shares-toggle"
+            onClick={() => setShowPreviousShares(!showPreviousShares)}
+          >
+            <span>Your Shared Boards ({sharedBoards.length})</span>
+            {showPreviousShares ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+
+          {showPreviousShares && (
+            <div className="previous-shares-list">
+              {sharedBoards.map((share) => (
+                <div key={share.id} className="share-item">
+                  <div
+                    className="share-item-header"
+                    onClick={() => setExpandedShareId(expandedShareId === share.id ? null : share.id)}
+                  >
+                    <div className="share-item-info">
+                      <span className="share-recipient">
+                        Shared with {share.sharedWith?.name || 'someone'}
+                      </span>
+                      <span className="share-meta">
+                        {share.memoryCount} {share.memoryCount === 1 ? 'memory' : 'memories'}
+                      </span>
+                    </div>
+                    <div className="share-item-status">
+                      {share.firstViewedAt ? (
+                        <span className="viewed-badge">
+                          <Eye size={12} />
+                          Viewed
+                        </span>
+                      ) : (
+                        <span className="not-viewed-badge">Not yet viewed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {expandedShareId === share.id && (
+                    <div className="share-item-details">
+                      <div className="tracking-stats">
+                        {share.firstViewedAt && (
+                          <div className="stat">
+                            <Clock size={14} />
+                            <span>First viewed: {formatTimeAgo(share.firstViewedAt)}</span>
+                          </div>
+                        )}
+                        {share.lastViewedAt && (
+                          <div className="stat">
+                            <Eye size={14} />
+                            <span>Last viewed: {formatTimeAgo(share.lastViewedAt)}</span>
+                          </div>
+                        )}
+                        {share.viewCount > 0 && (
+                          <div className="stat">
+                            <Activity size={14} />
+                            <span>{share.viewCount} total view{share.viewCount !== 1 ? 's' : ''}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {share.activityLog && share.activityLog.length > 0 && (
+                        <div className="activity-log">
+                          <h5>Recent Activity</h5>
+                          <ul>
+                            {share.activityLog.slice(-5).reverse().map((activity, idx) => (
+                              <li key={idx} className="activity-item">
+                                {activity.type === 'memory_view' && (
+                                  <span>Viewed "{activity.memoryTitle}"</span>
+                                )}
+                                {activity.type === 'connection_made' && (
+                                  <span>Connected "{activity.fromMemoryTitle}" to "{activity.toMemoryTitle}"</span>
+                                )}
+                                {activity.type === 'entered_board' && (
+                                  <span>Entered the board</span>
+                                )}
+                                <span className="activity-time">
+                                  {formatTimeAgo(activity.timestamp)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="share-link-row">
+                        <input
+                          type="text"
+                          value={`${window.location.origin}/share/${share.id}`}
+                          readOnly
+                          className="share-link-input small"
+                        />
+                        <button
+                          className="btn copy-btn small"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/share/${share.id}`);
+                          }}
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Modal>

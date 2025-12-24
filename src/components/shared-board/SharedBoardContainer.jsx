@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSharedBoard } from '../../hooks/useSharedBoards';
 import SharedBoardLanding from './SharedBoardLanding';
@@ -7,8 +7,25 @@ import './SharedBoard.css';
 
 export default function SharedBoardContainer() {
   const { shareId } = useParams();
-  const { sharedBoard, loading, error, updateSharedBoard } = useSharedBoard(shareId);
+  const {
+    sharedBoard,
+    loading,
+    error,
+    updateSharedBoard,
+    recordView,
+    recordMemoryView,
+    recordAction
+  } = useSharedBoard(shareId);
   const [hasEntered, setHasEntered] = useState(false);
+  const [hasRecordedLandingView, setHasRecordedLandingView] = useState(false);
+
+  // Record view when landing page loads (first time only)
+  useEffect(() => {
+    if (sharedBoard && !hasRecordedLandingView) {
+      recordView();
+      setHasRecordedLandingView(true);
+    }
+  }, [sharedBoard, hasRecordedLandingView, recordView]);
 
   if (loading) {
     return (
@@ -33,7 +50,11 @@ export default function SharedBoardContainer() {
     return (
       <SharedBoardLanding
         sharedBoard={sharedBoard}
-        onEnter={() => setHasEntered(true)}
+        onEnter={() => {
+          // Record that they clicked to view the board
+          recordAction('entered_board');
+          setHasEntered(true);
+        }}
       />
     );
   }
@@ -42,6 +63,8 @@ export default function SharedBoardContainer() {
     <SharedBoardView
       sharedBoard={sharedBoard}
       updateSharedBoard={updateSharedBoard}
+      recordMemoryView={recordMemoryView}
+      recordAction={recordAction}
     />
   );
 }
