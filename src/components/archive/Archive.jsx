@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Plus, Edit2, Filter, Check, Tag, Trash2, CheckSquare, Library, Pencil } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Masonry from 'react-masonry-css';
+import MasonryLayout from 'masonry-layout';
 import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
 import useLibraries from '../../hooks/useLibraries';
 import useSimplifyView from '../../hooks/useSimplifyView';
@@ -48,6 +48,10 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [currentPlaygroundId, setCurrentPlaygroundId] = useState(null);
   const [dragOverLibraryId, setDragOverLibraryId] = useState(null);
+
+  // Masonry ref and instance
+  const masonryContainerRef = useRef(null);
+  const masonryInstanceRef = useRef(null);
 
   // Libraries hook
   const {
@@ -319,6 +323,156 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       return () => document.removeEventListener('click', handleClick);
     }
   }, [contextMenu]);
+
+  // Initialize masonry layout (only once)
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount only
+      if (masonryInstanceRef.current) {
+        masonryInstanceRef.current.destroy();
+        masonryInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Calculate optimal column width to fill container
+  const calculateColumnWidth = useCallback(() => {
+    if (!masonryContainerRef.current) return 280;
+
+    const containerElement = masonryContainerRef.current;
+
+    // Get container's padding
+    const style = window.getComputedStyle(containerElement);
+    const paddingLeft = parseFloat(style.paddingLeft) || 0;
+    const paddingRight = parseFloat(style.paddingRight) || 0;
+
+    // Content width = container width minus its padding
+    const contentWidth = containerElement.clientWidth - paddingLeft - paddingRight;
+
+    const gutter = 15;
+    const minColumnWidth = 250;
+    const maxColumnWidth = 400;
+
+    // Calculate how many columns fit with min width
+    const maxColumns = Math.floor((contentWidth + gutter) / (minColumnWidth + gutter));
+    const columns = Math.max(1, maxColumns);
+
+    // Calculate column width to fill the space evenly
+    const columnWidth = (contentWidth - (gutter * (columns - 1))) / columns;
+
+    console.log('Masonry calc:', {
+      clientWidth: containerElement.clientWidth,
+      paddingLeft,
+      paddingRight,
+      contentWidth,
+      columns,
+      columnWidth: Math.floor(columnWidth)
+    });
+
+    // Clamp to reasonable range and floor to avoid subpixel issues
+    return Math.min(maxColumnWidth, Math.max(minColumnWidth, Math.floor(columnWidth)));
+  }, []);
+
+  // ResizeObserver to recalculate masonry when container size changes (e.g., sidebar toggle)
+  useEffect(() => {
+    if (!masonryContainerRef.current || isSimplified) return;
+
+    const initMasonry = () => {
+      if (!masonryContainerRef.current) return;
+
+      const columnWidth = calculateColumnWidth();
+
+      // Update sizer width
+      const sizer = masonryContainerRef.current.querySelector('.masonry-sizer');
+      if (sizer) {
+        sizer.style.width = `${columnWidth}px`;
+      }
+
+      // Update all item widths
+      const items = masonryContainerRef.current.querySelectorAll('.memory-item');
+      items.forEach(item => {
+        item.style.width = `${columnWidth}px`;
+      });
+
+      if (masonryInstanceRef.current) {
+        masonryInstanceRef.current.destroy();
+      }
+
+      masonryInstanceRef.current = new MasonryLayout(masonryContainerRef.current, {
+        itemSelector: '.memory-item',
+        columnWidth: '.masonry-sizer',
+        gutter: 15,
+        transitionDuration: '0.2s'
+      });
+    };
+
+    // Observe the parent container (.archive-content-area) for size changes
+    // This is what actually resizes when sidebar toggles
+    const parentElement = masonryContainerRef.current.closest('.archive-content-area');
+
+    let resizeTimeout;
+    const resizeObserver = new ResizeObserver(() => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(initMasonry, 100);
+    });
+
+    if (parentElement) {
+      resizeObserver.observe(parentElement);
+    }
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      resizeObserver.disconnect();
+    };
+  }, [isSimplified, calculateColumnWidth]);
+
+  // Update masonry when items or view mode changes
+  useEffect(() => {
+    // Only initialize for non-simplified view
+    if (isSimplified || !masonryContainerRef.current) {
+      // Destroy masonry when switching to simplified view
+      if (masonryInstanceRef.current) {
+        masonryInstanceRef.current.destroy();
+        masonryInstanceRef.current = null;
+      }
+      return;
+    }
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      if (!masonryContainerRef.current) return;
+
+      const columnWidth = calculateColumnWidth();
+
+      // Update sizer width
+      const sizer = masonryContainerRef.current.querySelector('.masonry-sizer');
+      if (sizer) {
+        sizer.style.width = `${columnWidth}px`;
+      }
+
+      // Update all item widths
+      const items = masonryContainerRef.current.querySelectorAll('.memory-item');
+      items.forEach(item => {
+        item.style.width = `${columnWidth}px`;
+      });
+
+      // Initialize masonry if not already done
+      if (!masonryInstanceRef.current) {
+        masonryInstanceRef.current = new MasonryLayout(masonryContainerRef.current, {
+          itemSelector: '.memory-item',
+          columnWidth: '.masonry-sizer',
+          gutter: 15,
+          transitionDuration: '0.2s'
+        });
+      } else {
+        // Re-layout when items change
+        masonryInstanceRef.current.reloadItems();
+        masonryInstanceRef.current.layout();
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [filteredMemories, isSimplified, calculateColumnWidth]);
 
   const handleEditFromView = (memory) => {
     setViewingMemory(null);
@@ -686,7 +840,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                 <ArchiveMemoryCard
                   key={memory.id}
                   memory={memory}
-                  onView={setEditingMemory}
+                  onView={setViewingMemory}
                   onHashtagClick={handleHashtagClick}
                   isSelected={selectedIds.has(memory.id)}
                   onSelect={toggleSelection}
@@ -699,22 +853,16 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
               ))}
             </div>
           ) : (
-            <Masonry
-              breakpointCols={{
-                default: 5,
-                1600: 4,
-                1200: 3,
-                768: 2,
-                480: 1
-              }}
-              className={`memories-container ${selectMode ? 'select-mode' : ''}`}
-              columnClassName="masonry-column"
+            <div
+              ref={masonryContainerRef}
+              className={`memories-container masonry-grid ${selectMode ? 'select-mode' : ''}`}
             >
+              <div className="masonry-sizer"></div>
               {filteredMemories.map(memory => (
                 <ArchiveMemoryCard
                   key={memory.id}
                   memory={memory}
-                  onView={setEditingMemory}
+                  onView={setViewingMemory}
                   onHashtagClick={handleHashtagClick}
                   isSelected={selectedIds.has(memory.id)}
                   onSelect={toggleSelection}
@@ -725,7 +873,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                   onContextMenu={handleMemoryContextMenu}
                 />
               ))}
-            </Masonry>
+            </div>
           )}
         </div>
         </div>
@@ -816,11 +964,21 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         isSimplified={isSimplified}
       />
 
+      {/* View Memory Modal */}
+      <MemoryModal
+        isOpen={!!viewingMemory}
+        onClose={() => setViewingMemory(null)}
+        onSave={handleSaveMemory}
+        editingMemory={viewingMemory}
+        isSimplified={isSimplified}
+        viewMode={true}
+      />
+
+      {/* Edit Memory Modal */}
       <MemoryModal
         isOpen={!!editingMemory}
         onClose={() => {
           setEditingMemory(null);
-          setViewingMemory(null);
         }}
         onSave={handleSaveMemory}
         editingMemory={editingMemory}

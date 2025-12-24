@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Pencil } from 'lucide-react';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import './MemoryModal.css';
 import keyword_extractor from 'keyword-extractor';
@@ -27,9 +28,10 @@ function Tooltip({ text, children }) {
   );
 }
 
-export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = null, isSimplified = false }) {
-  const { processInputTitle } = useSimplifyView();
+export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = null, isSimplified = false, viewMode = false }) {
+  const { processInputTitle, formatTitleForDisplay } = useSimplifyView();
   const { confirm } = useConfirm();
+  const [isEditing, setIsEditing] = useState(!viewMode);
   const [memoryUnits, setMemoryUnits] = useState([{
     id: 'unit-0',
     content: '',
@@ -120,6 +122,9 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
   // Reset form when opening/closing or editing different memory
   useEffect(() => {
     if (isOpen) {
+      // Reset editing state based on viewMode prop
+      setIsEditing(!viewMode);
+
       if (editingMemory) {
         // Editing mode - populate with existing memory data
         // Extract hashtags without # symbol for display, join with commas
@@ -158,7 +163,7 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
       setLastAddedUnitId(null); // Reset toggle tracking
       setActiveTab(isSimplified ? 'intuitive' : 'narrative'); // Sync tab with view mode
     }
-  }, [isOpen, editingMemory, isSimplified]);
+  }, [isOpen, editingMemory, isSimplified, viewMode]);
 
   const updateUnit = (id, field, value) => {
     setMemoryUnits(units => units.map(unit =>
@@ -354,21 +359,37 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     >
       <div className="add-memory-popup-content">
         <div className="add-memory-header">
-          <h3>{editingMemory ? 'Edit Memory' : 'New Memory'}</h3>
-          <div className="memory-tabs">
+          {!isEditing && editingMemory && (
             <button
-              className={`memory-tab ${activeTab === 'narrative' ? 'active' : ''}`}
-              onClick={() => setActiveTab('narrative')}
+              type="button"
+              className="btn-edit-corner"
+              onClick={() => setIsEditing(true)}
+              title="Edit"
             >
-              narrative
+              <Pencil size={14} />
             </button>
-            <button
-              className={`memory-tab ${activeTab === 'intuitive' ? 'active' : ''}`}
-              onClick={() => setActiveTab('intuitive')}
-            >
-              intuitive
-            </button>
-          </div>
+          )}
+          <h3>
+            {!isEditing && editingMemory
+              ? <span dangerouslySetInnerHTML={{ __html: formatTitleForDisplay(editingMemory.title) || 'Untitled' }} />
+              : (editingMemory ? 'Edit Memory' : 'New Memory')}
+          </h3>
+          {isEditing && (
+            <div className="memory-tabs">
+              <button
+                className={`memory-tab ${activeTab === 'narrative' ? 'active' : ''}`}
+                onClick={() => setActiveTab('narrative')}
+              >
+                narrative
+              </button>
+              <button
+                className={`memory-tab ${activeTab === 'intuitive' ? 'active' : ''}`}
+                onClick={() => setActiveTab('intuitive')}
+              >
+                intuitive
+              </button>
+            </div>
+          )}
           <button className="add-memory-close" onClick={onClose}>&times;</button>
         </div>
 
@@ -379,7 +400,44 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
             </div>
           )}
 
-          {/* Memory Units Container */}
+          {/* View Mode - Read Only Content */}
+          {!isEditing && editingMemory && (
+            <div className="memory-view-content">
+              {/* Content */}
+              {editingMemory.content && (
+                <div className="memory-view-body">
+                  {editingMemory.content}
+                </div>
+              )}
+
+              {/* Additional Context */}
+              {editingMemory.additionalContext && (
+                <div className="memory-view-context">
+                  <span className="memory-view-label">Context:</span>
+                  <p>{editingMemory.additionalContext}</p>
+                </div>
+              )}
+
+              {/* Hashtags */}
+              {editingMemory.hashtags && editingMemory.hashtags.length > 0 && (
+                <div className="memory-view-hashtags">
+                  {editingMemory.hashtags.map((tag, idx) => (
+                    <span key={idx} className="hashtag">{tag}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Date */}
+              {editingMemory.dateTime && (
+                <div className="memory-view-date">
+                  {editingMemory.dateTime}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Edit Mode - Memory Units Container */}
+          {isEditing && (
           <div id="memoryUnits">
             {memoryUnits.map((unit, index) => (
               <div key={unit.id} className="memory-unit" data-index={index}>
@@ -507,18 +565,21 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
               </div>
             ))}
           </div>
+          )}
         </div>
 
-        {/* Footer with Save button */}
-        <div className="add-memory-footer">
-          <button
-            type="button"
-            className="btn-primary save-btn"
-            onClick={handleSave}
-          >
-            Save
-          </button>
-        </div>
+        {/* Footer - only show when editing */}
+        {isEditing && (
+          <div className="add-memory-footer">
+            <button
+              type="button"
+              className="btn-primary save-btn"
+              onClick={handleSave}
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
