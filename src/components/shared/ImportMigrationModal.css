@@ -1,0 +1,280 @@
+.import-migration-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.import-migration-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.import-migration-modal .modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.import-migration-modal .close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.import-migration-modal .close-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.import-migration-modal .modal-content {
+  padding: 24px;
+}
+
+/* File Drop Zone */
+.file-drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fafafa;
+}
+
+.file-drop-zone:hover {
+  border-color: #999;
+  background: #f5f5f5;
+}
+
+.file-drop-zone.has-file {
+  border-color: #4CAF50;
+  background: #f0fff0;
+}
+
+.drop-prompt {
+  color: #666;
+}
+
+.drop-prompt svg {
+  margin-bottom: 12px;
+  color: #999;
+}
+
+.drop-prompt p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.file-hint {
+  font-size: 12px;
+  color: #999;
+}
+
+.file-selected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #4CAF50;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px;
+  background: #fff0f0;
+  border-radius: 8px;
+  color: #d32f2f;
+  font-size: 13px;
+}
+
+/* Preview */
+.import-preview {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.import-preview h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.preview-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.export-date {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #999;
+}
+
+/* Progress */
+.import-progress {
+  margin-top: 24px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #4CAF50;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+/* Actions */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.import-migration-modal .btn-secondary {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.import-migration-modal .btn-secondary:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.import-migration-modal .btn-primary {
+  padding: 10px 20px;
+  border: none;
+  background: #333;
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.import-migration-modal .btn-primary:hover:not(:disabled) {
+  background: #444;
+}
+
+.import-migration-modal .btn-primary:disabled,
+.import-migration-modal .btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sign-in-notice {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+}
+
+/* Result Screen */
+.import-result {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.import-result .success-icon {
+  color: #4CAF50;
+  margin-bottom: 16px;
+}
+
+.import-result .error-icon {
+  color: #d32f2f;
+  margin-bottom: 16px;
+}
+
+.import-result h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.import-result p {
+  margin: 0 0 8px 0;
+  color: #666;
+}
+
+.import-result ul {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.import-result li {
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.result-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #999;
+}
+
+.import-result .btn-primary {
+  margin-top: 24px;
+}
