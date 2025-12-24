@@ -189,8 +189,8 @@ function ConspiracyBoard({
     const savedZoom = sessionStorage.getItem('boardZoomLevel')
     if (savedZoom) {
       const parsed = parseFloat(savedZoom)
-      // Valid zoom levels: 25%, 50%, 75%, 100%
-      if ([0.25, 0.5, 0.75, 1.0].includes(parsed)) {
+      // Valid zoom levels: 10%, 25%, 50%, 75%, 100%
+      if ([0.1, 0.25, 0.5, 0.75, 1.0].includes(parsed)) {
         return parsed
       }
     }
@@ -2193,18 +2193,34 @@ const handleDragEnd = (event) => {
         if (pinchStartRef.current && e.touches.length === 2) {
           const currentDistance = getTouchDist(e.touches)
           const scale = currentDistance / pinchStartRef.current.distance
-
-          // Calculate new zoom level based on initial zoom and scale factor
-          let newZoom = pinchStartRef.current.zoom * scale
-
-          // Clamp to allowed zoom levels (snap to nearest)
-          // Levels: 25%, 50%, 75%, 100%
-          if (newZoom >= 0.875) newZoom = 1.0
-          else if (newZoom >= 0.625) newZoom = 0.75
-          else if (newZoom >= 0.375) newZoom = 0.5
-          else newZoom = 0.25
-
           const currentZoom = zoomLevelRef.current
+
+          // Define zoom levels and thresholds with hysteresis
+          const zoomLevels = [0.1, 0.25, 0.5, 0.75, 1.0]
+          const currentIndex = zoomLevels.indexOf(currentZoom)
+
+          // Require 20% scale change to zoom out, 25% to zoom in
+          // This prevents oscillation near thresholds
+          let newZoom = currentZoom
+
+          if (scale < 0.8 && currentIndex > 0) {
+            // Zooming out - go to next lower level
+            newZoom = zoomLevels[currentIndex - 1]
+            // Reset pinch start for next level change
+            pinchStartRef.current = {
+              distance: currentDistance,
+              zoom: newZoom
+            }
+          } else if (scale > 1.25 && currentIndex < zoomLevels.length - 1) {
+            // Zooming in - go to next higher level
+            newZoom = zoomLevels[currentIndex + 1]
+            // Reset pinch start for next level change
+            pinchStartRef.current = {
+              distance: currentDistance,
+              zoom: newZoom
+            }
+          }
+
           if (newZoom !== currentZoom) {
             // With dynamic transformOrigin at viewport center, no pan adjustment needed
             setZoomLevel(newZoom)
@@ -2213,12 +2229,6 @@ const handleDragEnd = (event) => {
             // Show zoom indicator
             setShowZoomIndicator(true)
             setTimeout(() => setShowZoomIndicator(false), 1500)
-
-            // Reset pinch start with new zoom to allow continuous zooming
-            pinchStartRef.current = {
-              distance: currentDistance,
-              zoom: newZoom
-            }
           }
         }
       }
@@ -2310,7 +2320,7 @@ const handleDragEnd = (event) => {
           if (zoomLevel >= 1.0) newZoom = 0.75
           else if (zoomLevel >= 0.75) newZoom = 0.5
           else if (zoomLevel >= 0.5) newZoom = 0.25
-          else newZoom = 0.25  // Already at min zoom
+          else newZoom = 0.25  // Desktop min zoom is 25%
 
           if (newZoom !== zoomLevel) {
             zoomToCenter(newZoom)
