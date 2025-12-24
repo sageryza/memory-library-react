@@ -14,7 +14,7 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
   const iconRef = useRef(null);
   const { hasConnections } = useMemoryConnections(userId);
 
-  // Use @dnd-kit draggable hook - only enable when in select mode and selected
+  // Use @dnd-kit draggable hook - always enabled for drag-to-library
   const {
     attributes,
     listeners,
@@ -23,14 +23,13 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
     isDragging,
   } = useDraggable({
     id: memory.id,
-    disabled: !selectMode || !isSelected,
     data: { memory }
   });
 
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.5 : 1,
-    cursor: selectMode ? (isSelected ? 'grab' : 'pointer') : 'pointer'
+    cursor: isDragging ? 'grabbing' : 'grab'
   };
 
   const handleClick = () => {
@@ -68,8 +67,8 @@ export default function ArchiveMemoryCard({ memory, onView, onHashtagClick, isSe
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       style={style}
-      {...(selectMode && isSelected ? listeners : {})}
-      {...(selectMode && isSelected ? attributes : {})}
+      {...listeners}
+      {...attributes}
     >
       {selectMode && (
         <div
