@@ -1,0 +1,413 @@
+/* XI — full-screen app inside the library.
+   Look: cream background, EB Garamond, maroon/ink accents, minimal.
+   Mapped onto the app's design tokens where possible (maroon = --color-primary,
+   cream = --color-bg-card). */
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+.xi-app {
+  --xi-cream: #faf8e9;
+  --xi-cream-tile: #f3eed6;
+  --xi-white-tile: #ffffff;
+  --xi-maroon: var(--color-primary, #800020);
+  --xi-ink: #2b2b2b;
+  --xi-muted: #8a8276;
+  --xi-border: #e3dcc4;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--xi-cream);
+  color: var(--xi-ink);
+  font-family: 'EB Garamond', 'Crimson Text', Georgia, serif;
+  z-index: 9000;
+}
+
+.xi-app-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 20px 32px;
+}
+
+.xi-loading,
+.xi-empty {
+  text-align: center;
+  color: var(--xi-muted);
+  padding: 48px 16px;
+  font-size: 18px;
+}
+
+/* ===== Screen scaffolding ===== */
+.xi-screen {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.xi-screen-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.xi-screen-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--xi-maroon);
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.xi-icon-btn {
+  background: none;
+  border: 1px solid var(--xi-border);
+  color: var(--xi-maroon);
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.xi-icon-btn:hover {
+  background: rgba(128, 0, 32, 0.06);
+}
+
+/* ===== Cards ===== */
+.xi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--xi-border);
+  border-radius: 10px;
+  background: var(--xi-white-tile);
+  font-family: inherit;
+  cursor: default;
+  text-align: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.xi-card.is-clickable {
+  cursor: pointer;
+}
+.xi-card.is-clickable:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+.xi-card-event {
+  background: var(--xi-cream-tile);
+}
+.xi-card-twist {
+  background: var(--xi-white-tile);
+}
+.xi-card.is-selected {
+  outline: 3px solid var(--xi-maroon);
+  outline-offset: -1px;
+}
+.xi-card.is-locked {
+  outline: 3px solid var(--xi-maroon);
+  box-shadow: 0 6px 18px rgba(128, 0, 32, 0.25);
+}
+.xi-card.is-dimmed {
+  opacity: 0.4;
+}
+
+.xi-card-art {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #efe9d4;
+}
+.xi-card-art-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+.xi-card-cap {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--xi-ink);
+  line-height: 1.2;
+}
+.xi-card-lg .xi-card-cap {
+  font-size: 15px;
+}
+.xi-card-sm {
+  padding: 5px;
+  gap: 4px;
+  border-radius: 7px;
+}
+.xi-card-sm .xi-card-cap {
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
+/* ===== Today: pair row ===== */
+.xi-pair-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.xi-pair-x {
+  font-size: 26px;
+  color: var(--xi-muted);
+}
+
+/* ===== Writing panel ===== */
+.xi-writing-panel {
+  margin-top: 8px;
+}
+.xi-pairing-sentence {
+  font-size: 22px;
+  font-style: italic;
+  color: var(--xi-maroon);
+  margin: 0 0 14px;
+  line-height: 1.35;
+}
+.xi-memory-input {
+  width: 100%;
+  border: 1px solid var(--xi-border);
+  border-radius: 10px;
+  background: var(--xi-white-tile);
+  padding: 14px;
+  font-family: inherit;
+  font-size: 18px;
+  color: var(--xi-ink);
+  resize: vertical;
+  outline: none;
+}
+.xi-memory-input:focus {
+  border-color: var(--xi-maroon);
+}
+.xi-writing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+.xi-btn {
+  font-family: inherit;
+  font-size: 16px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.xi-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.xi-btn-primary {
+  background: var(--xi-maroon);
+  color: #fff;
+}
+.xi-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover, #a0001c);
+}
+.xi-btn-ghost {
+  background: transparent;
+  border-color: var(--xi-border);
+  color: var(--xi-muted);
+}
+.xi-btn-ghost:hover:not(:disabled) {
+  color: var(--xi-maroon);
+  border-color: var(--xi-maroon);
+}
+
+.xi-existing-memories {
+  margin-top: 24px;
+  border-top: 1px solid var(--xi-border);
+  padding-top: 14px;
+}
+.xi-existing-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--xi-muted);
+  margin: 0 0 10px;
+}
+.xi-memory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.xi-memory-list-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--xi-border);
+  font-size: 17px;
+  line-height: 1.45;
+}
+.xi-memory-list-item:last-child {
+  border-bottom: none;
+}
+
+/* ===== Board ===== */
+.xi-board-grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.xi-board-hint {
+  text-align: center;
+  color: var(--xi-muted);
+  font-style: italic;
+  font-size: 16px;
+}
+
+/* ===== Past ===== */
+.xi-recent-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 24px;
+}
+.xi-recent-pair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  background: var(--xi-white-tile);
+  border: 1px solid var(--xi-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.xi-recent-pair:hover {
+  border-color: var(--xi-maroon);
+}
+.xi-recent-cap {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.xi-recent-x {
+  color: var(--xi-muted);
+}
+.xi-remix-title,
+.xi-curate-section {
+  font-size: 18px;
+  color: var(--xi-maroon);
+  margin: 18px 0 10px;
+}
+.xi-remix-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.xi-remix-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.xi-remix-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--xi-muted);
+}
+
+/* ===== Curate ===== */
+.xi-curate-sub {
+  color: var(--xi-muted);
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.xi-curate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.xi-curate-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--xi-border);
+  border-radius: 10px;
+  background: var(--xi-white-tile);
+  transition: opacity 0.15s ease;
+}
+.xi-curate-card.is-excluded {
+  opacity: 0.45;
+}
+.xi-curate-art {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.xi-curate-cap {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 1.2;
+}
+.xi-curate-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--xi-maroon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Bottom nav (five icons) ===== */
+.xi-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  background: var(--xi-white-tile);
+  border-top: 1px solid var(--xi-border);
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+  flex-shrink: 0;
+}
+.xi-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  color: var(--xi-muted);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.xi-nav-btn:hover {
+  color: var(--xi-maroon);
+}
+.xi-nav-btn.is-active {
+  color: var(--xi-maroon);
+}
+.xi-nav-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}

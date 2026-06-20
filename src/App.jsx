@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import useAuth from './hooks/useAuth'
@@ -18,6 +18,10 @@ import Libraries from './components/libraries/Libraries'
 import ChronologyV2 from './components/ChronologyV2'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import SharedBoardContainer from './components/shared-board/SharedBoardContainer'
+// Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
+// and only fetched when a user actually opens the /xi route.
+const XiApp = lazy(() => import('./components/xi/XiApp'))
+import './utils/importXiBackup' // Temporary: exposes window.importXiBackup() for one-time XI backup import
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import OfflineIndicator from './components/shared/OfflineIndicator'
 import UserAvatar from './components/shared/UserAvatar'
@@ -36,6 +40,7 @@ function PageTitle() {
       '/libraries': 'Libraries',
       '/chronology': 'Chronology',
       '/public': 'Public Boards',
+      '/xi': 'XI',
       '/login': 'Login'
     };
 
@@ -294,6 +299,19 @@ function App() {
           <Route
             path="/public"
             element={<PublicBoardsContainer />}
+          />
+          <Route
+            path="/xi"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <XiApp
+                  memories={memories}
+                  memoriesLoading={memoriesLoading}
+                  addMemory={addMemory}
+                  userId={user?.uid}
+                />
+              </Suspense>
+            }
           />
           <Route
             path="/login"
