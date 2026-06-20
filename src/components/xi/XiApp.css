@@ -1,413 +1,178 @@
-/* XI — full-screen app inside the library.
-   Look: cream background, EB Garamond, maroon/ink accents, minimal.
-   Mapped onto the app's design tokens where possible (maroon = --color-primary,
-   cream = --color-bg-card). */
+/* XI — exact port of the standalone app's stylesheet, scoped under
+   .xi-app so its generic selectors (button, textarea, .card, .row, …)
+   can't leak into the rest of the library. Verbatim from xi_app_v1.html
+   except for scoping and the full-screen container rule below. */
 @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
-.xi-app {
-  --xi-cream: #faf8e9;
-  --xi-cream-tile: #f3eed6;
-  --xi-white-tile: #ffffff;
-  --xi-maroon: var(--color-primary, #800020);
-  --xi-ink: #2b2b2b;
-  --xi-muted: #8a8276;
-  --xi-border: #e3dcc4;
+.xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--xi-cream);
-  color: var(--xi-ink);
-  font-family: 'EB Garamond', 'Crimson Text', Georgia, serif;
-  z-index: 9000;
-}
-
-.xi-app-body {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 24px 20px 32px;
-}
-
-.xi-loading,
-.xi-empty {
-  text-align: center;
-  color: var(--xi-muted);
-  padding: 48px 16px;
-  font-size: 18px;
-}
-
-/* ===== Screen scaffolding ===== */
-.xi-screen {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.xi-screen-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.xi-screen-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--xi-maroon);
-  letter-spacing: 0.01em;
-  margin: 0;
-}
-
-.xi-icon-btn {
-  background: none;
-  border: 1px solid var(--xi-border);
-  color: var(--xi-maroon);
-  border-radius: 999px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.xi-icon-btn:hover {
-  background: rgba(128, 0, 32, 0.06);
-}
-
-/* ===== Cards ===== */
-.xi-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--xi-border);
-  border-radius: 10px;
-  background: var(--xi-white-tile);
-  font-family: inherit;
-  cursor: default;
-  text-align: center;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-}
-.xi-card.is-clickable {
-  cursor: pointer;
-}
-.xi-card.is-clickable:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-.xi-card-event {
-  background: var(--xi-cream-tile);
-}
-.xi-card-twist {
-  background: var(--xi-white-tile);
-}
-.xi-card.is-selected {
-  outline: 3px solid var(--xi-maroon);
-  outline-offset: -1px;
-}
-.xi-card.is-locked {
-  outline: 3px solid var(--xi-maroon);
-  box-shadow: 0 6px 18px rgba(128, 0, 32, 0.25);
-}
-.xi-card.is-dimmed {
-  opacity: 0.4;
-}
-
-.xi-card-art {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 6px;
-  background: #efe9d4;
-}
-.xi-card-art-placeholder {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-}
-.xi-card-cap {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--xi-ink);
-  line-height: 1.2;
-}
-.xi-card-lg .xi-card-cap {
-  font-size: 15px;
-}
-.xi-card-sm {
-  padding: 5px;
-  gap: 4px;
-  border-radius: 7px;
-}
-.xi-card-sm .xi-card-cap {
-  font-size: 9px;
-  letter-spacing: 0.02em;
-}
-
-/* ===== Today: pair row ===== */
-.xi-pair-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 24px;
-}
-.xi-pair-x {
-  font-size: 26px;
-  color: var(--xi-muted);
-}
-
-/* ===== Writing panel ===== */
-.xi-writing-panel {
-  margin-top: 8px;
-}
-.xi-pairing-sentence {
-  font-size: 22px;
-  font-style: italic;
-  color: var(--xi-maroon);
-  margin: 0 0 14px;
-  line-height: 1.35;
-}
-.xi-memory-input {
-  width: 100%;
-  border: 1px solid var(--xi-border);
-  border-radius: 10px;
-  background: var(--xi-white-tile);
-  padding: 14px;
-  font-family: inherit;
-  font-size: 18px;
-  color: var(--xi-ink);
-  resize: vertical;
-  outline: none;
-}
-.xi-memory-input:focus {
-  border-color: var(--xi-maroon);
-}
-.xi-writing-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
-}
-.xi-btn {
-  font-family: inherit;
-  font-size: 16px;
-  padding: 9px 18px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease;
-}
-.xi-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.xi-btn-primary {
-  background: var(--xi-maroon);
-  color: #fff;
-}
-.xi-btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover, #a0001c);
-}
-.xi-btn-ghost {
-  background: transparent;
-  border-color: var(--xi-border);
-  color: var(--xi-muted);
-}
-.xi-btn-ghost:hover:not(:disabled) {
-  color: var(--xi-maroon);
-  border-color: var(--xi-maroon);
-}
-
-.xi-existing-memories {
-  margin-top: 24px;
-  border-top: 1px solid var(--xi-border);
-  padding-top: 14px;
-}
-.xi-existing-title {
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--xi-muted);
-  margin: 0 0 10px;
-}
-.xi-memory-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.xi-memory-list-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--xi-border);
-  font-size: 17px;
-  line-height: 1.45;
-}
-.xi-memory-list-item:last-child {
-  border-bottom: none;
-}
-
-/* ===== Board ===== */
-.xi-board-grid {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 20px;
-}
-.xi-board-hint {
-  text-align: center;
-  color: var(--xi-muted);
-  font-style: italic;
-  font-size: 16px;
-}
-
-/* ===== Past ===== */
-.xi-recent-pairs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 12px 0 24px;
-}
-.xi-recent-pair {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: center;
-  background: var(--xi-white-tile);
-  border: 1px solid var(--xi-border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-.xi-recent-pair:hover {
-  border-color: var(--xi-maroon);
-}
-.xi-recent-cap {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.xi-recent-x {
-  color: var(--xi-muted);
-}
-.xi-remix-title,
-.xi-curate-section {
-  font-size: 18px;
-  color: var(--xi-maroon);
-  margin: 18px 0 10px;
-}
-.xi-remix-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.xi-remix-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.xi-remix-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--xi-muted);
-}
-
-/* ===== Curate ===== */
-.xi-curate-sub {
-  color: var(--xi-muted);
-  font-size: 16px;
-  margin: 0 0 8px;
-}
-.xi-curate-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
-}
-.xi-curate-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--xi-border);
-  border-radius: 10px;
-  background: var(--xi-white-tile);
-  transition: opacity 0.15s ease;
-}
-.xi-curate-card.is-excluded {
-  opacity: 0.45;
-}
-.xi-curate-art {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 6px;
-}
-.xi-curate-cap {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  text-align: center;
-  line-height: 1.2;
-}
-.xi-curate-toggle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--xi-maroon);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-/* ===== Bottom nav (five icons) ===== */
-.xi-bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  align-items: stretch;
-  background: var(--xi-white-tile);
-  border-top: 1px solid var(--xi-border);
-  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
-  flex-shrink: 0;
-}
-.xi-nav-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  background: none;
-  border: none;
-  padding: 6px 4px;
-  color: var(--xi-muted);
-  font-family: inherit;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-.xi-nav-btn:hover {
-  color: var(--xi-maroon);
-}
-.xi-nav-btn.is-active {
-  color: var(--xi-maroon);
-}
-.xi-nav-label {
-  font-size: 12px;
-  letter-spacing: 0.02em;
-}
+.xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08a3e;--line:#d8ccb2;--sepia:#7a5a36}
+.xi-app *{box-sizing:border-box}
+.xi-app,.xi-app{margin:0}
+.xi-app{background:var(--bg);color:var(--ink);font-family:'EB Garamond',Georgia,serif;font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+.xi-app .wrap{max-width:560px;margin:0 auto;padding:22px 18px 72px;position:relative}
+.xi-app .topbar{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.xi-app .tb-side{flex:1;display:flex;align-items:center}
+.xi-app .count-top{flex:0 1 auto;display:flex;gap:6px;align-items:center;justify-content:center;text-align:center;color:var(--soft);font-style:italic;font-size:.92rem}
+.xi-app .card{touch-action:manipulation}
+.xi-app .cardmenu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:rgba(241,233,216,.9);z-index:5}
+.xi-app .cardmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.92rem;padding:7px 20px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:16px;cursor:pointer}
+.xi-app .cardmenu button:hover{background:rgba(36,29,24,.06)}
+.xi-app .newcards{background:none;border:1px solid var(--ink);color:var(--ink);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.82rem;padding:4px 13px;border-radius:14px;cursor:pointer}
+.xi-app .newcards:hover{background:rgba(36,29,24,.05)}
+.xi-app .topright{justify-content:flex-end;gap:12px}
+.xi-app .gear{display:flex;cursor:pointer;color:var(--soft);background:none;border:none;padding:0}
+.xi-app .gear:hover{color:var(--maroon)}
+.xi-app .gear svg{display:block}
+.xi-app .hg{width:20px;height:28px;flex:none}
+.xi-app .card{background:transparent;border:none;box-shadow:none;padding:0;margin:0 0 4px}
+.xi-app .card img{display:block;width:100%;height:auto;border-radius:2px}
+.xi-app .cardcap{text-align:center;font-variant:small-caps;letter-spacing:.12em;font-size:1.05rem;margin-top:6px;color:var(--ink)}
+.xi-app .cardrow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:flex-start;margin-bottom:6px}
+.xi-app .cardrow .card{margin:0;min-width:0}
+.xi-app .cardrow[data-n="2"] .card{flex:0 0 calc(50% - 5px)}
+.xi-app .cardrow[data-n="3"] .card{flex:0 0 calc(33.333% - 7px)}
+.xi-app .cardrow[data-n="4"] .card{flex:0 0 calc(50% - 5px)}
+.xi-app .cardctrls{justify-content:flex-end;gap:8px}
+.xi-app .cc{background:none;border:none;cursor:pointer;color:var(--soft);padding:0;display:flex;align-items:center}
+.xi-app .cc:hover{color:var(--ink)}
+.xi-app .cc svg{display:block}
+.xi-app .rehead{font-variant:small-caps;letter-spacing:.1em;color:var(--maroon);font-size:.82rem;margin:20px 0 -2px}
+@keyframes flyInL{from{opacity:0;transform:translateX(-48px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes flyInR{from{opacity:0;transform:translateX(48px) scale(.9)}to{opacity:1;transform:none}}
+.xi-app .fly-l{animation:flyInL .55s cubic-bezier(.2,.8,.2,1) both}
+.xi-app .fly-r{animation:flyInR .55s cubic-bezier(.2,.8,.2,1) both}
+.xi-app .block{margin:0 0 22px}
+.xi-app .addsecond{display:block;margin:16px auto 0;background:none;border:none;color:var(--soft);cursor:pointer;padding:6px}
+.xi-app .addsecond:hover{color:var(--ink)}
+.xi-app .addsecond svg{display:block}
+.xi-app .composer{position:relative;margin:10px 0 0}
+.xi-app .composer-top{display:flex;align-items:flex-start;justify-content:space-between;min-height:22px}
+.xi-app .count{color:var(--soft);font-size:.82rem;font-style:italic}
+.xi-app .collected{color:var(--soft);font-style:italic;font-size:.85rem;text-align:center;margin:2px 0 0}
+.xi-app textarea{width:100%;min-height:96px;background:#fff;border:1px solid var(--soft);border-radius:3px;font-family:inherit;font-size:1.05rem;padding:12px;resize:vertical;color:var(--ink);margin-top:4px}
+.xi-app textarea:focus{outline:2px solid rgba(36,29,24,.32);border-color:var(--maroon)}
+.xi-app .btn{appearance:none;border:1px solid var(--maroon);background:var(--maroon);color:#fdf7ec;font-family:inherit;font-size:1rem;letter-spacing:.06em;padding:12px 20px;border-radius:2px;cursor:pointer;font-variant:small-caps;transition:.15s;width:100%}
+.xi-app .btn:hover{background:var(--maroon-d)}
+.xi-app .btn.ghost{background:transparent;color:var(--maroon)}
+.xi-app .btn.ghost:hover{background:rgba(36,29,24,.06)}
+.xi-app .btn.small{width:auto;display:inline-block;padding:5px 14px;font-size:.85rem;background:var(--paper);color:var(--ink);border:1px solid var(--ink)}
+.xi-app .btn.small:hover{background:#efe6d2;color:var(--ink)}
+.xi-app .btn-row{text-align:right;margin-top:4px}
+.xi-app .linkbtn{background:none;border:none;color:var(--maroon);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;cursor:pointer;padding:6px 0;border-bottom:1px solid var(--line);margin-top:10px}
+.xi-app .mem{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:11px 13px;margin:8px 0}
+.xi-app .mem .who{font-variant:small-caps;letter-spacing:.06em;color:var(--maroon);font-size:.88rem}
+.xi-app .mem .txt{margin-top:2px}
+.xi-app .memwrap{margin-top:10px}
+.xi-app .locked{text-align:center;color:var(--soft);font-style:italic}
+.xi-app .row{display:flex;gap:10px;margin-top:10px}
+.xi-app .sheet-bg{position:fixed;inset:0;background:rgba(30,22,16,.45);display:none;z-index:40}
+.xi-app .sheet-bg.open{display:block}
+.xi-app .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--paper);z-index:41;max-width:560px;margin:0 auto;border-radius:10px 10px 0 0;padding:18px 18px 24px;transform:translateY(100%);transition:transform .32s ease;border-top:2px solid var(--maroon)}
+.xi-app .sheet.open{transform:none}
+.xi-app .sheet h3{margin:.2em 0 .6em;font-weight:600;font-variant:small-caps;letter-spacing:.06em}
+.xi-app .overlay{position:fixed;inset:0;background:var(--bg);z-index:45;overflow:auto;display:none}
+.xi-app .overlay.open{display:block}
+.xi-app .topbar .title{flex:0 1 auto;text-align:center;font-variant:small-caps;letter-spacing:.14em;color:var(--ink);font-size:1.02rem;white-space:nowrap}
+.xi-app .react-top{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px}
+.xi-app .reactopt{background:none;border:none;cursor:pointer;font-family:inherit;display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--soft);padding:0;max-width:47%}
+.xi-app .reactopt .ic{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.05rem;line-height:1;flex:none}
+.xi-app .reactopt .lbl{font-size:.74rem;font-style:italic;line-height:1.2}
+.xi-app .reactopt:hover .ic{border-color:var(--soft)}
+.xi-app .reactopt.on{color:var(--ink)}
+.xi-app .reactopt.on .ic{background:var(--sepia);border-color:var(--sepia);color:#fbf7ec}
+.xi-app .swipezone{position:relative}
+.xi-app .tapnav{position:absolute;top:0;bottom:0;width:50%;background:none;border:none;cursor:pointer;padding:0}
+.xi-app .tapnav.left{left:0}
+.xi-app .tapnav.right{right:0}
+.xi-app .browse-nav{display:flex;align-items:center;justify-content:space-between;margin-top:20px;color:var(--soft);font-size:.85rem;font-style:italic}
+.xi-app .browse-nav .linkbtn{border:none}
+.xi-app .gallerygrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.xi-app .galcell{background:none;border:none;cursor:pointer;font-family:inherit;padding:0;text-align:center}
+.xi-app .galcell img{width:100%;height:auto;border:1px solid var(--line);border-radius:2px}
+.xi-app .galcell .galdate{font-variant:small-caps;letter-spacing:.06em;color:var(--ink);font-size:.82rem;margin-top:5px}
+.xi-app .galcount{text-align:center;color:var(--soft);font-style:italic;font-size:.85rem;margin:14px 0 0}
+.xi-app .galmeta .galdate{font-variant:small-caps;letter-spacing:.06em;color:var(--ink);font-size:1rem}
+.xi-app .galmeta .galcap{font-size:.82rem;color:var(--soft);font-style:italic}
+.xi-app .logo{display:flex;align-items:center}
+.xi-app .hg-x{width:22px;height:30px}
+.xi-app .logo-i{width:8px;height:30px;margin-left:-1px}
+.xi-app .botnav{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;max-width:560px;margin:0 auto;background:rgba(241,233,216,.97);backdrop-filter:blur(6px);border-top:1px solid var(--line)}
+.xi-app .botnav button{flex:1;background:none;border:none;font-family:inherit;color:var(--soft);padding:13px 4px;font-variant:small-caps;letter-spacing:.03em;font-size:.78rem;cursor:pointer;line-height:1.15}
+.xi-app .botnav button+button{border-left:1px solid var(--line)}
+.xi-app .botnav button.on{color:var(--ink)}
+.xi-app .galmem{position:relative;margin-top:4px}
+.xi-app .galmem.blurred .memwrap{filter:blur(5px);pointer-events:none;user-select:none;min-height:96px}
+.xi-app .blurnote{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.xi-app .blurnote span{background:rgba(241,233,216,.9);padding:7px 14px;border-radius:3px;font-variant:small-caps;letter-spacing:.08em;color:var(--ink);font-size:1rem}
+.xi-app .eyebrow{font-variant:small-caps;letter-spacing:.18em;color:var(--maroon);font-size:.82rem;text-align:center}
+.xi-app /* two-deck additions */
+#cardSlot .cardrow .card{position:relative}
+.xi-app .center-wrap{flex:0 1 auto;position:relative;display:flex;align-items:center;justify-content:center}
+.xi-app .newcards{border-radius:7px;padding:6px 16px}
+.xi-app #undoBtn{position:absolute;right:100%;margin-right:12px;top:50%;transform:translateY(-50%);color:var(--soft);background:none;border:none;cursor:pointer;display:flex;padding:0}
+.xi-app #undoBtn:hover{color:var(--ink)}
+.xi-app .libitem{margin-bottom:20px;position:relative}
+.xi-app .liblabel{margin-bottom:4px}
+.xi-app .liblabel .lbtn{background:none;border:none;font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;color:var(--maroon);cursor:pointer;padding:0;border-bottom:1px solid var(--line)}
+.xi-app .liblabel .sep{color:var(--soft);font-size:.82rem;margin:0 5px}
+.xi-app .libmem{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:11px 13px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.xi-app .memmenu{display:flex;gap:10px;margin-top:8px}
+.xi-app .memmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;padding:4px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:14px;cursor:pointer}
+.xi-app .galcell .pairmini{display:flex;gap:5px}
+.xi-app .galcell .pairmini img{width:50%;height:auto;border:1px solid var(--line);border-radius:2px}
+.xi-app .galcard{padding:0;border:none;background:none;cursor:pointer;line-height:0;width:50%;border-radius:2px}
+.xi-app .galcard img{width:100% !important;border:1px solid var(--line);border-radius:2px}
+.xi-app .galcard.selg img{border-color:#c9a227;outline:2px solid #c9a227;outline-offset:-1px}
+.xi-app .selbar{position:sticky;top:0;z-index:3;text-align:center;padding:8px 0 10px;background:var(--bg)}
+.xi-app .selhint{font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;color:var(--soft)}
+.xi-app .usepair{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;padding:7px 22px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:18px;cursor:pointer}
+.xi-app #expOv,.xi-app #impOv{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
+.xi-app .expbox{background:var(--bg);border:1px solid var(--ink);border-radius:8px;padding:16px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:10px}
+.xi-app .exptitle{font-variant:small-caps;letter-spacing:.05em;font-size:.85rem}
+.xi-app #expTa,.xi-app #impTa{width:100%;height:200px;font-family:ui-monospace,monospace;font-size:16px;border:1px solid var(--line);border-radius:4px;padding:8px;background:#fff;resize:none}
+.xi-app .exprow{display:flex;gap:8px;justify-content:flex-end}
+.xi-app .exprow button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.85rem;padding:6px 16px;border:1px solid var(--ink);background:none;border-radius:16px;cursor:pointer}
+.xi-app .curtoggle{display:flex;justify-content:center;margin-bottom:16px}
+.xi-app .curtoggle button{font-family:inherit;font-variant:small-caps;letter-spacing:.08em;font-size:.9rem;padding:5px 18px;border:1px solid var(--ink);background:none;color:var(--ink);cursor:pointer}
+.xi-app .curtoggle button:first-child{border-right:none}
+.xi-app .curtoggle button.on{background:var(--ink);color:var(--bg)}
+.xi-app .libhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.xi-app .libctl{display:flex;gap:8px}
+.xi-app .libctl button,.xi-app .impbtn{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;padding:4px 13px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:13px;cursor:pointer}
+.xi-app .hardcards{margin-bottom:14px;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+.xi-app .hardlabel{font-variant:small-caps;letter-spacing:.05em;font-size:.72rem;color:var(--soft);margin-bottom:5px}
+.xi-app .hardcards span{display:inline-block;font-size:.74rem;color:var(--ink);margin:0 10px 4px 0}
+.xi-app .btn.ghost{background:none;opacity:.85}
+.xi-app .nothing{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid #c0392b;color:#c0392b;background:none;border-radius:16px;cursor:pointer;margin-left:10px}
+.xi-app .cardrow.missed .card{outline:3px solid #c0392b;outline-offset:-3px;border-radius:4px}
+.xi-app .card{position:relative}
+.xi-app .cardback{position:absolute;left:6px;bottom:6px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--soft);cursor:pointer;padding:0}
+.xi-app /* v10 */
+button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.xi-app #cardSlot .card img,.xi-app .libcards img,.xi-app .galcell img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;pointer-events:none}
+.xi-app .libgroup{margin-bottom:26px}
+.xi-app .libcards{display:flex;gap:6px;background:none;border:none;padding:0;cursor:pointer;width:100%;max-width:260px;margin:0 0 9px}
+.xi-app .libcards img{width:50%;height:auto;border-radius:2px}
+.xi-app .libmems{display:flex;flex-direction:column;gap:8px}
+.xi-app .boardtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.xi-app .bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.xi-app .bcell{position:relative;aspect-ratio:1;border-radius:4px;padding:5px;border:1px solid var(--line);overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.xi-app .bcell.ev{background:#ece0c2}
+.xi-app .bcell.tw{background:#fbf8f1}
+.xi-app .bcell img{width:100%;height:100%;object-fit:contain;margin:auto;display:block;pointer-events:none;mix-blend-mode:multiply}
+.xi-app .bcell.bsel{outline:3px solid #7c3b3b;outline-offset:-1px;z-index:2}
+.xi-app .bdot{position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:#7c3b3b;box-shadow:0 0 0 1.5px var(--bg)}
+.xi-app .bpanel{margin-top:16px;border-top:1px solid var(--line);padding-top:13px;min-height:40px}
+.xi-app .blead{font-style:italic;color:var(--soft);font-size:.92rem}
+.xi-app .bpair{font-variant:small-caps;letter-spacing:.03em;font-size:1.04rem;margin-bottom:8px}
+.xi-app .bpair .x{color:#7c3b3b;margin:0 6px}
+.xi-app .bed textarea{width:100%;min-height:90px;font-family:inherit;font-size:16px;border:1px solid var(--ink);border-radius:6px;padding:10px;background:#fff;resize:none}
+.xi-app .brow{display:flex;gap:8px;justify-content:flex-end;margin-top:9px}
+.xi-app .bexist{margin-top:11px;color:var(--soft);font-style:italic;font-size:.92rem;line-height:1.5}
+.xi-app .act{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:7px 18px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:16px;cursor:pointer}
+.xi-app .act.dark{background:var(--ink);color:var(--bg)}
+.xi-app .newb{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:14px;cursor:pointer}
+.xi-app .botnav button{display:flex;flex-direction:column;align-items:center;gap:3px}
+.xi-app .botnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.xi-app .botnav .nlab{font-size:.58rem;font-variant:small-caps;letter-spacing:.04em}
