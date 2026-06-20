@@ -31,7 +31,10 @@
       "Bash(grep:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd mobile touch support with pinch-to-zoom\n\nMobile improvements:\n- Single-finger panning on the canvas\n- Pinch-to-zoom between 50%, 75%, and 100% zoom levels\n- Touch dragging for memory cards (with 200ms delay to distinguish from scroll)\n- Long-press (500ms) on canvas for context menu\n- Default zoom set to 75% on mobile for better visibility\n\nKey fix: Dynamic transform origin set to viewport center so zoom\nhappens around what you''re looking at, not a fixed corner point.\nThis was the critical insight - the previous static origin at (0,0)\ncaused the view to jump based on screen size.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(mkdir -p src/data/xi)",
+      "Bash(cp \"/root/.claude/uploads/b43342d7-12ef-517b-97b6-4dfc22264f55/8de09ef3-deck_daily.json\" src/data/xi/deckDaily.json)",
+      "Bash(cp \"/root/.claude/uploads/b43342d7-12ef-517b-97b6-4dfc22264f55/cdd569ad-deck_board.json\" src/data/xi/deckBoard.json)"
     ],
     "deny": [],
     "ask": []
