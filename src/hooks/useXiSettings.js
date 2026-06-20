@@ -48,9 +48,14 @@ export default function useXiSettings(userId) {
     return () => unsubscribe();
   }, [userId]);
 
-  // Merge a partial update into the settings document.
+  // Merge a partial update into the settings document. Applies optimistically
+  // to local state first so the UI updates instantly (and keeps working even if
+  // the user is signed out or the write is rejected — e.g. before security
+  // rules are deployed); the snapshot listener reconciles with the server when
+  // the write succeeds.
   const update = useCallback(
     async (partial) => {
+      setSettings((prev) => ({ ...prev, ...partial }));
       if (!userId) return;
       const ref = doc(db, 'users', userId, 'xiSettings', 'state');
       try {
