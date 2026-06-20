@@ -93,21 +93,6 @@ function Home() {
           <button className="launch-btn">Launch Libraries</button>
         </Link>
 
-        {/* XI Module */}
-        <Link to="/xi" className="module-card" data-module="xi">
-          <div className="module-icon">
-            <div className="xi-home-icon" aria-hidden="true">×</div>
-          </div>
-          <h3>XI</h3>
-          <p>A daily memory game. Draw an event and a twist, then write a memory that's both. Play the Card of the Day or fill a whole board.</p>
-          <div className="module-features">
-            <span className="feature">Card of the Day</span>
-            <span className="feature">Board</span>
-            <span className="feature">Curate</span>
-          </div>
-          <button className="launch-btn">Launch XI</button>
-        </Link>
-
         {/* Lessons Module */}
         <div className="module-card coming-soon" data-module="lessons">
           <div className="module-icon">

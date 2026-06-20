@@ -18,7 +18,18 @@
 // bundled deck via the stable card id at render time.
 
 export const XI_SOURCE = 'xi';
-export const XI_HASHTAG = '#xi';
+
+// Turn a card caption into a single hashtag token, e.g.
+// "ON THE WAY OUT" -> "#on-the-way-out". (Kept local so this module doesn't
+// pull the heavy decks bundle into the eager importer.)
+function tagFromCaption(cap) {
+  const slug = String(cap || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug ? `#${slug}` : null;
+}
 
 // A stable key for a pairing, independent of which card was tapped first.
 export function pairKey(eventRef, twistRef) {
@@ -48,10 +59,14 @@ export function buildXiMemoryDoc({ text, event, twist, mode }) {
   const evRef = cardRef(event);
   const twRef = cardRef(twist);
   const now = new Date();
+  // Tag the memory with both cards it was created from, so the card pairing is
+  // visible/filterable anywhere memories are shown. `source: "xi"` (below) is
+  // the internal flag that marks XI-created memories — not a user-facing tag.
+  const hashtags = [tagFromCaption(evRef && evRef.cap), tagFromCaption(twRef && twRef.cap)].filter(Boolean);
   return {
     content: String(text || '').trim(),
     title: pairingSentence(evRef, twRef),
-    hashtags: [XI_HASHTAG],
+    hashtags,
     source: XI_SOURCE,
     mode: mode || 'daily',
     event: evRef,
