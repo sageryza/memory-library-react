@@ -4,18 +4,15 @@ import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
-  useHand, ensureHand, placeCard, passTurn,
+  useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
 import { gridFromPlaced, BR, BC, cellKind, legalCells } from '../../xi/versusModel';
+import { pairKey, pairingSentence } from '../../xi/xiMemory';
 import './XiVersus.css';
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
-
-const cardArt = (cell) => {
-  const pool = cell.d === 'be' ? boardDeck.events : boardDeck.twists;
-  return pool[cell.i] || null;
-};
+const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
 
 export default function XiVersus() {
   const { gameId } = useParams();
@@ -24,10 +21,13 @@ export default function XiVersus() {
   const { profile } = useUserProfile(user);
   const { game, loading, error } = useVersusGame(gameId);
   const hand = useHand(gameId, user?.uid);
+  const stories = useStories(gameId);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [placing, setPlacing] = useState(false);
+  const [selected, setSelected] = useState(null);   // hand card chosen to place
+  const [storyCells, setStoryCells] = useState([]); // placed cells chosen to write on
+  const [storyText, setStoryText] = useState('');
+  const [working, setWorking] = useState(false);
   const [nameInput, setNameInput] = useState(() => {
     try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
   });
@@ -127,44 +127,75 @@ export default function XiVersus() {
 
   const grid = gridFromPlaced(game.placed);
   const players = game.players || [];
-  const turnPlayer = players[game.currentTurnIndex] || null;
-  const myTurn = !!(turnPlayer && user && turnPlayer.uid === user.uid);
+  const acted = game.acted || [];
+  const iActed = !!(user && acted.includes(user.uid));
+  const canAct = amInGame && !iActed && !working;
   const link = `${window.location.origin}/xi/versus/${gameId}`;
 
-  // Cells where the selected card may legally go (only on your turn).
-  const legalSet = (myTurn && selected)
+  // Legal target cells for the selected hand card — used only to gate taps; per
+  // design there is no loud on-board indicator.
+  const legalSet = (canAct && selected)
     ? new Set(legalCells(game.placed || [], selected).map(([r, c]) => r + '-' + c))
     : new Set();
 
+  // Pairing currently chosen to write a story on (two adjacent placed cells).
+  const storyReady = storyCells.length === 2;
+  const storyEv = storyCells.find((s) => s.d === 'be');
+  const storyTw = storyCells.find((s) => s.d === 'bw');
+  const storyPairKey = (storyReady && storyEv && storyTw)
+    ? pairKey({ id: artOf('be', storyEv.i)?.id }, { id: artOf('bw', storyTw.i)?.id })
+    : null;
+  const pairStories = storyPairKey ? stories.filter((s) => s.pairKey === storyPairKey) : [];
+  const storyLabel = (storyReady && storyEv && storyTw)
+    ? pairingSentence(artOf('be', storyEv.i), artOf('bw', storyTw.i)) : '';
+
   const handlePlace = async (r, c) => {
-    if (!selected || placing) return;
-    setPlacing(true);
+    if (!selected || working) return;
+    setWorking(true);
     try { await placeCard(gameId, user, selected, r, c); setSelected(null); }
     catch (e) { alert(e.message); }
-    finally { setPlacing(false); }
+    finally { setWorking(false); }
   };
 
-  const doPass = async () => {
-    if (placing) return;
-    setPlacing(true);
-    try { await passTurn(gameId, user); setSelected(null); }
-    catch (e) { alert(e.message); }
-    finally { setPlacing(false); }
+  // Tap placed cards to pick an event×twist pairing to write on.
+  const tapPlaced = (r, c, cell) => {
+    setSelected(null);
+    setStoryCells((prev) => {
+      if (prev.length !== 1) return [{ r, c, d: cell.d, i: cell.i }];
+      const a = prev[0];
+      if (a.r === r && a.c === c) return [];
+      const adjacent = Math.abs(a.r - r) + Math.abs(a.c - c) === 1;
+      const opposite = a.d !== cell.d;
+      return (adjacent && opposite) ? [a, { r, c, d: cell.d, i: cell.i }] : [{ r, c, d: cell.d, i: cell.i }];
+    });
   };
+
+  const handleWrite = async () => {
+    if (!storyText.trim() || working) return;
+    setWorking(true);
+    try { await writeStory(gameId, user, storyCells, storyText); setStoryCells([]); setStoryText(''); }
+    catch (e) { alert(e.message); }
+    finally { setWorking(false); }
+  };
+
+  const doSkip = async () => {
+    if (working) return;
+    setWorking(true);
+    try { await skipTurn(gameId, user); setSelected(null); setStoryCells([]); }
+    catch (e) { alert(e.message); }
+    finally { setWorking(false); }
+  };
+
+  const inStory = (r, c) => storyCells.some((s) => s.r === r && s.c === c);
 
   return (
     <div className="xiv">
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
-        <button
-          className="xiv-link"
-          onClick={async () => {
-            try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
-            catch { window.prompt('Copy this invite link:', link); }
-          }}
-        >
-          {copied ? 'Link copied ✓' : 'Invite link'}
-        </button>
+        <button className="xiv-link" onClick={async () => {
+          try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+          catch { window.prompt('Copy this invite link:', link); }
+        }}>{copied ? 'Link copied ✓' : 'Invite link'}</button>
       </div>
 
       {!user && (
@@ -180,14 +211,20 @@ export default function XiVersus() {
 
       <div className="xiv-players">
         {players.map((p) => (
-          <span key={p.uid} className={'xiv-pill' + (turnPlayer && turnPlayer.uid === p.uid ? ' on' : '')}>
+          <span key={p.uid} className={'xiv-pill' + (acted.includes(p.uid) ? ' done' : '')}>
             <i style={{ background: p.color }} />
-            {p.name}{p.uid === user?.uid ? ' (you)' : ''}
+            {p.name}{p.uid === user?.uid ? ' (you)' : ''}{acted.includes(p.uid) ? ' ✓' : ''}
           </span>
         ))}
       </div>
 
-      <div className="xiv-turn">{myTurn ? 'Your turn' : (turnPlayer ? `${turnPlayer.name}'s turn` : '—')}</div>
+      <div className="xiv-turn">
+        {amInGame
+          ? (canAct
+            ? 'Your move — place a card or write a story'
+            : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…'))
+          : 'Watching live'}
+      </div>
 
       <div className="xiv-board" style={{ gridTemplateColumns: `repeat(${BC}, 1fr)` }}>
         {Array.from({ length: BR * BC }).map((_, idx) => {
@@ -195,19 +232,18 @@ export default function XiVersus() {
           const c = idx % BC;
           const cell = grid[r][c];
           const kind = cellKind(r, c);
-          const isLegal = legalSet.has(r + '-' + c);
           if (!cell) {
+            const isLegal = legalSet.has(r + '-' + c);
             return (
-              <div
-                key={idx}
-                className={'xiv-cell empty ' + kind + (isLegal ? ' legal' : '')}
-                onClick={isLegal ? () => handlePlace(r, c) : undefined}
-              />
+              <div key={idx} className={'xiv-cell empty ' + kind}
+                onClick={isLegal ? () => handlePlace(r, c) : undefined} />
             );
           }
-          const art = cardArt(cell);
+          const art = artOf(cell.d, cell.i);
           return (
-            <div key={idx} className={'xiv-cell ' + kind}>
+            <div key={idx}
+              className={'xiv-cell ' + kind + (inStory(r, c) ? ' storysel' : '')}
+              onClick={canAct ? () => tapPlaced(r, c, cell) : undefined}>
               {art && <img src={art.img} alt={art.cap || ''} loading="lazy" />}
               {cell.color && <span className="xiv-dot" style={{ background: cell.color }} />}
             </div>
@@ -215,36 +251,67 @@ export default function XiVersus() {
         })}
       </div>
 
+      {storyReady && (
+        <div className="xiv-composer">
+          <div className="xiv-pairlabel">{storyLabel}</div>
+          {pairStories.length > 0 && (
+            <div className="xiv-pairstories">
+              {pairStories.map((s) => (
+                <div key={s.id} className="xiv-pairstory"><i style={{ background: s.color || '#999' }} /> {s.text}</div>
+              ))}
+            </div>
+          )}
+          <textarea className="xiv-ta" placeholder="A memory that's both of these…"
+            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
+          <div className="xiv-composer-row">
+            <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
+            <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>
+          </div>
+        </div>
+      )}
+
       {amInGame ? (
         <>
-          <div className="xiv-hint">
-            {myTurn
-              ? (selected ? 'Tap a glowing cell to lay it.' : 'Pick a card, then a glowing cell. (Event cards open the board.)')
-              : `Waiting for ${turnPlayer ? turnPlayer.name : '…'}…`}
-          </div>
+          {!storyReady && (
+            <div className="xiv-hint">
+              {canAct
+                ? (selected
+                  ? 'Tap an open cell (matching colour, next to a card) to lay it.'
+                  : 'Place a card from your hand, or tap two touching cards to write a story.')
+                : (iActed ? 'You’ve played this round.' : '')}
+            </div>
+          )}
           <div className="xiv-hand">
             {hand.map((card, k) => {
               const art = artOf(card.d, card.i);
               const sel = selected && selected.d === card.d && selected.i === card.i;
               return (
-                <button
-                  key={k}
-                  className={'xiv-handcard' + (sel ? ' sel' : '')}
-                  disabled={!myTurn || placing}
-                  onClick={() => setSelected(sel ? null : card)}
-                >
+                <button key={k}
+                  className={'xiv-handcard ' + kindClass(card.d) + (sel ? ' sel' : '')}
+                  disabled={!canAct}
+                  onClick={() => { setStoryCells([]); setSelected(sel ? null : card); }}>
                   {art && <img src={art.img} alt={art.cap || ''} />}
                 </button>
               );
             })}
-            {hand.length === 0 && <span className="xiv-empty">No cards left</span>}
+            {hand.length === 0 && <span className="xiv-empty">No cards left — write a story.</span>}
           </div>
-          {myTurn && (
-            <button className="xiv-pass" disabled={placing} onClick={doPass}>Pass</button>
-          )}
+          {canAct && <button className="xiv-pass" disabled={working} onClick={doSkip}>Skip my move</button>}
         </>
       ) : (
         <p className="xiv-note">Watching live. Join to play, or share the invite link.</p>
+      )}
+
+      {stories.length > 0 && (
+        <div className="xiv-feed">
+          <div className="xiv-feed-title">Stories</div>
+          {stories.slice(0, 12).map((s) => (
+            <div key={s.id} className="xiv-feeditem">
+              <i style={{ background: s.color || '#999' }} />
+              <span className="xiv-feedwho">{s.byName}</span> {s.text}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
