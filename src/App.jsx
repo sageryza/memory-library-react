@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
@@ -28,6 +28,17 @@ import UserAvatar from './components/shared/UserAvatar'
 import './styles/theme.css'
 import './styles/components.css'
 import './App.css'
+
+// Hosts that should open straight into XI instead of the library home page.
+// The library still lives at every other route on these hosts (e.g. the
+// "Open full archive" link), and other domains (membry-df528.web.app) are
+// unaffected.
+const XI_HOME_DOMAINS = ['incaseofamnesia.com'];
+function isXiHomeDomain() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname.replace(/^www\./, '');
+  return XI_HOME_DOMAINS.includes(host);
+}
 
 function PageTitle() {
   const location = useLocation();
@@ -247,7 +258,7 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={<Home />}
+            element={isXiHomeDomain() ? <Navigate to="/xi" replace /> : <Home />}
           />
           <Route
             path="/conspiracy-board"
