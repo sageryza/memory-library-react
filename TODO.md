@@ -89,8 +89,25 @@ alongside Firebase, fed by a write-through. This same engine would later serve c
 now — consistent tags/keywords, real timestamps, and persist extracted keywords onto each
 memory/dream doc rather than recomputing — so backfilling into Postgres later is painless.
 
-### Group Dream Journal - Firestore Schema & Security Rules
+### Group Dream Journal - Firestore Schema & Security Rules **[COMPLETE - NEEDS DEPLOY/TEST]**
 **Goal:** Foundation for the group journal. Everything else sits on this.
+
+**Done (branch `claude/dream-journal-db-choice-4mepgk`):**
+- `firestore.rules`: `/groups/{groupId}` + `/groups/{groupId}/entries/{entryId}` added
+  additively after `versusGames` (member-read, owner-managed membership, author-only
+  edits, author-or-owner delete). ⚠️ Not validated locally (no firebase CLI in container) —
+  run `firebase deploy --only firestore:rules` or the emulator before relying on it.
+- `firestore.indexes.json`: composite index `groups (memberIds CONTAINS + createdAt DESC)`.
+  ⚠️ Deploy indexes too (`firebase deploy --only firestore:indexes`) or the membership
+  query will error until the index builds.
+- `src/utils/dreamSchema.js`: `createDreamEntry()` (card base + dream extension),
+  `normalizeTokens()`, `DREAM_EMOTIONS`.
+- `src/hooks/useGroups.js`: membership CRUD (create/update/add-member/remove-member/delete).
+- `src/hooks/useGroupDreams.js`: real-time per-group dream feed (add/update/delete).
+- Lint + build pass.
+
+**Open follow-ups:** join-via-invite flow (rules currently owner-only membership — needs a
+constrained self-add rule or Cloud Function); group deletion does not cascade entries.
 
 **Approach:**
 - New collections: `/groups/{groupId}` (metadata + `memberIds`) and
@@ -117,15 +134,22 @@ Store dreams separately from memories (different collection + access model), but
 
 ---
 
-### Group Dream Journal - Shared Feed UI
+### Group Dream Journal - Shared Feed UI **[SCAFFOLD DONE - NEEDS WIRING + RESTYLE]**
 **Goal:** Post a dream to a group and see the group's entries live.
 
-**Approach:**
-- Group create / join / invite UI
-- Real-time feed via `onSnapshot` on `/groups/{groupId}/entries` ordered by `createdAt`
-- Adapt existing memory/card components to render a group entry instead of a user-scoped one
+**Done (branch `claude/dream-journal-db-choice-4mepgk`):**
+- `src/components/dream-journal/GroupDreamJournal.jsx` (+ `.css`): self-contained component —
+  group selector + create, post-dream form (title, content, comma-separated symbols, emotion
+  chips, lucid toggle), real-time feed. Scoped `.gdj-*` styles; lint + build pass.
+- **Deliberately NOT wired into `src/App.jsx`** (to avoid colliding with the parallel XI work).
 
-**Depends on:** Group Firestore Schema & Security Rules (above)
+**To finish:**
+- Add the route in `App.jsx`: `<Route path="/dream-journal" element={<GroupDreamJournal />} />`
+  and a Home-page module card / nav entry.
+- Restyle to the app's design system (current styling is a neutral placeholder).
+- Optional: reuse existing memory/card components to render an entry instead of the bespoke card.
+
+**Depends on:** Group Firestore Schema & Security Rules (above) — done.
 
 ---
 
