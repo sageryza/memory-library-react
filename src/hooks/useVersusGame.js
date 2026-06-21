@@ -7,14 +7,29 @@
 import { useEffect, useState } from 'react';
 import {
   doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction,
+  collection, addDoc, query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
-import { seedBoard, PLAYER_COLORS, canPlace, nextTurnIndex } from '../xi/versusModel';
+import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
+import { buildXiMemoryDoc, pairKey } from '../xi/xiMemory';
 
 export const HAND_SIZE = 5;
 const gameRef = (gameId) => doc(db, 'versusGames', gameId);
 const handRef = (gameId, uid) => doc(db, 'versusGames', gameId, 'hands', uid);
+
+// Round-based free-for-all: a move marks you "done" for the round; once everyone
+// has moved, the round resets and all may move again. Returns the game-doc
+// updates that record this player's completed move.
+function withMoveComplete(g, uid, updates) {
+  const acted = Array.isArray(g.acted) ? g.acted.slice() : [];
+  if (!acted.includes(uid)) acted.push(uid);
+  const allUids = (g.players || []).map((p) => p.uid);
+  const allDone = allUids.length > 0 && allUids.every((u) => acted.includes(u));
+  return allDone
+    ? { ...updates, acted: [], round: (g.round || 0) + 1 }
+    : { ...updates, acted };
+}
 
 const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789';
 function generateGameId() {
@@ -46,7 +61,8 @@ export async function createVersusGame(user, profile) {
     updatedAt: serverTimestamp(),
     status: 'active',
     players: [creator],
-    currentTurnIndex: 0,
+    round: 0,
+    acted: [],
     placed,
     drawPile,
     stats: { [user.uid]: { placed: 0, stories: 0 } },
@@ -95,8 +111,9 @@ export async function ensureHand(gameId, uid) {
   });
 }
 
-// Place a card from your hand at (r,c). Validates turn + legality, lays it with
-// your colour, refills your hand by one, advances the turn — all atomically.
+// Place ONE card from your hand at (r,c) as your move this round. Validates you
+// haven't gone yet + the spot is legal, lays it with your colour, refills your
+// hand, and marks you done for the round.
 export async function placeCard(gameId, user, card, r, c) {
   if (!user?.uid) throw new Error('Sign in to play.');
   await runTransaction(db, async (tx) => {
@@ -104,7 +121,8 @@ export async function placeCard(gameId, user, card, r, c) {
     if (!gSnap.exists()) throw new Error('Game not found.');
     const g = gSnap.data();
     const players = g.players || [];
-    if (players[g.currentTurnIndex]?.uid !== user.uid) throw new Error('Not your turn.');
+    if (!players.some((p) => p.uid === user.uid)) throw new Error('Join the game first.');
+    if ((g.acted || []).includes(user.uid)) throw new Error('You’ve already gone this round — wait for the others.');
     if (!canPlace(g.placed || [], r, c, card)) throw new Error('That spot isn’t legal.');
 
     const hSnap = await tx.get(handRef(gameId, user.uid));
@@ -123,31 +141,89 @@ export async function placeCard(gameId, user, card, r, c) {
     const mine = stats[user.uid] || { placed: 0, stories: 0 };
     stats[user.uid] = { ...mine, placed: (mine.placed || 0) + 1 };
 
-    tx.update(gameRef(gameId), {
+    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, {
       placed,
       drawPile: pile.slice(draw.length),
-      currentTurnIndex: nextTurnIndex(g.currentTurnIndex, players.length),
       stats,
       updatedAt: serverTimestamp(),
-    });
+    }));
     tx.set(handRef(gameId, user.uid), { cards: newHand });
   });
 }
 
-// Pass your turn (when you can't or don't want to place).
-export async function passTurn(gameId, user) {
+// Skip your move for this round (counts as having gone).
+export async function skipTurn(gameId, user) {
   if (!user?.uid) return;
   await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) return;
+    const g = gSnap.data();
+    if (!(g.players || []).some((p) => p.uid === user.uid)) return;
+    if ((g.acted || []).includes(user.uid)) return;
+    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, { updatedAt: serverTimestamp() }));
+  });
+}
+
+// Write a story on a pairing (two adjacent placed cells, event×twist) as your
+// move this round. Records it in the game (shown live, with attribution) AND in
+// the author's own archive as a versus memory, and bumps the stories stat.
+export async function writeStory(gameId, user, cells, text) {
+  if (!user?.uid) throw new Error('Sign in to write.');
+  const t = (text || '').trim();
+  if (!t) return;
+  const evCell = (cells || []).find((x) => x.d === 'be');
+  const twCell = (cells || []).find((x) => x.d === 'bw');
+  const evCard = evCell ? boardDeck.events[evCell.i] : null;
+  const twCard = twCell ? boardDeck.twists[twCell.i] : null;
+  const event = evCard ? { id: evCard.id, cap: evCard.cap } : null;
+  const twist = twCard ? { id: twCard.id, cap: twCard.cap } : null;
+  const pk = pairKey(event, twist);
+
+  const info = await runTransaction(db, async (tx) => {
     const gSnap = await tx.get(gameRef(gameId));
     if (!gSnap.exists()) throw new Error('Game not found.');
     const g = gSnap.data();
     const players = g.players || [];
-    if (players[g.currentTurnIndex]?.uid !== user.uid) throw new Error('Not your turn.');
-    tx.update(gameRef(gameId), {
-      currentTurnIndex: nextTurnIndex(g.currentTurnIndex, players.length),
+    if (!players.some((p) => p.uid === user.uid)) throw new Error('Join the game first.');
+    if ((g.acted || []).includes(user.uid)) throw new Error('You’ve already gone this round — wait for the others.');
+    const me = players.find((p) => p.uid === user.uid) || {};
+    const stats = { ...(g.stats || {}) };
+    const mine = stats[user.uid] || { placed: 0, stories: 0 };
+    stats[user.uid] = { ...mine, stories: (mine.stories || 0) + 1 };
+    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, { stats, updatedAt: serverTimestamp() }));
+    return { name: me.name || 'Player', color: me.color || null };
+  });
+
+  // Live, shared record in the game (with author attribution).
+  await addDoc(collection(db, 'versusGames', gameId, 'stories'), {
+    byUid: user.uid, byName: info.name, color: info.color, pairKey: pk,
+    eventCap: event?.cap || '', twistCap: twist?.cap || '', text: t, ts: Date.now(),
+  });
+  // The author's own copy in their archive (tagged versus).
+  try {
+    await addDoc(collection(db, 'users', user.uid, 'memories'), {
+      ...buildXiMemoryDoc({ text: t, event, twist, mode: 'versus' }),
+      gameId,
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-  });
+  } catch (e) { console.error('[Versus] archive save failed:', e); }
+}
+
+// Live subscription to a game's stories (newest first).
+export function useStories(gameId) {
+  const [stories, setStories] = useState([]);
+  useEffect(() => {
+    if (!gameId) { setStories([]); return undefined; }
+    const q = query(collection(db, 'versusGames', gameId, 'stories'), orderBy('ts', 'desc'));
+    const unsub = onSnapshot(
+      q,
+      (snap) => setStories(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      () => setStories([]),
+    );
+    return unsub;
+  }, [gameId]);
+  return stories;
 }
 
 // Live subscription to MY hidden hand (rules allow only the owner to read).
