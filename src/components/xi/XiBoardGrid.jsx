@@ -14,10 +14,11 @@ const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] |
 //   tokensByCard  { cardId: [colour, …] }  (a token per story written on a card)
 //   selectedCells [{ r, c }, { r, c }]      (draws the merged frame)
 //   onCellClick   (r, c, cell|null) => void
-export default function XiBoardGrid({ placed, tokensByCard = {}, selectedCells = [], onCellClick }) {
+export default function XiBoardGrid({ placed, tokensByCard = {}, selectedCells = [], legalCells = [], onCellClick }) {
   const grid = gridFromPlaced(placed);
   const boardRef = useRef(null);
   const [frame, setFrame] = useState(null);
+  const legalSet = new Set(legalCells.map(([r, c]) => r + '-' + c));
 
   useLayoutEffect(() => {
     const board = boardRef.current;
@@ -41,8 +42,9 @@ export default function XiBoardGrid({ placed, tokensByCard = {}, selectedCells =
         const cell = grid[r][c];
         const kind = cellKind(r, c);
         if (!cell) {
+          const legal = legalSet.has(r + '-' + c);
           return (
-            <div key={idx} data-cell={r + '-' + c} className={'xiv-cell empty ' + kind}
+            <div key={idx} data-cell={r + '-' + c} className={'xiv-cell empty ' + kind + (legal ? ' legal' : '')}
               onClick={onCellClick ? () => onCellClick(r, c, null) : undefined} />
           );
         }

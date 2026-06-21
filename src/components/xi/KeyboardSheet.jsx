@@ -1,17 +1,16 @@
 import useVisualViewport from '../../xi/useVisualViewport';
 
-// A bottom sheet pinned to the top edge of the on-screen keyboard. It lives in a
-// fixed layer sized to the visual viewport, so its bottom edge sits exactly at
-// the keyboard (no iOS pixel-math gap). When the keyboard is closed it rests just
-// above the bottom nav. The layer ignores pointer events so the board stays
-// tappable; only the sheet itself is interactive.
+// A bottom sheet pinned to the bottom edge of the visual viewport — i.e. exactly
+// above the on-screen keyboard when it's open, or at the bottom of the screen
+// when it's closed. It lives in a fixed layer sized to the visual viewport, so
+// there's no iOS pixel-math gap. The layer ignores pointer events so the board
+// stays tappable; only the sheet itself is interactive. While the sheet is up it
+// sits over the bottom nav (you dismiss it with Cancel/Done).
 export default function KeyboardSheet({ children }) {
   const vp = useVisualViewport();
   return (
     <div className="xiv-kblayer" style={{ top: vp.top, height: vp.height }}>
-      <div className="xiv-sheet" style={{ bottom: vp.keyboardOpen ? 0 : 60 }}>
-        {children}
-      </div>
+      <div className="xiv-sheet">{children}</div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
   useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
-  listVersusGames, forgetVersusGame,
+  listVersusGames, forgetVersusGame, undoLastMove,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
 import { legalCells } from '../../xi/versusModel';
@@ -153,11 +153,14 @@ export default function XiVersus() {
   const canAct = amInGame && !iActed && !working;
   const link = `${window.location.origin}/xi/versus/${gameId}`;
 
-  // Legal target cells for the selected hand card — used only to gate taps; per
-  // design there is no loud on-board indicator.
-  const legalSet = (canAct && selected)
-    ? new Set(legalCells(game.placed || [], selected).map(([r, c]) => r + '-' + c))
-    : new Set();
+  // Legal target cells for the selected hand card — gates taps and shows a subtle
+  // on-board hint so you can see where a card may go.
+  const legalList = (canAct && selected) ? legalCells(game.placed || [], selected) : [];
+  const legalSet = new Set(legalList.map(([r, c]) => r + '-' + c));
+
+  // You can undo your own placement while it's still the last card on the board.
+  const lastPlaced = (game.placed || [])[(game.placed || []).length - 1];
+  const canUndo = amInGame && !working && lastPlaced && lastPlaced.by === user?.uid;
 
   // Pairing currently chosen to write a story on (two adjacent placed cells).
   const storyReady = storyCells.length === 2;
@@ -219,6 +222,14 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
+  const doUndo = async () => {
+    if (working) return;
+    setWorking(true);
+    try { await undoLastMove(gameId, user); setSelected(null); setStoryCells([]); }
+    catch (e) { alert(e.message); }
+    finally { setWorking(false); }
+  };
+
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
   const handleCellClick = (r, c, cell) => {
     if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
@@ -244,6 +255,15 @@ export default function XiVersus() {
           }}>{copied ? 'Link copied ✓' : 'Invite link'}</button>
         </div>
       </div>
+
+      {canUndo && (
+        <button className="xiv-undo" disabled={working} onClick={doUndo} title="Undo your last placement">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+          </svg>
+          undo
+        </button>
+      )}
 
       {!user && (
         <div className="xiv-join">
@@ -278,6 +298,7 @@ export default function XiVersus() {
         placed={game.placed}
         tokensByCard={tokensByCard}
         selectedCells={storyCells}
+        legalCells={legalList}
         onCellClick={handleCellClick}
       />
 
