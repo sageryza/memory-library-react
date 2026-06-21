@@ -1,34 +1,38 @@
 /* GroupDreamJournal — scoped styles (all under .gdj-* to avoid global conflicts).
-   Minimal, neutral styling meant as a starting point; restyle to match the
-   app's design system when wiring into routing. */
+   Uses the app theme tokens (see src/styles/theme.css): Crimson Text serif,
+   maroon primary (#800020), cream/beige cards. */
 
 .gdj-root {
   max-width: 680px;
   margin: 0 auto;
   padding: 24px 16px 96px;
-  font-family: inherit;
-  color: #1a1a2e;
+  font-family: var(--font-family-primary, 'Crimson Text', serif);
+  color: var(--color-text-primary, #2f4f4f);
 }
 
 .gdj-state {
   text-align: center;
   padding: 64px 16px;
-  color: #6b7280;
+  color: var(--color-text-secondary, #666);
+  font-family: var(--font-family-primary, 'Crimson Text', serif);
 }
 
 .gdj-header {
   margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-primary, #e8e6d5);
+  padding-bottom: 12px;
 }
 
 .gdj-title {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
   margin: 0;
+  color: var(--color-primary, #800020);
 }
 
 .gdj-muted {
-  color: #6b7280;
-  font-size: 0.9rem;
+  color: var(--color-text-secondary, #666);
+  font-size: 0.95rem;
 }
 
 /* ---- group selector ---- */
@@ -47,28 +51,31 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-light, #c0beac);
   border-radius: 999px;
-  background: #fff;
+  background: var(--beige-light, #fffef5);
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.15s, border-color 0.15s;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--color-text-primary, #2f4f4f);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .gdj-group-tab:hover {
-  border-color: #9ca3af;
+  border-color: var(--color-primary, #800020);
+  background: var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
 }
 
 .gdj-group-tab.is-active {
-  background: #1a1a2e;
-  border-color: #1a1a2e;
-  color: #fff;
+  background: var(--color-primary, #800020);
+  border-color: var(--color-primary, #800020);
+  color: var(--color-text-white, #fff);
 }
 
 .gdj-group-count {
-  font-size: 0.75rem;
-  opacity: 0.7;
+  font-size: 0.78rem;
+  opacity: 0.75;
 }
 
 .gdj-create {
@@ -80,26 +87,44 @@
 .gdj-input,
 .gdj-textarea {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #d1d5db;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-medium, #ccc);
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-family: inherit;
+  color: var(--color-text-primary, #2f4f4f);
+  background: var(--color-bg-white, #fff);
   box-sizing: border-box;
+}
+
+.gdj-input:focus,
+.gdj-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #800020);
+  box-shadow: 0 0 0 2px var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
 }
 
 .gdj-textarea {
   resize: vertical;
+  line-height: 1.5;
 }
 
 .gdj-btn {
-  padding: 8px 14px;
-  border: 1px solid #d1d5db;
+  padding: 9px 16px;
+  border: 1px solid var(--color-border-light, #c0beac);
   border-radius: 8px;
-  background: #fff;
+  background: var(--beige-light, #fffef5);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--color-text-primary, #2f4f4f);
   white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gdj-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #800020);
+  background: var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
 }
 
 .gdj-btn:disabled {
@@ -108,18 +133,23 @@
 }
 
 .gdj-btn-primary {
-  background: #4338ca;
-  border-color: #4338ca;
-  color: #fff;
+  background: var(--color-primary, #800020);
+  border-color: var(--color-primary, #800020);
+  color: var(--color-text-white, #fff);
+}
+
+.gdj-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover, #a0001c);
+  border-color: var(--color-primary-hover, #a0001c);
 }
 
 /* ---- compose ---- */
 .gdj-compose {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border-primary, #e8e6d5);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 24px;
-  background: #fafafa;
+  background: var(--beige-primary, #faf8e9);
 }
 
 .gdj-compose form {
@@ -135,26 +165,29 @@
 }
 
 .gdj-chip {
-  padding: 4px 10px;
-  border: 1px solid #d1d5db;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border-light, #c0beac);
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-bg-white, #fff);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--color-text-secondary, #666);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .gdj-chip.is-on {
-  background: #ede9fe;
-  border-color: #a78bfa;
-  color: #5b21b6;
+  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
+  border-color: var(--color-accent-crimson, #dc143c);
+  color: var(--color-button-destructive, #600018);
 }
 
 .gdj-lucid {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9rem;
-  color: #374151;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary, #666);
 }
 
 /* ---- feed ---- */
@@ -165,10 +198,10 @@
 }
 
 .gdj-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border-primary, #e8e6d5);
   border-radius: 12px;
-  padding: 16px;
-  background: #fff;
+  padding: 16px 18px;
+  background: var(--color-bg-card, #faf8e9);
 }
 
 .gdj-card-head {
@@ -179,30 +212,32 @@
 }
 
 .gdj-author {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #4b5563;
+  color: var(--color-primary, #800020);
 }
 
 .gdj-badge {
   font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 6px;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
   border-radius: 4px;
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
+  color: var(--color-button-destructive, #600018);
 }
 
 .gdj-card-title {
   margin: 0 0 6px;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
+  color: var(--color-text-primary, #2f4f4f);
 }
 
 .gdj-card-body {
   margin: 0 0 10px;
   white-space: pre-wrap;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-size: 1.02rem;
 }
 
 .gdj-tags {
@@ -213,14 +248,16 @@
 }
 
 .gdj-tag {
-  font-size: 0.78rem;
-  padding: 2px 8px;
+  font-size: 0.82rem;
+  padding: 2px 9px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
+  color: var(--color-button-destructive, #600018);
+  border: 1px solid var(--crimson-bg-medium, rgba(220, 20, 60, 0.15));
 }
 
 .gdj-tag-emotion {
-  background: #fdf2f8;
-  color: #9d174d;
+  background: var(--library-bg, #f5f0fa);
+  color: #5b3a78;
+  border-color: var(--library-border, #d8c8e8);
 }

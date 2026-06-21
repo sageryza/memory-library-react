@@ -16,6 +16,8 @@ import ConspiracyBoard from './components/conspiracy-board/ConspiracyBoard'
 import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
 import ChronologyV2 from './components/ChronologyV2'
+import GroupDreamJournal from './components/dream-journal/GroupDreamJournal'
+import GroupDreamJournalPreview from './components/dream-journal/GroupDreamJournalPreview'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import SharedBoardContainer from './components/shared-board/SharedBoardContainer'
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
@@ -58,6 +60,7 @@ function PageTitle() {
       '/archive': 'Archive',
       '/libraries': 'Libraries',
       '/chronology': 'Chronology',
+      '/dream-journal': 'Group Dream Journal',
       '/public': 'Public Boards',
       '/xi': 'XI',
       '/login': 'Login'
@@ -91,6 +94,7 @@ function Navigation({ user, profile, onOpenRecentlyDeleted }) {
       <Link to="/archive" className="nav-link">📚 Archive</Link>
       <Link to="/libraries" className="nav-link">📖 Libraries</Link>
       <Link to="/chronology" className="nav-link">⏳ Chronology</Link>
+      <Link to="/dream-journal" className="nav-link">🌙 Dream Journal</Link>
       <Link to="/public" className="nav-link">🌐 Public Boards</Link>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {user ? (
@@ -314,6 +318,14 @@ function App() {
                 memoriesLoading={memoriesLoading}
               />
             }
+          />
+          <Route
+            path="/dream-journal"
+            element={<GroupDreamJournal />}
+          />
+          <Route
+            path="/dream-journal-preview"
+            element={<GroupDreamJournalPreview />}
           />
           <Route
             path="/public"
