@@ -69,6 +69,7 @@ export function initXi(root, ctx) {
     h += arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('');
     h += `</div>`;
     $('#cardSlot').innerHTML = h;
+    log('today rendered len=' + $('#cardSlot').innerHTML.length);
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
     root.querySelectorAll('#cardSlot .cardback').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const k = +b.dataset.k; const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); renderToday(); });
     const ta = $('#cardSlot textarea');

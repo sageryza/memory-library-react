@@ -54,6 +54,13 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     const root = rootRef.current;
     if (!root) return;
 
+    // Inject the engine markup ONCE, imperatively. Using dangerouslySetInnerHTML
+    // lets React re-apply the markup on later re-renders (e.g. the diagnostics
+    // force-update or a memories change), which wipes everything the engine drew
+    // into #cardSlot / #center and leaves a blank screen. Owning innerHTML here
+    // keeps React out of the engine's DOM entirely.
+    root.innerHTML = XI_MARKUP;
+
     mountSeq += 1;
     log('MOUNT #' + mountSeq + ' auth=' + (userId ? 'y' : 'n') + ' ls=' + probeLocalStorage());
 
@@ -113,7 +120,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
 
   return (
     <>
-      <div className="xi-app" ref={rootRef} dangerouslySetInnerHTML={{ __html: XI_MARKUP }} />
+      <div className="xi-app" ref={rootRef} />
       <div className="xi-build-stamp">build {BUILD_ID}</div>
       <div className="xi-debug">{dbgLog.map((l, i) => <div key={i}>{l}</div>)}</div>
     </>
