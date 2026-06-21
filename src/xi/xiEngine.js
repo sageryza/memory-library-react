@@ -115,9 +115,20 @@ export function initXi(root, ctx) {
     root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.hist = []; S.flip = 'tw'; await savePair(); renderCenter(); showScreen('today'); renderToday(); });
   }
 
+  const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];
   function showScreen(name) {
-    ['today', 'curate', 'board', 'gallery', 'library'].forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
+    SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
     $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library'); root.scrollTo(0, 0);
+    // Remember the active screen so a re-init (e.g. after a memory save) returns
+    // here instead of snapping back to Today.
+    st.set('xi2_screen', name);
+  }
+  function renderScreen(name) {
+    if (name === 'today') renderToday();
+    else if (name === 'curate') renderCurate();
+    else if (name === 'board') renderBoard();
+    else if (name === 'gallery') renderGallery();
+    else if (name === 'library') renderLibrary();
   }
   $('#navToday').onclick = async () => { if (!S.shown || !S.shown.length) { S.shown = topPair(); await savePair(); } showScreen('today'); renderToday(); };
   $('#navCurate').onclick = () => { showScreen('curate'); renderCurate(); };
@@ -177,12 +188,12 @@ export function initXi(root, ctx) {
   function bPanel() {
     const p = $('#boardPanel');
     if (bsel.length === 0) { p.innerHTML = '<div class="blead">Tap a card, then tap a card it touches to pair them.</div>'; return; }
-    if (bsel.length === 1) { const cell = bgrid[bsel[0][0]][bsel[0][1]]; p.innerHTML = '<div class="blead">' + esc(cap(cell)) + ' &mdash; tap a touching card to pair.</div>'; return; }
+    if (bsel.length === 1) { p.innerHTML = '<div class="blead">Tap a touching card to pair.</div>'; return; }
     const A = bgrid[bsel[0][0]][bsel[0][1]], B = bgrid[bsel[1][0]][bsel[1][1]]; const ev = A.d === 'be' ? A : B, tw = A.d === 'bw' ? A : B; bEdit(ev, tw);
   }
   async function bEdit(ev, tw) {
     const key = memKey([ev, tw]); const cur = (await st.get(key)) || []; const p = $('#boardPanel');
-    p.innerHTML = '<div class="bed"><div class="bpair"><b>' + esc(cap(ev)) + '</b><span class="x">&times;</span><b>' + esc(cap(tw)) + '</b></div><textarea id="bta" placeholder="A memory that is both of these..."></textarea><div class="brow"><button class="act" id="bclear">Close</button><button class="act dark" id="bsave">Save</button></div>' + (cur.length ? '<div class="bexist">' + cur.map((m) => esc(m.text)).join('<br>') + '</div>' : '') + '</div>';
+    p.innerHTML = '<div class="bed"><textarea id="bta" placeholder="A memory that is both of these..."></textarea><div class="brow"><button class="act" id="bclear">Close</button><button class="act dark" id="bsave">Save</button></div>' + (cur.length ? '<div class="bexist">' + cur.map((m) => esc(m.text)).join('<br>') + '</div>' : '') + '</div>';
     const ta = $('#bta'); // no auto-focus: the keyboard only opens when the user taps in
     $('#bclear').onclick = () => { bsel = []; renderBoard(); };
     $('#bsave').onclick = async () => { const t = ta.value.trim(); if (t) { const a = (await st.get(key)) || []; a.unshift({ text: t, ts: Date.now() }); await st.set(key, a); } bsel = []; renderBoard(); };
@@ -196,15 +207,21 @@ export function initXi(root, ctx) {
     return 'today';
   }
   function refresh() {
-    const s = currentScreen();
-    if (s === 'today') renderToday();
-    else if (s === 'board') { bgrid = []; renderBoard(); }
-    else if (s === 'gallery') renderGallery();
-    else if (s === 'library') renderLibrary();
+    // Re-render the visible screen in place (e.g. when Firestore memories
+    // arrive). Don't reset the board — that could reshuffle it.
+    renderScreen(currentScreen());
   }
 
-  // boot
-  (async function () { await loadState(); renderCenter(); renderToday(); showScreen('today'); })();
+  // boot — restore the screen the user was last on instead of forcing Today,
+  // so a re-init after a memory save doesn't snap back to Card of the Day.
+  (async function () {
+    await loadState();
+    renderCenter();
+    let saved = await st.get('xi2_screen');
+    if (SCREENS.indexOf(saved) < 0) saved = 'today';
+    showScreen(saved);
+    renderScreen(saved);
+  })();
 
   return { refresh };
 }
