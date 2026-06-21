@@ -18,6 +18,7 @@ import useAuth from '../../hooks/useAuth';
 import { useGroups } from '../../hooks/useGroups';
 import { useGroupDreams } from '../../hooks/useGroupDreams';
 import { DREAM_EMOTIONS } from '../../utils/dreamSchema';
+import DreamCard from './DreamCard';
 import './GroupDreamJournal.css';
 
 const GroupDreamJournal = () => {
@@ -219,34 +220,7 @@ const GroupDreamJournal = () => {
             ) : dreams.length === 0 ? (
               <div className="gdj-muted">No dreams yet. Be the first to share one.</div>
             ) : (
-              dreams.map((d) => (
-                <article key={d.id} className="gdj-card">
-                  <div className="gdj-card-head">
-                    <span className="gdj-author">{d.authorName || 'Anonymous'}</span>
-                    {d.dream?.lucid && <span className="gdj-badge">lucid</span>}
-                  </div>
-                  {d.title && <h3 className="gdj-card-title">{d.title}</h3>}
-                  <p className="gdj-card-body">{d.content}</p>
-                  {d.dream?.symbols?.length > 0 && (
-                    <div className="gdj-tags">
-                      {d.dream.symbols.map((s) => (
-                        <span key={s} className="gdj-tag">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {d.dream?.emotions?.length > 0 && (
-                    <div className="gdj-tags gdj-tags-emotion">
-                      {d.dream.emotions.map((em) => (
-                        <span key={em} className="gdj-tag gdj-tag-emotion">
-                          {em}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </article>
-              ))
+              dreams.map((d) => <DreamCard key={d.id} dream={d} />)
             )}
           </section>
         </>
