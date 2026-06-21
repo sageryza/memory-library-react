@@ -81,8 +81,8 @@ export function initXi(root, ctx) {
     $('#curateSlot').innerHTML = `<div class="curtoggle"><button id="tEv" class="${deck === 'ev' ? 'on' : ''}">Events</button><button id="tTw" class="${deck === 'tw' ? 'on' : ''}">Twists</button></div>
       <div class="card swipezone" style="max-width:320px;margin:0 auto"><img loading="lazy" decoding="async" src="${c.img}" alt="${esc(c.cap)}"><button class="tapnav left" id="cPrev"></button><button class="tapnav right" id="cNext"></button></div>`;
     $('#tEv').onclick = () => { deck = 'ev'; pos = 0; renderCurate(); }; $('#tTw').onclick = () => { deck = 'tw'; pos = 0; renderCurate(); };
-    $('#cPrev').onclick = () => { pos = (pos - 1 + D.length) % D.length; renderCurate(); root.scrollTo(0, 0); };
-    $('#cNext').onclick = () => { pos = (pos + 1) % D.length; renderCurate(); root.scrollTo(0, 0); };
+    $('#cPrev').onclick = () => { pos = (pos - 1 + D.length) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
+    $('#cNext').onclick = () => { pos = (pos + 1) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
   }
   /* past cards: recent daily pairs */
   let gsel = [];
@@ -119,14 +119,21 @@ export function initXi(root, ctx) {
   const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];
   function showScreen(name) {
     log('show ' + name);
+    // Essential: reveal the chosen screen. This must run first and alone — the
+    // chrome below (nav highlight, scrollTo) is non-essential and must NEVER
+    // throw in a way that stops renderScreen from running. A thrown root.scrollTo
+    // here was blanking every screen and killing the nav.
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
-    $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library'); root.scrollTo(0, 0);
-    // The board is immersive: hide the nav by default there (the grabber handle
-    // brings it back); every other screen always shows the nav.
-    root.classList.toggle('nav-hidden', name === 'board');
+    try {
+      $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library');
+      // The board is immersive: hide the nav by default there (the grabber handle
+      // brings it back); every other screen always shows the nav.
+      root.classList.toggle('nav-hidden', name === 'board');
+      if (typeof root.scrollTo === 'function') root.scrollTo(0, 0);
+    } catch (e) { log('showScreen chrome ERR ' + (e && e.message)); }
     // Remember the active screen so a re-init (e.g. after a memory save) returns
     // here instead of snapping back to Today.
-    st.set('xi2_screen', name);
+    try { st.set('xi2_screen', name); } catch (e) { log('persist screen ERR ' + (e && e.message)); }
   }
   function renderScreen(name) {
     const SLOT = { today: '#cardSlot', curate: '#curateSlot', board: '#boardSlot', gallery: '#gallerySlot', library: '#librarySlot' };
