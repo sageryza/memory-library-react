@@ -21,6 +21,7 @@ import SharedBoardContainer from './components/shared-board/SharedBoardContainer
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
 // and only fetched when a user actually opens the /xi route.
 const XiApp = lazy(() => import('./components/xi/XiApp'))
+const XiVersus = lazy(() => import('./components/xi/XiVersus'))
 import './utils/importXiBackup' // Temporary: exposes window.importXiBackup() for one-time XI backup import
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import OfflineIndicator from './components/shared/OfflineIndicator'
@@ -329,6 +330,14 @@ function App() {
                 />
               </Suspense>
             }
+          />
+          <Route
+            path="/xi/versus"
+            element={<Suspense fallback={<LoadingSpinner />}><XiVersus /></Suspense>}
+          />
+          <Route
+            path="/xi/versus/:gameId"
+            element={<Suspense fallback={<LoadingSpinner />}><XiVersus /></Suspense>}
           />
           <Route
             path="/login"

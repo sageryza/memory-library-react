@@ -155,5 +155,22 @@ service cloud.firestore {
         allow delete: if true;
       }
     }
+
+    // XI Versus — async multiplayer games (link-based, collaborative).
+    match /versusGames/{gameId} {
+      // Anyone with the link can watch / join.
+      allow read: if true;
+      // Signed-in users start and play games (turn order is enforced
+      // client-side for v1; can be hardened with a Cloud Function later).
+      allow create, update: if isAuthenticated();
+      // Only the creator can delete a game.
+      allow delete: if isAuthenticated()
+                    && resource.data.createdBy == request.auth.uid;
+
+      // Hidden hands — each player can read/write ONLY their own hand.
+      match /hands/{playerId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == playerId;
+      }
+    }
   }
 }

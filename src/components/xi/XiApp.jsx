@@ -70,6 +70,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
   return (
     <>
       <div className="xi-app" ref={rootRef} />
+      <button className="xi-versus-entry" onClick={() => navigate('/xi/versus')}>Versus</button>
       <div className="xi-build-stamp">build {BUILD_ID}</div>
     </>
   );
