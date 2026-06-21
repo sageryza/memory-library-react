@@ -67,6 +67,70 @@
 
 ---
 
+## 🌙 GROUP DREAM JOURNAL (2026-06-21)
+
+**Decision made:** Build on **Firebase now**; add **Supabase later** as an *additive* analytics
+layer (not a replacement) only when a concrete cross-user feature justifies it.
+
+**Why Firebase now:** The app is already fully on Firebase (Auth, Firestore, rules, hosting,
+offline persistence). A group journal as a *shared feed* (post a dream, everyone in the group
+sees it live) is Firestore's sweet spot. Per-user and per-group data stays bounded, so user
+growth is not the scaling risk.
+
+**The "add Supabase later" trigger:** The one thing Firestore can't do ergonomically is
+**impromptu, ad-hoc cross-user aggregation** ("read all dreams, find commonalities, not preset").
+Fixed metrics ("200 people dreamt of water last night") are fine via pre-aggregated counters;
+"find similar to X" is now doable via Firestore vector search. But open-ended exploratory
+analytics across the whole corpus is the signal to add a Postgres/pgvector analytics store
+alongside Firebase, fed by a write-through. This same engine would later serve cross-user
+"cards of the day" matching too — it's recurring product infrastructure, not a one-off.
+
+**Data-hygiene note (do this regardless, cheap insurance):** keep records clean and structured
+now — consistent tags/keywords, real timestamps, and persist extracted keywords onto each
+memory/dream doc rather than recomputing — so backfilling into Postgres later is painless.
+
+### Group Dream Journal - Firestore Schema & Security Rules
+**Goal:** Foundation for the group journal. Everything else sits on this.
+
+**Approach:**
+- New collections: `/groups/{groupId}` (metadata + `memberIds`) and
+  `/groups/{groupId}/entries/{entryId}` (dream entries)
+- Membership model: `memberIds` array (or a `members` subcollection if groups get large)
+- Extend `firestore.rules` with group read/write: e.g. read/write entries
+  `if request.auth.uid in get(/groups/$(groupId)).data.memberIds`
+- Reuse existing auth + offline persistence; mirror the existing user-scoped rules patterns
+
+**Files:** `firestore.rules`, `firestore.indexes.json`, new `src/hooks/useGroups.js` (+ entries hook)
+
+---
+
+### Group Dream Journal - Shared Feed UI
+**Goal:** Post a dream to a group and see the group's entries live.
+
+**Approach:**
+- Group create / join / invite UI
+- Real-time feed via `onSnapshot` on `/groups/{groupId}/entries` ordered by `createdAt`
+- Adapt existing memory/card components to render a group entry instead of a user-scoped one
+
+**Depends on:** Group Firestore Schema & Security Rules (above)
+
+---
+
+### Board-State Concurrency Fix (prerequisite for ANY multi-user editing)
+**Problem:** All canvas state (positions, **all connections as one array**, pins) lives in a
+single `users/{uid}/boardState/current` doc that is rewritten on every change
+(`useBoardState.js:64`, `ConspiracyBoard.jsx:291`). With one user across tabs this already risks
+last-write-wins; with multiple users editing a shared board, one person's write clobbers another's.
+
+**Fix:** Split the single doc into per-entity documents so concurrent edits don't collide, e.g.
+`/boards/{id}/items/{itemId}` and `/boards/{id}/connections/{connId}`. Independent of the journal,
+but required before any shared/collaborative board editing works.
+
+**Files:** `src/hooks/useBoardState.js`, `src/components/conspiracy-board/ConspiracyBoard.jsx`,
+`firestore.rules`
+
+---
+
 ## 🗑️ RECENTLY DELETED FEATURE **[IN PROGRESS - NEEDS DEBUGGING]**
 
 **Status:** Backend complete ✅ | UI created ✅ | Integration broken ❌
