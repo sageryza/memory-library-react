@@ -13,6 +13,7 @@
 export function initXi(root, ctx) {
   const { POOL, onOpenLibrary } = ctx;
   const st = ctx.storage;
+  const log = ctx.log || (() => {});
 
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -71,7 +72,7 @@ export function initXi(root, ctx) {
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
     root.querySelectorAll('#cardSlot .cardback').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const k = +b.dataset.k; const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); renderToday(); });
     const ta = $('#cardSlot textarea');
-    $('#saveBtn').onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); renderToday(); };
+    $('#saveBtn').onclick = async () => { log('saveToday begin'); const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); log('saveToday done cur=' + currentScreen()); renderToday(); };
   }
   /* curate */
   let deck = 'ev', pos = 0;
@@ -117,6 +118,7 @@ export function initXi(root, ctx) {
 
   const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];
   function showScreen(name) {
+    log('show ' + name);
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
     $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library'); root.scrollTo(0, 0);
     // The board is immersive: hide the nav by default there (the grabber handle
@@ -208,7 +210,7 @@ export function initXi(root, ctx) {
     p.innerHTML = '<div class="bed"><textarea id="bta" placeholder="A memory that is both of these..."></textarea><div class="brow"><button class="act" id="bclear">Close</button><button class="act dark" id="bsave">Save</button></div>' + (cur.length ? '<div class="bexist">' + cur.map((m) => esc(m.text)).join('<br>') + '</div>' : '') + '</div>';
     const ta = $('#bta'); // no auto-focus: the keyboard only opens when the user taps in
     $('#bclear').onclick = () => { bsel = []; renderBoard(); };
-    $('#bsave').onclick = async () => { const t = ta.value.trim(); if (t) { const a = (await st.get(key)) || []; a.unshift({ text: t, ts: Date.now() }); await st.set(key, a); } bsel = []; renderBoard(); };
+    $('#bsave').onclick = async () => { log('saveBoard begin'); const t = ta.value.trim(); if (t) { const a = (await st.get(key)) || []; a.unshift({ text: t, ts: Date.now() }); await st.set(key, a); } log('saveBoard done cur=' + currentScreen()); bsel = []; renderBoard(); };
   }
   $('#newBoard').onclick = newBoard;
 
@@ -231,6 +233,7 @@ export function initXi(root, ctx) {
     renderCenter();
     const saved = await st.get('xi2_screen');
     const start = SCREENS.indexOf(saved) >= 0 ? saved : 'today';
+    log('boot saved=' + saved + ' start=' + start);
     showScreen(start);
     renderScreen(start);
   })();
@@ -243,6 +246,7 @@ export function initXi(root, ctx) {
   // screen was persisted.
   async function restoreScreen() {
     const saved = await st.get('xi2_screen');
+    log('restoreScreen saved=' + saved);
     if (SCREENS.indexOf(saved) >= 0) { showScreen(saved); renderScreen(saved); }
     else { refresh(); }
   }

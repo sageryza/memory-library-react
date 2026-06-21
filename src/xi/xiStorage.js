@@ -16,7 +16,7 @@ import { buildXiMemoryDoc, pairKey, isXiMemory } from './xiMemory';
 
 const STATE_FIELD = { xi2_pair: 'pair', xi2_misses: 'misses', xi2_board: 'board', xi2_screen: 'screen' };
 
-export function makeXiStorage({ userId, getMemories, addMemory, POOL }) {
+export function makeXiStorage({ userId, getMemories, addMemory, POOL, log = () => {} }) {
   // --- card ref helpers -------------------------------------------------
   const normCard = (r) => POOL[r.d] && POOL[r.d][r.i];
   const modeOf = (d) => (d === 'be' || d === 'bw' ? 'board' : 'daily');
@@ -128,7 +128,7 @@ export function makeXiStorage({ userId, getMemories, addMemory, POOL }) {
   const stateRef = userId ? doc(db, 'users', userId, 'xiSettings', 'state') : null;
   let hydrated = false;
   async function hydrateFromFirestore(onReady) {
-    if (!stateRef || hydrated) return;
+    if (!stateRef || hydrated) { log('hydrate skip ref=' + !!stateRef + ' done=' + hydrated); return; }
     hydrated = true;
     try {
       const snap = await getDoc(stateRef);
@@ -138,9 +138,13 @@ export function makeXiStorage({ userId, getMemories, addMemory, POOL }) {
         for (const [k, field] of Object.entries(STATE_FIELD)) {
           if (data[field] !== undefined && stateCache[k] === undefined) { stateCache[k] = data[field]; changed = true; }
         }
+        log('hydrate fs.screen=' + data.screen + ' changed=' + changed);
         if (changed && onReady) onReady();
+      } else {
+        log('hydrate fs=empty');
       }
     } catch (e) {
+      log('hydrate ERR ' + (e && e.code));
       console.error('[XI] Could not load settings:', e);
     }
   }

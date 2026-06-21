@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useReducer, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dailyDeck, boardDeck } from '../../xi/decks';
 import { initXi } from '../../xi/xiEngine';
@@ -8,6 +8,29 @@ import './XiApp.css';
 
 /* global __BUILD_ID__ */
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
+
+// --- TEMPORARY on-device diagnostics -------------------------------------
+// Module-level so the log survives a remount of <XiApp/> (which is exactly the
+// thing we're trying to detect). Renders a small overlay; remove once the
+// save→Card-of-the-Day bounce is understood.
+let mountSeq = 0;
+const dbgLog = [];
+function pushDbg(msg) {
+  const t = new Date().toISOString().slice(11, 23);
+  dbgLog.push(t + ' ' + msg);
+  while (dbgLog.length > 14) dbgLog.shift();
+}
+function probeLocalStorage() {
+  try {
+    const k = '__xi_probe__';
+    localStorage.setItem(k, '1');
+    const ok = localStorage.getItem(k) === '1';
+    localStorage.removeItem(k);
+    return ok ? 'ok' : 'readback-fail';
+  } catch (e) {
+    return 'FAIL:' + (e && e.name);
+  }
+}
 
 // XI — the standalone app, ported in faithfully. The exact markup is injected
 // as raw HTML and the original game engine drives it; only the storage layer is
@@ -24,9 +47,15 @@ export default function XiApp({ memories = [], addMemory, userId }) {
   const memoriesRef = useRef(memories);
   memoriesRef.current = memories;
 
+  const [, force] = useReducer((c) => c + 1, 0);
+  const log = useCallback((msg) => { pushDbg(msg); force(); }, []);
+
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+
+    mountSeq += 1;
+    log('MOUNT #' + mountSeq + ' auth=' + (userId ? 'y' : 'n') + ' ls=' + probeLocalStorage());
 
     const POOL = {
       ev: dailyDeck.events,
@@ -40,12 +69,14 @@ export default function XiApp({ memories = [], addMemory, userId }) {
       getMemories: () => memoriesRef.current,
       addMemory,
       POOL,
+      log,
     });
 
     engineRef.current = initXi(root, {
       POOL,
       storage,
       onOpenLibrary: () => navigate('/archive'),
+      log,
     });
 
     // Pull saved per-user state (pair/board/misses/screen) from Firestore once,
@@ -54,7 +85,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     // is what returns the user to the screen they were actually on.
     storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.restoreScreen());
 
-    return () => { engineRef.current = null; };
+    return () => { log('UNMOUNT #' + mountSeq); engineRef.current = null; };
     // Mount once; the engine reads live memories via memoriesRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -69,6 +100,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     <>
       <div className="xi-app" ref={rootRef} dangerouslySetInnerHTML={{ __html: XI_MARKUP }} />
       <div className="xi-build-stamp">build {BUILD_ID}</div>
+      <div className="xi-debug">{dbgLog.map((l, i) => <div key={i}>{l}</div>)}</div>
     </>
   );
 }
