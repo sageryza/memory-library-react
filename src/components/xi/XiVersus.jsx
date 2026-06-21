@@ -5,13 +5,14 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
   useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
+  listVersusGames, forgetVersusGame,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
 import { legalCells } from '../../xi/versusModel';
 import { pairKey, timesSentence } from '../../xi/xiMemory';
-import useKeyboardInset from '../../xi/useKeyboardInset';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
+import KeyboardSheet from './KeyboardSheet';
 import './XiVersus.css';
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
@@ -54,8 +55,8 @@ export default function XiVersus() {
     ensureHand(gameId, user.uid).catch(() => {});
   }, [amInGame, user, gameId]);
 
-  // Keyboard height, to pin the story composer above the iOS keyboard.
-  const kbInset = useKeyboardInset();
+  // Other games this device is in (for resume / switcher), excluding the open one.
+  const otherGames = listVersusGames().filter((g) => g.id !== gameId);
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -100,6 +101,20 @@ export default function XiVersus() {
         <div className="xiv-top"><span className="xiv-logo">XI · Versus</span></div>
         <div className="xiv-center">
           <p className="xiv-lead">Build a memory board together — one card, one story at a time.</p>
+          {otherGames.length > 0 && (
+            <div className="xiv-resume">
+              <div className="xiv-resume-title">Your games</div>
+              {otherGames.map((g) => (
+                <div key={g.id} className="xiv-resume-row">
+                  <button className="xiv-resume-btn" onClick={() => navigate('/xi/versus/' + g.id)}>
+                    Resume <span className="xiv-resume-id">{g.id}</span>
+                  </button>
+                  <button className="xiv-resume-x" aria-label="Forget game"
+                    onClick={() => { forgetVersusGame(g.id); navigate('/xi/versus?r=' + Date.now()); }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
           {user ? (
             <button className="xiv-btn" disabled={busy} onClick={() => startGame()}>
               {busy ? 'Starting…' : 'Start a new game'}
@@ -214,10 +229,20 @@ export default function XiVersus() {
     <div className="xiv">
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
-        <button className="xiv-link" onClick={async () => {
-          try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
-          catch { window.prompt('Copy this invite link:', link); }
-        }}>{copied ? 'Link copied ✓' : 'Invite link'}</button>
+        <div className="xiv-top-right">
+          {otherGames.length > 0 && (
+            <select className="xiv-switch" value={gameId}
+              onChange={(e) => { const v = e.target.value; navigate(v === 'new' ? '/xi/versus' : '/xi/versus/' + v); }}>
+              <option value={gameId}>This game</option>
+              {otherGames.map((g) => <option key={g.id} value={g.id}>Game {g.id}</option>)}
+              <option value="new">＋ New game</option>
+            </select>
+          )}
+          <button className="xiv-link" onClick={async () => {
+            try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+            catch { window.prompt('Copy this invite link:', link); }
+          }}>{copied ? 'Link copied ✓' : 'Invite link'}</button>
+        </div>
       </div>
 
       {!user && (
@@ -246,6 +271,7 @@ export default function XiVersus() {
             ? 'Your move — place a card or write a story'
             : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…'))
           : 'Watching live'}
+        {canAct && <button className="xiv-skip" disabled={working} onClick={doSkip}>skip my move</button>}
       </div>
 
       <XiBoardGrid
@@ -256,22 +282,24 @@ export default function XiVersus() {
       />
 
       {storyReady && (
-        <div className="xiv-composer" style={{ bottom: kbInset || 60 }}>
-          <div className="xiv-pairlabel">{storyLabel}</div>
-          {pairStories.length > 0 && (
-            <div className="xiv-pairstories">
-              {pairStories.map((s) => (
-                <div key={s.id} className="xiv-pairstory"><i style={{ background: s.color || '#999' }} /> {s.text}</div>
-              ))}
+        <KeyboardSheet>
+          <div className="xiv-composer">
+            <div className="xiv-pairlabel">{storyLabel}</div>
+            {pairStories.length > 0 && (
+              <div className="xiv-pairstories">
+                {pairStories.map((s) => (
+                  <div key={s.id} className="xiv-pairstory"><i style={{ background: s.color || '#999' }} /> {s.text}</div>
+                ))}
+              </div>
+            )}
+            <textarea className="xiv-ta" placeholder="A memory that's both of these…"
+              value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
+            <div className="xiv-composer-row">
+              <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
+              <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>
             </div>
-          )}
-          <textarea className="xiv-ta" placeholder="A memory that's both of these…"
-            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
-          <div className="xiv-composer-row">
-            <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
-            <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>
           </div>
-        </div>
+        </KeyboardSheet>
       )}
 
       {amInGame ? (
@@ -281,7 +309,9 @@ export default function XiVersus() {
               {canAct
                 ? (selected
                   ? 'Tap an open cell (matching colour, next to a card) to lay it.'
-                  : 'Place a card from your hand, or tap two touching cards to write a story.')
+                  : (storyCells.length === 1
+                    ? 'Now tap a touching card of the other colour to make a pair.'
+                    : 'Place a card from your hand, or tap two touching cards to write a story.'))
                 : (iActed ? 'You’ve played this round.' : '')}
             </div>
           )}
@@ -300,7 +330,6 @@ export default function XiVersus() {
             })}
             {hand.length === 0 && <span className="xiv-empty">No cards left — write a story.</span>}
           </div>
-          {canAct && <button className="xiv-pass" disabled={working} onClick={doSkip}>Skip my move</button>}
         </>
       ) : (
         <p className="xiv-note">Watching live. Join to play, or share the invite link.</p>

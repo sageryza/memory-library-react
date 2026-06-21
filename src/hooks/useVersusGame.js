@@ -38,6 +38,29 @@ function generateGameId() {
   return id;
 }
 
+// Remember games you're in (per-device) so you can resume / switch between
+// several at once. Newest first, capped, stored in localStorage.
+const GAMES_KEY = 'xiVersusGames';
+export function listVersusGames() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(GAMES_KEY) || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+export function rememberVersusGame(id, label) {
+  if (!id) return;
+  try {
+    const arr = listVersusGames().filter((g) => g.id !== id);
+    arr.unshift({ id, label: label || '', ts: Date.now() });
+    localStorage.setItem(GAMES_KEY, JSON.stringify(arr.slice(0, 12)));
+  } catch { /* ignore */ }
+}
+export function forgetVersusGame(id) {
+  try {
+    localStorage.setItem(GAMES_KEY, JSON.stringify(listVersusGames().filter((g) => g.id !== id)));
+  } catch { /* ignore */ }
+}
+
 // Guests (anonymous auth) have no profile doc, so fall back to a name they
 // typed in (stashed in localStorage by the join UI).
 const guestName = () => {
@@ -67,6 +90,7 @@ export async function createVersusGame(user, profile) {
     drawPile,
     stats: { [user.uid]: { placed: 0, stories: 0 } },
   });
+  rememberVersusGame(gameId);
   return gameId;
 }
 
@@ -77,6 +101,7 @@ export async function joinVersusGame(gameId, user, profile) {
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('Game not found.');
   const data = snap.data();
+  rememberVersusGame(gameId);
   if ((data.players || []).some((p) => p.uid === user.uid)) return; // already joined
 
   const order = (data.players || []).length;

@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { boardDeck } from '../../xi/decks';
 import { dailyBoard, dayNumber, dayLabel } from '../../xi/boardOfDayModel';
 import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/xiMemory';
-import useKeyboardInset from '../../xi/useKeyboardInset';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
+import KeyboardSheet from './KeyboardSheet';
 import './XiVersus.css';
 import './BoardOfDay.css';
 
@@ -25,7 +25,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const [storyCells, setStoryCells] = useState([]);
   const [storyText, setStoryText] = useState('');
   const [saving, setSaving] = useState(false);
-  const kbInset = useKeyboardInset();
+  const [justSaved, setJustSaved] = useState(false);
 
   const placed = dailyBoard(viewDay, POOLS, { random: useRandom });
 
@@ -52,6 +52,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
 
   const tapCell = (r, c, cell) => {
     if (!cell) return;
+    setJustSaved(false);
     setStoryCells((prev) => {
       if (prev.length !== 1) return [{ r, c, d: cell.d, i: cell.i }];
       const a = prev[0];
@@ -77,8 +78,10 @@ export default function BoardOfDay({ memories = [], addMemory }) {
         title: timesSentence(evCard, twCard),
         boardDay: viewDay,
       });
-      setStoryCells([]);
+      // Keep the composer open on the same pairing so you can add another memory
+      // if you want — just clear the text. Cancel (or tapping away) dismisses it.
       setStoryText('');
+      setJustSaved(true);
     } catch (e) { alert(e.message || 'Could not save.'); }
     finally { setSaving(false); }
   };
@@ -103,24 +106,35 @@ export default function BoardOfDay({ memories = [], addMemory }) {
       <XiBoardGrid placed={placed} tokensByCard={tokensByCard} selectedCells={storyCells} onCellClick={tapCell} />
 
       {storyReady ? (
-        <div className="xiv-composer" style={{ bottom: kbInset || 60 }}>
-          <div className="xiv-pairlabel">{label}</div>
-          {existing.length > 0 && (
-            <div className="xiv-pairstories">
-              {existing.map((m) => (
-                <div key={m.id || m.timestamp} className="xiv-pairstory"><i style={{ background: TOKEN }} /> {m.content}</div>
-              ))}
+        <KeyboardSheet>
+          <div className="xiv-composer">
+            <div className="xiv-pairlabel">{label}</div>
+            {existing.length > 0 && (
+              <div className="xiv-pairstories">
+                {existing.map((m) => (
+                  <div key={m.id || m.timestamp} className="xiv-pairstory"><i style={{ background: TOKEN }} /> {m.content}</div>
+                ))}
+              </div>
+            )}
+            <textarea className="xiv-ta" placeholder="A memory that's both of these…" value={storyText} maxLength={500}
+              onChange={(e) => { setStoryText(e.target.value); if (justSaved) setJustSaved(false); }} />
+            <div className="xiv-composer-row">
+              {justSaved && <span className="xiv-saved">Saved ✓</span>}
+              <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); setJustSaved(false); }}>
+                {justSaved ? 'Done' : 'Cancel'}
+              </button>
+              <button className="xiv-btn-sm" disabled={saving || !storyText.trim()} onClick={save}>
+                {justSaved ? 'Add another' : 'Save memory'}
+              </button>
             </div>
-          )}
-          <textarea className="xiv-ta" placeholder="A memory that's both of these…" value={storyText} maxLength={500}
-            onChange={(e) => setStoryText(e.target.value)} />
-          <div className="xiv-composer-row">
-            <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
-            <button className="xiv-btn-sm" disabled={saving || !storyText.trim()} onClick={save}>Save memory</button>
           </div>
-        </div>
+        </KeyboardSheet>
       ) : (
-        <div className="xiv-hint">Tap two touching cards to write a memory that's both of them.</div>
+        <div className="xiv-hint">
+          {storyCells.length === 1
+            ? 'Now tap a touching card of the other colour to make a pair.'
+            : 'Tap two touching cards to write a memory that\'s both of them.'}
+        </div>
       )}
       <XiNavBar />
     </div>
