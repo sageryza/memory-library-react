@@ -32,7 +32,7 @@
 
 /* Guest / sign-in join controls */
 .xiv-guest{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:16px}
-.xiv-name{font-family:inherit;font-size:15px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
+.xiv-name{font-family:inherit;font-size:16px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
 .xiv-signin{color:#8a7d6e;font-size:14px;text-decoration:underline}
 .xiv-join{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:rgba(36,29,24,.05)}
 .xiv-join .xiv-name{width:150px;font-size:14px;padding:6px 10px}
@@ -57,11 +57,11 @@
 
 /* Story composer + feed */
 .xiv-composer{max-width:440px;margin:6px auto 0;padding:8px 12px;display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box}
-.xiv-pairlabel{text-align:center;font-style:italic;color:#5b4f44;font-size:15px}
+.xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
 .xiv-pairstory i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
-.xiv-ta{font-family:inherit;font-size:15px;line-height:1.4;min-height:70px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf8f1;padding:9px 11px;color:#241d18;resize:none}
+.xiv-ta{font-family:inherit;font-size:16px;line-height:1.4;min-height:70px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf8f1;padding:9px 11px;color:#241d18;resize:none}
 .xiv-composer-row{display:flex;justify-content:flex-end;align-items:center;gap:10px}
 .xiv-ghost{background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 .xiv-feed{max-width:440px;margin:8px auto 26px;padding:0 14px;width:100%;box-sizing:border-box}
