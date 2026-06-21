@@ -4,7 +4,7 @@
    except for scoping and the full-screen container rule below. */
 @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
-.xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable both-edges}
+.xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable both-edges}
 
 .xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08a3e;--line:#d8ccb2;--sepia:#7a5a36}
 .xi-app *{box-sizing:border-box}
