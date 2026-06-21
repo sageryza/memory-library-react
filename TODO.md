@@ -67,6 +67,107 @@
 
 ---
 
+## 🌙 GROUP DREAM JOURNAL (2026-06-21)
+
+**Decision made:** Build on **Firebase now**; add **Supabase later** as an *additive* analytics
+layer (not a replacement) only when a concrete cross-user feature justifies it.
+
+**Why Firebase now:** The app is already fully on Firebase (Auth, Firestore, rules, hosting,
+offline persistence). A group journal as a *shared feed* (post a dream, everyone in the group
+sees it live) is Firestore's sweet spot. Per-user and per-group data stays bounded, so user
+growth is not the scaling risk.
+
+**The "add Supabase later" trigger:** The one thing Firestore can't do ergonomically is
+**impromptu, ad-hoc cross-user aggregation** ("read all dreams, find commonalities, not preset").
+Fixed metrics ("200 people dreamt of water last night") are fine via pre-aggregated counters;
+"find similar to X" is now doable via Firestore vector search. But open-ended exploratory
+analytics across the whole corpus is the signal to add a Postgres/pgvector analytics store
+alongside Firebase, fed by a write-through. This same engine would later serve cross-user
+"cards of the day" matching too — it's recurring product infrastructure, not a one-off.
+
+**Data-hygiene note (do this regardless, cheap insurance):** keep records clean and structured
+now — consistent tags/keywords, real timestamps, and persist extracted keywords onto each
+memory/dream doc rather than recomputing — so backfilling into Postgres later is painless.
+
+### Group Dream Journal - Firestore Schema & Security Rules **[COMPLETE - NEEDS DEPLOY/TEST]**
+**Goal:** Foundation for the group journal. Everything else sits on this.
+
+**Done (branch `claude/dream-journal-db-choice-4mepgk`):**
+- `firestore.rules`: `/groups/{groupId}` + `/groups/{groupId}/entries/{entryId}` added
+  additively after `versusGames` (member-read, owner-managed membership, author-only
+  edits, author-or-owner delete). ⚠️ Not validated locally (no firebase CLI in container) —
+  run `firebase deploy --only firestore:rules` or the emulator before relying on it.
+- `firestore.indexes.json`: composite index `groups (memberIds CONTAINS + createdAt DESC)`.
+  ⚠️ Deploy indexes too (`firebase deploy --only firestore:indexes`) or the membership
+  query will error until the index builds.
+- `src/utils/dreamSchema.js`: `createDreamEntry()` (card base + dream extension),
+  `normalizeTokens()`, `DREAM_EMOTIONS`.
+- `src/hooks/useGroups.js`: membership CRUD (create/update/add-member/remove-member/delete).
+- `src/hooks/useGroupDreams.js`: real-time per-group dream feed (add/update/delete).
+- Lint + build pass.
+
+**Open follow-ups:** join-via-invite flow (rules currently owner-only membership — needs a
+constrained self-add rule or Cloud Function); group deletion does not cascade entries.
+
+**Approach:**
+- New collections: `/groups/{groupId}` (metadata + `memberIds`) and
+  `/groups/{groupId}/entries/{entryId}` (dream entries)
+- Personal dreams (if a private dream journal is wanted) → `/users/{uid}/dreams`,
+  kept distinct from `/users/{uid}/memories`
+- Membership model: `memberIds` array (or a `members` subcollection if groups get large)
+- Extend `firestore.rules` with group read/write: e.g. read/write entries
+  `if request.auth.uid in get(/groups/$(groupId)).data.memberIds`
+- Reuse existing auth + offline persistence; mirror the existing user-scoped rules patterns
+
+**Dream entry shape — dreams are a specialized kind of card, NOT memories:**
+Store dreams separately from memories (different collection + access model), but reuse a shared
+*card base* so existing card/board/keyword/chronology machinery still works.
+- Shared card base: `title`, `content`, `tags[]`, `date`, `createdAt`, `type: 'dream' | 'memory'`
+- Dream-specific extension (nested `dream: {...}`): `sleepDate` (distinct from logged date),
+  `lucid`, `vividness`, `emotions[]`, `symbols[]`, `recurring`, `people[]`, `wakingTriggers`
+- **Make `symbols[]` and `emotions[]` first-class structured fields** (not freetext / generic
+  hashtags) — this is what makes the later cross-user aggregation ("200 dreamt of water") and
+  Postgres/pgvector backfill clean. Get this right BEFORE accumulating dream data; reshaping
+  after the fact is the painful migration.
+
+**Files:** `firestore.rules`, `firestore.indexes.json`, new `src/hooks/useGroups.js` (+ entries hook)
+
+---
+
+### Group Dream Journal - Shared Feed UI **[SCAFFOLD DONE - NEEDS WIRING + RESTYLE]**
+**Goal:** Post a dream to a group and see the group's entries live.
+
+**Done (branch `claude/dream-journal-db-choice-4mepgk`):**
+- `src/components/dream-journal/GroupDreamJournal.jsx` (+ `.css`): self-contained component —
+  group selector + create, post-dream form (title, content, comma-separated symbols, emotion
+  chips, lucid toggle), real-time feed. Scoped `.gdj-*` styles; lint + build pass.
+- **Deliberately NOT wired into `src/App.jsx`** (to avoid colliding with the parallel XI work).
+
+**To finish:**
+- Add the route in `App.jsx`: `<Route path="/dream-journal" element={<GroupDreamJournal />} />`
+  and a Home-page module card / nav entry.
+- Restyle to the app's design system (current styling is a neutral placeholder).
+- Optional: reuse existing memory/card components to render an entry instead of the bespoke card.
+
+**Depends on:** Group Firestore Schema & Security Rules (above) — done.
+
+---
+
+### Board-State Concurrency Fix (prerequisite for ANY multi-user editing)
+**Problem:** All canvas state (positions, **all connections as one array**, pins) lives in a
+single `users/{uid}/boardState/current` doc that is rewritten on every change
+(`useBoardState.js:64`, `ConspiracyBoard.jsx:291`). With one user across tabs this already risks
+last-write-wins; with multiple users editing a shared board, one person's write clobbers another's.
+
+**Fix:** Split the single doc into per-entity documents so concurrent edits don't collide, e.g.
+`/boards/{id}/items/{itemId}` and `/boards/{id}/connections/{connId}`. Independent of the journal,
+but required before any shared/collaborative board editing works.
+
+**Files:** `src/hooks/useBoardState.js`, `src/components/conspiracy-board/ConspiracyBoard.jsx`,
+`firestore.rules`
+
+---
+
 ## 🗑️ RECENTLY DELETED FEATURE **[IN PROGRESS - NEEDS DEBUGGING]**
 
 **Status:** Backend complete ✅ | UI created ✅ | Integration broken ❌
