@@ -1,0 +1,5 @@
+.xiv-daynav{display:flex;align-items:center;gap:8px}
+.xiv-daynav button{font-family:inherit;font-size:18px;line-height:1;background:none;border:none;color:#241d18;cursor:pointer;padding:2px 6px}
+.xiv-daynav button:disabled{opacity:.3;cursor:default}
+.xiv-dayname{font-variant:small-caps;letter-spacing:.04em;font-size:14px;color:#800020;min-width:64px;text-align:center}
+.xiv-pastnote{text-align:center;font-size:12.5px;color:#8a7d6e;padding:2px 16px 4px}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -7,8 +7,10 @@ import {
   useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
-import { gridFromPlaced, BR, BC, cellKind, legalCells } from '../../xi/versusModel';
+import { legalCells } from '../../xi/versusModel';
 import { pairKey, timesSentence } from '../../xi/xiMemory';
+import useViewportFit from '../../xi/useViewportFit';
+import XiBoardGrid from './XiBoardGrid';
 import './XiVersus.css';
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
@@ -51,35 +53,9 @@ export default function XiVersus() {
     ensureHand(gameId, user.uid).catch(() => {});
   }, [amInGame, user, gameId]);
 
-  // On iOS, a fixed full-screen element leaves a white gap when the keyboard
-  // opens. Shrink the app to the visual viewport so the composer scrolls cleanly
-  // above the keyboard instead.
+  // Shrink to the visual viewport when the keyboard opens (iOS white-gap fix).
   const rootElRef = useRef(null);
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return undefined;
-    const apply = () => { if (rootElRef.current) rootElRef.current.style.height = vv.height + 'px'; };
-    vv.addEventListener('resize', apply);
-    vv.addEventListener('scroll', apply);
-    apply();
-    return () => { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', apply); };
-  }, [game]);
-
-  // Draw a single rectangle around the two cards picked for a story (measured
-  // from their DOM positions, like the solo board's merged pair frame).
-  const boardRef = useRef(null);
-  const [frame, setFrame] = useState(null);
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board || storyCells.length !== 2) { setFrame(null); return; }
-    const els = storyCells.map((s) => board.querySelector(`[data-cell="${s.r}-${s.c}"]`));
-    if (els.some((e) => !e)) { setFrame(null); return; }
-    const left = Math.min(...els.map((e) => e.offsetLeft));
-    const top = Math.min(...els.map((e) => e.offsetTop));
-    const right = Math.max(...els.map((e) => e.offsetLeft + e.offsetWidth));
-    const bottom = Math.max(...els.map((e) => e.offsetTop + e.offsetHeight));
-    setFrame({ left, top, width: right - left, height: bottom - top });
-  }, [storyCells, game]);
+  useViewportFit(rootElRef);
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -155,7 +131,6 @@ export default function XiVersus() {
     );
   }
 
-  const grid = gridFromPlaced(game.placed);
   const players = game.players || [];
   const acted = game.acted || [];
   const iActed = !!(user && acted.includes(user.uid));
@@ -228,6 +203,12 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
+  // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
+  const handleCellClick = (r, c, cell) => {
+    if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
+    if (canAct) tapPlaced(r, c, cell);
+  };
+
   return (
     <div className="xiv" ref={rootElRef}>
       <div className="xiv-top">
@@ -266,40 +247,12 @@ export default function XiVersus() {
           : 'Watching live'}
       </div>
 
-      <div className="xiv-board" ref={boardRef} style={{ gridTemplateColumns: `repeat(${BC}, 1fr)` }}>
-        {Array.from({ length: BR * BC }).map((_, idx) => {
-          const r = Math.floor(idx / BC);
-          const c = idx % BC;
-          const cell = grid[r][c];
-          const kind = cellKind(r, c);
-          if (!cell) {
-            const isLegal = legalSet.has(r + '-' + c);
-            return (
-              <div key={idx} data-cell={r + '-' + c} className={'xiv-cell empty ' + kind}
-                onClick={isLegal ? () => handlePlace(r, c) : undefined} />
-            );
-          }
-          const art = artOf(cell.d, cell.i);
-          const tokens = tokensByCard[art?.id] || [];
-          return (
-            <div key={idx} data-cell={r + '-' + c}
-              className={'xiv-cell ' + kind}
-              onClick={canAct ? () => tapPlaced(r, c, cell) : undefined}>
-              {art && <img src={art.img} alt={art.cap || ''} loading="lazy" />}
-              {cell.color && <span className="xiv-dot" style={{ background: cell.color }} />}
-              {tokens.length > 0 && (
-                <span className="xiv-tokens">
-                  {tokens.slice(0, 8).map((col, i) => <i key={i} style={{ background: col }} />)}
-                </span>
-              )}
-            </div>
-          );
-        })}
-        {frame && (
-          <div className="xiv-pairframe"
-            style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }} />
-        )}
-      </div>
+      <XiBoardGrid
+        placed={game.placed}
+        tokensByCard={tokensByCard}
+        selectedCells={storyCells}
+        onCellClick={handleCellClick}
+      />
 
       {storyReady && (
         <div className="xiv-composer">
