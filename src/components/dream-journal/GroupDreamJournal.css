@@ -337,3 +337,203 @@
 .gdj-tag-emotion {
   color: var(--gdj-rose);
 }
+
+/* ============================================================
+   Just-woke-up quick capture (hero)
+   ============================================================ */
+
+.gdj-header-compact {
+  margin-bottom: 30px;
+}
+
+.gdj-title-compact {
+  font-size: 1.7rem;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  opacity: 0.85;
+}
+
+.gdj-capture {
+  padding: 30px 26px 26px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 16px 50px -30px rgba(110, 80, 130, 0.6);
+  backdrop-filter: blur(6px);
+  margin-bottom: 30px;
+}
+
+.gdj-prompt {
+  margin: 0 0 18px;
+  text-align: center;
+  font-family: var(--gdj-serif);
+  font-weight: 300;
+  font-size: 1.8rem;
+  letter-spacing: 0.03em;
+  color: var(--gdj-ink);
+}
+
+.gdj-field-wrap {
+  position: relative;
+}
+
+.gdj-capture-field {
+  width: 100%;
+  min-height: 160px;
+  padding: 8px 56px 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--gdj-line);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--gdj-serif);
+  font-size: 1.32rem;
+  font-weight: 400;
+  line-height: 1.75;
+  color: var(--gdj-ink);
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.gdj-capture-field::placeholder {
+  color: var(--gdj-muted);
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.gdj-capture-field:focus {
+  outline: none;
+  border-bottom-color: var(--gdj-accent);
+}
+
+/* mic button floats at the bottom-right of the field */
+.gdj-mic {
+  position: absolute;
+  right: 2px;
+  bottom: 12px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(138, 90, 107, 0.35);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--gdj-accent);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.gdj-mic:hover {
+  border-color: var(--gdj-accent);
+  background: rgba(138, 90, 107, 0.08);
+}
+
+.gdj-mic.is-listening {
+  color: #fff;
+  background: var(--gdj-rose);
+  border-color: var(--gdj-rose);
+  box-shadow: 0 0 0 0 rgba(176, 125, 142, 0.5);
+  animation: gdj-pulse 1.6s ease-out infinite;
+}
+
+@keyframes gdj-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(176, 125, 142, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(176, 125, 142, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(176, 125, 142, 0); }
+}
+
+.gdj-listening {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: var(--gdj-rose);
+}
+
+.gdj-mic-note {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--gdj-muted);
+  line-height: 1.5;
+}
+
+.gdj-save {
+  display: block;
+  width: 100%;
+  margin: 22px 0 6px;
+  padding: 13px 0;
+  font-size: 1.1rem;
+}
+
+/* sharing context */
+.gdj-sharing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px 12px;
+  margin-top: 14px;
+  font-size: 0.98rem;
+}
+
+.gdj-sharing-label {
+  color: var(--gdj-muted);
+  font-style: italic;
+}
+
+.gdj-group-tabs-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.gdj-group-tabs-inline .gdj-group-tab {
+  font-size: 1.02rem;
+}
+
+/* details toggle + panel */
+.gdj-details-toggle {
+  display: block;
+  margin: 16px auto 0;
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--gdj-serif);
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  color: var(--gdj-muted);
+  transition: color 0.2s;
+}
+
+.gdj-details-toggle:hover {
+  color: var(--gdj-accent);
+}
+
+.gdj-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gdj-line);
+}
+
+.gdj-newgroup {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* feed heading */
+.gdj-feed-heading {
+  margin: 0 0 18px;
+  text-align: center;
+  font-family: var(--gdj-serif);
+  font-weight: 400;
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--gdj-muted);
+}
