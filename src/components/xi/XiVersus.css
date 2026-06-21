@@ -58,7 +58,7 @@
 /* Story composer + feed */
 /* Pinned as a fixed bottom sheet so iOS never scrolls it under the keyboard.
    The `bottom` offset is set inline from the visual-viewport keyboard height. */
-.xiv-composer{position:fixed;left:0;right:0;bottom:0;z-index:9700;max-width:520px;margin:0 auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;background:#fbf7ec;border-top:1px solid #d8cdb6;border-radius:14px 14px 0 0;box-shadow:0 -6px 22px rgba(36,29,24,.18);max-height:72vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.xiv-composer{position:fixed;left:0;right:0;bottom:0;z-index:9700;max-width:520px;margin:0 auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:72vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
