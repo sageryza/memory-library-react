@@ -29,7 +29,7 @@
 .xiv-pill.on{background:#241d18;color:#f3ead9}
 .xiv-pill i{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
 
-.xiv-turn{text-align:center;font-variant:small-caps;letter-spacing:.05em;font-size:15px;padding:6px;color:#800020}
+.xiv-turn{text-align:center;font-variant:small-caps;letter-spacing:.05em;font-size:15px;padding:6px;color:#5b4f44}
 
 .xiv-board{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:6px 10px 4px;max-width:440px;width:100%;margin:0 auto;box-sizing:border-box}
 .xiv-pairframe{position:absolute;border:3px solid #800020;border-radius:6px;pointer-events:none;z-index:3;box-sizing:border-box}
@@ -65,16 +65,23 @@
 .xiv-handcard:disabled{opacity:.55;cursor:default}
 .xiv-empty{color:#8a7d6e;font-size:14px;align-self:center}
 .xiv-pill.done{opacity:.5}
-.xiv-pass{display:block;margin:4px auto 20px;background:none;border:1px solid #cbbfa6;color:#5b4f44;font-family:inherit;font-size:14px;border-radius:14px;padding:6px 18px;cursor:pointer}
-.xiv-pass:disabled{opacity:.5}
+
+/* Subtle hint of where the selected card may go (empty legal cells). */
+.xiv-cell.legal{box-shadow:inset 0 0 0 2px rgba(128,0,32,.35)}
+.xiv-cell.legal::after{content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:rgba(128,0,32,.32)}
+
+/* Undo control, top-left under the logo. */
+.xiv-undo{display:inline-flex;align-items:center;gap:5px;margin:0 0 2px 14px;align-self:flex-start;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:13px;cursor:pointer}
+.xiv-undo:disabled{opacity:.4;cursor:default}
+.xiv-undo svg{width:15px;height:15px}
 
 /* Story composer + feed */
 /* The composer rides in a KeyboardSheet: a fixed layer sized to the visual
    viewport, with the sheet pinned to its bottom (= the keyboard's top edge). */
 .xiv-kblayer{position:fixed;left:0;right:0;z-index:9700;pointer-events:none}
-.xiv-sheet{position:absolute;left:0;right:0;max-width:520px;margin:0 auto;pointer-events:auto}
+.xiv-sheet{position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;pointer-events:auto}
 .xiv-composer{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:10px 14px 12px;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:400}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
 .xiv-pairstory i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
@@ -83,7 +90,7 @@
 .xiv-saved{margin-right:auto;color:#5b7a3b;font-size:13.5px;font-style:italic}
 .xiv-ghost{background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 .xiv-feed{max-width:440px;margin:8px auto 26px;padding:0 14px;width:100%;box-sizing:border-box}
-.xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:14px;border-top:1px solid #d8cdb6;padding-top:8px;margin-bottom:4px}
+.xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:14px;margin:6px 0 4px}
 .xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px}
 .xiv-feeditem i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-feedwho{font-weight:600;color:#241d18}

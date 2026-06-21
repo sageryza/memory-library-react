@@ -176,6 +176,43 @@ export async function placeCard(gameId, user, card, r, c) {
   });
 }
 
+// Undo your most recent card placement — as long as it's still the last card on
+// the board (no one has built on top of it). Returns the card to your hand,
+// rolls back your stat, and lets you act again this round. Stories aren't undone.
+export async function undoLastMove(gameId, user) {
+  if (!user?.uid) throw new Error('Sign in first.');
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) throw new Error('Game not found.');
+    const g = gSnap.data();
+    const placed = g.placed || [];
+    const last = placed[placed.length - 1];
+    if (!last || last.by !== user.uid) throw new Error('Nothing of yours to undo.');
+
+    const hSnap = await tx.get(handRef(gameId, user.uid));
+    const cards = hSnap.exists() ? (hSnap.data().cards || []) : [];
+    const card = { d: last.d, i: last.i };
+    let drawPile = g.drawPile || [];
+    let newHand = cards;
+    // Return the card to your hand; if it's full, slide it back onto the pile.
+    if (cards.length < HAND_SIZE) newHand = [...cards, card];
+    else drawPile = [card, ...drawPile];
+
+    const stats = { ...(g.stats || {}) };
+    const mine = stats[user.uid] || { placed: 0, stories: 0 };
+    stats[user.uid] = { ...mine, placed: Math.max(0, (mine.placed || 0) - 1) };
+
+    tx.update(gameRef(gameId), {
+      placed: placed.slice(0, -1),
+      drawPile,
+      stats,
+      acted: (g.acted || []).filter((u) => u !== user.uid),
+      updatedAt: serverTimestamp(),
+    });
+    tx.set(handRef(gameId, user.uid), { cards: newHand });
+  });
+}
+
 // Skip your move for this round (counts as having gone).
 export async function skipTurn(gameId, user) {
   if (!user?.uid) return;
