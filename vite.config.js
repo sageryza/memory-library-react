@@ -4,6 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // A human-readable build stamp (UTC) surfaced in the UI so it's obvious which
+  // version is actually loaded — useful for telling "deployed" from "cached".
+  define: {
+    __BUILD_ID__: JSON.stringify(
+      new Date().toISOString().slice(5, 16).replace('T', ' ') + ' UTC'
+    ),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -32,6 +39,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Drop stale precaches when a new service worker activates, so updates
+        // don't get stuck behind old cached assets.
+        cleanupOutdatedCaches: true,
         // XI's illustrated decks bundle ~1.3 MB of inline card art into their
         // own lazy-loaded chunk; raise the precache limit so it can be cached.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
