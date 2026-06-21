@@ -148,6 +148,23 @@ export function initXi(root, ctx) {
       el.innerHTML = '<img src="' + card(cell).img + '" alt="">' + (has ? '<span class="bdot"></span>' : '');
       el.onclick = () => bTap(r, c); slot.appendChild(el);
     }
+    // When a pair is locked, draw ONE rectangle around both cards (spanning the
+    // gap) instead of two separate outlines.
+    slot.classList.toggle('has-pair', bsel.length === 2);
+    if (bsel.length === 2) {
+      const sels = Array.prototype.slice.call(slot.querySelectorAll('.bsel'));
+      if (sels.length === 2) {
+        const left = Math.min(sels[0].offsetLeft, sels[1].offsetLeft);
+        const top = Math.min(sels[0].offsetTop, sels[1].offsetTop);
+        const right = Math.max(sels[0].offsetLeft + sels[0].offsetWidth, sels[1].offsetLeft + sels[1].offsetWidth);
+        const bottom = Math.max(sels[0].offsetTop + sels[0].offsetHeight, sels[1].offsetTop + sels[1].offsetHeight);
+        const f = document.createElement('div');
+        f.className = 'bpair-frame';
+        f.style.left = left + 'px'; f.style.top = top + 'px';
+        f.style.width = (right - left) + 'px'; f.style.height = (bottom - top) + 'px';
+        slot.appendChild(f);
+      }
+    }
     bPanel();
   }
   function bTap(r, c) {
@@ -166,7 +183,7 @@ export function initXi(root, ctx) {
   async function bEdit(ev, tw) {
     const key = memKey([ev, tw]); const cur = (await st.get(key)) || []; const p = $('#boardPanel');
     p.innerHTML = '<div class="bed"><div class="bpair"><b>' + esc(cap(ev)) + '</b><span class="x">&times;</span><b>' + esc(cap(tw)) + '</b></div><textarea id="bta" placeholder="A memory that is both of these..."></textarea><div class="brow"><button class="act" id="bclear">Close</button><button class="act dark" id="bsave">Save</button></div>' + (cur.length ? '<div class="bexist">' + cur.map((m) => esc(m.text)).join('<br>') + '</div>' : '') + '</div>';
-    const ta = $('#bta'); ta.focus();
+    const ta = $('#bta'); // no auto-focus: the keyboard only opens when the user taps in
     $('#bclear').onclick = () => { bsel = []; renderBoard(); };
     $('#bsave').onclick = async () => { const t = ta.value.trim(); if (t) { const a = (await st.get(key)) || []; a.unshift({ text: t, ts: Date.now() }); await st.set(key, a); } bsel = []; renderBoard(); };
   }
