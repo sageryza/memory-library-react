@@ -207,20 +207,26 @@ function App() {
     runIdMigration();
   }, []);
 
-  // Run migration when user logs in (only once per session)
+  // Run migration when user logs in (once per account, per device). We remember
+  // a completed migration in localStorage (keyed by uid) so we don't flash the
+  // "Migrating…" overlay on every app open just to re-confirm it's already done.
   useEffect(() => {
-    if (user?.uid && !migrating && !hasMigrationRun) {
-      setMigrating(true);
-      setHasMigrationRun(true);
-      migrateLocalStorageToFirestore(user.uid)
-        .then(() => {
-          setMigrating(false);
-        })
-        .catch((error) => {
-          console.error('Migration failed:', error);
-          setMigrating(false);
-        });
-    }
+    if (!user?.uid || migrating || hasMigrationRun) return;
+    let alreadyDone = false;
+    try { alreadyDone = localStorage.getItem('xiMigratedV2:' + user.uid) === '1'; } catch { /* ignore */ }
+    if (alreadyDone) { setHasMigrationRun(true); return; }
+
+    setMigrating(true);
+    setHasMigrationRun(true);
+    migrateLocalStorageToFirestore(user.uid)
+      .then(() => {
+        try { localStorage.setItem('xiMigratedV2:' + user.uid, '1'); } catch { /* ignore */ }
+        setMigrating(false);
+      })
+      .catch((error) => {
+        console.error('Migration failed:', error);
+        setMigrating(false);
+      });
   }, [user?.uid, hasMigrationRun]);
 
   if (authLoading) {
