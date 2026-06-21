@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -8,7 +8,7 @@ import {
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
 import { gridFromPlaced, BR, BC, cellKind, legalCells } from '../../xi/versusModel';
-import { pairKey, pairingSentence } from '../../xi/xiMemory';
+import { pairKey, timesSentence } from '../../xi/xiMemory';
 import './XiVersus.css';
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
@@ -50,6 +50,36 @@ export default function XiVersus() {
     dealt.current = key;
     ensureHand(gameId, user.uid).catch(() => {});
   }, [amInGame, user, gameId]);
+
+  // On iOS, a fixed full-screen element leaves a white gap when the keyboard
+  // opens. Shrink the app to the visual viewport so the composer scrolls cleanly
+  // above the keyboard instead.
+  const rootElRef = useRef(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return undefined;
+    const apply = () => { if (rootElRef.current) rootElRef.current.style.height = vv.height + 'px'; };
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    apply();
+    return () => { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', apply); };
+  }, [game]);
+
+  // Draw a single rectangle around the two cards picked for a story (measured
+  // from their DOM positions, like the solo board's merged pair frame).
+  const boardRef = useRef(null);
+  const [frame, setFrame] = useState(null);
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board || storyCells.length !== 2) { setFrame(null); return; }
+    const els = storyCells.map((s) => board.querySelector(`[data-cell="${s.r}-${s.c}"]`));
+    if (els.some((e) => !e)) { setFrame(null); return; }
+    const left = Math.min(...els.map((e) => e.offsetLeft));
+    const top = Math.min(...els.map((e) => e.offsetTop));
+    const right = Math.max(...els.map((e) => e.offsetLeft + e.offsetWidth));
+    const bottom = Math.max(...els.map((e) => e.offsetTop + e.offsetHeight));
+    setFrame({ left, top, width: right - left, height: bottom - top });
+  }, [storyCells, game]);
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -147,7 +177,19 @@ export default function XiVersus() {
     : null;
   const pairStories = storyPairKey ? stories.filter((s) => s.pairKey === storyPairKey) : [];
   const storyLabel = (storyReady && storyEv && storyTw)
-    ? pairingSentence(artOf('be', storyEv.i), artOf('bw', storyTw.i)) : '';
+    ? timesSentence(artOf('be', storyEv.i), artOf('bw', storyTw.i)) : '';
+
+  // A token (the author's colour) lands on BOTH cards each time a story is
+  // written on their pairing — so cards accrue multiple tokens. Map card id ->
+  // list of author colours.
+  const tokensByCard = {};
+  for (const s of stories) {
+    if (!s.pairKey) continue;
+    for (const id of s.pairKey.split('__')) {
+      if (!id) continue;
+      (tokensByCard[id] = tokensByCard[id] || []).push(s.color || '#999');
+    }
+  }
 
   const handlePlace = async (r, c) => {
     if (!selected || working) return;
@@ -186,10 +228,8 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
-  const inStory = (r, c) => storyCells.some((s) => s.r === r && s.c === c);
-
   return (
-    <div className="xiv">
+    <div className="xiv" ref={rootElRef}>
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
         <button className="xiv-link" onClick={async () => {
@@ -226,7 +266,7 @@ export default function XiVersus() {
           : 'Watching live'}
       </div>
 
-      <div className="xiv-board" style={{ gridTemplateColumns: `repeat(${BC}, 1fr)` }}>
+      <div className="xiv-board" ref={boardRef} style={{ gridTemplateColumns: `repeat(${BC}, 1fr)` }}>
         {Array.from({ length: BR * BC }).map((_, idx) => {
           const r = Math.floor(idx / BC);
           const c = idx % BC;
@@ -235,20 +275,30 @@ export default function XiVersus() {
           if (!cell) {
             const isLegal = legalSet.has(r + '-' + c);
             return (
-              <div key={idx} className={'xiv-cell empty ' + kind}
+              <div key={idx} data-cell={r + '-' + c} className={'xiv-cell empty ' + kind}
                 onClick={isLegal ? () => handlePlace(r, c) : undefined} />
             );
           }
           const art = artOf(cell.d, cell.i);
+          const tokens = tokensByCard[art?.id] || [];
           return (
-            <div key={idx}
-              className={'xiv-cell ' + kind + (inStory(r, c) ? ' storysel' : '')}
+            <div key={idx} data-cell={r + '-' + c}
+              className={'xiv-cell ' + kind}
               onClick={canAct ? () => tapPlaced(r, c, cell) : undefined}>
               {art && <img src={art.img} alt={art.cap || ''} loading="lazy" />}
               {cell.color && <span className="xiv-dot" style={{ background: cell.color }} />}
+              {tokens.length > 0 && (
+                <span className="xiv-tokens">
+                  {tokens.slice(0, 8).map((col, i) => <i key={i} style={{ background: col }} />)}
+                </span>
+              )}
             </div>
           );
         })}
+        {frame && (
+          <div className="xiv-pairframe"
+            style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }} />
+        )}
       </div>
 
       {storyReady && (
@@ -262,7 +312,8 @@ export default function XiVersus() {
             </div>
           )}
           <textarea className="xiv-ta" placeholder="A memory that's both of these…"
-            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
+            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)}
+            onFocus={(e) => { const el = e.target; setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* */ } }, 280); }} />
           <div className="xiv-composer-row">
             <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
             <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>

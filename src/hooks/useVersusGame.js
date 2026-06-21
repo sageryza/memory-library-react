@@ -12,7 +12,7 @@ import {
 import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
 import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
-import { buildXiMemoryDoc, pairKey } from '../xi/xiMemory';
+import { buildXiMemoryDoc, pairKey, timesSentence } from '../xi/xiMemory';
 
 export const HAND_SIZE = 5;
 const gameRef = (gameId) => doc(db, 'versusGames', gameId);
@@ -203,6 +203,7 @@ export async function writeStory(gameId, user, cells, text) {
   try {
     await addDoc(collection(db, 'users', user.uid, 'memories'), {
       ...buildXiMemoryDoc({ text: t, event, twist, mode: 'versus' }),
+      title: timesSentence(event, twist),
       gameId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
