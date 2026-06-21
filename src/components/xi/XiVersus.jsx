@@ -11,6 +11,7 @@ import { legalCells } from '../../xi/versusModel';
 import { pairKey, timesSentence } from '../../xi/xiMemory';
 import useViewportFit from '../../xi/useViewportFit';
 import XiBoardGrid from './XiBoardGrid';
+import XiNavBar from './XiNavBar';
 import './XiVersus.css';
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
@@ -115,6 +116,7 @@ export default function XiVersus() {
           )}
           <button className="xiv-back" onClick={() => navigate('/xi')}>← Back to XI</button>
         </div>
+        <XiNavBar />
       </div>
     );
   }
@@ -317,6 +319,7 @@ export default function XiVersus() {
           ))}
         </div>
       )}
+      <XiNavBar />
     </div>
   );
 }

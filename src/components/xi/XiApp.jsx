@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dailyDeck, boardDeck } from '../../xi/decks';
 import { initXi } from '../../xi/xiEngine';
 import { makeXiStorage } from '../../xi/xiStorage';
 import { XI_MARKUP } from './xiMarkup';
+import XiNavBar from './XiNavBar';
 import './XiApp.css';
 
 /* global __BUILD_ID__ */
@@ -11,18 +12,22 @@ const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
 
 // XI — the standalone app, ported in faithfully. The exact markup is injected
 // as raw HTML and the original game engine drives it; only the storage layer is
-// swapped so memories persist to the shared archive (Firestore) and the
-// bottom-nav "Library" button opens the real archive.
+// swapped so memories persist to the shared archive (Firestore).
 //
-// Deck pools map straight onto the engine's four pools:
-//   ev/tw = daily deck events/twists, be/bw = board deck events/twists.
+// The engine's internal bottom nav is hidden; the shared <XiNavBar/> drives the
+// engine screens via the ?s=<screen> URL param so one nav spans every XI screen.
 export default function XiApp({ memories = [], addMemory, userId }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const screen = searchParams.get('s') || 'today';
   const rootRef = useRef(null);
   const engineRef = useRef(null);
-  // Keep the latest memories accessible to the (mount-once) engine/adapter.
   const memoriesRef = useRef(memories);
   memoriesRef.current = memories;
+  // Latest URL screen + the screen we've already applied, for loop-free syncing.
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const appliedRef = useRef(screen);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -50,20 +55,34 @@ export default function XiApp({ memories = [], addMemory, userId }) {
       POOL,
       storage,
       onOpenLibrary: () => navigate('/archive'),
-      onOpenBoard: () => navigate('/xi/board'),
+      initialScreen: screenRef.current,
+      // Mirror the engine's current screen into the URL so the shared nav
+      // highlights correctly (only fires on a real change).
+      onScreenChange: (name) => {
+        if (screenRef.current === name) return;
+        appliedRef.current = name;
+        setSearchParams((p) => { const np = new URLSearchParams(p); np.set('s', name); return np; }, { replace: true });
+      },
     });
 
-    // Pull saved per-user state (pair/board/misses/screen) from Firestore once,
-    // then re-apply the saved screen.
-    storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.restoreScreen());
+    // The URL (?s=) is now the source of truth for which screen shows, so just
+    // re-render with the hydrated data rather than restoring a saved screen.
+    storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.refresh());
 
     return () => { engineRef.current = null; };
     // Mount once; the engine reads live memories via memoriesRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When Firestore memories change, re-render the current screen so collected
-  // counts, saved memories, and board dots stay live.
+  // Drive the engine screen from the URL (nav taps change ?s=).
+  useEffect(() => {
+    if (engineRef.current && screen !== appliedRef.current) {
+      appliedRef.current = screen;
+      engineRef.current.goToScreen(screen);
+    }
+  }, [screen]);
+
+  // When Firestore memories change, re-render the current screen.
   useEffect(() => {
     if (engineRef.current) engineRef.current.refresh();
   }, [memories]);
@@ -71,7 +90,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
   return (
     <>
       <div className="xi-app" ref={rootRef} />
-      <button className="xi-versus-entry" onClick={() => navigate('/xi/versus')}>Versus</button>
+      <XiNavBar />
       <div className="xi-build-stamp">build {BUILD_ID}</div>
     </>
   );

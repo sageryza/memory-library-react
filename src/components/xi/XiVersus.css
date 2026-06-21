@@ -1,4 +1,4 @@
-.xiv{position:fixed;inset:0;z-index:9000;background:#efe7d6;color:#241d18;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column}
+.xiv{position:fixed;inset:0;z-index:9000;background:#efe7d6;color:#241d18;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;padding-bottom:60px}
 
 .xiv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
 .xiv-logo,.xiv-logo-btn{font-variant:small-caps;letter-spacing:.06em;font-size:18px;color:#241d18;background:none;border:none;font-family:inherit;cursor:pointer;padding:0}
