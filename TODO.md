@@ -95,10 +95,23 @@ memory/dream doc rather than recomputing — so backfilling into Postgres later 
 **Approach:**
 - New collections: `/groups/{groupId}` (metadata + `memberIds`) and
   `/groups/{groupId}/entries/{entryId}` (dream entries)
+- Personal dreams (if a private dream journal is wanted) → `/users/{uid}/dreams`,
+  kept distinct from `/users/{uid}/memories`
 - Membership model: `memberIds` array (or a `members` subcollection if groups get large)
 - Extend `firestore.rules` with group read/write: e.g. read/write entries
   `if request.auth.uid in get(/groups/$(groupId)).data.memberIds`
 - Reuse existing auth + offline persistence; mirror the existing user-scoped rules patterns
+
+**Dream entry shape — dreams are a specialized kind of card, NOT memories:**
+Store dreams separately from memories (different collection + access model), but reuse a shared
+*card base* so existing card/board/keyword/chronology machinery still works.
+- Shared card base: `title`, `content`, `tags[]`, `date`, `createdAt`, `type: 'dream' | 'memory'`
+- Dream-specific extension (nested `dream: {...}`): `sleepDate` (distinct from logged date),
+  `lucid`, `vividness`, `emotions[]`, `symbols[]`, `recurring`, `people[]`, `wakingTriggers`
+- **Make `symbols[]` and `emotions[]` first-class structured fields** (not freetext / generic
+  hashtags) — this is what makes the later cross-user aggregation ("200 dreamt of water") and
+  Postgres/pgvector backfill clean. Get this right BEFORE accumulating dream data; reshaping
+  after the fact is the painful migration.
 
 **Files:** `firestore.rules`, `firestore.indexes.json`, new `src/hooks/useGroups.js` (+ entries hook)
 
