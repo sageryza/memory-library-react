@@ -14,7 +14,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { buildXiMemoryDoc, pairKey, isXiMemory } from './xiMemory';
 
-const STATE_FIELD = { xi2_pair: 'pair', xi2_misses: 'misses', xi2_board: 'board' };
+const STATE_FIELD = { xi2_pair: 'pair', xi2_misses: 'misses', xi2_board: 'board', xi2_screen: 'screen' };
 
 export function makeXiStorage({ userId, getMemories, addMemory, POOL }) {
   // --- card ref helpers -------------------------------------------------
