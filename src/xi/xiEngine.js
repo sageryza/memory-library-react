@@ -161,8 +161,24 @@ export function initXi(root, ctx) {
     ev.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'be', i: ei[k] }); tw.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'bw', i: ti[k] });
     bsel = []; await st.set('xi2_board', bgrid); renderBoard();
   }
+  // A saved board is only usable if it's a full BR×BC grid whose every cell
+  // resolves to a real card. A stale/corrupt board (e.g. from an older deck)
+  // would otherwise throw mid-render and blank the whole screen.
+  function validBoard(g) {
+    if (!Array.isArray(g) || g.length !== BR) return false;
+    for (let r = 0; r < BR; r++) {
+      if (!Array.isArray(g[r]) || g[r].length !== BC) return false;
+      for (let c = 0; c < BC; c++) { const cell = g[r][c]; if (!cell || !POOL[cell.d] || !POOL[cell.d][cell.i]) return false; }
+    }
+    return true;
+  }
   async function renderBoard() {
-    if (!bgrid.length) { const s = await st.get('xi2_board'); if (s && s.length) { bgrid = s; } else { return newBoard(); } }
+   try {
+    if (!validBoard(bgrid)) {
+      const s = await st.get('xi2_board');
+      if (validBoard(s)) { bgrid = s; }
+      else { log('board invalid → newBoard'); return newBoard(); }
+    }
     const keys = new Set(await st.list()); const slot = $('#boardSlot'); slot.innerHTML = '';
     for (let r = 0; r < BR; r++) for (let c = 0; c < BC; c++) {
       const cell = bgrid[r][c]; const el = document.createElement('div');
@@ -190,6 +206,13 @@ export function initXi(root, ctx) {
       }
     }
     bPanel();
+   } catch (e) {
+    // Never leave the user trapped on a blank board with the nav hidden: log the
+    // error, bring the nav back, and drop to a fresh board.
+    log('renderBoard ERR ' + (e && e.message));
+    root.classList.remove('nav-hidden');
+    try { await newBoard(); } catch { /* give up gracefully; nav is visible */ }
+   }
   }
   function bTap(r, c) {
     root.classList.add('nav-hidden'); // tapping a card returns to immersive play
