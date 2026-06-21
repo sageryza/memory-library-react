@@ -180,5 +180,54 @@ service cloud.firestore {
         allow update, delete: if isAuthenticated() && resource.data.byUid == request.auth.uid;
       }
     }
+
+    // Group dream journals — membership-scoped collaborative journals.
+    // A group is a bounded set of members who share dream entries with each other.
+    match /groups/{groupId} {
+      // Is the requester a member of THIS group? (one document read per check)
+      function isGroupMember() {
+        return isAuthenticated()
+            && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+      }
+      // Is the requester the owner of THIS group?
+      function isGroupOwner() {
+        return isAuthenticated()
+            && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+      }
+
+      // Members can read group metadata.
+      allow read: if isGroupMember();
+
+      // Any signed-in user can create a group, but only as its own owner and
+      // listed among the initial members (prevents creating groups for others).
+      allow create: if isAuthenticated()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.auth.uid in request.resource.data.memberIds;
+
+      // Only the owner can change metadata / membership or delete the group.
+      // (Join-via-invite can later relax this to a constrained self-add or a
+      // Cloud Function; kept owner-only for v1 to stay safe.)
+      allow update, delete: if isAuthenticated()
+                    && resource.data.ownerId == request.auth.uid;
+
+      // Dream entries — any member reads all entries and posts their own.
+      match /entries/{entryId} {
+        allow read: if isGroupMember();
+
+        // A member may create only entries authored by themselves.
+        allow create: if isGroupMember()
+                      && request.resource.data.authorId == request.auth.uid;
+
+        // Only the original author can edit their entry (author cannot be reassigned).
+        allow update: if isGroupMember()
+                      && resource.data.authorId == request.auth.uid
+                      && request.resource.data.authorId == request.auth.uid;
+
+        // The author can delete their own entry; the group owner can remove any
+        // entry (moderation).
+        allow delete: if isGroupMember()
+                      && (resource.data.authorId == request.auth.uid || isGroupOwner());
+      }
+    }
   }
 }
