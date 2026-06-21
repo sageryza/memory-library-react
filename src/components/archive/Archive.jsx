@@ -35,7 +35,11 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Default the sidebar closed on small screens, where it opens as an overlay
+  // drawer instead of a layout-squeezing panel.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  );
   const [draggedMemoryIds, setDraggedMemoryIds] = useState([]);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [filteredByAdvanced, setFilteredByAdvanced] = useState(null);
@@ -1001,6 +1005,11 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
         </div>
         </div>
         </div>
+
+        {/* Backdrop behind the mobile drawer sidebar (hidden on desktop via CSS) */}
+        {!sidebarCollapsed && (
+          <div className="sidebar-backdrop" onClick={() => setSidebarCollapsed(true)} />
+        )}
 
         {/* Tabbed Sidebar */}
         <SidebarContainer isOpen={!sidebarCollapsed} onToggle={toggleSidebarCollapse}>

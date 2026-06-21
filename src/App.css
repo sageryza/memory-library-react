@@ -439,6 +439,36 @@ body {
   left: -30px;
 }
 
+/* Mobile: the right sidebar becomes an overlay drawer with a dismiss backdrop,
+   instead of a fixed panel that squeezes the content to nothing. */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(86vw, 320px);
+    z-index: 1000;
+  }
+  .sidebar-wrapper.closed {
+    width: 0;
+  }
+  .sidebar-wrapper.open {
+    box-shadow: -6px 0 24px rgba(0, 0, 0, 0.28);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+  }
+}
+
 .sidebar-header {
   flex-shrink: 0;
   padding: 12px 15px;
