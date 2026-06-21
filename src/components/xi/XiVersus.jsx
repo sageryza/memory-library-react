@@ -266,7 +266,7 @@ export default function XiVersus() {
           )}
           <textarea className="xiv-ta" placeholder="A memory that's both of these…"
             value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)}
-            onFocus={(e) => { const el = e.target; setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* */ } }, 280); }} />
+            onFocus={(e) => { const el = e.target; setTimeout(() => { try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* */ } }, 280); }} />
           <div className="xiv-composer-row">
             <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
             <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>
