@@ -127,9 +127,10 @@ export function initXi(root, ctx) {
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
     try {
       $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library');
-      // The board is immersive: hide the nav by default there (the grabber handle
-      // brings it back); every other screen always shows the nav.
-      root.classList.toggle('nav-hidden', name === 'board');
+      // Nav is visible on arrival to every screen (incl. the board). On the
+      // board it only tucks away once a pair is locked and the composer opens
+      // (handled in renderBoard); the grabber handle brings it back.
+      root.classList.remove('nav-hidden');
       if (typeof root.scrollTo === 'function') root.scrollTo(0, 0);
     } catch (e) { log('showScreen chrome ERR ' + (e && e.message)); }
     // Remember the active screen so a re-init (e.g. after a memory save) returns
@@ -224,6 +225,9 @@ export function initXi(root, ctx) {
         slot.appendChild(f);
       }
     }
+    // Hide the bottom nav only while a pair is locked (the composer/text box is
+    // showing); otherwise keep it visible.
+    root.classList.toggle('nav-hidden', bsel.length === 2);
     bPanel();
    } catch (e) {
     // Never leave the user trapped on a blank board with the nav hidden: log the
@@ -234,7 +238,6 @@ export function initXi(root, ctx) {
    }
   }
   function bTap(r, c) {
-    root.classList.add('nav-hidden'); // tapping a card returns to immersive play
     const cell = [r, c];
     if (bsel.length === 1 && !(bsel[0][0] === r && bsel[0][1] === c) && bAdj(bsel[0], cell)) { bsel = [bsel[0], cell]; }
     else if (bsel.length === 1 && bsel[0][0] === r && bsel[0][1] === c) { bsel = []; }

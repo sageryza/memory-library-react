@@ -2,97 +2,96 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   addDoc,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Where the unauthenticated app actually stores its data (see useLocalStorage).
+// The original migration read 'memoryLibraryData' — the wrong key — so it never
+// found anything and stamped accounts `migrated: true`, locking out a retry and
+// silently stranding signed-out memories. We read the correct key now, keep the
+// old ones as fallbacks, and gate on a fresh `migratedV2` flag so the fixed
+// migration runs once even for accounts the buggy version already "migrated".
+const LOCAL_KEYS = ['memoryLibraryLocalData', 'memoryLibraryData', 'memories'];
+
+function readLocalMemories() {
+  for (const key of LOCAL_KEYS) {
+    let raw;
+    try { raw = localStorage.getItem(key); } catch { raw = null; }
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.memories)) return parsed.memories;
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* try next key */ }
+  }
+  return [];
+}
+
+// Stable de-dupe key so a re-run never doubles a memory already in the account.
+function dedupeKey(m) {
+  const ts = m.timestamp
+    || (m.createdAt && typeof m.createdAt.toMillis === 'function' ? m.createdAt.toMillis() : m.createdAt)
+    || '';
+  return (m.content || m.text || '') + '|' + (m.pairKey || '') + '|' + ts;
+}
+
 export const migrateLocalStorageToFirestore = async (userId) => {
   if (!userId) return;
 
   try {
-    // Check if user has already been migrated
     const userDocRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userDocRef);
-
-    // If user document exists and has migrated flag, skip migration
-    if (userDoc.exists() && userDoc.data()?.migrated === true) {
-      return;
+    if (userDoc.exists() && userDoc.data()?.migratedV2 === true) {
+      return; // already handled by the fixed migration
     }
 
-    // Check for localStorage data
-    const localStorageData = localStorage.getItem('memoryLibraryData');
-    if (!localStorageData) {
-      // No data to migrate, just set the flag
+    const memories = readLocalMemories();
+
+    if (!memories.length) {
       await setDoc(userDocRef, {
-        migrated: true,
-        migratedAt: serverTimestamp()
+        migrated: true, migratedV2: true, migratedAt: serverTimestamp(), migratedCount: 0
       }, { merge: true });
       return;
     }
 
-    // Parse localStorage data
-    let memories = [];
-    try {
-      const parsed = JSON.parse(localStorageData);
-      // Check if data is in the expected format (object with memories property)
-      if (parsed && parsed.memories && Array.isArray(parsed.memories)) {
-        memories = parsed.memories;
-      } else if (Array.isArray(parsed)) {
-        // Fallback for older format where memories were stored directly as array
-        memories = parsed;
-      } else {
-        // No memories found - still mark as migrated to prevent repeated attempts
-        await setDoc(userDocRef, {
-          migrated: true,
-          migratedAt: serverTimestamp(),
-          migratedCount: 0
-        }, { merge: true });
-        return;
-      }
-    } catch (error) {
-      console.error('Error parsing localStorage data:', error);
-      return;
-    }
-
-    // Migrate memories to Firestore
     const memoriesRef = collection(db, 'users', userId, 'memories');
-    const migrationPromises = memories.map(async (memory) => {
-      // Remove the 'id' field to prevent duplicate IDs
-      const { id, ...memoryWithoutId } = memory;
 
-      // Transform memory data to match Firestore structure
+    // Load what's already in the account so we don't create duplicates.
+    const existingSnap = await getDocs(memoriesRef);
+    const seen = new Set();
+    existingSnap.forEach((d) => seen.add(dedupeKey(d.data())));
+
+    let added = 0;
+    for (const memory of memories) {
+      const { id: _id, ...rest } = memory; // drop local id; Firestore assigns its own
+      const key = dedupeKey(rest);
+      if (seen.has(key)) continue;
+
+      // Preserve EVERY field (incl. XI's source/event/twist/pairKey/mode/dateTime)
+      // and just normalise content + server timestamps.
       const memoryData = {
-        title: memoryWithoutId.title || '',
-        content: memoryWithoutId.content || memoryWithoutId.text || '',
-        hashtags: memoryWithoutId.hashtags || [],
-        category: memoryWithoutId.category || 'general',
-        createdAt: memoryWithoutId.timestamp ? new Date(memoryWithoutId.timestamp) : serverTimestamp(),
+        ...rest,
+        content: rest.content || rest.text || '',
+        title: rest.title || '',
+        hashtags: rest.hashtags || [],
+        createdAt: rest.timestamp ? new Date(rest.timestamp) : (rest.createdAt ? new Date(rest.createdAt) : serverTimestamp()),
         updatedAt: serverTimestamp(),
-        // Preserve any additional fields (except 'id')
-        ...(memoryWithoutId.url && { url: memoryWithoutId.url }),
-        ...(memoryWithoutId.imageUrl && { imageUrl: memoryWithoutId.imageUrl }),
-        ...(memoryWithoutId.date && { date: memoryWithoutId.date })
       };
 
-      return addDoc(memoriesRef, memoryData);
-    });
+      await addDoc(memoriesRef, memoryData);
+      seen.add(key);
+      added++;
+    }
 
-    // Wait for all memories to be migrated
-    await Promise.all(migrationPromises);
-
-    // Set migration flag
     await setDoc(userDocRef, {
-      migrated: true,
-      migratedAt: serverTimestamp(),
-      migratedCount: memories.length
+      migrated: true, migratedV2: true, migratedAt: serverTimestamp(), migratedCount: added
     }, { merge: true });
-
-    // Optional: Clear localStorage after successful migration
-    // Uncomment the line below if you want to remove data after migration
-    // localStorage.removeItem('memoryLibraryData');
   } catch (error) {
+    // Do NOT set the flag on failure, so the next load retries.
     console.error('Error during migration:', error);
     throw error;
   }
