@@ -50,6 +50,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
       POOL,
       storage,
       onOpenLibrary: () => navigate('/archive'),
+      onOpenBoard: () => navigate('/xi/board'),
     });
 
     // Pull saved per-user state (pair/board/misses/screen) from Firestore once,

@@ -22,6 +22,7 @@ import SharedBoardContainer from './components/shared-board/SharedBoardContainer
 // and only fetched when a user actually opens the /xi route.
 const XiApp = lazy(() => import('./components/xi/XiApp'))
 const XiVersus = lazy(() => import('./components/xi/XiVersus'))
+const BoardOfDay = lazy(() => import('./components/xi/BoardOfDay'))
 import './utils/importXiBackup' // Temporary: exposes window.importXiBackup() for one-time XI backup import
 import RecentlyDeletedModal from './components/shared/RecentlyDeletedModal'
 import OfflineIndicator from './components/shared/OfflineIndicator'
@@ -330,6 +331,14 @@ function App() {
                 />
               </Suspense>
             }
+          />
+          <Route
+            path="/xi/board"
+            element={(
+              <Suspense fallback={<LoadingSpinner />}>
+                <BoardOfDay memories={memories} addMemory={addMemory} />
+              </Suspense>
+            )}
           />
           <Route
             path="/xi/versus"

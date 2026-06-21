@@ -11,7 +11,7 @@
 //   st.list() -> Promise<string[]>       (memory keys that currently have memories)
 
 export function initXi(root, ctx) {
-  const { POOL, onOpenLibrary } = ctx;
+  const { POOL, onOpenLibrary, onOpenBoard } = ctx;
   const st = ctx.storage;
   const log = ctx.log || (() => {});
 
@@ -157,7 +157,7 @@ export function initXi(root, ctx) {
   }
   $('#navToday').onclick = async () => { if (!S.shown || !S.shown.length) { S.shown = topPair(); await savePair(); } showScreen('today'); renderToday(); };
   $('#navCurate').onclick = () => { showScreen('curate'); renderCurate(); };
-  $('#navBoard').onclick = () => { showScreen('board'); renderBoard(); };
+  $('#navBoard').onclick = () => { if (onOpenBoard) onOpenBoard(); else { showScreen('board'); renderBoard(); } };
   $('#navGallery').onclick = () => { showScreen('gallery'); renderGallery(); };
   $('#navLibrary').onclick = () => { showScreen('library'); renderLibrary(); };
 
@@ -277,7 +277,9 @@ export function initXi(root, ctx) {
     await loadState();
     renderCenter();
     const saved = await st.get('xi2_screen');
-    const start = SCREENS.indexOf(saved) >= 0 ? saved : 'today';
+    // 'board' is now its own screen (Board of the Day); never restore the old
+    // in-engine board, fall back to Today.
+    const start = (SCREENS.indexOf(saved) >= 0 && saved !== 'board') ? saved : 'today';
     log('boot saved=' + saved + ' start=' + start);
     showScreen(start);
     renderScreen(start);
@@ -292,7 +294,7 @@ export function initXi(root, ctx) {
   async function restoreScreen() {
     const saved = await st.get('xi2_screen');
     log('restoreScreen saved=' + saved);
-    if (SCREENS.indexOf(saved) >= 0) { showScreen(saved); renderScreen(saved); }
+    if (SCREENS.indexOf(saved) >= 0 && saved !== 'board') { showScreen(saved); renderScreen(saved); }
     else { refresh(); }
   }
 
