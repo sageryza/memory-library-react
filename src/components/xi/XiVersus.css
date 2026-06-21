@@ -3,6 +3,19 @@
 .xiv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
 .xiv-logo,.xiv-logo-btn{font-variant:small-caps;letter-spacing:.06em;font-size:18px;color:#241d18;background:none;border:none;font-family:inherit;cursor:pointer;padding:0}
 .xiv-link{font-family:inherit;font-size:13px;background:#241d18;color:#f3ead9;border:none;border-radius:14px;padding:6px 12px;cursor:pointer}
+.xiv-top-right{display:flex;align-items:center;gap:8px}
+.xiv-switch{font-family:inherit;font-size:12px;color:#5b4f44;background:#fbf7ec;border:1px solid #cbbfa6;border-radius:12px;padding:5px 8px;max-width:120px;cursor:pointer}
+
+/* Resume / switch games */
+.xiv-resume{width:100%;max-width:300px;margin:6px 0 14px;text-align:left}
+.xiv-resume-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:13px;margin-bottom:6px;text-align:center}
+.xiv-resume-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.xiv-resume-btn{flex:1;font-family:inherit;font-size:14px;background:rgba(36,29,24,.06);color:#241d18;border:none;border-radius:10px;padding:9px 12px;cursor:pointer;text-align:left}
+.xiv-resume-id{color:#8a7d6e;font-size:12px;letter-spacing:.06em}
+.xiv-resume-x{background:none;border:none;color:#a99; font-size:20px;line-height:1;cursor:pointer;padding:2px 6px}
+
+.xiv-skip{display:block;margin:6px auto 0;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+.xiv-skip:disabled{opacity:.5}
 
 .xiv-center{margin:auto;text-align:center;padding:24px;max-width:340px;display:flex;flex-direction:column;align-items:center}
 .xiv-lead{font-size:17px;line-height:1.45;color:#5b4f44}
@@ -56,15 +69,18 @@
 .xiv-pass:disabled{opacity:.5}
 
 /* Story composer + feed */
-/* Pinned as a fixed bottom sheet so iOS never scrolls it under the keyboard.
-   The `bottom` offset is set inline from the visual-viewport keyboard height. */
-.xiv-composer{position:fixed;left:0;right:0;bottom:0;z-index:9700;max-width:520px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:72vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* The composer rides in a KeyboardSheet: a fixed layer sized to the visual
+   viewport, with the sheet pinned to its bottom (= the keyboard's top edge). */
+.xiv-kblayer{position:fixed;left:0;right:0;z-index:9700;pointer-events:none}
+.xiv-sheet{position:absolute;left:0;right:0;max-width:520px;margin:0 auto;pointer-events:auto}
+.xiv-composer{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:10px 14px 12px;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
 .xiv-pairstory i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-ta{font-family:inherit;font-size:16px;line-height:1.4;min-height:70px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf8f1;padding:9px 11px;color:#241d18;resize:none}
 .xiv-composer-row{display:flex;justify-content:flex-end;align-items:center;gap:10px}
+.xiv-saved{margin-right:auto;color:#5b7a3b;font-size:13.5px;font-style:italic}
 .xiv-ghost{background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 .xiv-feed{max-width:440px;margin:8px auto 26px;padding:0 14px;width:100%;box-sizing:border-box}
 .xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:14px;border-top:1px solid #d8cdb6;padding-top:8px;margin-bottom:4px}

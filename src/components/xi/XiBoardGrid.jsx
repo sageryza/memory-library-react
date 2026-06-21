@@ -21,7 +21,9 @@ export default function XiBoardGrid({ placed, tokensByCard = {}, selectedCells =
 
   useLayoutEffect(() => {
     const board = boardRef.current;
-    if (!board || selectedCells.length !== 2) { setFrame(null); return; }
+    // Draw the frame around the chosen card(s): a single cell after the first
+    // tap, growing into a rectangle around the pair after the second.
+    if (!board || selectedCells.length === 0) { setFrame(null); return; }
     const els = selectedCells.map((s) => board.querySelector(`[data-cell="${s.r}-${s.c}"]`));
     if (els.some((e) => !e)) { setFrame(null); return; }
     const left = Math.min(...els.map((e) => e.offsetLeft));
