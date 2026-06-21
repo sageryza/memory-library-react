@@ -11,9 +11,10 @@
 //   st.list() -> Promise<string[]>       (memory keys that currently have memories)
 
 export function initXi(root, ctx) {
-  const { POOL, onOpenLibrary, onOpenBoard } = ctx;
+  const { POOL, onOpenLibrary, onScreenChange, initialScreen } = ctx;
   const st = ctx.storage;
   const log = ctx.log || (() => {});
+  let curScreen = null;
 
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -120,6 +121,8 @@ export function initXi(root, ctx) {
   const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];
   function showScreen(name) {
     log('show ' + name);
+    const changed = name !== curScreen;
+    curScreen = name;
     // Essential: reveal the chosen screen. This must run first and alone — the
     // chrome below (nav highlight, scrollTo) is non-essential and must NEVER
     // throw in a way that stops renderScreen from running. A thrown root.scrollTo
@@ -136,6 +139,9 @@ export function initXi(root, ctx) {
     // Remember the active screen so a re-init (e.g. after a memory save) returns
     // here instead of snapping back to Today.
     try { st.set('xi2_screen', name); } catch (e) { log('persist screen ERR ' + (e && e.message)); }
+    // Let the React shell mirror the engine's screen into the URL (for the
+    // shared nav's active state), but only on a real change to avoid loops.
+    if (changed && onScreenChange) onScreenChange(name);
   }
   function renderScreen(name) {
     const SLOT = { today: '#cardSlot', curate: '#curateSlot', board: '#boardSlot', gallery: '#gallerySlot', library: '#librarySlot' };
@@ -157,7 +163,7 @@ export function initXi(root, ctx) {
   }
   $('#navToday').onclick = async () => { if (!S.shown || !S.shown.length) { S.shown = topPair(); await savePair(); } showScreen('today'); renderToday(); };
   $('#navCurate').onclick = () => { showScreen('curate'); renderCurate(); };
-  $('#navBoard').onclick = () => { if (onOpenBoard) onOpenBoard(); else { showScreen('board'); renderBoard(); } };
+  $('#navBoard').onclick = () => { showScreen('board'); renderBoard(); };
   $('#navGallery').onclick = () => { showScreen('gallery'); renderGallery(); };
   $('#navLibrary').onclick = () => { showScreen('library'); renderLibrary(); };
 
@@ -277,9 +283,10 @@ export function initXi(root, ctx) {
     await loadState();
     renderCenter();
     const saved = await st.get('xi2_screen');
-    // 'board' is now its own screen (Board of the Day); never restore the old
-    // in-engine board, fall back to Today.
-    const start = (SCREENS.indexOf(saved) >= 0 && saved !== 'board') ? saved : 'today';
+    // The shared nav can request a specific screen via ?s= (initialScreen);
+    // otherwise restore the last screen, else Today.
+    const start = SCREENS.indexOf(initialScreen) >= 0 ? initialScreen
+      : (SCREENS.indexOf(saved) >= 0 ? saved : 'today');
     log('boot saved=' + saved + ' start=' + start);
     showScreen(start);
     renderScreen(start);
@@ -294,11 +301,18 @@ export function initXi(root, ctx) {
   async function restoreScreen() {
     const saved = await st.get('xi2_screen');
     log('restoreScreen saved=' + saved);
-    if (SCREENS.indexOf(saved) >= 0 && saved !== 'board') { showScreen(saved); renderScreen(saved); }
+    if (SCREENS.indexOf(saved) >= 0) { showScreen(saved); renderScreen(saved); }
     else { refresh(); }
   }
 
-  return { refresh, restoreScreen };
+  // Switch screens on demand (used by the shared React nav).
+  function goToScreen(name) {
+    if (SCREENS.indexOf(name) < 0) return;
+    showScreen(name);
+    renderScreen(name);
+  }
+
+  return { refresh, restoreScreen, goToScreen };
 }
 
 export default initXi;

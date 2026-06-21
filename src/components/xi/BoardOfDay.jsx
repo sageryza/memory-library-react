@@ -5,6 +5,7 @@ import { dailyBoard, dayNumber, dayLabel } from '../../xi/boardOfDayModel';
 import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/xiMemory';
 import useViewportFit from '../../xi/useViewportFit';
 import XiBoardGrid from './XiBoardGrid';
+import XiNavBar from './XiNavBar';
 import './XiVersus.css';
 import './BoardOfDay.css';
 
@@ -121,6 +122,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
       ) : (
         <div className="xiv-hint">Tap two touching cards to write a memory that's both of them.</div>
       )}
+      <XiNavBar />
     </div>
   );
 }
