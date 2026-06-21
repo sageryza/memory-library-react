@@ -1,263 +1,339 @@
-/* GroupDreamJournal — scoped styles (all under .gdj-* to avoid global conflicts).
-   Uses the app theme tokens (see src/styles/theme.css): Crimson Text serif,
-   maroon primary (#800020), cream/beige cards. */
+/* GroupDreamJournal — "Ethereal Light" theme.
+   A streamlined, modern-spiritual look distinct from the rest of the library:
+   soft cream→lavender gradient, airy whitespace, thin elegant serif headings,
+   muted lavender/rose accents. Keeps a cream tie to the library palette.
+   All scoped under .gdj-* to avoid global conflicts. */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&display=swap');
 
 .gdj-root {
-  max-width: 680px;
+  --gdj-ink: #463c4e;          /* soft plum-charcoal text */
+  --gdj-muted: #9a8fa3;        /* muted mauve-grey */
+  --gdj-line: rgba(120, 90, 130, 0.14);
+  --gdj-lavender: #8d77a8;     /* symbol accent */
+  --gdj-rose: #b07d8e;         /* emotion accent */
+  --gdj-accent: #8a5a6b;       /* primary action (maroon softened toward rose) */
+  --gdj-serif: 'Cormorant Garamond', 'Crimson Text', Georgia, serif;
+
+  min-height: 100vh;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 24px 16px 96px;
-  font-family: var(--font-family-primary, 'Crimson Text', serif);
-  color: var(--color-text-primary, #2f4f4f);
+  padding: 56px 22px 120px;
+  color: var(--gdj-ink);
+  font-family: var(--gdj-serif);
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(190, 170, 210, 0.18), transparent 60%),
+    linear-gradient(168deg, #faf7f3 0%, #f5f0f4 55%, #f1ecf3 100%);
 }
 
 .gdj-state {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 64px 16px;
-  color: var(--color-text-secondary, #666);
-  font-family: var(--font-family-primary, 'Crimson Text', serif);
+  color: var(--gdj-muted);
+  font-family: var(--gdj-serif);
+  font-size: 1.25rem;
+  font-weight: 300;
 }
 
+/* ---- header ---- */
 .gdj-header {
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--color-border-primary, #e8e6d5);
-  padding-bottom: 12px;
+  text-align: center;
+  margin-bottom: 44px;
 }
 
 .gdj-title {
-  font-size: 1.75rem;
-  font-weight: 600;
   margin: 0;
-  color: var(--color-primary, #800020);
+  font-family: var(--gdj-serif);
+  font-weight: 300;
+  font-size: 2.6rem;
+  letter-spacing: 0.06em;
+  color: var(--gdj-ink);
 }
 
 .gdj-muted {
-  color: var(--color-text-secondary, #666);
-  font-size: 0.95rem;
+  color: var(--gdj-muted);
+  font-size: 1rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
 }
 
 /* ---- group selector ---- */
 .gdj-groups {
-  margin-bottom: 24px;
+  margin-bottom: 40px;
 }
 
 .gdj-group-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 10px 22px;
+  margin-bottom: 22px;
 }
 
 .gdj-group-tab {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--color-border-light, #c0beac);
-  border-radius: 999px;
-  background: var(--beige-light, #fffef5);
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
   cursor: pointer;
-  font-size: 0.95rem;
-  font-family: inherit;
-  color: var(--color-text-primary, #2f4f4f);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: var(--gdj-serif);
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--gdj-muted);
+  border-bottom: 1px solid transparent;
+  transition: color 0.25s, border-color 0.25s;
 }
 
 .gdj-group-tab:hover {
-  border-color: var(--color-primary, #800020);
-  background: var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
+  color: var(--gdj-ink);
 }
 
 .gdj-group-tab.is-active {
-  background: var(--color-primary, #800020);
-  border-color: var(--color-primary, #800020);
-  color: var(--color-text-white, #fff);
+  color: var(--gdj-accent);
+  border-bottom-color: var(--gdj-accent);
 }
 
 .gdj-group-count {
-  font-size: 0.78rem;
-  opacity: 0.75;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--gdj-muted);
+  opacity: 0.8;
 }
 
 .gdj-create {
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 14px;
+  align-items: baseline;
 }
 
-/* ---- shared inputs / buttons ---- */
+/* ---- inputs / buttons ---- */
 .gdj-input,
 .gdj-textarea {
   width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--color-border-medium, #ccc);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: inherit;
-  color: var(--color-text-primary, #2f4f4f);
-  background: var(--color-bg-white, #fff);
+  padding: 8px 2px;
+  border: none;
+  border-bottom: 1px solid var(--gdj-line);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--gdj-serif);
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: var(--gdj-ink);
   box-sizing: border-box;
+  transition: border-color 0.25s;
+}
+
+.gdj-input::placeholder,
+.gdj-textarea::placeholder {
+  color: var(--gdj-muted);
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .gdj-input:focus,
 .gdj-textarea:focus {
   outline: none;
-  border-color: var(--color-primary, #800020);
-  box-shadow: 0 0 0 2px var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
+  border-bottom-color: var(--gdj-accent);
 }
 
 .gdj-textarea {
   resize: vertical;
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 .gdj-btn {
-  padding: 9px 16px;
-  border: 1px solid var(--color-border-light, #c0beac);
-  border-radius: 8px;
-  background: var(--beige-light, #fffef5);
+  padding: 8px 22px;
+  border: 1px solid var(--gdj-line);
+  border-radius: 999px;
+  background: transparent;
   cursor: pointer;
-  font-size: 0.95rem;
-  font-family: inherit;
-  color: var(--color-text-primary, #2f4f4f);
+  font-family: var(--gdj-serif);
+  font-size: 1.02rem;
+  letter-spacing: 0.06em;
+  color: var(--gdj-muted);
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
 }
 
 .gdj-btn:hover:not(:disabled) {
-  border-color: var(--color-primary, #800020);
-  background: var(--maroon-bg-light, rgba(128, 0, 32, 0.05));
+  color: var(--gdj-accent);
+  border-color: var(--gdj-accent);
 }
 
 .gdj-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .gdj-btn-primary {
-  background: var(--color-primary, #800020);
-  border-color: var(--color-primary, #800020);
-  color: var(--color-text-white, #fff);
+  align-self: center;
+  margin-top: 6px;
+  padding: 10px 34px;
+  color: var(--gdj-accent);
+  border-color: rgba(138, 90, 107, 0.4);
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
 }
 
 .gdj-btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover, #a0001c);
-  border-color: var(--color-primary-hover, #a0001c);
+  background: rgba(138, 90, 107, 0.08);
+  border-color: var(--gdj-accent);
 }
 
 /* ---- compose ---- */
 .gdj-compose {
-  border: 1px solid var(--color-border-primary, #e8e6d5);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 24px;
-  background: var(--beige-primary, #faf8e9);
+  margin-bottom: 52px;
+  padding: 26px 28px;
+  border: none;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 40px -24px rgba(110, 80, 130, 0.5);
+  backdrop-filter: blur(6px);
 }
 
 .gdj-compose form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 18px;
 }
 
 .gdj-emotions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px 16px;
 }
 
 .gdj-chip {
-  padding: 4px 12px;
-  border: 1px solid var(--color-border-light, #c0beac);
-  border-radius: 999px;
-  background: var(--color-bg-white, #fff);
+  padding: 2px 4px;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: none;
   cursor: pointer;
-  font-size: 0.85rem;
-  font-family: inherit;
-  color: var(--color-text-secondary, #666);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: var(--gdj-serif);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  color: var(--gdj-muted);
+  transition: color 0.25s, border-color 0.25s;
+}
+
+.gdj-chip:hover {
+  color: var(--gdj-rose);
 }
 
 .gdj-chip.is-on {
-  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
-  border-color: var(--color-accent-crimson, #dc143c);
-  color: var(--color-button-destructive, #600018);
+  color: var(--gdj-rose);
+  border-bottom-color: var(--gdj-rose);
 }
 
 .gdj-lucid {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.95rem;
-  color: var(--color-text-secondary, #666);
+  gap: 9px;
+  font-size: 1.02rem;
+  color: var(--gdj-muted);
+  letter-spacing: 0.02em;
+}
+
+.gdj-lucid input {
+  accent-color: var(--gdj-accent);
 }
 
 /* ---- feed ---- */
 .gdj-feed {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
 }
 
 .gdj-card {
-  border: 1px solid var(--color-border-primary, #e8e6d5);
-  border-radius: 12px;
-  padding: 16px 18px;
-  background: var(--color-bg-card, #faf8e9);
+  padding: 30px 30px 26px;
+  border: none;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 12px 44px -28px rgba(110, 80, 130, 0.55);
 }
 
 .gdj-card-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .gdj-author {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-primary, #800020);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gdj-muted);
 }
 
 .gdj-badge {
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
-  color: var(--color-button-destructive, #600018);
+  letter-spacing: 0.16em;
+  padding: 0;
+  background: none;
+  color: var(--gdj-accent);
+}
+
+.gdj-badge::before {
+  content: '\00b7\00a0';
+  color: var(--gdj-muted);
 }
 
 .gdj-card-title {
-  margin: 0 0 6px;
-  font-size: 1.2rem;
-  color: var(--color-text-primary, #2f4f4f);
+  margin: 0 0 10px;
+  font-family: var(--gdj-serif);
+  font-weight: 400;
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+  color: var(--gdj-ink);
 }
 
 .gdj-card-body {
-  margin: 0 0 10px;
+  margin: 0 0 16px;
   white-space: pre-wrap;
-  line-height: 1.6;
-  font-size: 1.02rem;
+  line-height: 1.8;
+  font-size: 1.18rem;
+  font-weight: 400;
+  color: #564b5e;
 }
 
+/* symbols & emotions as quiet words, not pills */
 .gdj-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px 14px;
+  margin-top: 4px;
 }
 
 .gdj-tag {
-  font-size: 0.82rem;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--crimson-bg-light, rgba(220, 20, 60, 0.1));
-  color: var(--color-button-destructive, #600018);
-  border: 1px solid var(--crimson-bg-medium, rgba(220, 20, 60, 0.15));
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-size: 0.98rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  color: var(--gdj-lavender);
 }
 
+.gdj-tag::before {
+  content: '\2022\00a0';
+  font-style: normal;
+  opacity: 0.5;
+}
+
+.gdj-tags-emotion .gdj-tag,
 .gdj-tag-emotion {
-  background: var(--library-bg, #f5f0fa);
-  color: #5b3a78;
-  border-color: var(--library-border, #d8c8e8);
+  color: var(--gdj-rose);
 }
