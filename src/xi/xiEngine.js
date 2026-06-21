@@ -129,11 +129,22 @@ export function initXi(root, ctx) {
     st.set('xi2_screen', name);
   }
   function renderScreen(name) {
-    if (name === 'today') renderToday();
-    else if (name === 'curate') renderCurate();
-    else if (name === 'board') renderBoard();
-    else if (name === 'gallery') renderGallery();
-    else if (name === 'library') renderLibrary();
+    const SLOT = { today: '#cardSlot', curate: '#curateSlot', board: '#boardSlot', gallery: '#gallerySlot', library: '#librarySlot' };
+    let p;
+    try {
+      if (name === 'today') p = renderToday();
+      else if (name === 'curate') p = renderCurate();
+      else if (name === 'board') p = renderBoard();
+      else if (name === 'gallery') p = renderGallery();
+      else if (name === 'library') p = renderLibrary();
+    } catch (e) { p = Promise.reject(e); }
+    if (p && p.catch) p.catch((e) => {
+      const msg = (e && e.message) || String(e);
+      log('render ' + name + ' ERR ' + msg);
+      root.classList.remove('nav-hidden'); // never trap on a blank screen
+      const slot = $(SLOT[name]);
+      if (slot) slot.innerHTML = '<div style="padding:24px;text-align:center;color:#800020;font-family:Georgia,serif">Something went wrong loading this screen.<br><small style="opacity:.65">' + esc(msg) + '</small></div>';
+    });
   }
   $('#navToday').onclick = async () => { if (!S.shown || !S.shown.length) { S.shown = topPair(); await savePair(); } showScreen('today'); renderToday(); };
   $('#navCurate').onclick = () => { showScreen('curate'); renderCurate(); };
