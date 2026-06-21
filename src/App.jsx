@@ -17,6 +17,7 @@ import Archive from './components/archive/Archive'
 import Libraries from './components/libraries/Libraries'
 import ChronologyV2 from './components/ChronologyV2'
 import GroupDreamJournal from './components/dream-journal/GroupDreamJournal'
+import GroupDreamJournalPreview from './components/dream-journal/GroupDreamJournalPreview'
 import PublicBoardsContainer from './components/public/PublicBoardsContainer'
 import SharedBoardContainer from './components/shared-board/SharedBoardContainer'
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
@@ -321,6 +322,10 @@ function App() {
           <Route
             path="/dream-journal"
             element={<GroupDreamJournal />}
+          />
+          <Route
+            path="/dream-journal-preview"
+            element={<GroupDreamJournalPreview />}
           />
           <Route
             path="/public"
