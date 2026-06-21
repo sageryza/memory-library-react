@@ -229,13 +229,25 @@ export function initXi(root, ctx) {
   (async function () {
     await loadState();
     renderCenter();
-    let saved = await st.get('xi2_screen');
-    if (SCREENS.indexOf(saved) < 0) saved = 'today';
-    showScreen(saved);
-    renderScreen(saved);
+    const saved = await st.get('xi2_screen');
+    const start = SCREENS.indexOf(saved) >= 0 ? saved : 'today';
+    showScreen(start);
+    renderScreen(start);
   })();
 
-  return { refresh };
+  // Called once the per-user settings doc finishes loading from Firestore. On
+  // devices where local storage is unavailable/cleared (e.g. iOS with tracking
+  // prevention), boot can't see the saved screen and defaults to Today; once
+  // Firestore hydrates we re-apply the real screen here so a save no longer
+  // strands the user on Card of the Day. Falls back to a plain refresh when no
+  // screen was persisted.
+  async function restoreScreen() {
+    const saved = await st.get('xi2_screen');
+    if (SCREENS.indexOf(saved) >= 0) { showScreen(saved); renderScreen(saved); }
+    else { refresh(); }
+  }
+
+  return { refresh, restoreScreen };
 }
 
 export default initXi;

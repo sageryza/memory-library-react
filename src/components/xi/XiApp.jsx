@@ -48,9 +48,11 @@ export default function XiApp({ memories = [], addMemory, userId }) {
       onOpenLibrary: () => navigate('/archive'),
     });
 
-    // Pull saved per-user state (pair/board/misses) from Firestore once, then
-    // refresh the visible screen if it filled anything in.
-    storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.refresh());
+    // Pull saved per-user state (pair/board/misses/screen) from Firestore once,
+    // then re-apply the saved screen. This matters when local storage is
+    // unavailable (iOS tracking prevention): boot defaulted to Today, and this
+    // is what returns the user to the screen they were actually on.
+    storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.restoreScreen());
 
     return () => { engineRef.current = null; };
     // Mount once; the engine reads live memories via memoriesRef.
