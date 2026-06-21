@@ -6,6 +6,9 @@ import { makeXiStorage } from '../../xi/xiStorage';
 import { XI_MARKUP } from './xiMarkup';
 import './XiApp.css';
 
+/* global __BUILD_ID__ */
+const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
+
 // XI — the standalone app, ported in faithfully. The exact markup is injected
 // as raw HTML and the original game engine drives it; only the storage layer is
 // swapped so memories persist to the shared archive (Firestore) and the
@@ -60,5 +63,10 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     if (engineRef.current) engineRef.current.refresh();
   }, [memories]);
 
-  return <div className="xi-app" ref={rootRef} dangerouslySetInnerHTML={{ __html: XI_MARKUP }} />;
+  return (
+    <>
+      <div className="xi-app" ref={rootRef} dangerouslySetInnerHTML={{ __html: XI_MARKUP }} />
+      <div className="xi-build-stamp">build {BUILD_ID}</div>
+    </>
+  );
 }
