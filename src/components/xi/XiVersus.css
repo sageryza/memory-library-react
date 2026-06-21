@@ -37,3 +37,16 @@
 .xiv-btn-sm:disabled{opacity:.6}
 .xiv-nudge{text-align:center;font-size:12.5px;color:#8a7d6e;padding:5px 14px}
 .xiv-nudge a{color:#800020}
+
+/* Hand + placement (Milestone 2) */
+.xiv-hint{text-align:center;font-size:13.5px;color:#5b4f44;padding:4px 16px 2px}
+.xiv-hand{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;padding:8px 10px 6px;min-height:62px}
+.xiv-handcard{width:56px;aspect-ratio:1;border:1px solid #cbbfa6;border-radius:5px;background:#fbf8f1;padding:3px;cursor:pointer;flex:none}
+.xiv-handcard img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+.xiv-handcard.sel{outline:3px solid #800020;outline-offset:-1px}
+.xiv-handcard:disabled{opacity:.5;cursor:default}
+.xiv-empty{color:#8a7d6e;font-size:14px;align-self:center}
+.xiv-cell.legal{cursor:pointer;animation:xivpulse 1.15s ease-in-out infinite}
+@keyframes xivpulse{0%,100%{box-shadow:inset 0 0 0 2px rgba(46,125,50,.45)}50%{box-shadow:inset 0 0 0 3px rgba(46,125,50,.95)}}
+.xiv-pass{display:block;margin:4px auto 24px;background:none;border:1px solid #cbbfa6;color:#5b4f44;font-family:inherit;font-size:14px;border-radius:14px;padding:6px 18px;cursor:pointer}
+.xiv-pass:disabled{opacity:.5}

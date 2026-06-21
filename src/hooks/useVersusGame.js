@@ -6,11 +6,15 @@
 
 import { useEffect, useState } from 'react';
 import {
-  doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp,
+  doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
-import { seedBoard, PLAYER_COLORS } from '../xi/versusModel';
+import { seedBoard, PLAYER_COLORS, canPlace, nextTurnIndex } from '../xi/versusModel';
+
+export const HAND_SIZE = 5;
+const gameRef = (gameId) => doc(db, 'versusGames', gameId);
+const handRef = (gameId, uid) => doc(db, 'versusGames', gameId, 'hands', uid);
 
 const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789';
 function generateGameId() {
@@ -71,6 +75,94 @@ export async function joinVersusGame(gameId, user, profile) {
     [`stats.${user.uid}`]: { placed: 0, stories: 0 },
     updatedAt: serverTimestamp(),
   });
+}
+
+// Top up a player's hidden hand to HAND_SIZE from the shared draw pile.
+// Idempotent — a no-op once the hand is full or the pile is empty.
+export async function ensureHand(gameId, uid) {
+  if (!gameId || !uid) return;
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) return;
+    const hSnap = await tx.get(handRef(gameId, uid));
+    const cards = hSnap.exists() ? (hSnap.data().cards || []) : [];
+    if (cards.length >= HAND_SIZE) return;
+    const pile = gSnap.data().drawPile || [];
+    const take = pile.slice(0, HAND_SIZE - cards.length);
+    if (!take.length && hSnap.exists()) return;
+    tx.update(gameRef(gameId), { drawPile: pile.slice(take.length), updatedAt: serverTimestamp() });
+    tx.set(handRef(gameId, uid), { cards: [...cards, ...take] });
+  });
+}
+
+// Place a card from your hand at (r,c). Validates turn + legality, lays it with
+// your colour, refills your hand by one, advances the turn — all atomically.
+export async function placeCard(gameId, user, card, r, c) {
+  if (!user?.uid) throw new Error('Sign in to play.');
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) throw new Error('Game not found.');
+    const g = gSnap.data();
+    const players = g.players || [];
+    if (players[g.currentTurnIndex]?.uid !== user.uid) throw new Error('Not your turn.');
+    if (!canPlace(g.placed || [], r, c, card)) throw new Error('That spot isn’t legal.');
+
+    const hSnap = await tx.get(handRef(gameId, user.uid));
+    const cards = hSnap.exists() ? (hSnap.data().cards || []) : [];
+    const idx = cards.findIndex((k) => k.d === card.d && k.i === card.i);
+    if (idx < 0) throw new Error('That card isn’t in your hand.');
+
+    const me = players.find((p) => p.uid === user.uid);
+    const placed = [...(g.placed || []), { r, c, d: card.d, i: card.i, by: user.uid, color: me?.color || null }];
+
+    const pile = g.drawPile || [];
+    const draw = pile.slice(0, 1);
+    const newHand = [...cards.slice(0, idx), ...cards.slice(idx + 1), ...draw];
+
+    const stats = { ...(g.stats || {}) };
+    const mine = stats[user.uid] || { placed: 0, stories: 0 };
+    stats[user.uid] = { ...mine, placed: (mine.placed || 0) + 1 };
+
+    tx.update(gameRef(gameId), {
+      placed,
+      drawPile: pile.slice(draw.length),
+      currentTurnIndex: nextTurnIndex(g.currentTurnIndex, players.length),
+      stats,
+      updatedAt: serverTimestamp(),
+    });
+    tx.set(handRef(gameId, user.uid), { cards: newHand });
+  });
+}
+
+// Pass your turn (when you can't or don't want to place).
+export async function passTurn(gameId, user) {
+  if (!user?.uid) return;
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) throw new Error('Game not found.');
+    const g = gSnap.data();
+    const players = g.players || [];
+    if (players[g.currentTurnIndex]?.uid !== user.uid) throw new Error('Not your turn.');
+    tx.update(gameRef(gameId), {
+      currentTurnIndex: nextTurnIndex(g.currentTurnIndex, players.length),
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+// Live subscription to MY hidden hand (rules allow only the owner to read).
+export function useHand(gameId, uid) {
+  const [hand, setHand] = useState([]);
+  useEffect(() => {
+    if (!gameId || !uid) { setHand([]); return undefined; }
+    const unsub = onSnapshot(
+      handRef(gameId, uid),
+      (snap) => setHand(snap.exists() ? (snap.data().cards || []) : []),
+      () => setHand([]),
+    );
+    return unsub;
+  }, [gameId, uid]);
+  return hand;
 }
 
 // Live subscription to a single game.
