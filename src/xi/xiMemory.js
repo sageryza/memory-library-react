@@ -53,6 +53,16 @@ export function pairingSentence(eventRef, twistRef) {
   return tw;
 }
 
+// "times i [event] [twist]" — the label used on a board pairing (a collection of
+// the times that event happened with that twist).
+export function timesSentence(eventRef, twistRef) {
+  const ev = (eventRef && eventRef.cap ? eventRef.cap : '').toLowerCase();
+  const tw = (twistRef && twistRef.cap ? twistRef.cap : '').toLowerCase();
+  if (ev && tw) return `times i ${ev} ${tw}`;
+  if (ev) return `times i ${ev}`;
+  return tw;
+}
+
 // Build a memory document (without server timestamps; useMemories adds those)
 // from an XI pairing + the user's text.
 export function buildXiMemoryDoc({ text, event, twist, mode }) {
