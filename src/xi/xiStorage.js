@@ -16,7 +16,7 @@ import { buildXiMemoryDoc, pairKey, isXiMemory } from './xiMemory';
 
 const STATE_FIELD = { xi2_pair: 'pair', xi2_misses: 'misses', xi2_board: 'board', xi2_screen: 'screen' };
 
-export function makeXiStorage({ userId, getMemories, addMemory, POOL, log = () => {} }) {
+export function makeXiStorage({ userId, getMemories, addMemory, POOL }) {
   // --- card ref helpers -------------------------------------------------
   const normCard = (r) => POOL[r.d] && POOL[r.d][r.i];
   const modeOf = (d) => (d === 'be' || d === 'bw' ? 'board' : 'daily');
@@ -128,7 +128,7 @@ export function makeXiStorage({ userId, getMemories, addMemory, POOL, log = () =
   const stateRef = userId ? doc(db, 'users', userId, 'xiSettings', 'state') : null;
   let hydrated = false;
   async function hydrateFromFirestore(onReady) {
-    if (!stateRef || hydrated) { log('hydrate skip ref=' + !!stateRef + ' done=' + hydrated); return; }
+    if (!stateRef || hydrated) return;
     hydrated = true;
     try {
       const snap = await getDoc(stateRef);
@@ -136,15 +136,18 @@ export function makeXiStorage({ userId, getMemories, addMemory, POOL, log = () =
         const data = snap.data();
         let changed = false;
         for (const [k, field] of Object.entries(STATE_FIELD)) {
-          if (data[field] !== undefined && stateCache[k] === undefined) { stateCache[k] = data[field]; changed = true; }
+          if (data[field] === undefined || stateCache[k] !== undefined) continue;
+          let val = data[field];
+          // The board is stored as a JSON string (Firestore forbids nested
+          // arrays); decode it back into the 2D grid the engine expects.
+          if (k === 'xi2_board' && typeof val === 'string') {
+            try { val = JSON.parse(val); } catch { continue; }
+          }
+          stateCache[k] = val; changed = true;
         }
-        log('hydrate fs.screen=' + data.screen + ' changed=' + changed);
         if (changed && onReady) onReady();
-      } else {
-        log('hydrate fs=empty');
       }
     } catch (e) {
-      log('hydrate ERR ' + (e && e.code));
       console.error('[XI] Could not load settings:', e);
     }
   }
@@ -156,7 +159,10 @@ export function makeXiStorage({ userId, getMemories, addMemory, POOL, log = () =
     saveTimer = setTimeout(() => {
       const payload = {};
       for (const [k, field] of Object.entries(STATE_FIELD)) {
-        if (stateCache[k] !== undefined) payload[field] = stateCache[k];
+        if (stateCache[k] === undefined) continue;
+        // Firestore rejects nested arrays; the board is a 2D grid, so persist it
+        // as a JSON string (decoded back on hydrate).
+        payload[field] = (k === 'xi2_board') ? JSON.stringify(stateCache[k]) : stateCache[k];
       }
       setDoc(stateRef, payload, { merge: true }).catch((e) => console.error('[XI] Could not save settings:', e));
     }, 400);
