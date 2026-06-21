@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { boardDeck } from '../../xi/decks';
 import { dailyBoard, dayNumber, dayLabel } from '../../xi/boardOfDayModel';
 import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/xiMemory';
@@ -9,7 +9,7 @@ import XiNavBar from './XiNavBar';
 import './XiVersus.css';
 import './BoardOfDay.css';
 
-const POOL_SIZES = { be: boardDeck.events.length, bw: boardDeck.twists.length };
+const POOLS = { events: boardDeck.events.map((c) => c.cap), twists: boardDeck.twists.map((c) => c.cap) };
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
 const TOKEN = '#800020';
 
@@ -18,6 +18,8 @@ const TOKEN = '#800020';
 // top-corner day stepper. Reuses the shared XiBoardGrid.
 export default function BoardOfDay({ memories = [], addMemory }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const useRandom = params.get('gen') === 'random'; // ?gen=random → old baseline, for comparison
   const today = dayNumber();
   const [viewDay, setViewDay] = useState(today);
   const [storyCells, setStoryCells] = useState([]);
@@ -25,7 +27,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const [saving, setSaving] = useState(false);
   const kbInset = useKeyboardInset();
 
-  const placed = dailyBoard(viewDay, POOL_SIZES);
+  const placed = dailyBoard(viewDay, POOLS, { random: useRandom });
 
   // Your XI memories grouped by pairing, for the per-pairing list + tokens.
   const myXi = (memories || []).filter(isXiMemory);
