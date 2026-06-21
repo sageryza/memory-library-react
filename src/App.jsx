@@ -29,15 +29,21 @@ import './styles/theme.css'
 import './styles/components.css'
 import './App.css'
 
-// Hosts that should open straight into XI instead of the library home page.
-// The library still lives at every other route on these hosts (e.g. the
-// "Open full archive" link), and other domains (membry-df528.web.app) are
-// unaffected.
-const XI_HOME_DOMAINS = ['incaseofamnesia.com'];
+// Any custom domain opens straight into XI instead of the library home page.
+// The Firebase default hosts (and local dev) keep showing the full library
+// home; everything else — e.g. famnesia.com / incaseofamnesia.com — lands on
+// XI. The rest of the library is still reachable from XI's "Open full archive"
+// link, and only the root path is redirected.
+const LIBRARY_HOME_HOSTS = [
+  'membry-df528.web.app',
+  'membry-df528.firebaseapp.com',
+  'localhost',
+  '127.0.0.1',
+];
 function isXiHomeDomain() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname.replace(/^www\./, '');
-  return XI_HOME_DOMAINS.includes(host);
+  return !LIBRARY_HOME_HOSTS.includes(host);
 }
 
 function PageTitle() {
