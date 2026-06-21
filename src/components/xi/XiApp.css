@@ -7,6 +7,8 @@
 .xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable both-edges}
 /* Tiny build stamp so you can tell a deployed version from a cached one. */
 .xi-build-stamp{position:fixed;top:3px;right:6px;z-index:9600;font-family:'EB Garamond',serif;font-size:9px;letter-spacing:.02em;color:rgba(36,29,24,.32);pointer-events:none}
+/* TEMPORARY diagnostics overlay — remove once the save bounce is solved. */
+.xi-debug{position:fixed;left:4px;bottom:34px;z-index:9600;max-width:62vw;font-family:ui-monospace,Menlo,monospace;font-size:9px;line-height:1.25;color:#0f0;background:rgba(0,0,0,.72);padding:4px 5px;border-radius:4px;pointer-events:none;white-space:pre-wrap;word-break:break-word}
 
 .xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08a3e;--line:#d8ccb2;--sepia:#7a5a36}
 .xi-app *{box-sizing:border-box}
