@@ -24,6 +24,7 @@ export function initXi(root, ctx) {
   function nextI(d, i) { return (i + 1) % poolLen(d); }
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function memKey(shown) { return 'xi2_mem_' + shown.map((r) => r.d + r.i).slice().sort().join('-'); }
+  function refsFromKey(k) { return k.replace('xi2_mem_', '').split('-').map((t) => ({ d: t.slice(0, 2), i: parseInt(t.slice(2), 10) })); }
   function clone(a) { return a.map((r) => ({ d: r.d, i: r.i })); }
   const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
   const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -97,15 +98,33 @@ export function initXi(root, ctx) {
     const up = $('#usePairBtn'); if (up) up.onclick = async () => { S.shown = gsel.slice().sort((a, b) => a.d === b.d ? 0 : (a.d === 'ev' ? -1 : 1)).map((r) => ({ d: r.d, i: r.i })); S.hist = []; S.flip = 'tw'; gsel = []; await savePair(); renderCenter(); showScreen('today'); renderToday(); };
   }
 
+  /* library: XI memories grouped under their card pair, newest first */
+  async function renderLibrary() {
+    const keys = await st.list(); const groups = [];
+    for (const k of keys) { const arr = await st.get(k); if (!arr || !arr.length) continue; const refs = refsFromKey(k); const ts = Math.max.apply(null, arr.map((m) => m.ts || 0)); groups.push({ key: k, refs, arr, ts }); }
+    groups.sort((a, b) => b.ts - a.ts);
+    const misses = (await st.get('xi2_misses')) || {}; const byCard = {}; Object.keys(misses).forEach((mk) => { mk.split('-').forEach((t) => { const r = { d: t.slice(0, 2), i: parseInt(t.slice(2), 10) }; const c = card(r) ? cap(r) : null; if (c) byCard[c] = (byCard[c] || 0) + misses[mk]; }); });
+    const hard = Object.keys(byCard).sort((a, b) => byCard[b] - byCard[a]).slice(0, 6);
+    const hardHtml = hard.length ? `<div class="hardcards"><div class="hardlabel">Hardest cards — no-memory hits</div>${hard.map((c) => `<span>${esc(c)} &middot; ${byCard[c]}</span>`).join('')}</div>` : '';
+    if (!groups.length) { $('#librarySlot').innerHTML = hardHtml + '<div class="locked" style="margin-top:20px">No memories yet. They collect here as you add them.</div>'; return; }
+    $('#librarySlot').innerHTML = hardHtml + groups.map((g) => {
+      const imgs = g.refs.map((r) => `<img loading="lazy" decoding="async" src="${card(r).img}" alt="${esc(cap(r))}">`).join('');
+      const mems = g.arr.map((m) => `<div class="libmem">${esc(m.text)}</div>`).join('');
+      return `<div class="libgroup"><button class="libcards" data-key="${esc(g.key)}">${imgs}</button><div class="libmems">${mems}</div></div>`;
+    }).join('');
+    root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.hist = []; S.flip = 'tw'; await savePair(); renderCenter(); showScreen('today'); renderToday(); });
+  }
+
   function showScreen(name) {
-    ['today', 'curate', 'board', 'gallery'].forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
-    $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); root.scrollTo(0, 0);
+    ['today', 'curate', 'board', 'gallery', 'library'].forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
+    $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library'); root.scrollTo(0, 0);
   }
   $('#navToday').onclick = async () => { if (!S.shown || !S.shown.length) { S.shown = topPair(); await savePair(); } showScreen('today'); renderToday(); };
   $('#navCurate').onclick = () => { showScreen('curate'); renderCurate(); };
   $('#navBoard').onclick = () => { showScreen('board'); renderBoard(); };
   $('#navGallery').onclick = () => { showScreen('gallery'); renderGallery(); };
-  $('#navLibrary').onclick = () => { if (onOpenLibrary) onOpenLibrary(); };
+  $('#navLibrary').onclick = () => { showScreen('library'); renderLibrary(); };
+  const openArchiveBtn = $('#openArchive'); if (openArchiveBtn) openArchiveBtn.onclick = () => { if (onOpenLibrary) onOpenLibrary(); };
 
   /* ===== BOARD MODE ===== */
   const BR = 5, BC = 4; let bgrid = [], bsel = [];
@@ -156,7 +175,7 @@ export function initXi(root, ctx) {
   // Re-render whichever screen is currently visible (used when Firestore
   // memories arrive/refresh under the engine).
   function currentScreen() {
-    for (const s of ['today', 'curate', 'board', 'gallery']) { const el = $('#screen-' + s); if (el && el.style.display !== 'none') return s; }
+    for (const s of ['today', 'curate', 'board', 'gallery', 'library']) { const el = $('#screen-' + s); if (el && el.style.display !== 'none') return s; }
     return 'today';
   }
   function refresh() {
@@ -164,6 +183,7 @@ export function initXi(root, ctx) {
     if (s === 'today') renderToday();
     else if (s === 'board') { bgrid = []; renderBoard(); }
     else if (s === 'gallery') renderGallery();
+    else if (s === 'library') renderLibrary();
   }
 
   // boot

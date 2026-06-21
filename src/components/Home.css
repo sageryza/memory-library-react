@@ -81,20 +81,6 @@
     position: relative;
 }
 
-/* XI Icon */
-.xi-home-icon {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'EB Garamond', 'Crimson Text', serif;
-    font-size: 56px;
-    font-weight: 600;
-    color: #800020;
-    line-height: 1;
-}
-
 /* Timeline Icon */
 .timeline-icon {
     position: relative;
