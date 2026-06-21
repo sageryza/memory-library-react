@@ -9,7 +9,7 @@ import {
 import { boardDeck } from '../../xi/decks';
 import { legalCells } from '../../xi/versusModel';
 import { pairKey, timesSentence } from '../../xi/xiMemory';
-import useViewportFit from '../../xi/useViewportFit';
+import useKeyboardInset from '../../xi/useKeyboardInset';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import './XiVersus.css';
@@ -54,9 +54,8 @@ export default function XiVersus() {
     ensureHand(gameId, user.uid).catch(() => {});
   }, [amInGame, user, gameId]);
 
-  // Shrink to the visual viewport when the keyboard opens (iOS white-gap fix).
-  const rootElRef = useRef(null);
-  useViewportFit(rootElRef);
+  // Keyboard height, to pin the story composer above the iOS keyboard.
+  const kbInset = useKeyboardInset();
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -212,7 +211,7 @@ export default function XiVersus() {
   };
 
   return (
-    <div className="xiv" ref={rootElRef}>
+    <div className="xiv">
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
         <button className="xiv-link" onClick={async () => {
@@ -257,7 +256,7 @@ export default function XiVersus() {
       />
 
       {storyReady && (
-        <div className="xiv-composer">
+        <div className="xiv-composer" style={{ bottom: kbInset || 60 }}>
           <div className="xiv-pairlabel">{storyLabel}</div>
           {pairStories.length > 0 && (
             <div className="xiv-pairstories">
@@ -267,8 +266,7 @@ export default function XiVersus() {
             </div>
           )}
           <textarea className="xiv-ta" placeholder="A memory that's both of these…"
-            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)}
-            onFocus={(e) => { const el = e.target; setTimeout(() => { try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* */ } }, 280); }} />
+            value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
           <div className="xiv-composer-row">
             <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
             <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>

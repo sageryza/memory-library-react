@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { boardDeck } from '../../xi/decks';
 import { dailyBoard, dayNumber, dayLabel } from '../../xi/boardOfDayModel';
 import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/xiMemory';
-import useViewportFit from '../../xi/useViewportFit';
+import useKeyboardInset from '../../xi/useKeyboardInset';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import './XiVersus.css';
@@ -23,8 +23,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const [storyCells, setStoryCells] = useState([]);
   const [storyText, setStoryText] = useState('');
   const [saving, setSaving] = useState(false);
-  const rootElRef = useRef(null);
-  useViewportFit(rootElRef);
+  const kbInset = useKeyboardInset();
 
   const placed = dailyBoard(viewDay, POOL_SIZES);
 
@@ -85,7 +84,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const goDay = (delta) => { setStoryCells([]); setStoryText(''); setViewDay((d) => Math.min(today, d + delta)); };
 
   return (
-    <div className="xiv" ref={rootElRef}>
+    <div className="xiv">
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Board of the Day</button>
         <div className="xiv-daynav">
@@ -102,7 +101,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
       <XiBoardGrid placed={placed} tokensByCard={tokensByCard} selectedCells={storyCells} onCellClick={tapCell} />
 
       {storyReady ? (
-        <div className="xiv-composer">
+        <div className="xiv-composer" style={{ bottom: kbInset || 60 }}>
           <div className="xiv-pairlabel">{label}</div>
           {existing.length > 0 && (
             <div className="xiv-pairstories">
@@ -112,8 +111,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
             </div>
           )}
           <textarea className="xiv-ta" placeholder="A memory that's both of these…" value={storyText} maxLength={500}
-            onChange={(e) => setStoryText(e.target.value)}
-            onFocus={(e) => { const el = e.target; setTimeout(() => { try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* */ } }, 280); }} />
+            onChange={(e) => setStoryText(e.target.value)} />
           <div className="xiv-composer-row">
             <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
             <button className="xiv-btn-sm" disabled={saving || !storyText.trim()} onClick={save}>Save memory</button>

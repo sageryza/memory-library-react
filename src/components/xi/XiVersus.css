@@ -1,4 +1,4 @@
-.xiv{position:fixed;inset:0;z-index:9000;background:#efe7d6;color:#241d18;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;padding-bottom:60px}
+.xiv{position:fixed;inset:0;z-index:9000;background:#efe7d6;color:#241d18;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;padding-bottom:60px}
 
 .xiv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
 .xiv-logo,.xiv-logo-btn{font-variant:small-caps;letter-spacing:.06em;font-size:18px;color:#241d18;background:none;border:none;font-family:inherit;cursor:pointer;padding:0}
@@ -56,7 +56,9 @@
 .xiv-pass:disabled{opacity:.5}
 
 /* Story composer + feed */
-.xiv-composer{max-width:440px;margin:6px auto 0;padding:8px 12px;display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box}
+/* Pinned as a fixed bottom sheet so iOS never scrolls it under the keyboard.
+   The `bottom` offset is set inline from the visual-viewport keyboard height. */
+.xiv-composer{position:fixed;left:0;right:0;bottom:0;z-index:9700;max-width:520px;margin:0 auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;background:#fbf7ec;border-top:1px solid #d8cdb6;border-radius:14px 14px 0 0;box-shadow:0 -6px 22px rgba(36,29,24,.18);max-height:72vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
