@@ -96,6 +96,21 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     if (engineRef.current) engineRef.current.refresh();
   }, [memories]);
 
+  // Surface any uncaught error / promise rejection in the on-screen log, so a
+  // blank screen on the device tells us *why* (e.g. storage blocked by Safari).
+  useEffect(() => {
+    const onErr = (ev) => {
+      const m = ev.message || (ev.reason && (ev.reason.message || String(ev.reason))) || 'error';
+      log('JS ERR ' + m);
+    };
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onErr);
+    return () => {
+      window.removeEventListener('error', onErr);
+      window.removeEventListener('unhandledrejection', onErr);
+    };
+  }, [log]);
+
   return (
     <>
       <div className="xi-app" ref={rootRef} dangerouslySetInnerHTML={{ __html: XI_MARKUP }} />
