@@ -19,7 +19,12 @@ function generateGameId() {
   return id;
 }
 
-const playerName = (profile) => (profile?.firstName || profile?.displayName || 'Player');
+// Guests (anonymous auth) have no profile doc, so fall back to a name they
+// typed in (stashed in localStorage by the join UI).
+const guestName = () => {
+  try { return (localStorage.getItem('xiVersusName') || '').trim(); } catch { return ''; }
+};
+const playerName = (profile) => (profile?.firstName || profile?.displayName || guestName() || 'Player');
 
 // Create a new game seeded from the board deck; the creator is player 0.
 export async function createVersusGame(user, profile) {

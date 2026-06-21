@@ -18,11 +18,22 @@
 
 .xiv-turn{text-align:center;font-variant:small-caps;letter-spacing:.05em;font-size:15px;padding:6px;color:#800020}
 
-.xiv-board{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;padding:6px 10px 4px;max-width:520px;width:100%;margin:0 auto;box-sizing:border-box}
-.xiv-cell{position:relative;aspect-ratio:3/4;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.xiv-cell.empty.event{background:#e4d9bf}
-.xiv-cell.empty.twist{background:#f6f0e3}
-.xiv-cell img{width:100%;height:100%;object-fit:cover;display:block}
-.xiv-dot{position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.45)}
+.xiv-board{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:6px 10px 4px;max-width:440px;width:100%;margin:0 auto;box-sizing:border-box}
+.xiv-cell{position:relative;aspect-ratio:1;border-radius:4px;padding:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.xiv-cell.event{background:#ece0c2}
+.xiv-cell.twist{background:#fbf8f1}
+.xiv-cell img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply}
+.xiv-dot{position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.45);z-index:2}
 
 .xiv-note{text-align:center;font-size:13px;line-height:1.4;color:#8a7d6e;padding:8px 20px 28px}
+
+/* Guest / sign-in join controls */
+.xiv-guest{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:16px}
+.xiv-name{font-family:inherit;font-size:15px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
+.xiv-signin{color:#8a7d6e;font-size:14px;text-decoration:underline}
+.xiv-join{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:rgba(36,29,24,.05)}
+.xiv-join .xiv-name{width:150px;font-size:14px;padding:6px 10px}
+.xiv-btn-sm{font-family:inherit;font-size:14px;background:#800020;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer}
+.xiv-btn-sm:disabled{opacity:.6}
+.xiv-nudge{text-align:center;font-size:12.5px;color:#8a7d6e;padding:5px 14px}
+.xiv-nudge a{color:#800020}
