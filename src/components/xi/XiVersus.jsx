@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { useVersusGame, createVersusGame, joinVersusGame } from '../../hooks/useVersusGame';
+import {
+  useVersusGame, createVersusGame, joinVersusGame,
+  useHand, ensureHand, placeCard, passTurn,
+} from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
-import { gridFromPlaced, BR, BC, cellKind } from '../../xi/versusModel';
+import { gridFromPlaced, BR, BC, cellKind, legalCells } from '../../xi/versusModel';
 import './XiVersus.css';
+
+const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
 
 const cardArt = (cell) => {
   const pool = cell.d === 'be' ? boardDeck.events : boardDeck.twists;
@@ -18,11 +23,16 @@ export default function XiVersus() {
   const { user, loading: authLoading, isAnonymous, signInAnonymously } = useAuth();
   const { profile } = useUserProfile(user);
   const { game, loading, error } = useVersusGame(gameId);
+  const hand = useHand(gameId, user?.uid);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [placing, setPlacing] = useState(false);
   const [nameInput, setNameInput] = useState(() => {
     try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
   });
+
+  const amInGame = !!(game && user && (game.players || []).some((p) => p.uid === user.uid));
 
   // Auto-join when you open a game link you're not part of (signed-in or guest).
   useEffect(() => {
@@ -30,6 +40,16 @@ export default function XiVersus() {
     const inGame = (game.players || []).some((p) => p.uid === user.uid);
     if (!inGame) joinVersusGame(gameId, user, profile).catch(() => {});
   }, [game, user, authLoading, gameId, profile]);
+
+  // Deal the opening hand once you're confirmed in the game.
+  const dealt = useRef('');
+  useEffect(() => {
+    if (!amInGame || !user) return;
+    const key = gameId + ':' + user.uid;
+    if (dealt.current === key) return;
+    dealt.current = key;
+    ensureHand(gameId, user.uid).catch(() => {});
+  }, [amInGame, user, gameId]);
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -108,8 +128,29 @@ export default function XiVersus() {
   const grid = gridFromPlaced(game.placed);
   const players = game.players || [];
   const turnPlayer = players[game.currentTurnIndex] || null;
-  const myTurn = turnPlayer && user && turnPlayer.uid === user.uid;
+  const myTurn = !!(turnPlayer && user && turnPlayer.uid === user.uid);
   const link = `${window.location.origin}/xi/versus/${gameId}`;
+
+  // Cells where the selected card may legally go (only on your turn).
+  const legalSet = (myTurn && selected)
+    ? new Set(legalCells(game.placed || [], selected).map(([r, c]) => r + '-' + c))
+    : new Set();
+
+  const handlePlace = async (r, c) => {
+    if (!selected || placing) return;
+    setPlacing(true);
+    try { await placeCard(gameId, user, selected, r, c); setSelected(null); }
+    catch (e) { alert(e.message); }
+    finally { setPlacing(false); }
+  };
+
+  const doPass = async () => {
+    if (placing) return;
+    setPlacing(true);
+    try { await passTurn(gameId, user); setSelected(null); }
+    catch (e) { alert(e.message); }
+    finally { setPlacing(false); }
+  };
 
   return (
     <div className="xiv">
@@ -154,7 +195,16 @@ export default function XiVersus() {
           const c = idx % BC;
           const cell = grid[r][c];
           const kind = cellKind(r, c);
-          if (!cell) return <div key={idx} className={'xiv-cell empty ' + kind} />;
+          const isLegal = legalSet.has(r + '-' + c);
+          if (!cell) {
+            return (
+              <div
+                key={idx}
+                className={'xiv-cell empty ' + kind + (isLegal ? ' legal' : '')}
+                onClick={isLegal ? () => handlePlace(r, c) : undefined}
+              />
+            );
+          }
           const art = cardArt(cell);
           return (
             <div key={idx} className={'xiv-cell ' + kind}>
@@ -165,9 +215,37 @@ export default function XiVersus() {
         })}
       </div>
 
-      <p className="xiv-note">
-        Placing cards &amp; writing stories land next. For now: share the invite link — the board syncs live for everyone.
-      </p>
+      {amInGame ? (
+        <>
+          <div className="xiv-hint">
+            {myTurn
+              ? (selected ? 'Tap a glowing cell to lay it.' : 'Pick a card, then a glowing cell. (Event cards open the board.)')
+              : `Waiting for ${turnPlayer ? turnPlayer.name : '…'}…`}
+          </div>
+          <div className="xiv-hand">
+            {hand.map((card, k) => {
+              const art = artOf(card.d, card.i);
+              const sel = selected && selected.d === card.d && selected.i === card.i;
+              return (
+                <button
+                  key={k}
+                  className={'xiv-handcard' + (sel ? ' sel' : '')}
+                  disabled={!myTurn || placing}
+                  onClick={() => setSelected(sel ? null : card)}
+                >
+                  {art && <img src={art.img} alt={art.cap || ''} />}
+                </button>
+              );
+            })}
+            {hand.length === 0 && <span className="xiv-empty">No cards left</span>}
+          </div>
+          {myTurn && (
+            <button className="xiv-pass" disabled={placing} onClick={doPass}>Pass</button>
+          )}
+        </>
+      ) : (
+        <p className="xiv-note">Watching live. Join to play, or share the invite link.</p>
+      )}
     </div>
   );
 }
