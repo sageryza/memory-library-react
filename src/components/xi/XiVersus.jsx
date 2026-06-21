@@ -15,18 +15,57 @@ const cardArt = (cell) => {
 export default function XiVersus() {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAnonymous, signInAnonymously } = useAuth();
   const { profile } = useUserProfile(user);
   const { game, loading, error } = useVersusGame(gameId);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [nameInput, setNameInput] = useState(() => {
+    try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
+  });
 
-  // Auto-join when you open a game link you're not part of.
+  // Auto-join when you open a game link you're not part of (signed-in or guest).
   useEffect(() => {
     if (!game || !user || authLoading) return;
     const inGame = (game.players || []).some((p) => p.uid === user.uid);
     if (!inGame) joinVersusGame(gameId, user, profile).catch(() => {});
   }, [game, user, authLoading, gameId, profile]);
+
+  // Sign in anonymously (guest), stashing the typed name for the join to use.
+  const playAsGuest = async (after) => {
+    const name = (nameInput.trim() || 'Guest');
+    try { localStorage.setItem('xiVersusName', name); } catch { /* ignore */ }
+    setBusy(true);
+    try {
+      await signInAnonymously();
+      if (after) await after();
+    } catch (e) {
+      setBusy(false);
+      if (e.code === 'auth/operation-not-allowed') {
+        alert('Guest play isn’t enabled yet. Please sign in instead.');
+      } else {
+        alert('Could not join: ' + (e.message || e.code));
+      }
+    }
+  };
+
+  const startGame = async (asUser) => {
+    setBusy(true);
+    try {
+      const id = await createVersusGame(asUser || user, profile);
+      navigate('/xi/versus/' + id);
+    } catch (e) { alert(e.message); setBusy(false); }
+  };
+
+  const NameField = (
+    <input
+      className="xiv-name"
+      placeholder="Your name"
+      value={nameInput}
+      maxLength={24}
+      onChange={(e) => setNameInput(e.target.value)}
+    />
+  );
 
   // ---- Create / lobby (no game id) ----
   if (!gameId) {
@@ -36,21 +75,17 @@ export default function XiVersus() {
         <div className="xiv-center">
           <p className="xiv-lead">Build a memory board together — one card, one story at a time.</p>
           {user ? (
-            <button
-              className="xiv-btn"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  const id = await createVersusGame(user, profile);
-                  navigate('/xi/versus/' + id);
-                } catch (e) { alert(e.message); setBusy(false); }
-              }}
-            >
+            <button className="xiv-btn" disabled={busy} onClick={() => startGame()}>
               {busy ? 'Starting…' : 'Start a new game'}
             </button>
           ) : (
-            <p className="xiv-lead">Please <a href="/login">sign in</a> to start a game.</p>
+            <div className="xiv-guest">
+              {NameField}
+              <button className="xiv-btn" disabled={busy} onClick={() => playAsGuest(startGame)}>
+                {busy ? 'Starting…' : 'Start as guest'}
+              </button>
+              <a className="xiv-signin" href="/login">or sign in</a>
+            </div>
           )}
           <button className="xiv-back" onClick={() => navigate('/xi')}>← Back to XI</button>
         </div>
@@ -91,6 +126,17 @@ export default function XiVersus() {
         </button>
       </div>
 
+      {!user && (
+        <div className="xiv-join">
+          {NameField}
+          <button className="xiv-btn-sm" disabled={busy} onClick={() => playAsGuest()}>Join as guest</button>
+          <a className="xiv-signin" href="/login">or sign in</a>
+        </div>
+      )}
+      {isAnonymous && (
+        <div className="xiv-nudge"><a href="/login">Sign in</a> to keep your stories &amp; stats.</div>
+      )}
+
       <div className="xiv-players">
         {players.map((p) => (
           <span key={p.uid} className={'xiv-pill' + (turnPlayer && turnPlayer.uid === p.uid ? ' on' : '')}>
@@ -102,7 +148,7 @@ export default function XiVersus() {
 
       <div className="xiv-turn">{myTurn ? 'Your turn' : (turnPlayer ? `${turnPlayer.name}'s turn` : '—')}</div>
 
-      <div className="xiv-board">
+      <div className="xiv-board" style={{ gridTemplateColumns: `repeat(${BC}, 1fr)` }}>
         {Array.from({ length: BR * BC }).map((_, idx) => {
           const r = Math.floor(idx / BC);
           const c = idx % BC;

@@ -7,8 +7,8 @@
 // The board is stored as a FLAT list of placed cells (Firestore forbids nested
 // arrays), each: { r, c, d:'be'|'bw', i, by, color }. Empty cells are omitted.
 
-export const BR = 6;
-export const BC = 6;
+export const BR = 5;
+export const BC = 5;
 
 // Distinct, legible player colours, assigned by join order.
 export const PLAYER_COLORS = [
