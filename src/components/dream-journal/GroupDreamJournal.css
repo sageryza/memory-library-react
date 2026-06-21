@@ -1,0 +1,226 @@
+/* GroupDreamJournal — scoped styles (all under .gdj-* to avoid global conflicts).
+   Minimal, neutral styling meant as a starting point; restyle to match the
+   app's design system when wiring into routing. */
+
+.gdj-root {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px 96px;
+  font-family: inherit;
+  color: #1a1a2e;
+}
+
+.gdj-state {
+  text-align: center;
+  padding: 64px 16px;
+  color: #6b7280;
+}
+
+.gdj-header {
+  margin-bottom: 16px;
+}
+
+.gdj-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.gdj-muted {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* ---- group selector ---- */
+.gdj-groups {
+  margin-bottom: 24px;
+}
+
+.gdj-group-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.gdj-group-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gdj-group-tab:hover {
+  border-color: #9ca3af;
+}
+
+.gdj-group-tab.is-active {
+  background: #1a1a2e;
+  border-color: #1a1a2e;
+  color: #fff;
+}
+
+.gdj-group-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.gdj-create {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- shared inputs / buttons ---- */
+.gdj-input,
+.gdj-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.gdj-textarea {
+  resize: vertical;
+}
+
+.gdj-btn {
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.gdj-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gdj-btn-primary {
+  background: #4338ca;
+  border-color: #4338ca;
+  color: #fff;
+}
+
+/* ---- compose ---- */
+.gdj-compose {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  background: #fafafa;
+}
+
+.gdj-compose form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gdj-emotions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gdj-chip {
+  padding: 4px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.gdj-chip.is-on {
+  background: #ede9fe;
+  border-color: #a78bfa;
+  color: #5b21b6;
+}
+
+.gdj-lucid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+/* ---- feed ---- */
+.gdj-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gdj-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+}
+
+.gdj-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gdj-author {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.gdj-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.gdj-card-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.gdj-card-body {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.gdj-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.gdj-tag {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.gdj-tag-emotion {
+  background: #fdf2f8;
+  color: #9d174d;
+}
