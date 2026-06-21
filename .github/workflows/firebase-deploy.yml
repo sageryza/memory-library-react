@@ -9,6 +9,13 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    # Reporting a GitHub "production" environment makes a deployment status show
+    # up directly on the merged PR (and in the repo's Environments tab), so it's
+    # obvious when a change has actually gone live.
+    environment:
+      name: production
+      url: https://membry-df528.web.app
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

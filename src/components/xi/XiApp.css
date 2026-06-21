@@ -97,7 +97,10 @@
 .xi-app .logo{display:flex;align-items:center}
 .xi-app .hg-x{width:22px;height:30px}
 .xi-app .logo-i{width:8px;height:30px;margin-left:-1px}
-.xi-app .botnav{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;max-width:560px;margin:0 auto;background:rgba(241,233,216,.97);backdrop-filter:blur(6px);border-top:1px solid var(--line)}
+.xi-app .botnav{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;max-width:560px;margin:0 auto;background:rgba(241,233,216,.97);backdrop-filter:blur(6px);border-top:1px solid var(--line);transition:transform .25s ease}
+/* Hide the bottom nav while writing (keyboard up) and when the board is in
+   immersive mode (toggled by tapping empty board space). */
+.xi-app.writing .botnav,.xi-app.nav-hidden .botnav{transform:translateY(110%)}
 .xi-app .botnav button{flex:1;background:none;border:none;font-family:inherit;color:var(--soft);padding:13px 4px;font-variant:small-caps;letter-spacing:.03em;font-size:.78rem;cursor:pointer;line-height:1.15}
 .xi-app .botnav button+button{border-left:1px solid var(--line)}
 .xi-app .botnav button.on{color:var(--ink)}
