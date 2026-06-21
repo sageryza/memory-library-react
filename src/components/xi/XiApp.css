@@ -101,6 +101,10 @@
 /* Hide the bottom nav while writing (keyboard up) and when the board is in
    immersive mode (toggled by tapping empty board space). */
 .xi-app.writing .botnav,.xi-app.nav-hidden .botnav{transform:translateY(110%)}
+/* Grabber handle to bring the nav back while the board is immersive. */
+.xi-app .navhandle{display:none}
+.xi-app.nav-hidden .navhandle{display:flex;align-items:flex-end;justify-content:center;position:fixed;left:0;right:0;bottom:0;height:26px;padding-bottom:6px;z-index:51;background:none;border:none;cursor:pointer}
+.xi-app .navhandle span{display:block;width:42px;height:5px;border-radius:3px;background:rgba(36,29,24,.28)}
 .xi-app .botnav button{flex:1;background:none;border:none;font-family:inherit;color:var(--soft);padding:13px 4px;font-variant:small-caps;letter-spacing:.03em;font-size:.78rem;cursor:pointer;line-height:1.15}
 .xi-app .botnav button+button{border-left:1px solid var(--line)}
 .xi-app .botnav button.on{color:var(--ink)}

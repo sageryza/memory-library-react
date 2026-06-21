@@ -119,8 +119,9 @@ export function initXi(root, ctx) {
   function showScreen(name) {
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
     $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library'); root.scrollTo(0, 0);
-    // Leaving the board exits immersive (hidden-nav) mode.
-    if (name !== 'board') root.classList.remove('nav-hidden');
+    // The board is immersive: hide the nav by default there (the grabber handle
+    // brings it back); every other screen always shows the nav.
+    root.classList.toggle('nav-hidden', name === 'board');
     // Remember the active screen so a re-init (e.g. after a memory save) returns
     // here instead of snapping back to Today.
     st.set('xi2_screen', name);
@@ -139,14 +140,12 @@ export function initXi(root, ctx) {
   $('#navLibrary').onclick = () => { showScreen('library'); renderLibrary(); };
 
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
-  // keyboard up), and let a tap on empty board space toggle it for immersion.
+  // keyboard up). On the board it's hidden by default; the grabber handle
+  // brings it back, and tapping a card tucks it away again.
   root.addEventListener('focusin', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.add('writing'); });
   root.addEventListener('focusout', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.remove('writing'); });
-  const boardScreen = $('#screen-board');
-  if (boardScreen) boardScreen.addEventListener('click', (e) => {
-    if (e.target.closest('.bcell, button, textarea')) return; // ignore cards/controls
-    root.classList.toggle('nav-hidden');
-  });
+  const navHandle = $('#navHandle');
+  if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');
   const openArchiveBtn = $('#openArchive'); if (openArchiveBtn) openArchiveBtn.onclick = () => { if (onOpenLibrary) onOpenLibrary(); };
 
   /* ===== BOARD MODE ===== */
@@ -191,6 +190,7 @@ export function initXi(root, ctx) {
     bPanel();
   }
   function bTap(r, c) {
+    root.classList.add('nav-hidden'); // tapping a card returns to immersive play
     const cell = [r, c];
     if (bsel.length === 1 && !(bsel[0][0] === r && bsel[0][1] === c) && bAdj(bsel[0], cell)) { bsel = [bsel[0], cell]; }
     else if (bsel.length === 1 && bsel[0][0] === r && bsel[0][1] === c) { bsel = []; }
