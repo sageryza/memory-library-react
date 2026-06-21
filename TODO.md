@@ -69,6 +69,16 @@
 
 ## 🌙 GROUP DREAM JOURNAL (2026-06-21)
 
+**STATUS UPDATE (2026-06-21): shipped & live.** Rules, data layer, and feed UI are merged to
+`main` (PRs #27/#29/#31) and auto-deployed by `.github/workflows/firebase-deploy.yml`, which now
+also deploys `firestore:indexes` (PR #32) so the group membership index goes live.
+- Live: `membry-df528.web.app/dream-journal` (real feature; sign in to use)
+- Live: `membry-df528.web.app/dream-journal-preview` (mock data, no login — for design review)
+- CI deploy runs are green, which confirms the Firestore rules compile.
+- **Remaining gap:** join-via-invite (membership is owner-only — groups can't grow yet). Needs a
+  constrained self-add rule or a Cloud Function. This is the recommended next piece.
+
+
 **Decision made:** Build on **Firebase now**; add **Supabase later** as an *additive* analytics
 layer (not a replacement) only when a concrete cross-user feature justifies it.
 
@@ -89,7 +99,7 @@ alongside Firebase, fed by a write-through. This same engine would later serve c
 now — consistent tags/keywords, real timestamps, and persist extracted keywords onto each
 memory/dream doc rather than recomputing — so backfilling into Postgres later is painless.
 
-### Group Dream Journal - Firestore Schema & Security Rules **[COMPLETE - NEEDS DEPLOY/TEST]**
+### Group Dream Journal - Firestore Schema & Security Rules **[DEPLOYED + LIVE]**
 **Goal:** Foundation for the group journal. Everything else sits on this.
 
 **Done (branch `claude/dream-journal-db-choice-4mepgk`):**
@@ -134,7 +144,7 @@ Store dreams separately from memories (different collection + access model), but
 
 ---
 
-### Group Dream Journal - Shared Feed UI **[SCAFFOLD DONE - NEEDS WIRING + RESTYLE]**
+### Group Dream Journal - Shared Feed UI **[WIRED + RESTYLED + LIVE]**
 **Goal:** Post a dream to a group and see the group's entries live.
 
 **Done (branch `claude/dream-journal-db-choice-4mepgk`):**
