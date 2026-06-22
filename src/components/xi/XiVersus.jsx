@@ -277,6 +277,7 @@ export default function XiVersus() {
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi/versus')} title="All your games">XI · Versus</button>
         <div className="xiv-top-right">
+          <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
           {otherGames.length > 0 && (
             <select className="xiv-switch" value={gameId}
               onChange={(e) => { const v = e.target.value; navigate(v === 'new' ? '/xi/versus' : '/xi/versus/' + v); }}>
