@@ -4,9 +4,16 @@
 // archive handles backups). Injected as raw HTML so the hand-tuned SVGs
 // (animated XI logo, nav icons) stay pixel-identical and the imperative engine
 // can bind to the same node ids it expects.
-export const XI_MARKUP = `<div class="screen wrap" id="screen-today">
+// The XI wordmark (animated sand-timer "X" + "I"). Lives in a persistent header
+// above the screens so it shows on EVERY XI screen, not just Today. Kept as a
+// single instance — its <clipPath> ids (ht/hb) are global, so duplicating it
+// would make the sand animation clash between copies.
+const XI_LOGO = `<div class="logo"><svg class="hg hg-x" viewBox="0 0 48 66" aria-hidden="true"><g fill="#241d18"><clipPath id="ht"><polygon points="9,9 39,9 24,33"/></clipPath><clipPath id="hb"><polygon points="24,33 9,57 39,57"/></clipPath><rect clip-path="url(#ht)" x="9" width="30" y="9" height="24"><animate attributeName="y" values="9;33" dur="4s" repeatCount="indefinite"/><animate attributeName="height" values="24;0" dur="4s" repeatCount="indefinite"/></rect><rect clip-path="url(#hb)" x="9" width="30" y="57" height="0"><animate attributeName="y" values="57;33" dur="4s" repeatCount="indefinite"/><animate attributeName="height" values="0;24" dur="4s" repeatCount="indefinite"/></rect><line x1="24" y1="33" x2="24" y2="52" stroke="#241d18" stroke-width="1.3"><animate attributeName="opacity" values="0;1;1;0" dur="4s" repeatCount="indefinite"/></line></g><g fill="none" stroke="#241d18" stroke-width="2.4" stroke-linejoin="round"><line x1="7" y1="8" x2="41" y2="8"/><line x1="7" y1="58" x2="41" y2="58"/><path d="M9,9 L39,9 L24,33 L39,57 L9,57 L24,33 Z"/></g></svg><svg class="logo-i" viewBox="0 0 16 66" aria-hidden="true"><g fill="none" stroke="#241d18" stroke-width="2.4"><line x1="3" y1="8" x2="13" y2="8"/><line x1="3" y1="58" x2="13" y2="58"/><line x1="8" y1="8" x2="8" y2="58"/></g></svg></div>`;
+
+export const XI_MARKUP = `<header class="xi-brand">${XI_LOGO}</header>
+<div class="screen wrap" id="screen-today">
   <header class="topbar">
-    <div class="tb-side"><div class="logo"><svg class="hg hg-x" viewBox="0 0 48 66" aria-hidden="true"><g fill="#241d18"><clipPath id="ht"><polygon points="9,9 39,9 24,33"/></clipPath><clipPath id="hb"><polygon points="24,33 9,57 39,57"/></clipPath><rect clip-path="url(#ht)" x="9" width="30" y="9" height="24"><animate attributeName="y" values="9;33" dur="4s" repeatCount="indefinite"/><animate attributeName="height" values="24;0" dur="4s" repeatCount="indefinite"/></rect><rect clip-path="url(#hb)" x="9" width="30" y="57" height="0"><animate attributeName="y" values="57;33" dur="4s" repeatCount="indefinite"/><animate attributeName="height" values="0;24" dur="4s" repeatCount="indefinite"/></rect><line x1="24" y1="33" x2="24" y2="52" stroke="#241d18" stroke-width="1.3"><animate attributeName="opacity" values="0;1;1;0" dur="4s" repeatCount="indefinite"/></line></g><g fill="none" stroke="#241d18" stroke-width="2.4" stroke-linejoin="round"><line x1="7" y1="8" x2="41" y2="8"/><line x1="7" y1="58" x2="41" y2="58"/><path d="M9,9 L39,9 L24,33 L39,57 L9,57 L24,33 Z"/></g></svg><svg class="logo-i" viewBox="0 0 16 66" aria-hidden="true"><g fill="none" stroke="#241d18" stroke-width="2.4"><line x1="3" y1="8" x2="13" y2="8"/><line x1="3" y1="58" x2="13" y2="58"/><line x1="8" y1="8" x2="8" y2="58"/></g></svg></div></div>
+    <div class="tb-side"></div>
     <div class="center-wrap" id="center"></div>
     <div class="tb-side"></div>
   </header>
