@@ -10,9 +10,12 @@
 // already in `notified`, so no further sends and no write — no loop.
 
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const { getStorage } = require('firebase-admin/storage');
+const crypto = require('node:crypto');
 
 initializeApp();
 const db = getFirestore();
@@ -127,3 +130,175 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
 
   await event.data.after.ref.update({ notified });
 });
+
+// ===========================================================================
+// Dream illustration — draw a picture for a dream entry via Replicate.
+//
+// Reuses the same trained-LoRA styles as the ImageForge app. v1 ships ONE
+// style, "Book Illustrations" (Replicate model sageryza/victorianstyle,
+// trigger word "vict"), and is words-only: the dream's text becomes the prompt.
+//
+// The Replicate API token lives in a locked-down Firestore doc
+// (config/replicate: { apiToken }) so it can be set from the Firebase console
+// — same pattern as config/twilio. Client rules don't match config/**, so it's
+// admin-only by default. Set it once and image generation goes live.
+// ===========================================================================
+
+const REPLICATE_MODEL = 'sageryza/victorianstyle'; // "Book Illustrations"
+const REPLICATE_TRIGGER = 'vict';
+const STORAGE_BUCKET = 'membry-df528.firebasestorage.app';
+
+async function loadReplicateToken() {
+  try {
+    const snap = await db.doc('config/replicate').get();
+    const d = snap.exists ? snap.data() : null;
+    return d && d.apiToken ? String(d.apiToken).trim() : null;
+  } catch { return null; }
+}
+
+// Turn a dream entry into a Replicate prompt. The LoRA trigger word must be
+// present in the prompt for the trained style to apply.
+function buildDreamPrompt(entry) {
+  const parts = [];
+  if (entry.title) parts.push(String(entry.title).trim());
+  if (entry.content) parts.push(String(entry.content).trim());
+  const body = parts.join('. ').replace(/\s+/g, ' ').trim().slice(0, 1500);
+  return `${REPLICATE_TRIGGER}, ${body}`;
+}
+
+async function replicateFetch(path, token, init = {}) {
+  const res = await fetch(`https://api.replicate.com${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Replicate ${path} ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+// Download the finished image and store it permanently in Firebase Storage,
+// returning a stable Firebase download URL (works regardless of bucket access
+// settings, no makePublic/signing needed). Falls back to the temporary
+// Replicate URL if the upload fails for any reason.
+async function persistImage(imageUrl, groupId, entryId) {
+  try {
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) throw new Error(`download ${resp.status}`);
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    const bucket = getStorage().bucket(STORAGE_BUCKET);
+    const file = bucket.file(`dreams/${groupId}/${entryId}.webp`);
+    const downloadToken = crypto.randomUUID();
+    await file.save(buffer, {
+      resumable: false,
+      contentType: 'image/webp',
+      metadata: {
+        cacheControl: 'public, max-age=31536000',
+        metadata: { firebaseStorageDownloadTokens: downloadToken },
+      },
+    });
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
+      + `${encodeURIComponent(file.name)}?alt=media&token=${downloadToken}`;
+  } catch (e) {
+    console.error('persistImage failed, falling back to temporary URL', e);
+    return imageUrl;
+  }
+}
+
+exports.illustrateDream = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in to illustrate a dream.');
+
+    const groupId = String(request.data?.groupId || '');
+    const entryId = String(request.data?.entryId || '');
+    if (!groupId || !entryId) {
+      throw new HttpsError('invalid-argument', 'groupId and entryId are required.');
+    }
+
+    // Membership check — only members of the group may illustrate its dreams,
+    // so a stranger can't burn Replicate credits on someone else's journal.
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    const memberIds = groupSnap.exists ? (groupSnap.data().memberIds || []) : [];
+    if (!memberIds.includes(uid)) {
+      throw new HttpsError('permission-denied', 'You are not a member of this group.');
+    }
+
+    const entryRef = db.doc(`groups/${groupId}/entries/${entryId}`);
+    const entrySnap = await entryRef.get();
+    if (!entrySnap.exists) throw new HttpsError('not-found', 'Dream not found.');
+    const entry = entrySnap.data();
+
+    const token = await loadReplicateToken();
+    if (!token) {
+      throw new HttpsError('failed-precondition',
+        'Image generation is not configured yet (missing config/replicate).');
+    }
+
+    const prompt = buildDreamPrompt(entry);
+
+    // Resolve the model's current version, then create the prediction with the
+    // same flux-dev LoRA settings ImageForge uses.
+    const model = await replicateFetch(`/v1/models/${REPLICATE_MODEL}`, token);
+    const version = model.latest_version?.id;
+    if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
+
+    let prediction = await replicateFetch('/v1/predictions', token, {
+      method: 'POST',
+      body: JSON.stringify({
+        version,
+        input: {
+          prompt,
+          model: 'dev',
+          aspect_ratio: '1:1',
+          num_outputs: 1,
+          num_inference_steps: 28,
+          guidance_scale: 3,
+          lora_scale: 1,
+          output_format: 'webp',
+          output_quality: 80,
+        },
+      }),
+    });
+
+    // Poll until finished (~every 1.5s), with a hard deadline under the
+    // function timeout.
+    const deadline = Date.now() + 110000;
+    while (prediction.status === 'starting' || prediction.status === 'processing') {
+      if (Date.now() > deadline) {
+        throw new HttpsError('deadline-exceeded', 'The illustration took too long.');
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+      prediction = await replicateFetch(`/v1/predictions/${prediction.id}`, token);
+    }
+
+    if (prediction.status !== 'succeeded') {
+      throw new HttpsError('internal',
+        `Illustration ${prediction.status}: ${prediction.error || 'unknown error'}`);
+    }
+
+    const out = prediction.output;
+    const rawUrl = Array.isArray(out) ? out[0] : out;
+    if (!rawUrl) throw new HttpsError('internal', 'No image was returned.');
+
+    const url = await persistImage(rawUrl, groupId, entryId);
+
+    const illustration = {
+      url,
+      prompt,
+      style: 'Book Illustrations',
+      model: REPLICATE_MODEL,
+      source: 'replicate',
+      createdAt: new Date().toISOString(),
+    };
+    await entryRef.update({ illustration, updatedAt: FieldValue.serverTimestamp() });
+
+    return { url };
+  }
+);

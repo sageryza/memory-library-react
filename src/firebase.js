@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -21,6 +22,9 @@ export const auth = getAuth(app);
 
 // Initialize Firestore and get a reference to the service
 export const db = getFirestore(app);
+
+// Callable Cloud Functions (us-central1, matching the deployed functions).
+export const functions = getFunctions(app);
 
 // Enable offline persistence with multi-tab support
 // All tabs share the same IndexedDB cache and can queue writes when offline
