@@ -6,6 +6,7 @@ import {
   useVersusGame, createVersusGame, joinVersusGame,
   useHand, ensureHand, placeCard, writeStory, useStories,
   listVersusGames, forgetVersusGame, undoLastMove,
+  setLastVersusGame, clearLastVersusGame,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
 import { legalCells } from '../../xi/versusModel';
@@ -69,6 +70,13 @@ export default function XiVersus() {
 
   // Other games this device is in (for resume / switcher), excluding the open one.
   const otherGames = listVersusGames().filter((g) => g.id !== gameId);
+
+  // Remember the game you're viewing so the Versus nav icon can auto-resume it;
+  // forget it if the link turns out to be dead so we don't bounce you to a 404.
+  useEffect(() => {
+    if (gameId && game) setLastVersusGame(gameId);
+    else if (gameId && error === 'not-found') clearLastVersusGame();
+  }, [gameId, game, error]);
 
   // Sign in anonymously (guest), stashing the typed name for the join to use.
   const playAsGuest = async (after) => {
@@ -267,7 +275,7 @@ export default function XiVersus() {
   return (
     <div className="xiv">
       <div className="xiv-top">
-        <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
+        <button className="xiv-logo-btn" onClick={() => navigate('/xi/versus')} title="All your games">XI · Versus</button>
         <div className="xiv-top-right">
           <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
           {otherGames.length > 0 && (
