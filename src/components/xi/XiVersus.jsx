@@ -277,7 +277,6 @@ export default function XiVersus() {
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi/versus')} title="All your games">XI · Versus</button>
         <div className="xiv-top-right">
-          <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
           {otherGames.length > 0 && (
             <select className="xiv-switch" value={gameId}
               onChange={(e) => { const v = e.target.value; navigate(v === 'new' ? '/xi/versus' : '/xi/versus/' + v); }}>
@@ -290,13 +289,16 @@ export default function XiVersus() {
         </div>
       </div>
 
-      {canUndo && (
-        <button className="xiv-undo" disabled={working} onClick={doUndo} aria-label="Undo your last placement" title="Undo your last placement">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" />
-          </svg>
-        </button>
-      )}
+      <div className="xiv-subbar">
+        {canUndo ? (
+          <button className="xiv-undo" disabled={working} onClick={doUndo} aria-label="Undo your last placement" title="Undo your last placement">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+            </svg>
+          </button>
+        ) : <span />}
+        <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
+      </div>
 
       {!user && (
         <div className="xiv-join">
@@ -332,7 +334,6 @@ export default function XiVersus() {
         placed={game.placed}
         tokensByCard={tokensByCard}
         selectedCells={storyCells}
-        legalCells={legalList}
         onCellClick={handleCellClick}
       />
 
