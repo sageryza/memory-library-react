@@ -175,6 +175,9 @@
 .xi-app .deckbox{position:relative;width:14px;height:14px;border:1.5px solid var(--soft);border-radius:3px;background:#fff;flex:none}
 .xi-app .decktog.on .deckbox{border-color:var(--ink)}
 .xi-app .deckchk{position:absolute;top:-8px;right:-8px;color:#c0392b;font-size:16px;line-height:1;font-weight:700;text-shadow:0 1px 1px rgba(255,255,255,.95)}
+.xi-app .deckchk.heart{font-size:13px;top:-7px}
+.xi-app .decktog.loved-tog.on{border-color:#c0392b;color:#c0392b}
+.xi-app .decktog.loved-tog.on .deckbox{border-color:#c0392b}
 .xi-app .decknick{white-space:nowrap}
 /* Per-deck sections in the curate grid */
 .xi-app .curdeck{margin:0 0 22px}

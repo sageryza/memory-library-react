@@ -31,9 +31,9 @@ const TOKEN = '#800020';
 export default function BoardOfDay({ memories = [], addMemory }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { excluded, disabledDecks } = useDeckFilter(user?.uid);
-  const allowedEv = useMemo(() => allowedIndices(boardDeck.events, 'ev', excluded, disabledDecks), [excluded, disabledDecks]);
-  const allowedTw = useMemo(() => allowedIndices(boardDeck.twists, 'tw', excluded, disabledDecks), [excluded, disabledDecks]);
+  const { excluded, disabledDecks, loved, lovedOn } = useDeckFilter(user?.uid);
+  const allowedEv = useMemo(() => allowedIndices(boardDeck.events, 'ev', excluded, disabledDecks, loved, lovedOn), [excluded, disabledDecks, loved, lovedOn]);
+  const allowedTw = useMemo(() => allowedIndices(boardDeck.twists, 'tw', excluded, disabledDecks, loved, lovedOn), [excluded, disabledDecks, loved, lovedOn]);
   const [params] = useSearchParams();
   const useRandom = params.get('gen') === 'random'; // ?gen=random → old baseline, for comparison
   const today = dayNumber();

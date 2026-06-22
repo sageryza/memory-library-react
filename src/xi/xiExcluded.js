@@ -14,21 +14,31 @@ function readSet(userId, key) {
   } catch { return new Set(); }
 }
 
+function readBool(userId, key) {
+  try { return JSON.parse(localStorage.getItem(`xi_${userId || 'anon'}_${key}`) || 'false') === true; }
+  catch { return false; }
+}
+
 export function readDeckFilter(userId) {
   return {
     excluded: readSet(userId, 'xi2_excluded'),
     disabledDecks: readSet(userId, 'xi2_disabledDecks'),
+    loved: readSet(userId, 'xi2_loved'),
+    lovedOn: readBool(userId, 'xi2_lovedOn'),
   };
 }
 
 // Indices of `cards` (boardDeck.events or .twists) still in play for `role`
-// ('ev' | 'tw') — neither removed (✕) nor in a disabled deck.
-export function allowedIndices(cards, role, excluded, disabledDecks) {
+// ('ev' | 'tw'): not removed (✕), and either in an enabled deck OR loved while
+// the loved deck is on.
+export function allowedIndices(cards, role, excluded, disabledDecks, loved, lovedOn) {
   const out = [];
   for (let i = 0; i < cards.length; i++) {
-    if (excluded.has(`${role}:${i}`)) continue;
-    if (disabledDecks.has(cards[i].deck)) continue;
-    out.push(i);
+    const key = `${role}:${i}`;
+    if (excluded.has(key)) continue;
+    const sourceOn = !disabledDecks.has(cards[i].deck);
+    const lovedInPlay = lovedOn && loved && loved.has(key);
+    if (sourceOn || lovedInPlay) out.push(i);
   }
   return out;
 }
@@ -48,6 +58,8 @@ export function useDeckFilter(userId) {
         setState({
           excluded: new Set(Array.isArray(d.excluded) ? d.excluded : []),
           disabledDecks: new Set(Array.isArray(d.disabledDecks) ? d.disabledDecks : []),
+          loved: new Set(Array.isArray(d.loved) ? d.loved : []),
+          lovedOn: d.lovedOn === true,
         });
       })
       .catch(() => {});
