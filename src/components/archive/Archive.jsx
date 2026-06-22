@@ -60,6 +60,20 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
   const masonryContainerRef = useRef(null);
   const masonryInstanceRef = useRef(null);
 
+  // On phones the JS masonry yields a single column anyway, but still absolutely
+  // positions every card and re-lays-out on each resize (the mobile address bar
+  // showing/hiding fires it) — so cards visibly jump around. Below this width we
+  // skip masonry entirely and let CSS stack the cards in a stable column.
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Libraries hook
   const {
     libraries,
@@ -388,7 +402,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
 
   // Recalculate masonry when sidebar toggles or container resizes
   useEffect(() => {
-    if (!masonryContainerRef.current || isSimplified) return;
+    if (!masonryContainerRef.current || isSimplified || isMobile) return;
 
     const initMasonry = () => {
       if (!masonryContainerRef.current) return;
@@ -434,13 +448,13 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
     };
-  }, [isSimplified, calculateColumnWidth, sidebarCollapsed]);
+  }, [isSimplified, isMobile, calculateColumnWidth, sidebarCollapsed]);
 
   // Update masonry when items or view mode changes
   useEffect(() => {
-    // Only initialize for non-simplified view
-    if (isSimplified || !masonryContainerRef.current) {
-      // Destroy masonry when switching to simplified view
+    // Only initialize for non-simplified, non-mobile view
+    if (isSimplified || isMobile || !masonryContainerRef.current) {
+      // Destroy masonry when switching to simplified/mobile (stable CSS column)
       if (masonryInstanceRef.current) {
         masonryInstanceRef.current.destroy();
         masonryInstanceRef.current = null;
@@ -482,7 +496,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [filteredMemories, isSimplified, calculateColumnWidth]);
+  }, [filteredMemories, isSimplified, isMobile, calculateColumnWidth]);
 
   const handleEditFromView = (memory) => {
     setViewingMemory(null);
@@ -982,7 +996,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
           ) : (
             <div
               ref={masonryContainerRef}
-              className={`memories-container masonry-grid ${selectMode ? 'select-mode' : ''}`}
+              className={`memories-container masonry-grid ${isMobile ? 'no-masonry' : ''} ${selectMode ? 'select-mode' : ''}`}
             >
               <div className="masonry-sizer"></div>
               {filteredMemories.map(memory => (

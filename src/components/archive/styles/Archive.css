@@ -350,6 +350,25 @@ textarea {
     margin-bottom: 15px; /* Vertical spacing - matches gutter */
 }
 
+/* Mobile: masonry off — a stable single column (no JS positioning, so cards
+   don't jump when the address bar shows/hides). Overrides any inline width/
+   position left over from masonry when resizing down from desktop. */
+.memories-container.masonry-grid.no-masonry {
+    position: static;
+    padding: 16px;
+}
+.memories-container.masonry-grid.no-masonry .masonry-sizer {
+    display: none;
+}
+.memories-container.masonry-grid.no-masonry .memory-item {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 560px;
+    margin: 0 auto 15px !important;
+}
+
 
 /* Checkbox styling moved to MemoryCard.css to avoid duplication */
 
