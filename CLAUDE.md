@@ -11,3 +11,7 @@
   and **keep building** in the meantime — don't stop and wait unless the decision
   affects everything. Prefer plain prose for those questions over the in-app
   question picker.
+- While I work, the user may be testing and dropping feedback as they find it.
+  Treat that feedback as a **running queue to fold in later**, not as interrupts
+  to drop everything for — UNLESS it directly contradicts what's being built, or
+  is explicitly about prioritization. Keep a visible list of the open items.

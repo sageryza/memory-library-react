@@ -25,6 +25,7 @@ import {
 import { db } from '../firebase';
 import useLocalStorage from './useLocalStorage';
 import { ensureStringId } from '../utils/generateId';
+import { enrichXiMemory } from '../xi/xiMemory';
 
 // CRITICAL: authLoading parameter prevents data source confusion
 // Without this, app shows localStorage memories briefly before Firebase loads
@@ -71,10 +72,10 @@ export const useMemories = (userId, authLoading = false) => {
           const { id: dataId, ...restData } = data;
 
           // ENSURE ID IS ALWAYS A STRING
-          return {
+          return enrichXiMemory({
             id: ensureStringId(doc.id),  // Always use the Firestore document ID as a string
             ...restData  // Spread the rest of the data (without the id field)
-          };
+          });
         });
 
         // Separate active and deleted memories
