@@ -19,6 +19,36 @@ const db = getFirestore();
 
 const APP_URL = 'https://membry-df528.web.app';
 
+// Twilio credentials live in a locked-down Firestore doc (config/twilio:
+// { accountSid, authToken, from }) so they can be set from the Firebase console
+// — no CLI/Secret Manager needed. Client rules don't match config/**, so it's
+// admin-only by default. Returns false if SMS isn't configured.
+async function loadTwilio() {
+  try {
+    const snap = await db.doc('config/twilio').get();
+    const d = snap.exists ? snap.data() : null;
+    return (d && d.accountSid && d.authToken && d.from) ? d : false;
+  } catch { return false; }
+}
+
+async function sendSms(cfg, to, body) {
+  if (!cfg) return;
+  let num = String(to).trim();
+  if (!num.startsWith('+')) {
+    const digits = num.replace(/\D/g, '');
+    num = '+' + (digits.length === 10 ? '1' + digits : digits); // assume US if 10 digits
+  }
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${cfg.accountSid}/Messages.json`;
+  const auth = Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64');
+  const form = new URLSearchParams({ To: num, From: cfg.from, Body: body });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form,
+  });
+  if (!res.ok) console.error('Twilio SMS failed', res.status, await res.text().catch(() => ''));
+}
+
 exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data();
@@ -45,6 +75,7 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
 
   const gameId = event.params.gameId;
   const link = `${APP_URL}/xi/versus/${gameId}`;
+  const twilio = await loadTwilio();
 
   for (const p of toNotify) {
     try {
@@ -81,6 +112,11 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
                 + `<p><a href="${link}">Open the board →</a></p>`,
           },
         });
+      }
+
+      // Text via Twilio (if both the player and the project are configured).
+      if (u.notifSmsOn === true && u.notifPhone) {
+        await sendSms(twilio, u.notifPhone, `XI · Versus — it’s your move: ${link}`);
       }
 
       notified.push(p.uid);

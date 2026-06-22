@@ -9,9 +9,11 @@ const VAPID = import.meta.env.VITE_FCM_VAPID_KEY || '';
 // Opt this user in to "it's your turn" alerts: a web push (if the browser
 // supports it and the user grants permission) and email (signed-in users with
 // an address). Preferences live on users/{uid} for the Cloud Function to read.
-export async function enableTurnNotifications(user) {
+export async function enableTurnNotifications(user, opts = {}) {
   if (!user?.uid) throw new Error('Sign in to get turn notifications.');
+  const phone = (opts.phone || '').trim();
   const prefs = { notifOptIn: true, notifEmail: user.email || '', notifEmailOn: !!user.email };
+  if (phone) { prefs.notifPhone = phone; prefs.notifSmsOn = true; }
   let pushOn = false;
 
   try {
@@ -29,7 +31,7 @@ export async function enableTurnNotifications(user) {
   }
 
   await setDoc(doc(db, 'users', user.uid), prefs, { merge: true });
-  return { pushOn, emailOn: !!user.email };
+  return { pushOn, emailOn: !!user.email, smsOn: !!phone };
 }
 
 export async function disableTurnNotifications(user) {

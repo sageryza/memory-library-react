@@ -258,19 +258,20 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
-  // Opt in to "it's your turn" alerts (web push + email).
+  // Opt in to "it's your turn" alerts (text + web push + email).
   const turnOnNotifs = async () => {
     if (!user) { alert('Join or sign in first to get turn alerts.'); return; }
     if (notifBusy || notifOn) return;
+    let phone = '';
+    try { phone = window.prompt('Mobile number for a text when it’s your turn (optional — leave blank to skip):', '') || ''; } catch { phone = ''; }
     setNotifBusy(true);
     try {
-      const r = await enableTurnNotifications(user);
+      const r = await enableTurnNotifications(user, { phone });
       setNotifOn(true);
-      alert(r.pushOn
-        ? 'Done — you’ll get a notification when it’s your turn.'
-        : (r.emailOn
-          ? 'Done — you’ll get an email when it’s your turn. (Add the app to your Home Screen for push too.)'
-          : 'Turn alerts are on. Sign in (or allow notifications) to actually receive them.'));
+      const chans = [r.smsOn && 'text', r.pushOn && 'push', r.emailOn && 'email'].filter(Boolean);
+      alert(chans.length
+        ? `Done — you’ll get a ${chans.join(' + ')} when it’s your turn.`
+        : 'Turn alerts are on. Add a number, allow notifications, or sign in to actually receive them.');
     } catch (e) { alert(e.message || 'Could not enable alerts.'); }
     finally { setNotifBusy(false); }
   };
