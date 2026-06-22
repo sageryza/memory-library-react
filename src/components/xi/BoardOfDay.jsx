@@ -6,6 +6,16 @@ import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/x
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import KeyboardSheet from './KeyboardSheet';
+import XiInfo from './XiInfo';
+
+const BOARD_HELP = (
+  <>
+    <p>Each day everyone gets the <b>same</b> board — a little crossword of memory cards.</p>
+    <p>Tap <b>two touching cards</b> to write a memory that's both of them (“times i…”). Every neighbouring pair makes a prompt.</p>
+    <p>You can write as many memories on a pairing as you like — they're saved to your library.</p>
+    <p>Use the <b>‹ ›</b> arrows up top to revisit past days' boards.</p>
+  </>
+);
 import './XiVersus.css';
 import './BoardOfDay.css';
 
@@ -92,10 +102,13 @@ export default function BoardOfDay({ memories = [], addMemory }) {
     <div className="xiv">
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Board of the Day</button>
-        <div className="xiv-daynav">
-          <button onClick={() => goDay(-1)} aria-label="Previous day">‹</button>
-          <span className="xiv-dayname">{dayLabel(viewDay, today)}</span>
-          <button disabled={viewDay >= today} onClick={() => goDay(1)} aria-label="Next day">›</button>
+        <div className="xiv-top-right">
+          <XiInfo title="How to play Board of the Day">{BOARD_HELP}</XiInfo>
+          <div className="xiv-daynav">
+            <button onClick={() => goDay(-1)} aria-label="Previous day">‹</button>
+            <span className="xiv-dayname">{dayLabel(viewDay, today)}</span>
+            <button disabled={viewDay >= today} onClick={() => goDay(1)} aria-label="Next day">›</button>
+          </div>
         </div>
       </div>
 

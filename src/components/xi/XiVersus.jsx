@@ -13,7 +13,19 @@ import { pairKey, timesSentence } from '../../xi/xiMemory';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import KeyboardSheet from './KeyboardSheet';
+import XiInfo from './XiInfo';
 import './XiVersus.css';
+
+const VERSUS_HELP = (
+  <>
+    <p>Build a shared memory board with friends — one card and one story at a time.</p>
+    <p><b>Your move:</b> place a card from your hand onto an empty square of its colour, next to a card already on the board. Then <b>tell its story</b> — tap the touching card it pairs with and write a memory that's both of them.</p>
+    <p>You can also just <b>write a story</b> on any two touching cards already on the board, without placing.</p>
+    <p><b>Cards:</b> cream squares hold events (“times i…”), white squares hold twists (“…at the worst moment”). Every touching pair makes a prompt.</p>
+    <p><b>Rounds:</b> everyone takes one move per round — you can't go again until the others have gone.</p>
+    <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Tap <b>Share</b> to invite someone.</p>
+  </>
+);
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
 const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
@@ -98,7 +110,10 @@ export default function XiVersus() {
   if (!gameId) {
     return (
       <div className="xiv">
-        <div className="xiv-top"><span className="xiv-logo">XI · Versus</span></div>
+        <div className="xiv-top">
+          <span className="xiv-logo">XI · Versus</span>
+          <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
+        </div>
         <div className="xiv-center">
           <p className="xiv-lead">Build a memory board together — one card, one story at a time.</p>
           {otherGames.length > 0 && (
@@ -232,6 +247,17 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
+  // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
+  // copying the link if the device has no share support.
+  const shareInvite = async () => {
+    const data = { title: 'XI · Versus', text: 'Build a memory board with me in XI:', url: link };
+    try {
+      if (navigator.share) { await navigator.share(data); setCopied(true); setTimeout(() => setCopied(false), 1500); return; }
+    } catch { return; /* user cancelled the share sheet */ }
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    catch { window.prompt('Copy this invite link:', link); }
+  };
+
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
   const handleCellClick = (r, c, cell) => {
     if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
@@ -243,6 +269,7 @@ export default function XiVersus() {
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Versus</button>
         <div className="xiv-top-right">
+          <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
           {otherGames.length > 0 && (
             <select className="xiv-switch" value={gameId}
               onChange={(e) => { const v = e.target.value; navigate(v === 'new' ? '/xi/versus' : '/xi/versus/' + v); }}>
@@ -251,10 +278,7 @@ export default function XiVersus() {
               <option value="new">＋ New game</option>
             </select>
           )}
-          <button className="xiv-link" onClick={async () => {
-            try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
-            catch { window.prompt('Copy this invite link:', link); }
-          }}>{copied ? 'Link copied ✓' : 'Invite link'}</button>
+          <button className="xiv-link" onClick={shareInvite}>{copied ? 'Shared ✓' : 'Share'}</button>
         </div>
       </div>
 
