@@ -44,6 +44,15 @@ export function initXi(root, ctx) {
   function topPair() { return [{ d: 'ev', i: nextI('ev', poolLen('ev') - 1) }, { d: 'tw', i: prevI('tw', 0) }]; }
   // Step a slot in its travel direction: events forward, twists backward.
   function stepI(d, i) { return d === 'ev' ? nextI(d, i) : prevI(d, i); }
+  // If a currently-shown card has just been removed in Curate, swap it for the
+  // next kept card so it leaves the deck you're actually holding. Returns true
+  // if anything changed.
+  function sanitizeShown() {
+    if (excluded.size >= poolLen('ev')) return false; // nothing left to swap to
+    let changed = false;
+    S.shown = S.shown.map((r) => { if (excluded.has(r.i)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
+    return changed;
+  }
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
   async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a : []); }
   async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
@@ -52,6 +61,7 @@ export function initXi(root, ctx) {
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
+    if (sanitizeShown()) await savePair();
   }
 
   /* top center: New cards (centered) + Undo (absolute left) */
@@ -120,7 +130,7 @@ export function initXi(root, ctx) {
       return `<button class="curcard${off ? ' off' : ''}" data-i="${i}"><img loading="lazy" decoding="async" src="${c.img}" alt=""><span class="curmark">${off ? '＋' : '✕'}</span></button>`;
     }).join('');
     $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${inCount} of ${cards.length} cards in your deck</span><span class="curhint">tap ✕ to remove · ＋ to add back</span></div><div class="curgrid">${cells}</div>`;
-    root.querySelectorAll('#curateSlot .curcard').forEach((b) => { b.onclick = async () => { const i = +b.dataset.i; if (excluded.has(i)) excluded.delete(i); else excluded.add(i); await saveExcluded(); renderCurate(); }; });
+    root.querySelectorAll('#curateSlot .curcard').forEach((b) => { b.onclick = async () => { const i = +b.dataset.i; if (excluded.has(i)) excluded.delete(i); else excluded.add(i); await saveExcluded(); if (sanitizeShown()) await savePair(); renderCurate(); }; });
   }
   /* past cards: recent daily pairs */
   let gsel = [];
