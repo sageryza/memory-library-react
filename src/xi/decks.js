@@ -5,8 +5,7 @@
 // so we derive a stable id by slugifying the caption. Captions are unique and
 // authored, so the slug is stable across builds and safe to persist on memories.
 
-import rawDaily from '../data/xi/deckDaily.json';
-import rawBoard from '../data/xi/deckBoard.json';
+import rawTrial from '../data/xi/deckTrial.json';
 
 // Slugify a caption into a stable id, e.g. "INTERRUPTED A GOOD TIME" -> "interrupted-a-good-time"
 export function slugifyCaption(cap) {
@@ -19,8 +18,12 @@ export function slugifyCaption(cap) {
 
 function normalizeCard(card, kind, deck) {
   const cap = card.cap || '';
+  // Honor an explicit id when a card has no caption (e.g. the illustrated trial
+  // deck); namespace it by deck+kind so the same source card used as both an
+  // event and a twist gets distinct ids. Otherwise slugify the cap.
+  const id = card.id ? `${deck}-${kind}-${card.id}` : `${deck}-${kind}-${slugifyCaption(cap)}`;
   return {
-    id: `${deck}-${kind}-${slugifyCaption(cap)}`,
+    id,
     cap,
     img: card.img || null,
     kind, // 'event' | 'twist'
@@ -28,15 +31,20 @@ function normalizeCard(card, kind, deck) {
   };
 }
 
-function buildDeck(raw, deckName) {
+// TRIAL DECK: one set of illustrated cards, fully interchangeable — every card
+// can serve as an event OR a twist, in both the daily and board pools, so the
+// new art can be played on its own. (The authored deckDaily/deckBoard JSON still
+// lives in the repo; switch the import back to restore them.)
+const trial = rawTrial.cards || [];
+function buildInterchangeable(deckName) {
   return {
-    events: (raw.ev || []).map((c) => normalizeCard(c, 'event', deckName)),
-    twists: (raw.tw || []).map((c) => normalizeCard(c, 'twist', deckName)),
+    events: trial.map((c) => normalizeCard(c, 'event', deckName)),
+    twists: trial.map((c) => normalizeCard(c, 'twist', deckName)),
   };
 }
 
-export const dailyDeck = buildDeck(rawDaily, 'daily');
-export const boardDeck = buildDeck(rawBoard, 'board');
+export const dailyDeck = buildInterchangeable('daily');
+export const boardDeck = buildInterchangeable('board');
 
 // Flat lookup of every card by id across both decks (for resolving art/captions
 // from ids stored on memories or per-user settings).
