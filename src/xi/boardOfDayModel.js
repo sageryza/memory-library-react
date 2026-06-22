@@ -75,9 +75,9 @@ function bfsOrder(cells) {
 // Greedy placement in BFS order (each cell takes the unused card that best fits
 // its already-placed neighbours) followed by a few same-kind swap passes that
 // only keep swaps which raise the board's total affinity. Deterministic.
-function smartAssign(cells, evCaps, twCaps, rand) {
-  const candE = shuffle([...Array(evCaps.length).keys()], rand);
-  const candT = shuffle([...Array(twCaps.length).keys()], rand);
+function smartAssign(cells, evCaps, twCaps, rand, allowed) {
+  const candE = shuffle(allowed.slice(), rand);
+  const candT = shuffle(allowed.slice(), rand);
   const scoreIdx = (ei, ti) => pairScore(evCaps[ei], twCaps[ti]);
 
   const assign = new Map(); // cellKey -> { d, i }
@@ -132,9 +132,9 @@ function smartAssign(cells, evCaps, twCaps, rand) {
 }
 
 // Random assignment (the original behaviour) — used as a comparison baseline.
-function randomAssign(cells, sizes, rand) {
-  const evIdx = shuffle([...Array(sizes.be).keys()], rand);
-  const twIdx = shuffle([...Array(sizes.bw).keys()], rand);
+function randomAssign(cells, allowed, rand) {
+  const evIdx = shuffle(allowed.slice(), rand);
+  const twIdx = shuffle(allowed.slice(), rand);
   let ei = 0;
   let ti = 0;
   return cells.map(([r, c]) => (
@@ -158,13 +158,16 @@ export function dailyBoard(dayNum, pools = {}, opts = {}) {
   const evCaps = pools.events;
   const twCaps = pools.twists;
   const haveCaps = Array.isArray(evCaps) && Array.isArray(twCaps) && evCaps.length && twCaps.length;
-  if (haveCaps && !opts.random) return smartAssign(cells, evCaps, twCaps, rand);
+  const total = haveCaps ? evCaps.length : (pools.be || pools.bw || 0);
 
-  const sizes = {
-    be: pools.be || (Array.isArray(evCaps) ? evCaps.length : 0),
-    bw: pools.bw || (Array.isArray(twCaps) ? twCaps.length : 0),
-  };
-  return randomAssign(cells, sizes, rand);
+  // Available card indices, minus any the player removed in Curate. If too few
+  // remain to fill the board, fall back to the full set.
+  const excluded = opts.excluded instanceof Set ? opts.excluded : new Set();
+  let allowed = [...Array(total).keys()].filter((i) => !excluded.has(i));
+  if (allowed.length < cells.length) allowed = [...Array(total).keys()];
+
+  if (haveCaps && !opts.random) return smartAssign(cells, evCaps, twCaps, rand, allowed);
+  return randomAssign(cells, allowed, rand);
 }
 
 // "Today", "Yesterday", or a short date for the day-nav label.

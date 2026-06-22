@@ -13,6 +13,7 @@ import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
 import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
 import { buildXiMemoryDoc, pairKey, timesSentence } from '../xi/xiMemory';
+import { readExcludedSet } from '../xi/xiExcluded';
 
 export const HAND_SIZE = 5;
 const gameRef = (gameId) => doc(db, 'versusGames', gameId);
@@ -82,13 +83,17 @@ const guestName = () => {
 };
 const playerName = (profile) => (profile?.firstName || profile?.displayName || guestName() || 'Player');
 
-// Create a new game seeded from the board deck; the creator is player 0.
+// Create a new game seeded from the board deck; the creator is player 0. The
+// deck honors the creator's Curate removals (a curated game for everyone in it).
 export async function createVersusGame(user, profile) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
+  const excl = readExcludedSet(user.uid);
+  const beAll = boardDeck.events.map((_, i) => i).filter((i) => !excl.has(i));
+  const bwAll = boardDeck.twists.map((_, i) => i).filter((i) => !excl.has(i));
   const { placed, drawPile } = seedBoard({
-    be: boardDeck.events.length,
-    bw: boardDeck.twists.length,
+    be: beAll.length >= 6 ? beAll : boardDeck.events.length, // keep enough to seed + draw
+    bw: bwAll.length >= 6 ? bwAll : boardDeck.twists.length,
   });
   const creator = { uid: user.uid, name: playerName(profile), color: PLAYER_COLORS[0], order: 0 };
 
