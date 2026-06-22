@@ -58,35 +58,57 @@ export function initXi(root, ctx) {
   function renderCenter() {
     const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
     $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">New cards</button><button class="nothing" id="nothingBtn">I got nothing</button>';
-    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); renderToday(); };
+    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); softUpdateToday(); };
     $('#nothingBtn').onclick = gotNothing;
-    const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); renderToday(); };
+    const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
   }
   function closeMenu() { root.querySelectorAll('.cardmenu').forEach((m) => m.remove()); }
   function showCardMenu(el, k) {
     closeMenu(); const m = document.createElement('div'); m.className = 'cardmenu';
     m.innerHTML = '<button data-a="replace">Replace</button>'; el.appendChild(m);
-    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); renderToday(); };
+    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
     setTimeout(() => document.addEventListener('click', function h(ev) { if (!ev.target.closest('.cardmenu')) { closeMenu(); document.removeEventListener('click', h, true); } }, true), 0);
   }
-  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); renderToday(); }); }
-  async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); renderToday(); }
+  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); softUpdateToday(); }); }
+  async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); softUpdateToday(); }
   function tapcard(el, k) { let n = 0, t = null; el.addEventListener('click', (e) => { e.preventDefault(); n++; if (t) clearTimeout(t); t = setTimeout(() => { const c = n; n = 0; t = null; if (c >= 3) { closeMenu(); autoReplace(k); } else { showCardMenu(el, k); } }, 300); }); }
+  // The memory block (composer + collected memories) under the cards.
+  function blockHtml(arr, one) {
+    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
+    return `<div class="block">`
+      + (arr.length ? `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>` : '')
+      + `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`
+      + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
+      + `</div>`;
+  }
+  function wireSave() {
+    const ta = $('#cardSlot textarea'); const sb = $('#saveBtn');
+    if (sb) sb.onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); softUpdateToday(); };
+  }
+  async function cardBack(k) { const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); softUpdateToday(); }
+
+  // Full render — used on screen entry / structural changes.
   async function renderToday() {
     const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(S.shown)];
-    let h = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card ${k % 2 ? 'fly-r' : 'fly-l'}" data-k="${k}"><img loading="lazy" decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
-    h += `<div class="block">`;
-    if (arr.length) h += `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>`;
-    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    h += `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`;
-    h += arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('');
-    h += `</div>`;
-    $('#cardSlot').innerHTML = h;
-    log('today rendered len=' + $('#cardSlot').innerHTML.length);
+    const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
+    $('#cardSlot').innerHTML = cards + blockHtml(arr, one);
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
-    root.querySelectorAll('#cardSlot .cardback').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const k = +b.dataset.k; const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); renderToday(); });
-    const ta = $('#cardSlot textarea');
-    $('#saveBtn').onclick = async () => { log('saveToday begin'); const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); log('saveToday done cur=' + currentScreen()); renderToday(); };
+    root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
+    wireSave();
+  }
+
+  // Soft update — swap only the changed card images + the memory block, leaving
+  // the card DOM (and its handlers) intact so nothing flashes on New cards/Replace.
+  async function softUpdateToday() {
+    const row = $('#cardSlot .cardrow');
+    const imgs = row ? row.querySelectorAll('.card > img') : [];
+    if (!row || imgs.length !== S.shown.length) { return renderToday(); }
+    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', !!misses[missKey(S.shown)]);
+    S.shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
+    const arr = (await st.get(memKey(S.shown))) || []; const block = $('#cardSlot .block');
+    if (block) block.outerHTML = blockHtml(arr, S.shown.length === 1);
+    else $('#cardSlot').insertAdjacentHTML('beforeend', blockHtml(arr, S.shown.length === 1));
+    wireSave();
   }
   /* curate — review every card and keep (♥) or remove (✕) it from your deck.
      Removed cards are skipped when dealing; tap a removed card to add it back. */
@@ -161,7 +183,7 @@ export function initXi(root, ctx) {
     const SLOT = { today: '#cardSlot', curate: '#curateSlot', board: '#boardSlot', gallery: '#gallerySlot', library: '#librarySlot' };
     let p;
     try {
-      if (name === 'today') p = renderToday();
+      if (name === 'today') p = softUpdateToday();
       else if (name === 'curate') p = renderCurate();
       else if (name === 'board') p = renderBoard();
       else if (name === 'gallery') p = renderGallery();
