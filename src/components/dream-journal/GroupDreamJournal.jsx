@@ -7,14 +7,20 @@
 // Data layer: useAuth, useGroups, useGroupDreams. Voice: useSpeechRecognition.
 
 import { useState, useEffect, useRef } from 'react';
+import { httpsCallable } from 'firebase/functions';
 import { Mic, Square } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { useGroups } from '../../hooks/useGroups';
 import { useGroupDreams } from '../../hooks/useGroupDreams';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { DREAM_EMOTIONS } from '../../utils/dreamSchema';
+import { functions } from '../../firebase';
 import DreamCard from './DreamCard';
 import './GroupDreamJournal.css';
+
+// Callable that draws a dream via Replicate and writes the image URL back onto
+// the entry. The live onSnapshot then delivers the illustration to the feed.
+const illustrateDreamFn = httpsCallable(functions, 'illustrateDream');
 
 const appendChunk = (prev, chunk) => {
   const clean = chunk.trim();
@@ -73,6 +79,27 @@ const GroupDreamJournal = () => {
     setEmotions((prev) =>
       prev.includes(emotion) ? prev.filter((e) => e !== emotion) : [...prev, emotion]
     );
+
+  // --- illustration (draw a dream on demand) ---
+  const [illustratingIds, setIllustratingIds] = useState(() => new Set());
+
+  const handleIllustrate = async (dream) => {
+    if (!activeGroupId || illustratingIds.has(dream.id)) return;
+    setIllustratingIds((prev) => new Set(prev).add(dream.id));
+    try {
+      await illustrateDreamFn({ groupId: activeGroupId, entryId: dream.id });
+      // The new illustration arrives via the live feed subscription.
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Could not illustrate this dream');
+    } finally {
+      setIllustratingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(dream.id);
+        return next;
+      });
+    }
+  };
 
   // --- new group (kept out of the way) ---
   const [newGroupName, setNewGroupName] = useState('');
@@ -296,7 +323,14 @@ const GroupDreamJournal = () => {
           ) : dreams.length === 0 ? (
             <div className="gdj-muted">No dreams yet. Be the first to share one.</div>
           ) : (
-            dreams.map((d) => <DreamCard key={d.id} dream={d} />)
+            dreams.map((d) => (
+              <DreamCard
+                key={d.id}
+                dream={d}
+                onIllustrate={() => handleIllustrate(d)}
+                illustrating={illustratingIds.has(d.id)}
+              />
+            ))
           )}
         </section>
       )}

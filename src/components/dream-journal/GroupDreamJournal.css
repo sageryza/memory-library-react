@@ -338,6 +338,50 @@
   color: var(--gdj-rose);
 }
 
+/* ---- dream illustration ---- */
+.gdj-illustration {
+  margin: 4px 0 18px;
+}
+
+.gdj-illustration img {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  box-shadow: 0 10px 36px -22px rgba(110, 80, 130, 0.6);
+}
+
+.gdj-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.gdj-illustrate-btn {
+  padding: 5px 16px;
+  border: 1px solid var(--gdj-line);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--gdj-serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--gdj-lavender);
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+
+.gdj-illustrate-btn:hover:not(:disabled) {
+  color: var(--gdj-accent);
+  border-color: var(--gdj-accent);
+  background: rgba(138, 90, 107, 0.06);
+}
+
+.gdj-illustrate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  font-style: italic;
+}
+
 /* ============================================================
    Just-woke-up quick capture (hero)
    ============================================================ */
