@@ -291,11 +291,10 @@ export default function XiVersus() {
       </div>
 
       {canUndo && (
-        <button className="xiv-undo" disabled={working} onClick={doUndo} title="Undo your last placement">
+        <button className="xiv-undo" disabled={working} onClick={doUndo} aria-label="Undo your last placement" title="Undo your last placement">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" />
           </svg>
-          undo
         </button>
       )}
 

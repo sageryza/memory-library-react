@@ -83,9 +83,9 @@
 .xiv-cell.legal::after{content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:rgba(128,0,32,.32)}
 
 /* Undo control, top-left under the logo. */
-.xiv-undo{display:inline-flex;align-items:center;gap:5px;margin:0 0 2px 14px;align-self:flex-start;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:13px;cursor:pointer}
+.xiv-undo{display:inline-flex;align-items:center;justify-content:center;margin:0 0 2px 12px;align-self:flex-start;background:none;border:none;color:#8a7d6e;cursor:pointer;padding:4px}
 .xiv-undo:disabled{opacity:.4;cursor:default}
-.xiv-undo svg{width:15px;height:15px}
+.xiv-undo svg{width:20px;height:20px}
 
 /* Story composer + feed */
 /* The composer rides in a KeyboardSheet: a fixed layer sized to the visual
