@@ -17,6 +17,8 @@
 // would blow past Firestore's 1MB document limit. Art is resolved from the
 // bundled deck via the stable card id at render time.
 
+import cardCaptions from '../data/xi/cardCaptions.json';
+
 export const XI_SOURCE = 'xi';
 
 // Turn a card caption into a single hashtag token, e.g.
@@ -90,6 +92,32 @@ export function buildXiMemoryDoc({ text, event, twist, mode }) {
 // True if a memory came from XI.
 export function isXiMemory(memory) {
   return memory && memory.source === XI_SOURCE;
+}
+
+// Backfill an XI memory's card captions + hashtags from its stored card ids.
+// The trial decks (Midjourney + internet) were imported without captions, so
+// memories saved from them have empty event/twist caps and no tags. We can
+// recover both from the card id (which is always stored) now that the deck has
+// captions — at read time, with no writes to the stored data. Non-XI memories
+// and memories already carrying caps/tags pass through unchanged.
+export function enrichXiMemory(memory) {
+  if (!isXiMemory(memory)) return memory;
+  const ev = memory.event;
+  const tw = memory.twist;
+  const evCap = (ev && ev.cap) || (ev && cardCaptions[ev.id]) || '';
+  const twCap = (tw && tw.cap) || (tw && cardCaptions[tw.id]) || '';
+  if (!evCap && !twCap) return memory;
+  const hasTags = Array.isArray(memory.hashtags) && memory.hashtags.length > 0;
+  const tags = [tagFromCaption(evCap), tagFromCaption(twCap)].filter(Boolean);
+  const needCaps = (ev && !ev.cap && evCap) || (tw && !tw.cap && twCap);
+  const needTags = !hasTags && tags.length > 0;
+  if (!needCaps && !needTags) return memory;
+  return {
+    ...memory,
+    event: ev ? { ...ev, cap: evCap } : ev,
+    twist: tw ? { ...tw, cap: twCap } : tw,
+    hashtags: hasTags ? memory.hashtags : tags,
+  };
 }
 
 // All XI memories for a given pairing, newest first.
