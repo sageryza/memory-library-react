@@ -4,6 +4,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import './MemoryModal.css';
 import keyword_extractor from 'keyword-extractor';
 import useSimplifyView from '../../hooks/useSimplifyView';
+import { aiGenerateTitle } from '../../utils/aiAssist';
 
 function Tooltip({ text, children }) {
   const [show, setShow] = useState(false);
@@ -64,6 +65,13 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
     // Combine content and additional context, prioritizing content
     const text = `${unit.content} ${unit.additionalContext}`.trim();
     if (!text) return;
+
+    // Prefer a real AI title; fall back to local keyword extraction if AI isn't
+    // configured yet (or the call fails), so the button always does something.
+    try {
+      const aiTitle = await aiGenerateTitle(text);
+      if (aiTitle) { updateUnit(unitId, 'title', aiTitle); return; }
+    } catch { /* AI unavailable — fall through to keyword extraction */ }
 
     try {
       // Extract keywords using keyword-extractor with n-grams support

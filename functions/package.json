@@ -5,6 +5,7 @@
   "engines": { "node": "20" },
   "main": "index.js",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.1.0"
   }
