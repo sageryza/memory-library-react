@@ -42,9 +42,11 @@ export function shuffle(arr, rng = Math.random) {
 // Seed a fresh board: one event at the centre (2,2 — an event cell on a 6×6)
 // plus its four twist neighbours, drawn from the board pools. The rest of the
 // pools become the shuffled draw pile. poolSizes = { be, bw }.
+// poolSizes.be / .bw may be a count (use 0..n-1) OR an explicit array of allowed
+// card indices (so a curated deck can omit removed cards).
 export function seedBoard(poolSizes, rng = Math.random) {
-  const evIdx = shuffle([...Array(poolSizes.be).keys()], rng);
-  const twIdx = shuffle([...Array(poolSizes.bw).keys()], rng);
+  const evIdx = shuffle(Array.isArray(poolSizes.be) ? poolSizes.be.slice() : [...Array(poolSizes.be).keys()], rng);
+  const twIdx = shuffle(Array.isArray(poolSizes.bw) ? poolSizes.bw.slice() : [...Array(poolSizes.bw).keys()], rng);
 
   const cr = 2;
   const cc = 2;
@@ -54,8 +56,8 @@ export function seedBoard(poolSizes, rng = Math.random) {
   });
 
   const pile = [];
-  for (let k = 1; k < poolSizes.be; k++) pile.push({ d: 'be', i: evIdx[k] });
-  for (let k = 4; k < poolSizes.bw; k++) pile.push({ d: 'bw', i: twIdx[k] });
+  for (let k = 1; k < evIdx.length; k++) pile.push({ d: 'be', i: evIdx[k] });
+  for (let k = 4; k < twIdx.length; k++) pile.push({ d: 'bw', i: twIdx[k] });
 
   return { placed, drawPile: shuffle(pile, rng) };
 }
