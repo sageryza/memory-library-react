@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { dailyDeck, boardDeck } from '../../xi/decks';
+import { dailyDeck, boardDeck, DECKS } from '../../xi/decks';
 import { initXi } from '../../xi/xiEngine';
 import { makeXiStorage } from '../../xi/xiStorage';
 import { XI_MARKUP } from './xiMarkup';
@@ -53,6 +53,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
 
     engineRef.current = initXi(root, {
       POOL,
+      decks: DECKS,
       storage,
       onOpenLibrary: () => navigate('/archive'),
       initialScreen: screenRef.current,

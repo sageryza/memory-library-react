@@ -166,6 +166,20 @@
 .xi-app .curcard.loved .curheart{background:#c0392b;color:#fff}
 .xi-app .curx{right:5px;color:#241d18}
 .xi-app .curcard.off .curx{background:var(--maroon);color:#fdf7ec}
+/* Deck checkboxes — tiny boxes at the top, red check poking out the corner */
+.xi-app .curtoggles{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 10px;margin:0 0 14px}
+.xi-app .decktog{position:relative;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.8rem;padding:4px 11px 4px 6px;border:1px solid var(--line);border-radius:14px;background:none;color:var(--soft);cursor:pointer}
+.xi-app .decktog.on{color:var(--ink);border-color:var(--ink)}
+.xi-app .deckbox{position:relative;width:14px;height:14px;border:1.5px solid var(--soft);border-radius:3px;background:#fff;flex:none}
+.xi-app .decktog.on .deckbox{border-color:var(--ink)}
+.xi-app .deckchk{position:absolute;top:-8px;right:-8px;color:#c0392b;font-size:16px;line-height:1;font-weight:700;text-shadow:0 1px 1px rgba(255,255,255,.95)}
+.xi-app .decknick{white-space:nowrap}
+/* Per-deck sections in the curate grid */
+.xi-app .curdeck{margin:0 0 22px}
+.xi-app .curdeck.deckoff{opacity:.4}
+.xi-app .curdeckhd{font-variant:small-caps;letter-spacing:.08em;color:var(--maroon);font-size:1rem;border-bottom:1px solid var(--line);padding-bottom:3px;margin:0 0 10px;display:flex;align-items:baseline;gap:8px}
+.xi-app .curdecktag{font-variant:normal;font-style:italic;letter-spacing:0;color:var(--soft);font-size:.72rem}
+.xi-app .curdecksub{font-style:italic;color:var(--soft);font-size:.78rem;margin:8px 0 6px}
 .xi-app .curtoggle{display:flex;justify-content:center;margin-bottom:16px}
 .xi-app .curtoggle button{font-family:inherit;font-variant:small-caps;letter-spacing:.08em;font-size:.9rem;padding:5px 18px;border:1px solid var(--ink);background:none;color:var(--ink);cursor:pointer}
 .xi-app .curtoggle button:first-child{border-right:none}

@@ -75,9 +75,9 @@ function bfsOrder(cells) {
 // Greedy placement in BFS order (each cell takes the unused card that best fits
 // its already-placed neighbours) followed by a few same-kind swap passes that
 // only keep swaps which raise the board's total affinity. Deterministic.
-function smartAssign(cells, evCaps, twCaps, rand, allowed) {
-  const candE = shuffle(allowed.slice(), rand);
-  const candT = shuffle(allowed.slice(), rand);
+function smartAssign(cells, evCaps, twCaps, rand, allowedEv, allowedTw) {
+  const candE = shuffle(allowedEv.slice(), rand);
+  const candT = shuffle(allowedTw.slice(), rand);
   const scoreIdx = (ei, ti) => pairScore(evCaps[ei], twCaps[ti]);
 
   const assign = new Map(); // cellKey -> { d, i }
@@ -132,9 +132,9 @@ function smartAssign(cells, evCaps, twCaps, rand, allowed) {
 }
 
 // Random assignment (the original behaviour) — used as a comparison baseline.
-function randomAssign(cells, allowed, rand) {
-  const evIdx = shuffle(allowed.slice(), rand);
-  const twIdx = shuffle(allowed.slice(), rand);
+function randomAssign(cells, allowedEv, allowedTw, rand) {
+  const evIdx = shuffle(allowedEv.slice(), rand);
+  const twIdx = shuffle(allowedTw.slice(), rand);
   let ei = 0;
   let ti = 0;
   return cells.map(([r, c]) => (
@@ -158,16 +158,21 @@ export function dailyBoard(dayNum, pools = {}, opts = {}) {
   const evCaps = pools.events;
   const twCaps = pools.twists;
   const haveCaps = Array.isArray(evCaps) && Array.isArray(twCaps) && evCaps.length && twCaps.length;
-  const total = haveCaps ? evCaps.length : (pools.be || pools.bw || 0);
+  const ne = haveCaps ? evCaps.length : (pools.be || pools.bw || 0);
+  const nt = haveCaps ? twCaps.length : (pools.bw || pools.be || 0);
 
-  // Available card indices, minus any the player removed in Curate. If too few
-  // remain to fill the board, fall back to the full set.
-  const excluded = opts.excluded instanceof Set ? opts.excluded : new Set();
-  let allowed = [...Array(total).keys()].filter((i) => !excluded.has(i));
-  if (allowed.length < cells.length) allowed = [...Array(total).keys()];
+  // Event/twist pools can differ in size, and the caller may pass explicit
+  // allowed-index lists (cards still in play after Curate removals + deck
+  // toggles). Fall back to the full set per axis if too few remain to fill it.
+  const evCells = cells.filter(([r, c]) => cellKind(r, c) === 'event').length;
+  const twCells = cells.length - evCells;
+  let allowedEv = Array.isArray(opts.allowedEv) ? opts.allowedEv : [...Array(ne).keys()];
+  let allowedTw = Array.isArray(opts.allowedTw) ? opts.allowedTw : [...Array(nt).keys()];
+  if (allowedEv.length < evCells) allowedEv = [...Array(ne).keys()];
+  if (allowedTw.length < twCells) allowedTw = [...Array(nt).keys()];
 
-  if (haveCaps && !opts.random) return smartAssign(cells, evCaps, twCaps, rand, allowed);
-  return randomAssign(cells, allowed, rand);
+  if (haveCaps && !opts.random) return smartAssign(cells, evCaps, twCaps, rand, allowedEv, allowedTw);
+  return randomAssign(cells, allowedEv, allowedTw, rand);
 }
 
 // "Today", "Yesterday", or a short date for the day-nav label.

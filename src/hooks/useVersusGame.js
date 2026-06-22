@@ -13,7 +13,7 @@ import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
 import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
 import { buildXiMemoryDoc, pairKey, timesSentence } from '../xi/xiMemory';
-import { readExcludedSet } from '../xi/xiExcluded';
+import { readDeckFilter, allowedIndices } from '../xi/xiExcluded';
 
 export const HAND_SIZE = 5;
 const gameRef = (gameId) => doc(db, 'versusGames', gameId);
@@ -88,9 +88,9 @@ const playerName = (profile) => (profile?.firstName || profile?.displayName || g
 export async function createVersusGame(user, profile) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
-  const excl = readExcludedSet(user.uid);
-  const beAll = boardDeck.events.map((_, i) => i).filter((i) => !excl.has(i));
-  const bwAll = boardDeck.twists.map((_, i) => i).filter((i) => !excl.has(i));
+  const { excluded, disabledDecks } = readDeckFilter(user.uid);
+  const beAll = allowedIndices(boardDeck.events, 'ev', excluded, disabledDecks);
+  const bwAll = allowedIndices(boardDeck.twists, 'tw', excluded, disabledDecks);
   const { placed, drawPile } = seedBoard({
     be: beAll.length >= 6 ? beAll : boardDeck.events.length, // keep enough to seed + draw
     bw: bwAll.length >= 6 ? bwAll : boardDeck.twists.length,

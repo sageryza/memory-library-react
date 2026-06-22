@@ -23,20 +23,35 @@ export function initXi(root, ctx) {
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
   const poolLen = (d) => POOL[d].length;
-  // Curate: cards you've removed are skipped when dealing. The trial deck is
-  // interchangeable (ev[i] and tw[i] are the same source card), so we exclude by
-  // index — removing a card hides it whether it's drawn as an event or a twist.
+  // Curate state. Cards can be removed (✕) per role, and whole decks toggled off
+  // via the checkboxes; both are skipped when dealing.
+  //  • excluded / loved : Sets of "<d>:<i>" role-keys ("ev:5", "tw:12", ...)
+  //  • disabledDecks    : Set of deck ids whose every card is skipped
   let excluded = new Set();
-  let loved = new Set(); // ♥ favorites in Curate (kept; marker for now)
-  function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!excluded.has(j)) return j; } return (i + 1) % n; }
-  function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!excluded.has(j)) return j; } return (i - 1 + n) % n; }
+  let loved = new Set();
+  let disabledDecks = new Set();
+  const DECKS = ctx.decks || [];
+  // Per-deck index lists in each pool, used to build the Curate grid.
+  const deckIdx = {};
+  for (const d of Object.keys(POOL)) {
+    deckIdx[d] = {};
+    POOL[d].forEach((c, i) => { (deckIdx[d][c.deck] = deckIdx[d][c.deck] || []).push(i); });
+  }
+  const ekey = (d, i) => d + ':' + i;
+  // A card position is "off" if its deck is disabled or it was removed (✕).
+  function isOff(d, i) { const c = POOL[d][i]; return (c && disabledDecks.has(c.deck)) || excluded.has(ekey(d, i)); }
+  function allOff(d) { const n = poolLen(d); for (let i = 0; i < n; i++) if (!isOff(d, i)) return false; return true; }
+  function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!isOff(d, j)) return j; } return (i + 1) % n; }
+  function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!isOff(d, j)) return j; } return (i - 1 + n) % n; }
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function memKey(shown) { return 'xi2_mem_' + shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function refsFromKey(k) { return k.replace('xi2_mem_', '').split('-').map((t) => ({ d: t.slice(0, 2), i: parseInt(t.slice(2), 10) })); }
   function clone(a) { return a.map((r) => ({ d: r.d, i: r.i })); }
   const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
   const todayKey = () => new Date().toISOString().slice(0, 10);
-  function pairForDay(dn) { const n = POOL.ev.length; const ei = ((dn % n) + n) % n; let ti = (n - 1 - ei + n) % n; if (ti === ei) ti = (ti + 1) % n; return [{ d: 'ev', i: ei }, { d: 'tw', i: ti }]; }
+  // Deterministic daily pair (for the gallery). Event and twist pools can differ
+  // in length (split decks), so index each by its own length to stay in bounds.
+  function pairForDay(dn) { const ne = POOL.ev.length, nt = POOL.tw.length; const ei = ((dn % ne) + ne) % ne; const ti = (((nt - 1 - (dn % nt)) % nt) + nt) % nt; return [{ d: 'ev', i: ei }, { d: 'tw', i: ti }]; }
 
   let S = { shown: [], hist: [], flip: 'tw' };
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
@@ -49,19 +64,21 @@ export function initXi(root, ctx) {
   // next kept card so it leaves the deck you're actually holding. Returns true
   // if anything changed.
   function sanitizeShown() {
-    if (excluded.size >= poolLen('ev')) return false; // nothing left to swap to
     let changed = false;
-    S.shown = S.shown.map((r) => { if (excluded.has(r.i)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
+    S.shown = S.shown.map((r) => { if (isOff(r.d, r.i) && !allOff(r.d)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
     return changed;
   }
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
-  async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a : []); }
+  async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []); }
   async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
-  async function loadLoved() { const a = await st.get('xi2_loved'); loved = new Set(Array.isArray(a) ? a : []); }
+  async function loadLoved() { const a = await st.get('xi2_loved'); loved = new Set(Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []); }
   async function saveLoved() { await st.set('xi2_loved', [...loved]); }
+  async function loadDisabled() { const a = await st.get('xi2_disabledDecks'); disabledDecks = new Set(Array.isArray(a) ? a : []); }
+  async function saveDisabled() { await st.set('xi2_disabledDecks', [...disabledDecks]); }
   async function loadState() {
     await loadExcluded();
     await loadLoved();
+    await loadDisabled();
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
@@ -124,33 +141,65 @@ export function initXi(root, ctx) {
     else $('#cardSlot').insertAdjacentHTML('beforeend', blockHtml(arr, S.shown.length === 1));
     wireSave();
   }
-  /* curate — review every card: ♥ to love it, ✕ to remove it from your deck.
-     Removed cards are skipped when dealing (everywhere); loved cards are kept
-     and flagged as favorites. The two are mutually exclusive. */
+  /* curate — checkboxes at the top toggle whole decks in/out of play; below,
+     each card has ♥ (love) and ✕ (remove). Interchangeable cards (rendered once)
+     toggle both their event and twist roles together; split-deck cards toggle
+     only their own role. All removals/disables are skipped when dealing. */
   function renderCurate() {
-    const cards = POOL.ev; // canonical, interchangeable list
-    const inCount = cards.length - excluded.size;
-    const cells = cards.map((c, i) => {
-      const off = excluded.has(i); const lv = loved.has(i);
-      return `<div class="curcard${off ? ' off' : ''}${lv ? ' loved' : ''}" data-i="${i}">`
-        + `<img loading="lazy" decoding="async" src="${c.img}" alt="">`
-        + `<button class="curbtn curheart" data-i="${i}" data-a="love" aria-label="Love">${lv ? '♥' : '♡'}</button>`
-        + `<button class="curbtn curx" data-i="${i}" data-a="x" aria-label="Remove">${off ? '＋' : '✕'}</button>`
-        + `</div>`;
+    const totalEv = poolLen('ev');
+    let offCount = 0; for (let i = 0; i < totalEv; i++) if (isOff('ev', i)) offCount++;
+    const toggles = DECKS.map((dk) => {
+      const on = !disabledDecks.has(dk.id);
+      return `<button class="decktog${on ? ' on' : ''}" data-deck="${dk.id}" role="checkbox" aria-checked="${on}"><span class="deckbox">${on ? '<span class="deckchk">✓</span>' : ''}</span><span class="decknick">${esc(dk.nick)}</span></button>`;
     }).join('');
-    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${inCount} of ${cards.length} cards · ${loved.size} loved</span><span class="curhint">♥ to love · ✕ to remove (＋ to add back)</span></div><div class="curgrid">${cells}</div>`;
+    const cell = (d, i, pair) => {
+      const c = POOL[d][i]; const off = excluded.has(ekey(d, i)); const lv = loved.has(ekey(d, i));
+      const p = pair ? 1 : 0;
+      return `<div class="curcard${off ? ' off' : ''}${lv ? ' loved' : ''}" data-d="${d}" data-i="${i}" data-pair="${p}">`
+        + `<img loading="lazy" decoding="async" src="${c.img}" alt="${esc(c.cap)}">`
+        + `<button class="curbtn curheart" data-d="${d}" data-i="${i}" data-pair="${p}" data-a="love" aria-label="Love">${lv ? '♥' : '♡'}</button>`
+        + `<button class="curbtn curx" data-d="${d}" data-i="${i}" data-pair="${p}" data-a="x" aria-label="Remove">${off ? '＋' : '✕'}</button>`
+        + `</div>`;
+    };
+    let groups = '';
+    for (const dk of DECKS) {
+      const dim = disabledDecks.has(dk.id) ? ' deckoff' : '';
+      if (dk.split) {
+        const evs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, false)).join('');
+        const tws = (deckIdx.tw[dk.id] || []).map((i) => cell('tw', i, false)).join('');
+        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)} <span class="curdecktag">events + twists</span></div>`
+          + `<div class="curdecksub">events</div><div class="curgrid">${evs}</div>`
+          + `<div class="curdecksub">twists</div><div class="curgrid">${tws}</div></div>`;
+      } else {
+        const cs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, true)).join('');
+        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)}</div><div class="curgrid">${cs}</div></div>`;
+      }
+    }
+    $('#curateSlot').innerHTML = `<div class="curtoggles">${toggles}</div>`
+      + `<div class="curhead"><span class="curcount">${totalEv - offCount} of ${totalEv} cards in play · ${loved.size} loved</span><span class="curhint">check a deck to include it · ♥ love · ✕ remove (＋ add back)</span></div>`
+      + groups;
+    root.querySelectorAll('#curateSlot .decktog').forEach((b) => {
+      b.onclick = async () => {
+        const id = b.dataset.deck;
+        if (disabledDecks.has(id)) disabledDecks.delete(id); else disabledDecks.add(id);
+        await saveDisabled();
+        if (sanitizeShown()) await savePair();
+        renderCurate();
+      };
+    });
     root.querySelectorAll('#curateSlot .curbtn').forEach((b) => {
       b.onclick = async (e) => {
         e.stopPropagation();
-        const i = +b.dataset.i;
+        const d = b.dataset.d; const i = +b.dataset.i; const pair = b.dataset.pair === '1';
+        const keys = pair ? [ekey('ev', i), ekey('tw', i)] : [ekey(d, i)];
         if (b.dataset.a === 'x') {
-          if (excluded.has(i)) excluded.delete(i);
-          else { excluded.add(i); loved.delete(i); }
+          const on = excluded.has(keys[0]);
+          keys.forEach((k) => { if (on) excluded.delete(k); else { excluded.add(k); loved.delete(k); } });
           await saveExcluded(); await saveLoved();
           if (sanitizeShown()) await savePair();
         } else {
-          if (loved.has(i)) loved.delete(i);
-          else { loved.add(i); excluded.delete(i); }
+          const on = loved.has(keys[0]);
+          keys.forEach((k) => { if (on) loved.delete(k); else { loved.add(k); excluded.delete(k); } });
           await saveLoved(); await saveExcluded();
         }
         renderCurate();
@@ -253,7 +302,8 @@ export function initXi(root, ctx) {
   function bAdj(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1; }
   async function newBoard() {
     const ev = [], tw = []; for (let r = 0; r < BR; r++) for (let c = 0; c < BC; c++) { ((r + c) % 2 === 0 ? ev : tw).push([r, c]); }
-    const ei = bShuf(POOL.be.map((x, i) => i)).slice(0, ev.length), ti = bShuf(POOL.bw.map((x, i) => i)).slice(0, tw.length);
+    const pick = (d, need) => { let pool = POOL[d].map((x, i) => i).filter((i) => !isOff(d, i)); if (pool.length < need) pool = POOL[d].map((x, i) => i); return bShuf(pool).slice(0, need); };
+    const ei = pick('be', ev.length), ti = pick('bw', tw.length);
     bgrid = Array.from({ length: BR }, () => Array(BC).fill(null));
     ev.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'be', i: ei[k] }); tw.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'bw', i: ti[k] });
     bsel = []; await st.set('xi2_board', bgrid); renderBoard();

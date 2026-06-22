@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { boardDeck } from '../../xi/decks';
 import { dailyBoard, dayNumber, dayLabel } from '../../xi/boardOfDayModel';
 import { pairKey, timesSentence, isXiMemory, buildXiMemoryDoc } from '../../xi/xiMemory';
-import { useXiExcluded } from '../../xi/xiExcluded';
+import { useDeckFilter, allowedIndices } from '../../xi/xiExcluded';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import KeyboardSheet from './KeyboardSheet';
@@ -31,7 +31,9 @@ const TOKEN = '#800020';
 export default function BoardOfDay({ memories = [], addMemory }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const excluded = useXiExcluded(user?.uid);
+  const { excluded, disabledDecks } = useDeckFilter(user?.uid);
+  const allowedEv = useMemo(() => allowedIndices(boardDeck.events, 'ev', excluded, disabledDecks), [excluded, disabledDecks]);
+  const allowedTw = useMemo(() => allowedIndices(boardDeck.twists, 'tw', excluded, disabledDecks), [excluded, disabledDecks]);
   const [params] = useSearchParams();
   const useRandom = params.get('gen') === 'random'; // ?gen=random → old baseline, for comparison
   const today = dayNumber();
@@ -41,7 +43,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
-  const placed = dailyBoard(viewDay, POOLS, { random: useRandom, excluded });
+  const placed = dailyBoard(viewDay, POOLS, { random: useRandom, allowedEv, allowedTw });
 
   // Your XI memories grouped by pairing, for the per-pairing list + tokens.
   const myXi = (memories || []).filter(isXiMemory);
