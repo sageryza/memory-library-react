@@ -152,6 +152,16 @@
 .xi-app #expTa,.xi-app #impTa{width:100%;height:200px;font-family:ui-monospace,monospace;font-size:16px;border:1px solid var(--line);border-radius:4px;padding:8px;background:#fff;resize:none}
 .xi-app .exprow{display:flex;gap:8px;justify-content:flex-end}
 .xi-app .exprow button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.85rem;padding:6px 16px;border:1px solid var(--ink);background:none;border-radius:16px;cursor:pointer}
+/* Curate grid — keep (♥) / remove (✕) cards from your deck */
+.xi-app .curhead{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 0 14px;text-align:center}
+.xi-app .curcount{font-variant:small-caps;letter-spacing:.06em;color:var(--maroon);font-size:.95rem}
+.xi-app .curhint{font-style:italic;color:var(--soft);font-size:.8rem}
+.xi-app .curgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.xi-app .curcard{position:relative;padding:0;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;line-height:0;overflow:hidden}
+.xi-app .curcard img{width:100%;height:auto;display:block}
+.xi-app .curcard.off{opacity:.32}
+.xi-app .curmark{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;background:rgba(36,29,24,.82);color:#fdf7ec}
+.xi-app .curcard.off .curmark{background:var(--maroon)}
 .xi-app .curtoggle{display:flex;justify-content:center;margin-bottom:16px}
 .xi-app .curtoggle button{font-family:inherit;font-variant:small-caps;letter-spacing:.08em;font-size:.9rem;padding:5px 18px;border:1px solid var(--ink);background:none;color:var(--ink);cursor:pointer}
 .xi-app .curtoggle button:first-child{border-right:none}

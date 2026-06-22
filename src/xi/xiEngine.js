@@ -23,20 +23,32 @@ export function initXi(root, ctx) {
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
   const poolLen = (d) => POOL[d].length;
-  function nextI(d, i) { return (i + 1) % poolLen(d); }
+  // Curate: cards you've removed are skipped when dealing. The trial deck is
+  // interchangeable (ev[i] and tw[i] are the same source card), so we exclude by
+  // index — removing a card hides it whether it's drawn as an event or a twist.
+  let excluded = new Set();
+  function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!excluded.has(j)) return j; } return (i + 1) % n; }
+  function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!excluded.has(j)) return j; } return (i - 1 + n) % n; }
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function memKey(shown) { return 'xi2_mem_' + shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function refsFromKey(k) { return k.replace('xi2_mem_', '').split('-').map((t) => ({ d: t.slice(0, 2), i: parseInt(t.slice(2), 10) })); }
   function clone(a) { return a.map((r) => ({ d: r.d, i: r.i })); }
   const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
   const todayKey = () => new Date().toISOString().slice(0, 10);
-  function pairForDay(dn) { return [{ d: 'ev', i: ((dn % POOL.ev.length) + POOL.ev.length) % POOL.ev.length }, { d: 'tw', i: (((dn * 7 + 3) % POOL.tw.length) + POOL.tw.length) % POOL.tw.length }]; }
+  function pairForDay(dn) { const n = POOL.ev.length; const ei = ((dn % n) + n) % n; let ti = (n - 1 - ei + n) % n; if (ti === ei) ti = (ti + 1) % n; return [{ d: 'ev', i: ei }, { d: 'tw', i: ti }]; }
 
   let S = { shown: [], hist: [], flip: 'tw' };
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
-  function topPair() { return [{ d: 'ev', i: 0 }, { d: 'tw', i: 0 }]; }
+  // Start the two slots at opposite ends of the (shared) deck — event from the
+  // front, twist from the back — so you're never comparing a card with itself.
+  function topPair() { return [{ d: 'ev', i: nextI('ev', poolLen('ev') - 1) }, { d: 'tw', i: prevI('tw', 0) }]; }
+  // Step a slot in its travel direction: events forward, twists backward.
+  function stepI(d, i) { return d === 'ev' ? nextI(d, i) : prevI(d, i); }
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
+  async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a : []); }
+  async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
   async function loadState() {
+    await loadExcluded();
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
@@ -46,7 +58,7 @@ export function initXi(root, ctx) {
   function renderCenter() {
     const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
     $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">New cards</button><button class="nothing" id="nothingBtn">I got nothing</button>';
-    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: 0 }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); renderToday(); };
+    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); renderToday(); };
     $('#nothingBtn').onclick = gotNothing;
     const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); renderToday(); };
   }
@@ -54,10 +66,10 @@ export function initXi(root, ctx) {
   function showCardMenu(el, k) {
     closeMenu(); const m = document.createElement('div'); m.className = 'cardmenu';
     m.innerHTML = '<button data-a="replace">Replace</button>'; el.appendChild(m);
-    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); renderToday(); };
+    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); renderToday(); };
     setTimeout(() => document.addEventListener('click', function h(ev) { if (!ev.target.closest('.cardmenu')) { closeMenu(); document.removeEventListener('click', h, true); } }, true), 0);
   }
-  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); renderToday(); }); }
+  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); renderToday(); }); }
   async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); renderToday(); }
   function tapcard(el, k) { let n = 0, t = null; el.addEventListener('click', (e) => { e.preventDefault(); n++; if (t) clearTimeout(t); t = setTimeout(() => { const c = n; n = 0; t = null; if (c >= 3) { closeMenu(); autoReplace(k); } else { showCardMenu(el, k); } }, 300); }); }
   async function renderToday() {
@@ -76,15 +88,17 @@ export function initXi(root, ctx) {
     const ta = $('#cardSlot textarea');
     $('#saveBtn').onclick = async () => { log('saveToday begin'); const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); log('saveToday done cur=' + currentScreen()); renderToday(); };
   }
-  /* curate */
-  let deck = 'ev', pos = 0;
+  /* curate — review every card and keep (♥) or remove (✕) it from your deck.
+     Removed cards are skipped when dealing; tap a removed card to add it back. */
   function renderCurate() {
-    const D = deck === 'ev' ? POOL.ev : POOL.tw; if (pos >= D.length) pos = 0; if (pos < 0) pos = D.length - 1; const c = D[pos];
-    $('#curateSlot').innerHTML = `<div class="curtoggle"><button id="tEv" class="${deck === 'ev' ? 'on' : ''}">Events</button><button id="tTw" class="${deck === 'tw' ? 'on' : ''}">Twists</button></div>
-      <div class="card swipezone" style="max-width:320px;margin:0 auto"><img loading="lazy" decoding="async" src="${c.img}" alt="${esc(c.cap)}"><button class="tapnav left" id="cPrev"></button><button class="tapnav right" id="cNext"></button></div>`;
-    $('#tEv').onclick = () => { deck = 'ev'; pos = 0; renderCurate(); }; $('#tTw').onclick = () => { deck = 'tw'; pos = 0; renderCurate(); };
-    $('#cPrev').onclick = () => { pos = (pos - 1 + D.length) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
-    $('#cNext').onclick = () => { pos = (pos + 1) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
+    const cards = POOL.ev; // canonical, interchangeable list
+    const inCount = cards.length - excluded.size;
+    const cells = cards.map((c, i) => {
+      const off = excluded.has(i);
+      return `<button class="curcard${off ? ' off' : ''}" data-i="${i}"><img loading="lazy" decoding="async" src="${c.img}" alt=""><span class="curmark">${off ? '＋' : '✕'}</span></button>`;
+    }).join('');
+    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${inCount} of ${cards.length} cards in your deck</span><span class="curhint">tap ✕ to remove · ＋ to add back</span></div><div class="curgrid">${cells}</div>`;
+    root.querySelectorAll('#curateSlot .curcard').forEach((b) => { b.onclick = async () => { const i = +b.dataset.i; if (excluded.has(i)) excluded.delete(i); else excluded.add(i); await saveExcluded(); renderCurate(); }; });
   }
   /* past cards: recent daily pairs */
   let gsel = [];
