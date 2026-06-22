@@ -19,72 +19,230 @@ export function initXi(root, ctx) {
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const UNDO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>';
+  // Sunrise (lucide) — "New cards" feels like a fresh dawn of cards.
+  const SUNRISE = '<svg class="sunicon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></svg>';
 
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
   const poolLen = (d) => POOL[d].length;
-  function nextI(d, i) { return (i + 1) % poolLen(d); }
+  // Curate state. Cards can be removed (✕) per role, and whole decks toggled off
+  // via the checkboxes; both are skipped when dealing.
+  //  • excluded / loved : Sets of "<d>:<i>" role-keys ("ev:5", "tw:12", ...)
+  //  • disabledDecks    : Set of deck ids whose every card is skipped
+  let excluded = new Set();
+  let loved = new Set();
+  let disabledDecks = new Set();
+  // The "loved" deck: when on, your ♥ cards are re-included even if their source
+  // deck is toggled off — so disabling the five sources and enabling loved plays
+  // only your hearts (the composite deck you actually keep). Off by default.
+  let lovedOn = false;
+  const DECKS = ctx.decks || [];
+  // Per-deck index lists in each pool, used to build the Curate grid.
+  const deckIdx = {};
+  for (const d of Object.keys(POOL)) {
+    deckIdx[d] = {};
+    POOL[d].forEach((c, i) => { (deckIdx[d][c.deck] = deckIdx[d][c.deck] || []).push(i); });
+  }
+  const ekey = (d, i) => d + ':' + i;
+  // A card is in play if its source deck is enabled (and it wasn't removed), OR
+  // it's a loved card and the loved deck is on. "off" is the negation.
+  function isOff(d, i) {
+    const key = ekey(d, i);
+    if (excluded.has(key)) return true;
+    const c = POOL[d][i];
+    const sourceOn = c && !disabledDecks.has(c.deck);
+    const lovedInPlay = lovedOn && loved.has(key);
+    return !(sourceOn || lovedInPlay);
+  }
+  function allOff(d) { const n = poolLen(d); for (let i = 0; i < n; i++) if (!isOff(d, i)) return false; return true; }
+  function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!isOff(d, j)) return j; } return (i + 1) % n; }
+  function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!isOff(d, j)) return j; } return (i - 1 + n) % n; }
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function memKey(shown) { return 'xi2_mem_' + shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function refsFromKey(k) { return k.replace('xi2_mem_', '').split('-').map((t) => ({ d: t.slice(0, 2), i: parseInt(t.slice(2), 10) })); }
   function clone(a) { return a.map((r) => ({ d: r.d, i: r.i })); }
   const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
   const todayKey = () => new Date().toISOString().slice(0, 10);
-  function pairForDay(dn) { return [{ d: 'ev', i: ((dn % POOL.ev.length) + POOL.ev.length) % POOL.ev.length }, { d: 'tw', i: (((dn * 7 + 3) % POOL.tw.length) + POOL.tw.length) % POOL.tw.length }]; }
+  // Deterministic daily pair (for the gallery). Event and twist pools can differ
+  // in length (split decks), so index each by its own length to stay in bounds.
+  function pairForDay(dn) { const ne = POOL.ev.length, nt = POOL.tw.length; const ei = ((dn % ne) + ne) % ne; const ti = (((nt - 1 - (dn % nt)) % nt) + nt) % nt; return [{ d: 'ev', i: ei }, { d: 'tw', i: ti }]; }
 
   let S = { shown: [], hist: [], flip: 'tw' };
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
-  function topPair() { return [{ d: 'ev', i: 0 }, { d: 'tw', i: 0 }]; }
+  // Start the two slots at opposite ends of the (shared) deck — event from the
+  // front, twist from the back — so you're never comparing a card with itself.
+  function topPair() { return [{ d: 'ev', i: nextI('ev', poolLen('ev') - 1) }, { d: 'tw', i: prevI('tw', 0) }]; }
+  // Step a slot in its travel direction: events forward, twists backward.
+  function stepI(d, i) { return d === 'ev' ? nextI(d, i) : prevI(d, i); }
+  // If a currently-shown card has just been removed in Curate, swap it for the
+  // next kept card so it leaves the deck you're actually holding. Returns true
+  // if anything changed.
+  function sanitizeShown() {
+    let changed = false;
+    S.shown = S.shown.map((r) => { if (isOff(r.d, r.i) && !allOff(r.d)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
+    return changed;
+  }
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
+  async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []); }
+  async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
+  async function loadLoved() { const a = await st.get('xi2_loved'); loved = new Set(Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []); }
+  async function saveLoved() { await st.set('xi2_loved', [...loved]); }
+  async function loadDisabled() { const a = await st.get('xi2_disabledDecks'); disabledDecks = new Set(Array.isArray(a) ? a : []); }
+  async function saveDisabled() { await st.set('xi2_disabledDecks', [...disabledDecks]); }
+  async function loadLovedOn() { lovedOn = (await st.get('xi2_lovedOn')) === true; }
+  async function saveLovedOn() { await st.set('xi2_lovedOn', lovedOn); }
   async function loadState() {
+    await loadExcluded();
+    await loadLoved();
+    await loadDisabled();
+    await loadLovedOn();
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
+    if (sanitizeShown()) await savePair();
   }
 
   /* top center: New cards (centered) + Undo (absolute left) */
   function renderCenter() {
     const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
-    $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">New cards</button><button class="nothing" id="nothingBtn">I got nothing</button>';
-    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: 0 }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); renderToday(); };
+    $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">' + SUNRISE + '<span>New cards</span></button><button class="nothing" id="nothingBtn">I got nothing</button>';
+    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); softUpdateToday(); };
     $('#nothingBtn').onclick = gotNothing;
-    const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); renderToday(); };
+    const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
   }
   function closeMenu() { root.querySelectorAll('.cardmenu').forEach((m) => m.remove()); }
   function showCardMenu(el, k) {
     closeMenu(); const m = document.createElement('div'); m.className = 'cardmenu';
     m.innerHTML = '<button data-a="replace">Replace</button>'; el.appendChild(m);
-    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); renderToday(); };
+    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
     setTimeout(() => document.addEventListener('click', function h(ev) { if (!ev.target.closest('.cardmenu')) { closeMenu(); document.removeEventListener('click', h, true); } }, true), 0);
   }
-  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: nextI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); renderToday(); }); }
-  async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); renderToday(); }
+  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); softUpdateToday(); }); }
+  async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); softUpdateToday(); }
   function tapcard(el, k) { let n = 0, t = null; el.addEventListener('click', (e) => { e.preventDefault(); n++; if (t) clearTimeout(t); t = setTimeout(() => { const c = n; n = 0; t = null; if (c >= 3) { closeMenu(); autoReplace(k); } else { showCardMenu(el, k); } }, 300); }); }
+  // The memory block (composer + collected memories) under the cards.
+  function blockHtml(arr, one) {
+    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
+    return `<div class="block">`
+      + (arr.length ? `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>` : '')
+      + `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`
+      + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
+      + `</div>`;
+  }
+  function wireSave() {
+    const ta = $('#cardSlot textarea'); const sb = $('#saveBtn');
+    if (sb) sb.onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); softUpdateToday(); };
+  }
+  async function cardBack(k) { const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); softUpdateToday(); }
+
+  // Full render — used on screen entry / structural changes.
   async function renderToday() {
     const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(S.shown)];
-    let h = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card ${k % 2 ? 'fly-r' : 'fly-l'}" data-k="${k}"><img loading="lazy" decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
-    h += `<div class="block">`;
-    if (arr.length) h += `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>`;
-    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    h += `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`;
-    h += arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('');
-    h += `</div>`;
-    $('#cardSlot').innerHTML = h;
-    log('today rendered len=' + $('#cardSlot').innerHTML.length);
+    const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
+    $('#cardSlot').innerHTML = cards + blockHtml(arr, one);
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
-    root.querySelectorAll('#cardSlot .cardback').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const k = +b.dataset.k; const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); renderToday(); });
-    const ta = $('#cardSlot textarea');
-    $('#saveBtn').onclick = async () => { log('saveToday begin'); const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); log('saveToday done cur=' + currentScreen()); renderToday(); };
+    root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
+    wireSave();
   }
-  /* curate */
-  let deck = 'ev', pos = 0;
+
+  // Soft update — swap only the changed card images + the memory block, leaving
+  // the card DOM (and its handlers) intact so nothing flashes on New cards/Replace.
+  async function softUpdateToday() {
+    const row = $('#cardSlot .cardrow');
+    const imgs = row ? row.querySelectorAll('.card > img') : [];
+    if (!row || imgs.length !== S.shown.length) { return renderToday(); }
+    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', !!misses[missKey(S.shown)]);
+    S.shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
+    const arr = (await st.get(memKey(S.shown))) || []; const block = $('#cardSlot .block');
+    if (block) block.outerHTML = blockHtml(arr, S.shown.length === 1);
+    else $('#cardSlot').insertAdjacentHTML('beforeend', blockHtml(arr, S.shown.length === 1));
+    wireSave();
+  }
+  /* curate — checkboxes at the top toggle whole decks in/out of play; below,
+     each card has ♥ (love) and ✕ (remove). Interchangeable cards (rendered once)
+     toggle both their event and twist roles together; split-deck cards toggle
+     only their own role. All removals/disables are skipped when dealing. */
+  // Distinct loved cards, deduped so an interchangeable card (loved as both ev:i
+  // and tw:i) counts/shows once. Returns [{ d, i, pair }] for cell() reuse.
+  const splitSet = new Set(DECKS.filter((d) => d.split).map((d) => d.id));
+  function lovedList() {
+    const out = []; const seen = new Set();
+    for (const key of loved) {
+      const d = key.slice(0, 2); const i = parseInt(key.slice(3), 10);
+      const c = POOL[d] && POOL[d][i]; if (!c) continue;
+      const inter = !splitSet.has(c.deck);
+      const cid = inter ? 'i' + i : key;
+      if (seen.has(cid)) continue; seen.add(cid);
+      out.push({ d, i, pair: inter });
+    }
+    return out;
+  }
   function renderCurate() {
-    const D = deck === 'ev' ? POOL.ev : POOL.tw; if (pos >= D.length) pos = 0; if (pos < 0) pos = D.length - 1; const c = D[pos];
-    $('#curateSlot').innerHTML = `<div class="curtoggle"><button id="tEv" class="${deck === 'ev' ? 'on' : ''}">Events</button><button id="tTw" class="${deck === 'tw' ? 'on' : ''}">Twists</button></div>
-      <div class="card swipezone" style="max-width:320px;margin:0 auto"><img loading="lazy" decoding="async" src="${c.img}" alt="${esc(c.cap)}"><button class="tapnav left" id="cPrev"></button><button class="tapnav right" id="cNext"></button></div>`;
-    $('#tEv').onclick = () => { deck = 'ev'; pos = 0; renderCurate(); }; $('#tTw').onclick = () => { deck = 'tw'; pos = 0; renderCurate(); };
-    $('#cPrev').onclick = () => { pos = (pos - 1 + D.length) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
-    $('#cNext').onclick = () => { pos = (pos + 1) % D.length; renderCurate(); if (typeof root.scrollTo === 'function') root.scrollTo(0, 0); };
+    const totalEv = poolLen('ev');
+    let offCount = 0; for (let i = 0; i < totalEv; i++) if (isOff('ev', i)) offCount++;
+    const lvList = lovedList();
+    const toggles = DECKS.map((dk) => {
+      const on = !disabledDecks.has(dk.id);
+      return `<button class="decktog${on ? ' on' : ''}" data-deck="${dk.id}" role="checkbox" aria-checked="${on}"><span class="deckbox">${on ? '<span class="deckchk">✓</span>' : ''}</span><span class="decknick">${esc(dk.nick)}</span></button>`;
+    }).join('')
+      + `<button class="decktog loved-tog${lovedOn ? ' on' : ''}" data-deck="__loved" role="checkbox" aria-checked="${lovedOn}"><span class="deckbox">${lovedOn ? '<span class="deckchk heart">♥</span>' : ''}</span><span class="decknick">loved${lvList.length ? ` (${lvList.length})` : ''}</span></button>`;
+    const cell = (d, i, pair) => {
+      const c = POOL[d][i]; const off = excluded.has(ekey(d, i)); const lv = loved.has(ekey(d, i));
+      const p = pair ? 1 : 0;
+      return `<div class="curcard${off ? ' off' : ''}${lv ? ' loved' : ''}" data-d="${d}" data-i="${i}" data-pair="${p}">`
+        + `<img loading="lazy" decoding="async" src="${c.img}" alt="${esc(c.cap)}">`
+        + `<button class="curbtn curheart" data-d="${d}" data-i="${i}" data-pair="${p}" data-a="love" aria-label="Love">${lv ? '♥' : '♡'}</button>`
+        + `<button class="curbtn curx" data-d="${d}" data-i="${i}" data-pair="${p}" data-a="x" aria-label="Remove">${off ? '＋' : '✕'}</button>`
+        + `</div>`;
+    };
+    let groups = '';
+    if (lvList.length) {
+      const lc = lvList.map((r) => cell(r.d, r.i, r.pair)).join('');
+      groups += `<div class="curdeck${lovedOn ? '' : ' deckoff'}"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck${lovedOn ? '' : ' · turn on above to play it'}</span></div><div class="curgrid">${lc}</div></div>`;
+    }
+    for (const dk of DECKS) {
+      const dim = disabledDecks.has(dk.id) ? ' deckoff' : '';
+      if (dk.split) {
+        const evs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, false)).join('');
+        const tws = (deckIdx.tw[dk.id] || []).map((i) => cell('tw', i, false)).join('');
+        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)} <span class="curdecktag">events + twists</span></div>`
+          + `<div class="curdecksub">events</div><div class="curgrid">${evs}</div>`
+          + `<div class="curdecksub">twists</div><div class="curgrid">${tws}</div></div>`;
+      } else {
+        const cs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, true)).join('');
+        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)}</div><div class="curgrid">${cs}</div></div>`;
+      }
+    }
+    $('#curateSlot').innerHTML = `<div class="curtoggles">${toggles}</div>`
+      + `<div class="curhead"><span class="curcount">${totalEv - offCount} of ${totalEv} cards in play · ${loved.size} loved</span><span class="curhint">check a deck to include it · ♥ love · ✕ remove (＋ add back)</span></div>`
+      + groups;
+    root.querySelectorAll('#curateSlot .decktog').forEach((b) => {
+      b.onclick = async () => {
+        const id = b.dataset.deck;
+        if (id === '__loved') { lovedOn = !lovedOn; await saveLovedOn(); }
+        else { if (disabledDecks.has(id)) disabledDecks.delete(id); else disabledDecks.add(id); await saveDisabled(); }
+        if (sanitizeShown()) await savePair();
+        renderCurate();
+      };
+    });
+    root.querySelectorAll('#curateSlot .curbtn').forEach((b) => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        const d = b.dataset.d; const i = +b.dataset.i; const pair = b.dataset.pair === '1';
+        const keys = pair ? [ekey('ev', i), ekey('tw', i)] : [ekey(d, i)];
+        if (b.dataset.a === 'x') {
+          const on = excluded.has(keys[0]);
+          keys.forEach((k) => { if (on) excluded.delete(k); else { excluded.add(k); loved.delete(k); } });
+          await saveExcluded(); await saveLoved();
+          if (sanitizeShown()) await savePair();
+        } else {
+          const on = loved.has(keys[0]);
+          keys.forEach((k) => { if (on) loved.delete(k); else { loved.add(k); excluded.delete(k); } });
+          await saveLoved(); await saveExcluded();
+        }
+        renderCurate();
+      };
+    });
   }
   /* past cards: recent daily pairs */
   let gsel = [];
@@ -147,7 +305,7 @@ export function initXi(root, ctx) {
     const SLOT = { today: '#cardSlot', curate: '#curateSlot', board: '#boardSlot', gallery: '#gallerySlot', library: '#librarySlot' };
     let p;
     try {
-      if (name === 'today') p = renderToday();
+      if (name === 'today') p = softUpdateToday();
       else if (name === 'curate') p = renderCurate();
       else if (name === 'board') p = renderBoard();
       else if (name === 'gallery') p = renderGallery();
@@ -182,7 +340,8 @@ export function initXi(root, ctx) {
   function bAdj(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1; }
   async function newBoard() {
     const ev = [], tw = []; for (let r = 0; r < BR; r++) for (let c = 0; c < BC; c++) { ((r + c) % 2 === 0 ? ev : tw).push([r, c]); }
-    const ei = bShuf(POOL.be.map((x, i) => i)).slice(0, ev.length), ti = bShuf(POOL.bw.map((x, i) => i)).slice(0, tw.length);
+    const pick = (d, need) => { let pool = POOL[d].map((x, i) => i).filter((i) => !isOff(d, i)); if (pool.length < need) pool = POOL[d].map((x, i) => i); return bShuf(pool).slice(0, need); };
+    const ei = pick('be', ev.length), ti = pick('bw', tw.length);
     bgrid = Array.from({ length: BR }, () => Array(BC).fill(null));
     ev.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'be', i: ei[k] }); tw.forEach((p, k) => bgrid[p[0]][p[1]] = { d: 'bw', i: ti[k] });
     bsel = []; await st.set('xi2_board', bgrid); renderBoard();

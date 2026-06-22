@@ -16,6 +16,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getStorage } = require('firebase-admin/storage');
 const crypto = require('node:crypto');
+const Anthropic = require('@anthropic-ai/sdk');
 
 initializeApp();
 const db = getFirestore();
@@ -302,3 +303,104 @@ exports.illustrateDream = onCall(
     return { url };
   }
 );
+
+/* ===== AI assist (Anthropic) ============================================== */
+// The Anthropic API key lives in a locked-down Firestore doc (config/anthropic:
+// { key }), set from the Firebase console — same pattern as Twilio above, so no
+// CLI / Secret Manager is needed. Client rules don't match config/**, so only
+// this (admin) function can read it.
+async function loadAnthropicKey() {
+  try {
+    const snap = await db.doc('config/anthropic').get();
+    const d = snap.exists ? snap.data() : null;
+    return (d && d.key) ? d.key : null;
+  } catch { return null; }
+}
+
+// Frequent + cheap for titles; stronger for the occasional card-generation pass.
+const TITLE_MODEL = 'claude-haiku-4-5';
+const CARDS_MODEL = 'claude-sonnet-4-6';
+
+const TITLE_SYSTEM = 'You write short, evocative titles for a person\'s own memories. '
+  + '2–6 words. No quotes, no trailing punctuation. Capture what the memory is ABOUT '
+  + 'so the writer recognizes it at a glance — plain, human, specific. Never generic, '
+  + 'never a summary sentence. Output only the title.';
+
+// The creative crux of the card generator: teach the target "altitude" with the
+// dream-deck phrases as exemplars, and forbid retelling the person's specifics.
+const CARDS_SYSTEM = [
+  'You generate cards for "XI", a memory game. A card is a SHORT phrase (2–6 words)',
+  'that works as a provocative prompt — it should make someone think "oh, when did',
+  'THAT happen to me?" and surface a specific memory of their own.',
+  '',
+  'The sweet spot:',
+  '- Broad enough to match MANY different life situations, but',
+  '- evocative enough to NOT be generic filler.',
+  '- Mostly first-person past-tense action fragments, or universal states/twists.',
+  '- Plain language. No proper nouns, no names, no details unique to one story.',
+  '',
+  'Model cards that nail the altitude:',
+  'did my best · used my time wisely · falsely accused · told them how I felt ·',
+  'had no idea what to do · saw them for what they were · interrupted · fell asleep',
+  'at the wheel · was unable to help · finally confessed · the tip of the iceberg ·',
+  'it took longer than expected · took me by surprise',
+  '',
+  'You will be given memories from one person\'s life. Read them for recurring shapes,',
+  'feelings, and turning points, then ABSTRACT up to card altitude. Do NOT retell their',
+  'specific memories — generalize the underlying move so each card works for them AND',
+  'others. Avoid duplicating the model cards above.',
+  '',
+  'Output ONLY the cards, one per line, lowercase, no numbering, no commentary.',
+].join('\n');
+
+const textOf = (msg) => ((msg && msg.content && msg.content[0] && msg.content[0].text) || '');
+
+// Callable AI assist:
+//   { mode: 'title', text }                    -> { title }
+//   { mode: 'cards', memories: [str,...], n }  -> { cards: [phrase,...] }
+exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const key = await loadAnthropicKey();
+  const data = req.data || {};
+  const mode = data.mode || '';
+
+  // Health check — reports whether the key is configured. No model call, no
+  // cost, and doesn't require the key to exist (returns false if missing).
+  if (mode === 'status') return { configured: !!key };
+
+  if (!key) throw new HttpsError('failed-precondition', 'AI is not configured yet.');
+  const client = new Anthropic({ apiKey: key });
+
+  if (mode === 'title') {
+    const text = String(data.text || '').trim().slice(0, 4000);
+    if (!text) throw new HttpsError('invalid-argument', 'No text to title.');
+    const msg = await client.messages.create({
+      model: TITLE_MODEL,
+      max_tokens: 40,
+      system: TITLE_SYSTEM,
+      messages: [{ role: 'user', content: `Memory:\n\n${text}\n\nTitle:` }],
+    });
+    const title = textOf(msg).trim().replace(/^["']|["']$/g, '').replace(/[.\s]+$/, '');
+    return { title };
+  }
+
+  if (mode === 'cards') {
+    const mems = Array.isArray(data.memories)
+      ? data.memories.map((m) => String(m || '').trim()).filter(Boolean).slice(0, 200) : [];
+    if (!mems.length) throw new HttpsError('invalid-argument', 'No memories provided.');
+    const n = Math.max(1, Math.min(60, Number(data.n) || 24));
+    const corpus = mems.map((m, i) => `${i + 1}. ${m.slice(0, 400)}`).join('\n');
+    const msg = await client.messages.create({
+      model: CARDS_MODEL,
+      max_tokens: 1500,
+      system: CARDS_SYSTEM,
+      messages: [{ role: 'user', content: `Here are memories from one person's life:\n\n${corpus}\n\nWrite ${n} cards.` }],
+    });
+    const cards = textOf(msg).split('\n')
+      .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
+      .filter(Boolean).slice(0, n);
+    return { cards };
+  }
+
+  throw new HttpsError('invalid-argument', 'Unknown mode.');
+});
