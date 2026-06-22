@@ -11,7 +11,6 @@ const ITEMS = [
   { key: 'curate', label: 'Curate' },
   { key: 'boardday', label: 'Daily', route: '/xi/board' },
   { key: 'versus', label: 'Versus', route: '/xi/versus' },
-  { key: 'gallery', label: 'Past' },
   { key: 'library', label: 'Library' },
 ];
 
