@@ -4,7 +4,7 @@ import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
-  useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
+  useHand, ensureHand, placeCard, writeStory, useStories,
   listVersusGames, forgetVersusGame, undoLastMove,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
@@ -214,14 +214,6 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
-  const doSkip = async () => {
-    if (working) return;
-    setWorking(true);
-    try { await skipTurn(gameId, user); setSelected(null); setStoryCells([]); }
-    catch (e) { alert(e.message); }
-    finally { setWorking(false); }
-  };
-
   const doUndo = async () => {
     if (working) return;
     setWorking(true);
@@ -291,7 +283,6 @@ export default function XiVersus() {
             ? 'Your move — place a card or write a story'
             : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…'))
           : 'Watching live'}
-        {canAct && <button className="xiv-skip" disabled={working} onClick={doSkip}>skip my move</button>}
       </div>
 
       <XiBoardGrid
@@ -325,17 +316,6 @@ export default function XiVersus() {
 
       {amInGame ? (
         <>
-          {!storyReady && (
-            <div className="xiv-hint">
-              {canAct
-                ? (selected
-                  ? 'Tap an open cell (matching colour, next to a card) to lay it.'
-                  : (storyCells.length === 1
-                    ? 'Now tap a touching card of the other colour to make a pair.'
-                    : 'Place a card from your hand, or tap two touching cards to write a story.'))
-                : (iActed ? 'You’ve played this round.' : '')}
-            </div>
-          )}
           <div className="xiv-hand">
             {hand.map((card, k) => {
               const art = artOf(card.d, card.i);
