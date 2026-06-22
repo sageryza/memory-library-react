@@ -31,6 +31,10 @@ jobs:
 
       - name: Build project
         run: npm run build
+        env:
+          # Public web-push key (Firebase Console → Cloud Messaging → Web Push
+          # certificates). Optional: if unset, the app just skips push setup.
+          VITE_FCM_VAPID_KEY: ${{ secrets.VITE_FCM_VAPID_KEY }}
 
       - name: Deploy to Firebase
         run: |
