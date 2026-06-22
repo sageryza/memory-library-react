@@ -439,6 +439,24 @@
 }
 
 /* Generate intelligently button */
+/* AI key status indicator under the title row (next to Generate title). */
+.ai-status {
+  display: inline-block;
+  margin: 6px 0 2px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.ai-status--on { color: #2e7d32; }
+.ai-status--off { color: var(--color-text-secondary); }
+.ai-status--checking { color: var(--color-text-secondary); opacity: 0.7; }
+.ai-status--off:hover, .ai-status--on:hover { background: var(--color-bg-tan); }
+
 .btn-generate-title {
   flex-shrink: 0;
   background: white;

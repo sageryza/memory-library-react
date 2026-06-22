@@ -187,10 +187,15 @@ const textOf = (msg) => ((msg && msg.content && msg.content[0] && msg.content[0]
 exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const key = await loadAnthropicKey();
-  if (!key) throw new HttpsError('failed-precondition', 'AI is not configured yet.');
-  const client = new Anthropic({ apiKey: key });
   const data = req.data || {};
   const mode = data.mode || '';
+
+  // Health check — reports whether the key is configured. No model call, no
+  // cost, and doesn't require the key to exist (returns false if missing).
+  if (mode === 'status') return { configured: !!key };
+
+  if (!key) throw new HttpsError('failed-precondition', 'AI is not configured yet.');
+  const client = new Anthropic({ apiKey: key });
 
   if (mode === 'title') {
     const text = String(data.text || '').trim().slice(0, 4000);
