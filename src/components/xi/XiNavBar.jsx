@@ -9,7 +9,6 @@ import './XiNavBar.css';
 const ITEMS = [
   { key: 'today', label: 'Today' },
   { key: 'curate', label: 'Curate' },
-  { key: 'board', label: 'Board' },
   { key: 'boardday', label: 'Daily', route: '/xi/board' },
   { key: 'versus', label: 'Versus', route: '/xi/versus' },
   { key: 'gallery', label: 'Past' },

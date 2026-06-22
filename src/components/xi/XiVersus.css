@@ -47,7 +47,7 @@
 .xiv-pairframe{position:absolute;border:3px solid #800020;border-radius:6px;pointer-events:none;z-index:3;box-sizing:border-box}
 .xiv-tokens{position:absolute;left:3px;bottom:3px;display:flex;gap:2px;flex-wrap:wrap;max-width:70%;z-index:2}
 .xiv-tokens i{width:8px;height:8px;border-radius:50%;border:1px solid rgba(255,255,255,.85);box-shadow:0 0 1px rgba(0,0,0,.5)}
-.xiv-cell{position:relative;aspect-ratio:1;border-radius:4px;padding:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.xiv-cell{position:relative;aspect-ratio:1;border-radius:2px;padding:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
 .xiv-cell.event{background:#ece0c2}
 .xiv-cell.twist{background:#fbf8f1}
 .xiv-cell img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply}
@@ -69,7 +69,7 @@
 /* Hand + placement (Milestone 2) */
 .xiv-hint{text-align:center;font-size:13.5px;color:#5b4f44;padding:4px 16px 2px}
 .xiv-hand{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;padding:8px 10px 6px;min-height:62px}
-.xiv-handcard{width:58px;aspect-ratio:1;border:1px solid #cbbfa6;border-radius:5px;padding:3px;cursor:pointer;flex:none}
+.xiv-handcard{width:58px;height:58px;border:1px solid #cbbfa6;border-radius:2px;padding:2px;cursor:pointer;flex:none}
 .xiv-handcard.event{background:#ece0c2}
 .xiv-handcard.twist{background:#fbf8f1}
 .xiv-handcard img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
@@ -78,12 +78,9 @@
 .xiv-empty{color:#8a7d6e;font-size:14px;align-self:center}
 .xiv-pill.done{opacity:.5}
 
-/* Subtle hint of where the selected card may go (empty legal cells). */
-.xiv-cell.legal{box-shadow:inset 0 0 0 2px rgba(128,0,32,.35)}
-.xiv-cell.legal::after{content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:rgba(128,0,32,.32)}
-
-/* Undo control, top-left under the logo. */
-.xiv-undo{display:inline-flex;align-items:center;justify-content:center;margin:0 0 2px 12px;align-self:flex-start;background:none;border:none;color:#8a7d6e;cursor:pointer;padding:4px}
+/* Row under the top line: undo on the left, ⓘ on the right. */
+.xiv-subbar{display:flex;align-items:center;justify-content:space-between;padding:0 14px;min-height:30px}
+.xiv-undo{display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#8a7d6e;cursor:pointer;padding:4px}
 .xiv-undo:disabled{opacity:.4;cursor:default}
 .xiv-undo svg{width:20px;height:20px}
 
