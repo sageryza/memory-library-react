@@ -27,6 +27,7 @@ export function initXi(root, ctx) {
   // interchangeable (ev[i] and tw[i] are the same source card), so we exclude by
   // index — removing a card hides it whether it's drawn as an event or a twist.
   let excluded = new Set();
+  let loved = new Set(); // ♥ favorites in Curate (kept; marker for now)
   function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!excluded.has(j)) return j; } return (i + 1) % n; }
   function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!excluded.has(j)) return j; } return (i - 1 + n) % n; }
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
@@ -56,8 +57,11 @@ export function initXi(root, ctx) {
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
   async function loadExcluded() { const a = await st.get('xi2_excluded'); excluded = new Set(Array.isArray(a) ? a : []); }
   async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
+  async function loadLoved() { const a = await st.get('xi2_loved'); loved = new Set(Array.isArray(a) ? a : []); }
+  async function saveLoved() { await st.set('xi2_loved', [...loved]); }
   async function loadState() {
     await loadExcluded();
+    await loadLoved();
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
@@ -120,17 +124,38 @@ export function initXi(root, ctx) {
     else $('#cardSlot').insertAdjacentHTML('beforeend', blockHtml(arr, S.shown.length === 1));
     wireSave();
   }
-  /* curate — review every card and keep (♥) or remove (✕) it from your deck.
-     Removed cards are skipped when dealing; tap a removed card to add it back. */
+  /* curate — review every card: ♥ to love it, ✕ to remove it from your deck.
+     Removed cards are skipped when dealing (everywhere); loved cards are kept
+     and flagged as favorites. The two are mutually exclusive. */
   function renderCurate() {
     const cards = POOL.ev; // canonical, interchangeable list
     const inCount = cards.length - excluded.size;
     const cells = cards.map((c, i) => {
-      const off = excluded.has(i);
-      return `<button class="curcard${off ? ' off' : ''}" data-i="${i}"><img loading="lazy" decoding="async" src="${c.img}" alt=""><span class="curmark">${off ? '＋' : '✕'}</span></button>`;
+      const off = excluded.has(i); const lv = loved.has(i);
+      return `<div class="curcard${off ? ' off' : ''}${lv ? ' loved' : ''}" data-i="${i}">`
+        + `<img loading="lazy" decoding="async" src="${c.img}" alt="">`
+        + `<button class="curbtn curheart" data-i="${i}" data-a="love" aria-label="Love">${lv ? '♥' : '♡'}</button>`
+        + `<button class="curbtn curx" data-i="${i}" data-a="x" aria-label="Remove">${off ? '＋' : '✕'}</button>`
+        + `</div>`;
     }).join('');
-    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${inCount} of ${cards.length} cards in your deck</span><span class="curhint">tap ✕ to remove · ＋ to add back</span></div><div class="curgrid">${cells}</div>`;
-    root.querySelectorAll('#curateSlot .curcard').forEach((b) => { b.onclick = async () => { const i = +b.dataset.i; if (excluded.has(i)) excluded.delete(i); else excluded.add(i); await saveExcluded(); if (sanitizeShown()) await savePair(); renderCurate(); }; });
+    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${inCount} of ${cards.length} cards · ${loved.size} loved</span><span class="curhint">♥ to love · ✕ to remove (＋ to add back)</span></div><div class="curgrid">${cells}</div>`;
+    root.querySelectorAll('#curateSlot .curbtn').forEach((b) => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        const i = +b.dataset.i;
+        if (b.dataset.a === 'x') {
+          if (excluded.has(i)) excluded.delete(i);
+          else { excluded.add(i); loved.delete(i); }
+          await saveExcluded(); await saveLoved();
+          if (sanitizeShown()) await savePair();
+        } else {
+          if (loved.has(i)) loved.delete(i);
+          else { loved.add(i); excluded.delete(i); }
+          await saveLoved(); await saveExcluded();
+        }
+        renderCurate();
+      };
+    });
   }
   /* past cards: recent daily pairs */
   let gsel = [];

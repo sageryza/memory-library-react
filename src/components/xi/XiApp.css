@@ -157,11 +157,15 @@
 .xi-app .curcount{font-variant:small-caps;letter-spacing:.06em;color:var(--maroon);font-size:.95rem}
 .xi-app .curhint{font-style:italic;color:var(--soft);font-size:.8rem}
 .xi-app .curgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.xi-app .curcard{position:relative;padding:0;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;line-height:0;overflow:hidden}
+.xi-app .curcard{position:relative;border:1px solid var(--line);border-radius:4px;background:#fff;line-height:0;overflow:hidden}
 .xi-app .curcard img{width:100%;height:auto;display:block}
 .xi-app .curcard.off{opacity:.32}
-.xi-app .curmark{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;background:rgba(36,29,24,.82);color:#fdf7ec}
-.xi-app .curcard.off .curmark{background:var(--maroon)}
+.xi-app .curcard.loved{border-color:#c0392b;box-shadow:0 0 0 1px #c0392b}
+.xi-app .curbtn{position:absolute;top:5px;width:24px;height:24px;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;cursor:pointer;padding:0;background:rgba(255,255,255,.9);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.xi-app .curheart{left:5px;color:#c0392b}
+.xi-app .curcard.loved .curheart{background:#c0392b;color:#fff}
+.xi-app .curx{right:5px;color:#241d18}
+.xi-app .curcard.off .curx{background:var(--maroon);color:#fdf7ec}
 .xi-app .curtoggle{display:flex;justify-content:center;margin-bottom:16px}
 .xi-app .curtoggle button{font-family:inherit;font-variant:small-caps;letter-spacing:.08em;font-size:.9rem;padding:5px 18px;border:1px solid var(--ink);background:none;color:var(--ink);cursor:pointer}
 .xi-app .curtoggle button:first-child{border-right:none}
