@@ -4,7 +4,7 @@ import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
-  useHand, ensureHand, placeCard, skipTurn, writeStory, useStories,
+  useHand, ensureHand, placeCard, writeStory, useStories,
   listVersusGames, forgetVersusGame, undoLastMove,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
@@ -150,12 +150,16 @@ export default function XiVersus() {
   const players = game.players || [];
   const acted = game.acted || [];
   const iActed = !!(user && acted.includes(user.uid));
-  const canAct = amInGame && !iActed && !working;
+  const iPlaced = !!(user && (game.placedBy || []).includes(user.uid)); // placed, owe a story
+  // A move = place a card then tell its story, OR write a story on an existing
+  // pairing. You can place only once per round; you can write until your move is done.
+  const canPlace2 = amInGame && !iActed && !iPlaced && !working;
+  const canWrite = amInGame && !iActed && !working;
   const link = `${window.location.origin}/xi/versus/${gameId}`;
 
   // Legal target cells for the selected hand card — gates taps and shows a subtle
   // on-board hint so you can see where a card may go.
-  const legalList = (canAct && selected) ? legalCells(game.placed || [], selected) : [];
+  const legalList = (canPlace2 && selected) ? legalCells(game.placed || [], selected) : [];
   const legalSet = new Set(legalList.map(([r, c]) => r + '-' + c));
 
   // You can undo your own placement while it's still the last card on the board.
@@ -188,8 +192,14 @@ export default function XiVersus() {
   const handlePlace = async (r, c) => {
     if (!selected || working) return;
     setWorking(true);
-    try { await placeCard(gameId, user, selected, r, c); setSelected(null); }
-    catch (e) { alert(e.message); }
+    const justPlaced = { r, c, d: selected.d, i: selected.i };
+    try {
+      await placeCard(gameId, user, selected, r, c);
+      setSelected(null);
+      // Auto-select the card you just placed — you'll write a story on it next,
+      // so pre-pick it and prompt for its touching partner.
+      setStoryCells([justPlaced]);
+    } catch (e) { alert(e.message); }
     finally { setWorking(false); }
   };
 
@@ -214,14 +224,6 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
-  const doSkip = async () => {
-    if (working) return;
-    setWorking(true);
-    try { await skipTurn(gameId, user); setSelected(null); setStoryCells([]); }
-    catch (e) { alert(e.message); }
-    finally { setWorking(false); }
-  };
-
   const doUndo = async () => {
     if (working) return;
     setWorking(true);
@@ -233,7 +235,7 @@ export default function XiVersus() {
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
   const handleCellClick = (r, c, cell) => {
     if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
-    if (canAct) tapPlaced(r, c, cell);
+    if (canWrite) tapPlaced(r, c, cell);
   };
 
   return (
@@ -287,11 +289,12 @@ export default function XiVersus() {
 
       <div className="xiv-turn">
         {amInGame
-          ? (canAct
-            ? 'Your move — place a card or write a story'
-            : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…'))
+          ? (iPlaced
+            ? 'Now tell its story — tap a touching card'
+            : (canPlace2
+              ? 'Your move — place a card or write a story'
+              : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
           : 'Watching live'}
-        {canAct && <button className="xiv-skip" disabled={working} onClick={doSkip}>skip my move</button>}
       </div>
 
       <XiBoardGrid
@@ -325,17 +328,6 @@ export default function XiVersus() {
 
       {amInGame ? (
         <>
-          {!storyReady && (
-            <div className="xiv-hint">
-              {canAct
-                ? (selected
-                  ? 'Tap an open cell (matching colour, next to a card) to lay it.'
-                  : (storyCells.length === 1
-                    ? 'Now tap a touching card of the other colour to make a pair.'
-                    : 'Place a card from your hand, or tap two touching cards to write a story.'))
-                : (iActed ? 'You’ve played this round.' : '')}
-            </div>
-          )}
           <div className="xiv-hand">
             {hand.map((card, k) => {
               const art = artOf(card.d, card.i);
@@ -343,7 +335,7 @@ export default function XiVersus() {
               return (
                 <button key={k}
                   className={'xiv-handcard ' + kindClass(card.d) + (sel ? ' sel' : '')}
-                  disabled={!canAct}
+                  disabled={!canPlace2}
                   onClick={() => { setStoryCells([]); setSelected(sel ? null : card); }}>
                   {art && <img src={art.img} alt={art.cap || ''} />}
                 </button>

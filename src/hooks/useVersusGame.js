@@ -27,7 +27,7 @@ function withMoveComplete(g, uid, updates) {
   const allUids = (g.players || []).map((p) => p.uid);
   const allDone = allUids.length > 0 && allUids.every((u) => acted.includes(u));
   return allDone
-    ? { ...updates, acted: [], round: (g.round || 0) + 1 }
+    ? { ...updates, acted: [], round: (g.round || 0) + 1, placedBy: [] }
     : { ...updates, acted };
 }
 
@@ -86,6 +86,7 @@ export async function createVersusGame(user, profile) {
     players: [creator],
     round: 0,
     acted: [],
+    placedBy: [],
     placed,
     drawPile,
     stats: { [user.uid]: { placed: 0, stories: 0 } },
@@ -148,6 +149,7 @@ export async function placeCard(gameId, user, card, r, c) {
     const players = g.players || [];
     if (!players.some((p) => p.uid === user.uid)) throw new Error('Join the game first.');
     if ((g.acted || []).includes(user.uid)) throw new Error('You’ve already gone this round — wait for the others.');
+    if ((g.placedBy || []).includes(user.uid)) throw new Error('You’ve already placed — write its story to finish your move.');
     if (!canPlace(g.placed || [], r, c, card)) throw new Error('That spot isn’t legal.');
 
     const hSnap = await tx.get(handRef(gameId, user.uid));
@@ -166,12 +168,15 @@ export async function placeCard(gameId, user, card, r, c) {
     const mine = stats[user.uid] || { placed: 0, stories: 0 };
     stats[user.uid] = { ...mine, placed: (mine.placed || 0) + 1 };
 
-    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, {
+    // Placing does NOT end your move — you owe a story about it. Mark that you've
+    // placed this round (so you can't place twice); writing the story completes it.
+    tx.update(gameRef(gameId), {
       placed,
       drawPile: pile.slice(draw.length),
       stats,
+      placedBy: [...(g.placedBy || []), user.uid],
       updatedAt: serverTimestamp(),
-    }));
+    });
     tx.set(handRef(gameId, user.uid), { cards: newHand });
   });
 }
@@ -207,6 +212,7 @@ export async function undoLastMove(gameId, user) {
       drawPile,
       stats,
       acted: (g.acted || []).filter((u) => u !== user.uid),
+      placedBy: (g.placedBy || []).filter((u) => u !== user.uid),
       updatedAt: serverTimestamp(),
     });
     tx.set(handRef(gameId, user.uid), { cards: newHand });
@@ -252,7 +258,12 @@ export async function writeStory(gameId, user, cells, text) {
     const stats = { ...(g.stats || {}) };
     const mine = stats[user.uid] || { placed: 0, stories: 0 };
     stats[user.uid] = { ...mine, stories: (mine.stories || 0) + 1 };
-    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, { stats, updatedAt: serverTimestamp() }));
+    // Writing the story completes your move (and clears any owed-story flag).
+    tx.update(gameRef(gameId), withMoveComplete(g, user.uid, {
+      stats,
+      placedBy: (g.placedBy || []).filter((u) => u !== user.uid),
+      updatedAt: serverTimestamp(),
+    }));
     return { name: me.name || 'Player', color: me.color || null };
   });
 
