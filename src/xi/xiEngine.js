@@ -32,6 +32,10 @@ export function initXi(root, ctx) {
   let excluded = new Set();
   let loved = new Set();
   let disabledDecks = new Set();
+  // The "loved" deck: when on, your ♥ cards are re-included even if their source
+  // deck is toggled off — so disabling the five sources and enabling loved plays
+  // only your hearts (the composite deck you actually keep). Off by default.
+  let lovedOn = false;
   const DECKS = ctx.decks || [];
   // Per-deck index lists in each pool, used to build the Curate grid.
   const deckIdx = {};
@@ -40,8 +44,16 @@ export function initXi(root, ctx) {
     POOL[d].forEach((c, i) => { (deckIdx[d][c.deck] = deckIdx[d][c.deck] || []).push(i); });
   }
   const ekey = (d, i) => d + ':' + i;
-  // A card position is "off" if its deck is disabled or it was removed (✕).
-  function isOff(d, i) { const c = POOL[d][i]; return (c && disabledDecks.has(c.deck)) || excluded.has(ekey(d, i)); }
+  // A card is in play if its source deck is enabled (and it wasn't removed), OR
+  // it's a loved card and the loved deck is on. "off" is the negation.
+  function isOff(d, i) {
+    const key = ekey(d, i);
+    if (excluded.has(key)) return true;
+    const c = POOL[d][i];
+    const sourceOn = c && !disabledDecks.has(c.deck);
+    const lovedInPlay = lovedOn && loved.has(key);
+    return !(sourceOn || lovedInPlay);
+  }
   function allOff(d) { const n = poolLen(d); for (let i = 0; i < n; i++) if (!isOff(d, i)) return false; return true; }
   function nextI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i + s) % n; if (!isOff(d, j)) return j; } return (i + 1) % n; }
   function prevI(d, i) { const n = poolLen(d); for (let s = 1; s <= n; s++) { const j = (i - s + n * s) % n; if (!isOff(d, j)) return j; } return (i - 1 + n) % n; }
@@ -77,10 +89,13 @@ export function initXi(root, ctx) {
   async function saveLoved() { await st.set('xi2_loved', [...loved]); }
   async function loadDisabled() { const a = await st.get('xi2_disabledDecks'); disabledDecks = new Set(Array.isArray(a) ? a : []); }
   async function saveDisabled() { await st.set('xi2_disabledDecks', [...disabledDecks]); }
+  async function loadLovedOn() { lovedOn = (await st.get('xi2_lovedOn')) === true; }
+  async function saveLovedOn() { await st.set('xi2_lovedOn', lovedOn); }
   async function loadState() {
     await loadExcluded();
     await loadLoved();
     await loadDisabled();
+    await loadLovedOn();
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
@@ -147,13 +162,30 @@ export function initXi(root, ctx) {
      each card has ♥ (love) and ✕ (remove). Interchangeable cards (rendered once)
      toggle both their event and twist roles together; split-deck cards toggle
      only their own role. All removals/disables are skipped when dealing. */
+  // Distinct loved cards, deduped so an interchangeable card (loved as both ev:i
+  // and tw:i) counts/shows once. Returns [{ d, i, pair }] for cell() reuse.
+  const splitSet = new Set(DECKS.filter((d) => d.split).map((d) => d.id));
+  function lovedList() {
+    const out = []; const seen = new Set();
+    for (const key of loved) {
+      const d = key.slice(0, 2); const i = parseInt(key.slice(3), 10);
+      const c = POOL[d] && POOL[d][i]; if (!c) continue;
+      const inter = !splitSet.has(c.deck);
+      const cid = inter ? 'i' + i : key;
+      if (seen.has(cid)) continue; seen.add(cid);
+      out.push({ d, i, pair: inter });
+    }
+    return out;
+  }
   function renderCurate() {
     const totalEv = poolLen('ev');
     let offCount = 0; for (let i = 0; i < totalEv; i++) if (isOff('ev', i)) offCount++;
+    const lvList = lovedList();
     const toggles = DECKS.map((dk) => {
       const on = !disabledDecks.has(dk.id);
       return `<button class="decktog${on ? ' on' : ''}" data-deck="${dk.id}" role="checkbox" aria-checked="${on}"><span class="deckbox">${on ? '<span class="deckchk">✓</span>' : ''}</span><span class="decknick">${esc(dk.nick)}</span></button>`;
-    }).join('');
+    }).join('')
+      + `<button class="decktog loved-tog${lovedOn ? ' on' : ''}" data-deck="__loved" role="checkbox" aria-checked="${lovedOn}"><span class="deckbox">${lovedOn ? '<span class="deckchk heart">♥</span>' : ''}</span><span class="decknick">loved${lvList.length ? ` (${lvList.length})` : ''}</span></button>`;
     const cell = (d, i, pair) => {
       const c = POOL[d][i]; const off = excluded.has(ekey(d, i)); const lv = loved.has(ekey(d, i));
       const p = pair ? 1 : 0;
@@ -164,6 +196,10 @@ export function initXi(root, ctx) {
         + `</div>`;
     };
     let groups = '';
+    if (lvList.length) {
+      const lc = lvList.map((r) => cell(r.d, r.i, r.pair)).join('');
+      groups += `<div class="curdeck${lovedOn ? '' : ' deckoff'}"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck${lovedOn ? '' : ' · turn on above to play it'}</span></div><div class="curgrid">${lc}</div></div>`;
+    }
     for (const dk of DECKS) {
       const dim = disabledDecks.has(dk.id) ? ' deckoff' : '';
       if (dk.split) {
@@ -183,8 +219,8 @@ export function initXi(root, ctx) {
     root.querySelectorAll('#curateSlot .decktog').forEach((b) => {
       b.onclick = async () => {
         const id = b.dataset.deck;
-        if (disabledDecks.has(id)) disabledDecks.delete(id); else disabledDecks.add(id);
-        await saveDisabled();
+        if (id === '__loved') { lovedOn = !lovedOn; await saveLovedOn(); }
+        else { if (disabledDecks.has(id)) disabledDecks.delete(id); else disabledDecks.add(id); await saveDisabled(); }
         if (sanitizeShown()) await savePair();
         renderCurate();
       };
