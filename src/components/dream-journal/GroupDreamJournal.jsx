@@ -56,6 +56,12 @@ const GroupDreamJournal = () => {
       onFinal: (text) => setContent((prev) => appendChunk(prev, text)),
     });
 
+  // Keep the newest dictated words in view as they stream in.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [content, interim]);
+
   // --- optional details ---
   const [showDetails, setShowDetails] = useState(false);
   const [title, setTitle] = useState('');

@@ -3,7 +3,7 @@
 // just-woke-up capture flow, including live voice-to-text (the mic is wired to
 // the real useSpeechRecognition hook here, it just doesn't save anywhere).
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import DreamCard from './DreamCard';
@@ -37,9 +37,16 @@ const MOCK_DREAMS = [
 
 const GroupDreamJournalPreview = () => {
   const [content, setContent] = useState('');
+  const textareaRef = useRef(null);
   const { supported, listening, interim, toggle } = useSpeechRecognition({
     onFinal: (text) => setContent((prev) => appendChunk(prev, text)),
   });
+
+  // Keep the newest dictated words in view as they stream in.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [content, interim]);
 
   const fieldValue = listening && interim ? appendChunk(content, interim) : content;
 
@@ -55,6 +62,7 @@ const GroupDreamJournalPreview = () => {
 
         <div className="gdj-field-wrap">
           <textarea
+            ref={textareaRef}
             className="gdj-capture-field"
             placeholder="Let it spill out…"
             value={fieldValue}
