@@ -4,6 +4,9 @@ name: Deploy Cloud Functions
 # yet enabled) must never block the site from shipping. Runs only when the
 # functions/ code changes.
 on:
+  # Manual "Run workflow" button (Actions tab) — handy to retry after the
+  # one-time 2nd-gen Eventarc setup finishes propagating.
+  workflow_dispatch:
   push:
     branches:
       - main
