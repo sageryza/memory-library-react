@@ -44,7 +44,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         // XI's illustrated decks bundle ~1.3 MB of inline card art into their
         // own lazy-loaded chunk; raise the precache limit so it can be cached.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 7 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
