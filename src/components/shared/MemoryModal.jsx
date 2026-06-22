@@ -4,7 +4,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import './MemoryModal.css';
 import keyword_extractor from 'keyword-extractor';
 import useSimplifyView from '../../hooks/useSimplifyView';
-import { aiGenerateTitle } from '../../utils/aiAssist';
+import { aiGenerateTitle, aiStatus } from '../../utils/aiAssist';
 
 function Tooltip({ text, children }) {
   const [show, setShow] = useState(false);
@@ -46,6 +46,19 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
   const [showBackupStatus, setShowBackupStatus] = useState(false);
   const [activeTab, setActiveTab] = useState(isSimplified ? 'intuitive' : 'narrative');
   const [lastAddedUnitId, setLastAddedUnitId] = useState(null); // Track last added unit for toggle behavior
+
+  // AI key status — drives the indicator next to "Generate title" so you can
+  // tell at a glance whether AI titles are wired (config/anthropic set) or it's
+  // falling back to keywords. null = checking. Re-checkable by tapping it.
+  const [aiInfo, setAiInfo] = useState(null);
+  const checkAi = () => { setAiInfo(null); aiStatus().then(setAiInfo); };
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let alive = true;
+    setAiInfo(null);
+    aiStatus().then((r) => { if (alive) setAiInfo(r); });
+    return () => { alive = false; };
+  }, [isOpen]);
 
   // Intelligent title generation
   const generateTitle = async (unitId) => {
@@ -470,6 +483,23 @@ export default function MemoryModal({ isOpen, onClose, onSave, editingMemory = n
                         </button>
                       </Tooltip>
                     </div>
+
+                    {index === 0 && (
+                      <button
+                        type="button"
+                        className={`ai-status ai-status--${aiInfo === null ? 'checking' : aiInfo.configured ? 'on' : 'off'}`}
+                        onClick={checkAi}
+                        title="Tap to re-check"
+                      >
+                        {aiInfo === null
+                          ? 'checking AI…'
+                          : aiInfo.configured
+                            ? '● AI titles on'
+                            : aiInfo.error
+                              ? '● AI unreachable — tap to retry'
+                              : '○ AI off — using keywords (add key to turn on)'}
+                      </button>
+                    )}
 
                     <textarea
                       className="memory-input"
