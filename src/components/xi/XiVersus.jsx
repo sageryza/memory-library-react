@@ -11,6 +11,7 @@ import {
 import { boardDeck } from '../../xi/decks';
 import { legalCells } from '../../xi/versusModel';
 import { pairKey, timesSentence } from '../../xi/xiMemory';
+import { enableTurnNotifications } from '../../xi/notify';
 import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import KeyboardSheet from './KeyboardSheet';
@@ -45,6 +46,8 @@ export default function XiVersus() {
   const [storyCells, setStoryCells] = useState([]); // placed cells chosen to write on
   const [storyText, setStoryText] = useState('');
   const [working, setWorking] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifOn, setNotifOn] = useState(false);
   const [nameInput, setNameInput] = useState(() => {
     try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
   });
@@ -255,6 +258,24 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
+  // Opt in to "it's your turn" alerts (text + web push + email).
+  const turnOnNotifs = async () => {
+    if (!user) { alert('Join or sign in first to get turn alerts.'); return; }
+    if (notifBusy || notifOn) return;
+    let phone = '';
+    try { phone = window.prompt('Mobile number for a text when it’s your turn (optional — leave blank to skip):', '') || ''; } catch { phone = ''; }
+    setNotifBusy(true);
+    try {
+      const r = await enableTurnNotifications(user, { phone });
+      setNotifOn(true);
+      const chans = [r.smsOn && 'text', r.pushOn && 'push', r.emailOn && 'email'].filter(Boolean);
+      alert(chans.length
+        ? `Done — you’ll get a ${chans.join(' + ')} when it’s your turn.`
+        : 'Turn alerts are on. Add a number, allow notifications, or sign in to actually receive them.');
+    } catch (e) { alert(e.message || 'Could not enable alerts.'); }
+    finally { setNotifBusy(false); }
+  };
+
   // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
   // copying the link if the device has no share support.
   const shareInvite = async () => {
@@ -286,6 +307,13 @@ export default function XiVersus() {
               <option value="new">＋ New game</option>
             </select>
           )}
+          <button className={'xiv-bell' + (notifOn ? ' on' : '')} disabled={notifBusy}
+            onClick={turnOnNotifs} aria-label="Notify me when it's my turn"
+            title="Notify me when it's my turn">
+            <svg viewBox="0 0 24 24" fill={notifOn ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+            </svg>
+          </button>
           <button className="xiv-link" onClick={shareInvite}>{copied ? 'Shared ✓' : 'Share'}</button>
         </div>
       </div>
