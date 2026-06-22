@@ -19,6 +19,8 @@ export function initXi(root, ctx) {
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const UNDO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>';
+  // Sunrise (lucide) — "New cards" feels like a fresh dawn of cards.
+  const SUNRISE = '<svg class="sunicon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></svg>';
 
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
@@ -88,7 +90,7 @@ export function initXi(root, ctx) {
   /* top center: New cards (centered) + Undo (absolute left) */
   function renderCenter() {
     const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
-    $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">New cards</button><button class="nothing" id="nothingBtn">I got nothing</button>';
+    $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">' + SUNRISE + '<span>New cards</span></button><button class="nothing" id="nothingBtn">I got nothing</button>';
     $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); softUpdateToday(); };
     $('#nothingBtn').onclick = gotNothing;
     const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };

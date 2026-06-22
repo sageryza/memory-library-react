@@ -25,9 +25,9 @@
 .xi-app .count-top{flex:0 1 auto;display:flex;gap:6px;align-items:center;justify-content:center;text-align:center;color:var(--soft);font-style:italic;font-size:.92rem}
 .xi-app .card{touch-action:manipulation}
 .xi-app .cardmenu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:rgba(241,233,216,.9);z-index:5}
-.xi-app .cardmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.92rem;padding:7px 20px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:16px;cursor:pointer}
+.xi-app .cardmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.92rem;padding:7px 20px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .cardmenu button:hover{background:rgba(36,29,24,.06)}
-.xi-app .newcards{background:none;border:1px solid var(--ink);color:var(--ink);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.82rem;padding:4px 13px;border-radius:14px;cursor:pointer}
+.xi-app .newcards{background:none;border:1px solid var(--ink);color:var(--ink);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.82rem;padding:4px 13px;border-radius:6px;cursor:pointer}
 .xi-app .newcards:hover{background:rgba(36,29,24,.05)}
 .xi-app .topright{justify-content:flex-end;gap:12px}
 .xi-app .gear{display:flex;cursor:pointer;color:var(--soft);background:none;border:none;padding:0}
@@ -128,7 +128,9 @@
 .xi-app /* two-deck additions */
 #cardSlot .cardrow .card{position:relative}
 .xi-app .center-wrap{flex:0 1 auto;position:relative;display:flex;align-items:center;justify-content:center}
-.xi-app .newcards{border-radius:7px;padding:6px 16px}
+.xi-app .newcards{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sepia);background:linear-gradient(180deg,#fbf3e0 0%,#f2e0ba 100%);border-radius:6px;padding:6px 14px 6px 11px;box-shadow:0 1px 2px rgba(122,90,54,.18)}
+.xi-app .newcards .sunicon{color:var(--sepia);flex:none}
+.xi-app .newcards:hover{background:linear-gradient(180deg,#fdf6e7 0%,#efdab0 100%)}
 .xi-app #undoBtn{position:absolute;right:100%;margin-right:12px;top:50%;transform:translateY(-50%);color:var(--soft);background:none;border:none;cursor:pointer;display:flex;padding:0}
 .xi-app #undoBtn:hover{color:var(--ink)}
 .xi-app .libitem{margin-bottom:20px;position:relative}
@@ -137,7 +139,7 @@
 .xi-app .liblabel .sep{color:var(--soft);font-size:.82rem;margin:0 5px}
 .xi-app .libmem{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:11px 13px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .xi-app .memmenu{display:flex;gap:10px;margin-top:8px}
-.xi-app .memmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;padding:4px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:14px;cursor:pointer}
+.xi-app .memmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;padding:4px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .galcell .pairmini{display:flex;gap:5px}
 .xi-app .galcell .pairmini img{width:50%;height:auto;border:1px solid var(--line);border-radius:2px}
 .xi-app .galcard{padding:0;border:none;background:none;cursor:pointer;line-height:0;width:50%;border-radius:2px}
@@ -145,13 +147,13 @@
 .xi-app .galcard.selg img{border-color:#c9a227;outline:2px solid #c9a227;outline-offset:-1px}
 .xi-app .selbar{position:sticky;top:0;z-index:3;text-align:center;padding:8px 0 10px;background:var(--bg)}
 .xi-app .selhint{font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;color:var(--soft)}
-.xi-app .usepair{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;padding:7px 22px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:18px;cursor:pointer}
+.xi-app .usepair{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;padding:7px 22px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:6px;cursor:pointer}
 .xi-app #expOv,.xi-app #impOv{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
 .xi-app .expbox{background:var(--bg);border:1px solid var(--ink);border-radius:8px;padding:16px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:10px}
 .xi-app .exptitle{font-variant:small-caps;letter-spacing:.05em;font-size:.85rem}
 .xi-app #expTa,.xi-app #impTa{width:100%;height:200px;font-family:ui-monospace,monospace;font-size:16px;border:1px solid var(--line);border-radius:4px;padding:8px;background:#fff;resize:none}
 .xi-app .exprow{display:flex;gap:8px;justify-content:flex-end}
-.xi-app .exprow button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.85rem;padding:6px 16px;border:1px solid var(--ink);background:none;border-radius:16px;cursor:pointer}
+.xi-app .exprow button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.85rem;padding:6px 16px;border:1px solid var(--ink);background:none;border-radius:6px;cursor:pointer}
 /* Curate grid — keep (♥) / remove (✕) cards from your deck */
 .xi-app .curhead{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 0 14px;text-align:center}
 .xi-app .curcount{font-variant:small-caps;letter-spacing:.06em;color:var(--maroon);font-size:.95rem}
@@ -168,7 +170,7 @@
 .xi-app .curcard.off .curx{background:var(--maroon);color:#fdf7ec}
 /* Deck checkboxes — tiny boxes at the top, red check poking out the corner */
 .xi-app .curtoggles{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 10px;margin:0 0 14px}
-.xi-app .decktog{position:relative;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.8rem;padding:4px 11px 4px 6px;border:1px solid var(--line);border-radius:14px;background:none;color:var(--soft);cursor:pointer}
+.xi-app .decktog{position:relative;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.8rem;padding:4px 11px 4px 6px;border:1px solid var(--line);border-radius:6px;background:none;color:var(--soft);cursor:pointer}
 .xi-app .decktog.on{color:var(--ink);border-color:var(--ink)}
 .xi-app .deckbox{position:relative;width:14px;height:14px;border:1.5px solid var(--soft);border-radius:3px;background:#fff;flex:none}
 .xi-app .decktog.on .deckbox{border-color:var(--ink)}
@@ -186,12 +188,12 @@
 .xi-app .curtoggle button.on{background:var(--ink);color:var(--bg)}
 .xi-app .libhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .xi-app .libctl{display:flex;gap:8px}
-.xi-app .libctl button,.xi-app .impbtn{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;padding:4px 13px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:13px;cursor:pointer}
+.xi-app .libctl button,.xi-app .impbtn{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;padding:4px 13px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .hardcards{margin-bottom:14px;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
 .xi-app .hardlabel{font-variant:small-caps;letter-spacing:.05em;font-size:.72rem;color:var(--soft);margin-bottom:5px}
 .xi-app .hardcards span{display:inline-block;font-size:.74rem;color:var(--ink);margin:0 10px 4px 0}
 .xi-app .btn.ghost{background:none;opacity:.85}
-.xi-app .nothing{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid #c0392b;color:#c0392b;background:none;border-radius:16px;cursor:pointer;margin-left:10px}
+.xi-app .nothing{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid #c0392b;color:#c0392b;background:none;border-radius:6px;cursor:pointer;margin-left:10px}
 .xi-app .cardrow.missed .card{outline:3px solid #c0392b;outline-offset:-3px;border-radius:4px}
 .xi-app .card{position:relative}
 .xi-app .cardback{position:absolute;left:6px;bottom:6px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--soft);cursor:pointer;padding:0}
@@ -219,9 +221,9 @@ button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .xi-app .bed textarea{width:100%;min-height:90px;font-family:inherit;font-size:16px;border:1px solid var(--ink);border-radius:6px;padding:10px;background:#fff;resize:none}
 .xi-app .brow{display:flex;gap:8px;justify-content:flex-end;margin-top:9px}
 .xi-app .bexist{margin-top:11px;color:var(--soft);font-style:italic;font-size:.92rem;line-height:1.5}
-.xi-app .act{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:7px 18px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:16px;cursor:pointer}
+.xi-app .act{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:7px 18px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .act.dark{background:var(--ink);color:var(--bg)}
-.xi-app .newb{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:14px;cursor:pointer}
+.xi-app .newb{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.8rem;padding:5px 14px;border:1px solid var(--ink);background:none;color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .botnav button{display:flex;flex-direction:column;align-items:center;gap:3px}
 .xi-app .botnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .xi-app .botnav .nlab{font-size:.58rem;font-variant:small-caps;letter-spacing:.04em}
