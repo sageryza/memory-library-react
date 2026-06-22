@@ -58,7 +58,21 @@ export function rememberVersusGame(id, label) {
 export function forgetVersusGame(id) {
   try {
     localStorage.setItem(GAMES_KEY, JSON.stringify(listVersusGames().filter((g) => g.id !== id)));
+    if (getLastVersusGame() === id) clearLastVersusGame();
   } catch { /* ignore */ }
+}
+
+// The last game you were actually viewing — so the Versus nav icon can drop you
+// straight back in instead of always showing the lobby.
+const LAST_KEY = 'xiVersusLast';
+export function getLastVersusGame() {
+  try { return localStorage.getItem(LAST_KEY) || ''; } catch { return ''; }
+}
+export function setLastVersusGame(id) {
+  try { if (id) localStorage.setItem(LAST_KEY, id); } catch { /* ignore */ }
+}
+export function clearLastVersusGame() {
+  try { localStorage.removeItem(LAST_KEY); } catch { /* ignore */ }
 }
 
 // Guests (anonymous auth) have no profile doc, so fall back to a name they

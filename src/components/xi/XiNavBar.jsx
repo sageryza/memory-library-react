@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { getLastVersusGame } from '../../hooks/useVersusGame';
 import './XiNavBar.css';
 
 // The 7 destinations. Engine screens (today/curate/board/gallery/library) live
@@ -47,7 +48,15 @@ export default function XiNavBar() {
   else if (location.pathname === '/xi/board') active = 'boardday';
   else active = params.get('s') || 'today';
 
-  const go = (item) => navigate(item.route || ('/xi?s=' + item.key));
+  const go = (item) => {
+    // Tapping Versus drops you back into the game you were last in, if any.
+    if (item.key === 'versus') {
+      const last = getLastVersusGame();
+      navigate(last ? '/xi/versus/' + last : '/xi/versus');
+      return;
+    }
+    navigate(item.route || ('/xi?s=' + item.key));
+  };
 
   return (
     <nav className={'xinav' + (writing ? ' writing' : '')}>
