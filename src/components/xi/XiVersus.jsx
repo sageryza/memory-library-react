@@ -222,6 +222,14 @@ export default function XiVersus() {
     finally { setWorking(false); }
   };
 
+  const doUndo = async () => {
+    if (working) return;
+    setWorking(true);
+    try { await undoLastMove(gameId, user); setSelected(null); setStoryCells([]); }
+    catch (e) { alert(e.message); }
+    finally { setWorking(false); }
+  };
+
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
   const handleCellClick = (r, c, cell) => {
     if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
