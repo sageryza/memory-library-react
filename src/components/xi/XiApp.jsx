@@ -87,9 +87,21 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     if (engineRef.current) engineRef.current.refresh();
   }, [memories]);
 
+  const goGallery = () => setSearchParams((p) => {
+    const np = new URLSearchParams(p); np.set('s', 'gallery'); return np;
+  });
+
   return (
     <>
       <div className="xi-app" ref={rootRef} />
+      {screen === 'today' && (
+        <button className="xi-cal" aria-label="Past days" title="Past days" onClick={goGallery}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+            <rect x="3" y="4.5" width="18" height="17" rx="2" />
+            <path d="M16 2.5v4M8 2.5v4M3 9.5h18" />
+          </svg>
+        </button>
+      )}
       <XiNavBar />
       <div className="xi-build-stamp">build {BUILD_ID}</div>
     </>
