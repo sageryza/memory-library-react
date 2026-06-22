@@ -38,14 +38,14 @@
 }
 
 .confirm-dialog-btn-confirm {
-  background: var(--color-accent-blue);
-  border: 1px solid var(--color-accent-blue);
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
   color: white;
 }
 
 .confirm-dialog-btn-confirm:hover {
-  background: var(--color-accent-blue-dark, #1a5a8a);
-  border-color: var(--color-accent-blue-dark, #1a5a8a);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 /* Danger variant for destructive actions - uses main maroon */
