@@ -173,15 +173,16 @@
 .xi-app .curx{right:5px;color:#241d18}
 .xi-app .curcard.off .curx{background:var(--maroon);color:#fdf7ec}
 /* Deck checkboxes — tiny boxes at the top, red check poking out the corner */
-.xi-app .curtoggles{display:flex;flex-wrap:wrap;justify-content:center;gap:3px 14px;margin:0 0 12px}
-/* Inconspicuous deck toggles: just small-caps names, a quiet red check when on,
-   greyed when off — no boxes. */
-.xi-app .decktog{display:inline-flex;align-items:center;gap:4px;font-family:inherit;font-variant:small-caps;letter-spacing:.04em;font-size:.8rem;padding:2px 2px;border:none;background:none;color:var(--soft);cursor:pointer}
+.xi-app .curtoggles{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 14px;margin:0 0 12px}
+/* Inconspicuous deck toggles: a small checkbox + name, no box around the words. */
+.xi-app .decktog{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-variant:small-caps;letter-spacing:.04em;font-size:.8rem;padding:2px 2px;border:none;background:none;color:var(--soft);cursor:pointer}
 .xi-app .decktog.on{color:var(--ink)}
-.xi-app .deckbox{display:contents}
-.xi-app .deckchk{position:static;color:#c0392b;font-size:11px;line-height:1;font-weight:700;text-shadow:none}
-.xi-app .deckchk.heart{font-size:11px}
+.xi-app .deckbox{display:flex;align-items:center;justify-content:center;width:13px;height:13px;border:1.5px solid var(--soft);border-radius:3px;background:#fff;flex:none}
+.xi-app .decktog.on .deckbox{border-color:var(--ink)}
+.xi-app .deckchk{color:#c0392b;font-size:10px;line-height:1;font-weight:700}
+.xi-app .deckchk.heart{font-size:9px}
 .xi-app .decktog.loved-tog.on{color:#c0392b}
+.xi-app .decktog.loved-tog.on .deckbox{border-color:#c0392b}
 .xi-app .decknick{white-space:nowrap}
 /* Per-deck sections in the curate grid */
 .xi-app .curdeck{margin:0 0 22px}
