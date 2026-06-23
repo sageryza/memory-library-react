@@ -6,6 +6,11 @@
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
   buttons.)
 
+## Communication
+- **Always use clickable links.** Whenever you mention a URL — app pages,
+  dashboards, docs, external tools — write it as a full clickable link
+  (`https://…`), never bare text or a fragment the user has to assemble.
+
 ## Working style
 - When blocked on a decision but other work can proceed, surface the decision
   and **keep building** in the meantime — don't stop and wait unless the decision
