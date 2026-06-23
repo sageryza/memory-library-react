@@ -69,13 +69,13 @@ export const useGroupDreams = (groupId, userId, authLoading = false) => {
   // (title, content, tags, date, dream: { symbols, emotions, ... }). The author
   // is forced to the current user to satisfy the security rules.
   const addDream = useCallback(
-    async (entryInput = {}) => {
-      if (!userId || !groupId) {
+    async (entryInput = {}, targetGroupId = groupId) => {
+      if (!userId || !targetGroupId) {
         throw new Error('Must be signed in and in a group to post a dream');
       }
       try {
         const body = createDreamEntry({ ...entryInput, authorId: userId });
-        const entriesRef = collection(db, 'groups', groupId, 'entries');
+        const entriesRef = collection(db, 'groups', targetGroupId, 'entries');
         const docRef = await addDoc(entriesRef, {
           ...body,
           createdAt: serverTimestamp(),

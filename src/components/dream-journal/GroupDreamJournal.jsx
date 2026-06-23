@@ -121,16 +121,26 @@ const GroupDreamJournal = () => {
   };
 
   const handleSave = async () => {
-    if (!content.trim() || !activeGroupId) return;
+    if (!content.trim() || groupsLoading) return;
     if (listening) stop();
     setPosting(true);
     try {
-      await addDream({
-        title: title.trim(),
-        content: content.trim(),
-        authorName: user?.displayName || user?.email || 'Anonymous',
-        dream: { symbols: symbolsText.split(','), emotions, lucid },
-      });
+      // A solo user shouldn't have to create a group before writing — make a
+      // personal "My dreams" group on the first save if they have none yet.
+      let targetGroupId = activeGroupId || groups[0]?.id || null;
+      if (!targetGroupId) {
+        targetGroupId = await createGroup('My dreams');
+        setActiveGroupId(targetGroupId);
+      }
+      await addDream(
+        {
+          title: title.trim(),
+          content: content.trim(),
+          authorName: user?.displayName || user?.email || 'Anonymous',
+          dream: { symbols: symbolsText.split(','), emotions, lucid },
+        },
+        targetGroupId
+      );
       setContent('');
       setTitle('');
       setSymbolsText('');
@@ -216,7 +226,7 @@ const GroupDreamJournal = () => {
           type="button"
           className="gdj-btn gdj-btn-primary gdj-save"
           onClick={handleSave}
-          disabled={posting || !content.trim() || !activeGroupId}
+          disabled={posting || !content.trim() || groupsLoading}
         >
           {posting ? 'saving…' : 'save dream'}
         </button>
