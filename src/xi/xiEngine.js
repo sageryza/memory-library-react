@@ -342,7 +342,13 @@ export function initXi(root, ctx) {
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
-  root.addEventListener('focusin', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.add('writing'); });
+  root.addEventListener('focusin', (e) => {
+    if (e.target.tagName !== 'TEXTAREA') return;
+    root.classList.add('writing');
+    // Anchor the cards at the top once the compact writing layout has applied, so
+    // the keyboard can't shove them off-screen.
+    setTimeout(() => { try { root.scrollTo(0, 0); } catch { /* older engines */ } }, 80);
+  });
   root.addEventListener('focusout', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.remove('writing'); });
   const navHandle = $('#navHandle');
   if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');
