@@ -143,7 +143,7 @@ export function initXi(root, ctx) {
   async function renderToday() {
     const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(S.shown)];
     const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
-    $('#cardSlot').innerHTML = `<div class="today-stage">${cards}${composerHtml(one)}</div>` + memsHtml(arr);
+    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${composerHtml(one)}</div></div>` + memsHtml(arr);
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
     root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
     wireSave();
@@ -347,20 +347,35 @@ export function initXi(root, ctx) {
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
-  // Today writing: pin the cards + composer (the .today-stage sheet) just above
-  // the keyboard. We add the `today-writing` class and let CSS do the rest —
-  // `interactive-widget=resizes-content` (see index.html) shrinks the layout
-  // viewport when the keyboard opens, so a plain `position:fixed; bottom:0` sheet
-  // lands right on the keyboard's top edge with no visualViewport pixel-math.
+  // Today writing: pin the cards + composer above the keyboard the same way the
+  // Board does — size the fixed .today-stage layer to the visual viewport (iOS
+  // Safari ignores interactive-widget, so we drive it from visualViewport), and
+  // CSS bottom-anchors the .today-sheet inside it. Uses only visualViewport
+  // offsetTop/height — never window.innerHeight, which jumps with Safari's
+  // floating address bar and caused the wrong-height gaps.
+  const vv = window.visualViewport;
+  function positionStage() {
+    const stage = $('#cardSlot .today-stage');
+    if (!stage) return;
+    if (root.classList.contains('today-writing') && vv) {
+      stage.style.top = vv.offsetTop + 'px';
+      stage.style.height = vv.height + 'px';
+    } else {
+      stage.style.top = '';
+      stage.style.height = '';
+    }
+  }
+  if (vv) { vv.addEventListener('resize', positionStage); vv.addEventListener('scroll', positionStage); }
   root.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'TEXTAREA') return;
     root.classList.add('writing');
-    if (e.target.closest('#cardSlot')) root.classList.add('today-writing');
+    if (e.target.closest('#cardSlot')) { root.classList.add('today-writing'); positionStage(); }
   });
   root.addEventListener('focusout', (e) => {
     if (e.target.tagName !== 'TEXTAREA') return;
     root.classList.remove('writing');
     root.classList.remove('today-writing');
+    positionStage();
   });
   const navHandle = $('#navHandle');
   if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');

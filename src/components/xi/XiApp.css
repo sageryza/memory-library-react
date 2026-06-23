@@ -122,11 +122,14 @@
 /* Hide the bottom nav while writing (keyboard up) and when the board is in
    immersive mode (toggled by tapping empty board space). */
 .xi-app.writing .botnav,.xi-app.nav-hidden .botnav{transform:translateY(110%)}
-/* Today writing: pin the cards + textbox (the stage) as a sheet above the
-   keyboard. `bottom:0` lands on the keyboard's top edge because the viewport
-   meta (interactive-widget=resizes-content) shrinks the layout viewport when the
-   keyboard opens — no JS pixel-math. Memories tuck away while writing. */
-.xi-app.today-writing #cardSlot .today-stage{position:fixed;left:0;right:0;bottom:0;z-index:9560;max-width:560px;margin:0 auto;padding:0 18px;background:var(--bg)}
+/* Today writing: pin the cards + textbox above the keyboard like the Board. The
+   .today-stage becomes a fixed layer sized to the visual viewport (its top/height
+   are set from visualViewport in JS — iOS Safari ignores interactive-widget), and
+   the .today-sheet inside it is bottom-anchored so it sits on the keyboard's top
+   edge. The layer is pass-through; only the sheet is tappable. Memories tuck
+   away (in normal flow) behind the sheet while writing. */
+.xi-app.today-writing #cardSlot .today-stage{position:fixed;left:0;right:0;z-index:9560;pointer-events:none}
+.xi-app.today-writing #cardSlot .today-sheet{position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;padding:0 18px;background:var(--bg);pointer-events:auto}
 /* Room to scroll past memories up clear of the pinned sheet. */
 .xi-app.today-writing #cardSlot .today-mems{padding-bottom:55vh}
 /* Grabber handle to bring the nav back while the board is immersive. */
