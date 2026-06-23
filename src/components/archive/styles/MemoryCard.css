@@ -24,12 +24,16 @@
     /* Remove fixed height to allow natural content sizing */
 }
 
-/* Hover State */
-.memory-item:hover {
-    background: #f5f2e0;
-    border-color: #CCC;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+/* Hover State — only on devices that actually hover. On touchscreens :hover
+   sticks after a tap, which left the tapped card floating/detached from the
+   list (translateY + shadow). Gating it keeps the desktop lift, no mobile stick. */
+@media (hover: hover) {
+    .memory-item:hover {
+        background: #f5f2e0;
+        border-color: #CCC;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
 }
 
 /* Selected State */
