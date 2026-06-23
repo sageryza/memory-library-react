@@ -4,11 +4,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // A human-readable build stamp (UTC) surfaced in the UI so it's obvious which
-  // version is actually loaded — useful for telling "deployed" from "cached".
+  // A human-readable build stamp (Pacific time, 12-hour) surfaced in the UI so
+  // it's obvious which version is actually loaded — useful for telling
+  // "deployed" from "cached".
   define: {
     __BUILD_ID__: JSON.stringify(
-      new Date().toISOString().slice(5, 16).replace('T', ' ') + ' UTC'
+      new Date().toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        month: '2-digit', day: '2-digit',
+        hour: 'numeric', minute: '2-digit', hour12: true,
+      }).replace(',', '') + ' PT'
     ),
   },
   plugins: [
