@@ -178,8 +178,6 @@ export function initXi(root, ctx) {
     return out;
   }
   function renderCurate() {
-    const totalEv = poolLen('ev');
-    let offCount = 0; for (let i = 0; i < totalEv; i++) if (isOff('ev', i)) offCount++;
     const lvList = lovedList();
     const toggles = DECKS.map((dk) => {
       const on = !disabledDecks.has(dk.id);
@@ -216,8 +214,7 @@ export function initXi(root, ctx) {
     // Deck toggles live up in the brand header (inline with the logo) on Curate.
     const th = $('#brandToggles');
     if (th) { th.innerHTML = toggles; th.style.display = 'flex'; }
-    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${totalEv - offCount} of ${totalEv} cards in play · ${loved.size} loved</span><span class="curhint">check a deck to include it · ♥ love · ✕ remove (＋ add back)</span></div>`
-      + groups;
+    $('#curateSlot').innerHTML = groups;
     root.querySelectorAll('#brandToggles .decktog').forEach((b) => {
       b.onclick = async () => {
         const id = b.dataset.deck;
