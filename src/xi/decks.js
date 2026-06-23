@@ -42,9 +42,10 @@ export const DECKS = [
 
 const trial = rawTrial.cards || [];
 const SOURCES = {
-  // trial.json is Midjourney (0..86) then internet (87..146) — see the import.
-  midjourney: { cards: trial.slice(0, 87) },
-  internet: { cards: trial.slice(87) },
+  // trial.json is Midjourney (86 cards) then internet (60). The blank nt3 stub was
+  // removed, so Midjourney is the first 86.
+  midjourney: { cards: trial.slice(0, 86) },
+  internet: { cards: trial.slice(86) },
   dreams: { cards: rawDreams.cards || [] },
   claude: { ev: rawClaude.ev || [], tw: rawClaude.tw || [] },
   chatgpt: { ev: rawChatgpt.ev || [], tw: rawChatgpt.tw || [] },
