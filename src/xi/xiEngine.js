@@ -120,12 +120,16 @@ export function initXi(root, ctx) {
   function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); softUpdateToday(); }); }
   async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); softUpdateToday(); }
   function tapcard(el, k) { let n = 0, t = null; el.addEventListener('click', (e) => { e.preventDefault(); n++; if (t) clearTimeout(t); t = setTimeout(() => { const c = n; n = 0; t = null; if (c >= 3) { closeMenu(); autoReplace(k); } else { showCardMenu(el, k); } }, 300); }); }
-  // The memory block (composer + collected memories) under the cards.
-  function blockHtml(arr, one) {
+  // The composer (textbox + Save) and the collected-memories list are rendered
+  // separately so that, while writing, the cards + composer can be pinned above
+  // the keyboard as one sheet and the memories tuck below.
+  function composerHtml(one) {
     const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    return `<div class="block">`
+    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`;
+  }
+  function memsHtml(arr) {
+    return `<div class="today-mems">`
       + (arr.length ? `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>` : '')
-      + `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`
       + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
       + `</div>`;
   }
@@ -139,7 +143,7 @@ export function initXi(root, ctx) {
   async function renderToday() {
     const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(S.shown)];
     const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
-    $('#cardSlot').innerHTML = cards + blockHtml(arr, one);
+    $('#cardSlot').innerHTML = `<div class="today-stage">${cards}${composerHtml(one)}</div>` + memsHtml(arr);
     root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
     root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
     wireSave();
@@ -153,9 +157,10 @@ export function initXi(root, ctx) {
     if (!row || imgs.length !== S.shown.length) { return renderToday(); }
     const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', !!misses[missKey(S.shown)]);
     S.shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
-    const arr = (await st.get(memKey(S.shown))) || []; const block = $('#cardSlot .block');
-    if (block) block.outerHTML = blockHtml(arr, S.shown.length === 1);
-    else $('#cardSlot').insertAdjacentHTML('beforeend', blockHtml(arr, S.shown.length === 1));
+    const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1;
+    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one);
+    const mems = $('#cardSlot .today-mems');
+    if (mems) mems.outerHTML = memsHtml(arr); else $('#cardSlot').insertAdjacentHTML('beforeend', memsHtml(arr));
     wireSave();
   }
   /* curate — checkboxes at the top toggle whole decks in/out of play; below,
@@ -342,8 +347,32 @@ export function initXi(root, ctx) {
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
-  root.addEventListener('focusin', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.add('writing'); });
-  root.addEventListener('focusout', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.remove('writing'); });
+  // Today writing: pin the cards + composer (the .today-stage sheet) just above
+  // the keyboard by positioning that FIXED element from the visual viewport — we
+  // never resize the scroll container (doing so caused a scroll/resize flicker
+  // loop). The screen behind is frozen (CSS). Mirrors how the Board works.
+  const vv = window.visualViewport;
+  function positionStage() {
+    const stage = $('#cardSlot .today-stage');
+    if (!stage) return;
+    if (root.classList.contains('today-writing') && vv) {
+      stage.style.bottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height)) + 'px';
+    } else {
+      stage.style.bottom = '';
+    }
+  }
+  if (vv) vv.addEventListener('resize', positionStage);
+  root.addEventListener('focusin', (e) => {
+    if (e.target.tagName !== 'TEXTAREA') return;
+    root.classList.add('writing');
+    if (e.target.closest('#cardSlot')) { root.classList.add('today-writing'); positionStage(); }
+  });
+  root.addEventListener('focusout', (e) => {
+    if (e.target.tagName !== 'TEXTAREA') return;
+    root.classList.remove('writing');
+    root.classList.remove('today-writing');
+    positionStage();
+  });
   const navHandle = $('#navHandle');
   if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');
   const openArchiveBtn = $('#openArchive'); if (openArchiveBtn) openArchiveBtn.onclick = () => { if (onOpenLibrary) onOpenLibrary(); };
