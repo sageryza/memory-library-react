@@ -7,6 +7,7 @@
 // Data layer: useAuth, useGroups, useGroupDreams. Voice: useSpeechRecognition.
 
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { httpsCallable } from 'firebase/functions';
 import { Mic, Square } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
@@ -149,7 +150,12 @@ const GroupDreamJournal = () => {
   }
   if (!userId) {
     return (
-      <div className="gdj-root gdj-state">Please sign in to use the dream journal.</div>
+      <div className="gdj-root gdj-state">
+        <div className="gdj-signin">
+          <p>Please sign in to use the dream journal.</p>
+          <Link to="/login" className="gdj-signin-btn">sign in</Link>
+        </div>
+      </div>
     );
   }
 
