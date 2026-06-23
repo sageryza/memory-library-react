@@ -19,6 +19,17 @@ select {
     font-family: 'Crimson Text', serif;
 }
 
+/* iOS auto-zooms when you focus an input whose font-size is under 16px. Force
+   16px on touch devices so tapping the search / memory fields doesn't zoom the
+   whole page in. Desktop is unaffected. */
+@media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+        font-size: 16px;
+    }
+}
+
 /* Re-enable text selection for form inputs where users need to type/edit */
 input,
 textarea {
