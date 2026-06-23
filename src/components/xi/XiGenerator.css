@@ -1,0 +1,59 @@
+.xigen-backdrop {
+  position: fixed; inset: 0; z-index: 9700;
+  background: rgba(30, 22, 16, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.xigen {
+  background: #f1e9d8; color: #241d18;
+  font-family: 'EB Garamond', Georgia, serif;
+  width: 100%; max-width: 560px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  border-radius: 10px; border: 2px solid #241d18; overflow: hidden;
+}
+.xigen-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid #d8ccb2;
+}
+.xigen-title { font-variant: small-caps; letter-spacing: 0.06em; font-size: 1.05rem; }
+.xigen-x { background: none; border: none; font-size: 1rem; cursor: pointer; color: #6b5d4f; padding: 4px; }
+.xigen-body { padding: 16px; overflow-y: auto; }
+.xigen-center { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.xigen-lead { font-style: italic; color: #6b5d4f; margin: 0 0 14px; line-height: 1.5; }
+.xigen-err { color: #800020; }
+
+.xigen-go {
+  font-family: inherit; font-variant: small-caps; letter-spacing: 0.06em; font-size: 1rem;
+  padding: 9px 20px; border: 1px solid #241d18; background: #241d18; color: #fdf7ec;
+  border-radius: 6px; cursor: pointer;
+}
+.xigen-go:disabled { opacity: 0.55; cursor: default; }
+.xigen-ghost {
+  font-family: inherit; font-variant: small-caps; letter-spacing: 0.06em; font-size: 0.95rem;
+  padding: 9px 18px; border: 1px solid #241d18; background: none; color: #241d18;
+  border-radius: 6px; cursor: pointer;
+}
+
+.xigen-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.xigen-card {
+  font-family: inherit; text-align: center; cursor: pointer;
+  background: #fdfbf7; border: 1px solid #d8ccb2; border-radius: 4px;
+  min-height: 84px; padding: 12px 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-variant: small-caps; letter-spacing: 0.04em; font-size: 0.95rem; color: #241d18;
+  transition: opacity 0.12s, border-color 0.12s;
+}
+.xigen-card.drop { opacity: 0.32; border-style: dashed; text-decoration: line-through; }
+.xigen-card.keep { border-color: #c0392b; }
+
+.xigen-foot {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 12px 16px; border-top: 1px solid #d8ccb2;
+}
+
+.xigen-spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid #d8ccb2; border-top-color: #241d18;
+  animation: xigen-spin 0.8s linear infinite;
+}
+@keyframes xigen-spin { to { transform: rotate(360deg); } }
