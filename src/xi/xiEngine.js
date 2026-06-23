@@ -348,30 +348,19 @@ export function initXi(root, ctx) {
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
   // Today writing: pin the cards + composer (the .today-stage sheet) just above
-  // the keyboard by positioning that FIXED element from the visual viewport — we
-  // never resize the scroll container (doing so caused a scroll/resize flicker
-  // loop). The screen behind is frozen (CSS). Mirrors how the Board works.
-  const vv = window.visualViewport;
-  function positionStage() {
-    const stage = $('#cardSlot .today-stage');
-    if (!stage) return;
-    if (root.classList.contains('today-writing') && vv) {
-      stage.style.bottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height)) + 'px';
-    } else {
-      stage.style.bottom = '';
-    }
-  }
-  if (vv) vv.addEventListener('resize', positionStage);
+  // the keyboard. We add the `today-writing` class and let CSS do the rest —
+  // `interactive-widget=resizes-content` (see index.html) shrinks the layout
+  // viewport when the keyboard opens, so a plain `position:fixed; bottom:0` sheet
+  // lands right on the keyboard's top edge with no visualViewport pixel-math.
   root.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'TEXTAREA') return;
     root.classList.add('writing');
-    if (e.target.closest('#cardSlot')) { root.classList.add('today-writing'); positionStage(); }
+    if (e.target.closest('#cardSlot')) root.classList.add('today-writing');
   });
   root.addEventListener('focusout', (e) => {
     if (e.target.tagName !== 'TEXTAREA') return;
     root.classList.remove('writing');
     root.classList.remove('today-writing');
-    positionStage();
   });
   const navHandle = $('#navHandle');
   if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');
