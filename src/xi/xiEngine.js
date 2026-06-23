@@ -342,8 +342,23 @@ export function initXi(root, ctx) {
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
-  root.addEventListener('focusin', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.add('writing'); });
-  root.addEventListener('focusout', (e) => { if (e.target.tagName === 'TEXTAREA') root.classList.remove('writing'); });
+  // While writing, size the app to the visible viewport (the area above the
+  // on-screen keyboard) so the composer sits right on the keyboard instead of
+  // leaving empty space below it. Reset when the keyboard closes.
+  const vv = window.visualViewport;
+  function applyViewport() {
+    if (!vv) return;
+    if (root.classList.contains('writing')) {
+      root.style.top = vv.offsetTop + 'px';
+      root.style.height = vv.height + 'px';
+      root.style.bottom = 'auto';
+    } else {
+      root.style.top = ''; root.style.height = ''; root.style.bottom = '';
+    }
+  }
+  if (vv) { vv.addEventListener('resize', applyViewport); vv.addEventListener('scroll', applyViewport); }
+  root.addEventListener('focusin', (e) => { if (e.target.tagName === 'TEXTAREA') { root.classList.add('writing'); applyViewport(); } });
+  root.addEventListener('focusout', (e) => { if (e.target.tagName === 'TEXTAREA') { root.classList.remove('writing'); applyViewport(); } });
   const navHandle = $('#navHandle');
   if (navHandle) navHandle.onclick = () => root.classList.remove('nav-hidden');
   const openArchiveBtn = $('#openArchive'); if (openArchiveBtn) openArchiveBtn.onclick = () => { if (onOpenLibrary) onOpenLibrary(); };
