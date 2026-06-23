@@ -240,3 +240,6 @@ button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .xi-app .botnav button{display:flex;flex-direction:column;align-items:center;gap:3px}
 .xi-app .botnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .xi-app .botnav .nlab{font-size:.58rem;font-variant:small-caps;letter-spacing:.04em}
+
+/* TEMP DIAGNOSTIC: hide Today cards to test focus/scroll behavior. Revert after. */
+.xi-app #cardSlot .cardrow{display:none}
