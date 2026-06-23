@@ -196,27 +196,29 @@ export function initXi(root, ctx) {
         + `</div>`;
     };
     let groups = '';
-    if (lvList.length) {
+    if (lvList.length && lovedOn) {
       const lc = lvList.map((r) => cell(r.d, r.i, r.pair)).join('');
-      groups += `<div class="curdeck${lovedOn ? '' : ' deckoff'}"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck${lovedOn ? '' : ' · turn on above to play it'}</span></div><div class="curgrid">${lc}</div></div>`;
+      groups += `<div class="curdeck"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck</span></div><div class="curgrid">${lc}</div></div>`;
     }
     for (const dk of DECKS) {
-      const dim = disabledDecks.has(dk.id) ? ' deckoff' : '';
+      if (disabledDecks.has(dk.id)) continue; // off decks: cards are hidden, not dimmed
       if (dk.split) {
         const evs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, false)).join('');
         const tws = (deckIdx.tw[dk.id] || []).map((i) => cell('tw', i, false)).join('');
-        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)} <span class="curdecktag">events + twists</span></div>`
+        groups += `<div class="curdeck"><div class="curdeckhd">${esc(dk.nick)} <span class="curdecktag">events + twists</span></div>`
           + `<div class="curdecksub">events</div><div class="curgrid">${evs}</div>`
           + `<div class="curdecksub">twists</div><div class="curgrid">${tws}</div></div>`;
       } else {
         const cs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, true)).join('');
-        groups += `<div class="curdeck${dim}"><div class="curdeckhd">${esc(dk.nick)}</div><div class="curgrid">${cs}</div></div>`;
+        groups += `<div class="curdeck"><div class="curdeckhd">${esc(dk.nick)}</div><div class="curgrid">${cs}</div></div>`;
       }
     }
-    $('#curateSlot').innerHTML = `<div class="curtoggles">${toggles}</div>`
-      + `<div class="curhead"><span class="curcount">${totalEv - offCount} of ${totalEv} cards in play · ${loved.size} loved</span><span class="curhint">check a deck to include it · ♥ love · ✕ remove (＋ add back)</span></div>`
+    // Deck toggles live up in the brand header (inline with the logo) on Curate.
+    const th = $('#brandToggles');
+    if (th) { th.innerHTML = toggles; th.style.display = 'flex'; }
+    $('#curateSlot').innerHTML = `<div class="curhead"><span class="curcount">${totalEv - offCount} of ${totalEv} cards in play · ${loved.size} loved</span><span class="curhint">check a deck to include it · ♥ love · ✕ remove (＋ add back)</span></div>`
       + groups;
-    root.querySelectorAll('#curateSlot .decktog').forEach((b) => {
+    root.querySelectorAll('#brandToggles .decktog').forEach((b) => {
       b.onclick = async () => {
         const id = b.dataset.deck;
         if (id === '__loved') { lovedOn = !lovedOn; await saveLovedOn(); }
@@ -299,6 +301,8 @@ export function initXi(root, ctx) {
     // throw in a way that stops renderScreen from running. A thrown root.scrollTo
     // here was blanking every screen and killing the nav.
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
+    // Deck toggles ride in the brand header only on Curate.
+    const bt = $('#brandToggles'); if (bt) bt.style.display = (name === 'curate') ? 'flex' : 'none';
     try {
       $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library');
       // Nav is visible on arrival to every screen (incl. the board). On the
