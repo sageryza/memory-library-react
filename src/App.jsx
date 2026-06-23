@@ -331,11 +331,19 @@ function App() {
           />
           <Route
             path="/dream-journal"
-            element={<GroupDreamJournal />}
+            element={
+              <div className="scrollable-page">
+                <GroupDreamJournal />
+              </div>
+            }
           />
           <Route
             path="/dream-journal-preview"
-            element={<GroupDreamJournalPreview />}
+            element={
+              <div className="scrollable-page">
+                <GroupDreamJournalPreview />
+              </div>
+            }
           />
           <Route
             path="/public"
