@@ -12,14 +12,17 @@ import './utils/backfillBoardProvenance' // Temporary: exposes window.scanProven
 import { ConfirmProvider } from './contexts/ConfirmContext'
 import Login from './components/Login'
 import Home from './components/Home'
-import ConspiracyBoard from './components/conspiracy-board/ConspiracyBoard'
 import Archive from './components/archive/Archive'
-import Libraries from './components/libraries/Libraries'
-import ChronologyV2 from './components/ChronologyV2'
-import GroupDreamJournal from './components/dream-journal/GroupDreamJournal'
-import GroupDreamJournalPreview from './components/dream-journal/GroupDreamJournalPreview'
-import PublicBoardsContainer from './components/public/PublicBoardsContainer'
-import SharedBoardContainer from './components/shared-board/SharedBoardContainer'
+// Heavy feature screens are loaded on demand so they don't bloat the initial
+// download — you only fetch them when you open them. Landing screens (Home,
+// Login, Archive) stay eager so the first paint is immediate.
+const ConspiracyBoard = lazy(() => import('./components/conspiracy-board/ConspiracyBoard'))
+const Libraries = lazy(() => import('./components/libraries/Libraries'))
+const ChronologyV2 = lazy(() => import('./components/ChronologyV2'))
+const GroupDreamJournal = lazy(() => import('./components/dream-journal/GroupDreamJournal'))
+const GroupDreamJournalPreview = lazy(() => import('./components/dream-journal/GroupDreamJournalPreview'))
+const PublicBoardsContainer = lazy(() => import('./components/public/PublicBoardsContainer'))
+const SharedBoardContainer = lazy(() => import('./components/shared-board/SharedBoardContainer'))
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
 // and only fetched when a user actually opens the /xi route.
 const XiApp = lazy(() => import('./components/xi/XiApp'))
@@ -273,6 +276,7 @@ function App() {
         <Navigation user={user} profile={profile} onOpenRecentlyDeleted={() => setShowRecentlyDeleted(true)} />
 
 
+        <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           <Route
             path="/"
@@ -375,6 +379,7 @@ function App() {
             element={<SharedBoardContainer />}
           />
         </Routes>
+        </Suspense>
 
         {/* Recently Deleted Modal */}
         {showRecentlyDeleted && (
