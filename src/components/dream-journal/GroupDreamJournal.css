@@ -359,7 +359,7 @@
 .gdj-illustrate-btn {
   padding: 5px 16px;
   border: 1px solid var(--gdj-line);
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   cursor: pointer;
   font-family: var(--gdj-serif);
