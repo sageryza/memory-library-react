@@ -110,8 +110,11 @@
 /* Persistent brand header — sits above every XI screen (the engine only toggles
    the #screen-* divs, so this stays put). */
 .xi-app .xi-brand{max-width:560px;margin:0 auto;padding:20px 18px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-/* Deck toggles ride to the right of the logo on Curate. */
-.xi-app .brand-toggles{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+/* Deck toggles ride to the right of the logo on Curate — a single horizontal
+   scroll strip (no wrap) so the header stays one line tall. */
+.xi-app .brand-toggles{flex:1;min-width:0;display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:center;gap:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.xi-app .brand-toggles::-webkit-scrollbar{display:none}
+.xi-app .brand-toggles .decktog{flex:none}
 .xi-app .logo{display:flex;align-items:center}
 .xi-app .hg-x{width:22px;height:30px}
 .xi-app .logo-i{width:8px;height:30px;margin-left:-1px}
