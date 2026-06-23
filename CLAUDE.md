@@ -10,6 +10,10 @@
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
   (`https://…`), never bare text or a fragment the user has to assemble.
+- **Always include clickable testing links.** When a change is shipped/ready to
+  test, give the live URL(s) to test it on as full clickable links — the deployed
+  app page for the feature (e.g. `https://incaseofamnesia.com/xi`), plus the PR
+  link. Don't make the user hunt for where to look.
 
 ## Working style
 - When blocked on a decision but other work can proceed, surface the decision
