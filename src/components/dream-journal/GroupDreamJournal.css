@@ -338,6 +338,34 @@
   color: var(--gdj-rose);
 }
 
+/* ---- signed-out state ---- */
+.gdj-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.gdj-signin-btn {
+  display: inline-block;
+  padding: 10px 28px;
+  border: 1px solid rgba(138, 90, 107, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gdj-accent);
+  font-family: var(--gdj-serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  text-decoration: none;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+
+.gdj-signin-btn:hover {
+  background: rgba(138, 90, 107, 0.08);
+  border-color: var(--gdj-accent);
+}
+
 /* ---- dream illustration ---- */
 .gdj-illustration {
   margin: 4px 0 18px;
