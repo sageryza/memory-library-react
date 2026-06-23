@@ -34,7 +34,10 @@ const GroupDreamJournal = () => {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.uid || null;
 
-  const { groups, loading: groupsLoading, createGroup } = useGroups(userId, authLoading);
+  const { groups, loading: groupsLoading, error: groupsError, createGroup } = useGroups(
+    userId,
+    authLoading
+  );
   const [activeGroupId, setActiveGroupId] = useState(null);
 
   // Default to the first group once groups load (or after creating one).
@@ -254,6 +257,10 @@ const GroupDreamJournal = () => {
             </>
           )}
         </div>
+
+        {groupsError && (
+          <div className="gdj-mic-note">Couldn’t load your groups: {groupsError}</div>
+        )}
 
         {/* optional details, collapsed by default */}
         <button

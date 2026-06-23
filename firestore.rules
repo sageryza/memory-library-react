@@ -184,19 +184,23 @@ service cloud.firestore {
     // Group dream journals — membership-scoped collaborative journals.
     // A group is a bounded set of members who share dream entries with each other.
     match /groups/{groupId} {
-      // Is the requester a member of THIS group? (one document read per check)
+      // Membership/ownership checks that FETCH the group doc. These are for the
+      // SUBCOLLECTION rules below (entries), where the group is a different
+      // document than the one being accessed, so get() is required and valid.
       function isGroupMember() {
         return isAuthenticated()
             && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
       }
-      // Is the requester the owner of THIS group?
       function isGroupOwner() {
         return isAuthenticated()
             && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
       }
 
-      // Members can read group metadata.
-      allow read: if isGroupMember();
+      // Read/list the groups you belong to. This MUST use resource.data (not
+      // get()) so the membership list query — where('memberIds',
+      // 'array-contains', uid) — is allowed: get() on the very document being
+      // queried isn't valid for a collection list and fails the whole query.
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
 
       // Any signed-in user can create a group, but only as its own owner and
       // listed among the initial members (prevents creating groups for others).
