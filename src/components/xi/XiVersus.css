@@ -93,6 +93,14 @@
    viewport, with the sheet pinned to its bottom (= the keyboard's top edge). */
 .xiv-kblayer{position:fixed;left:0;right:0;z-index:9700;pointer-events:none}
 .xiv-sheet{position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;pointer-events:auto}
+/* While the composer is up, freeze the board so iOS can't scroll it off-screen
+   to chase the focused textbox (that's what left the empty white space). */
+.xiv.composing{overflow:hidden}
+/* The two tapped cards, pinned above the composer so they stay in view while you
+   write — full size, no shrinking. */
+.xiv-pairpreview{display:flex;gap:12px;justify-content:center;align-items:flex-end;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;padding:12px 14px 4px;pointer-events:auto}
+.xiv-pairpreview img{height:120px;width:auto;max-width:46%;object-fit:contain;display:block;border-radius:3px}
+.xiv-pairpreview + .xiv-composer{border-top:none;border-radius:0;box-shadow:none}
 .xiv-composer{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:10px 14px 12px;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:400}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}

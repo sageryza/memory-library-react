@@ -105,7 +105,7 @@ export default function BoardOfDay({ memories = [], addMemory }) {
   const goDay = (delta) => { setStoryCells([]); setStoryText(''); setViewDay((d) => Math.min(today, d + delta)); };
 
   return (
-    <div className="xiv">
+    <div className={`xiv${storyReady ? ' composing' : ''}`}>
       <div className="xiv-top">
         <button className="xiv-logo-btn" onClick={() => navigate('/xi')}>XI · Board of the Day</button>
         <div className="xiv-top-right">
@@ -126,6 +126,10 @@ export default function BoardOfDay({ memories = [], addMemory }) {
 
       {storyReady ? (
         <KeyboardSheet>
+          <div className="xiv-pairpreview">
+            {evCard && <img src={evCard.img} alt={evCard.cap || ''} />}
+            {twCard && <img src={twCard.img} alt={twCard.cap || ''} />}
+          </div>
           <div className="xiv-composer">
             <div className="xiv-pairlabel">{label}</div>
             {existing.length > 0 && (
