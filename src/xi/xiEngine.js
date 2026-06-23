@@ -229,7 +229,20 @@ export function initXi(root, ctx) {
       b.onclick = async (e) => {
         e.stopPropagation();
         const d = b.dataset.d; const i = +b.dataset.i; const pair = b.dataset.pair === '1';
-        const keys = pair ? [ekey('ev', i), ekey('tw', i)] : [ekey(d, i)];
+        // Interchangeable cards live in both pools; toggle the partner role too.
+        // Resolve the partner by POSITION within the deck (not by equal index) so
+        // it's correct even when ev/tw pools differ in length (e.g. a generated
+        // deck appended after the split decks).
+        let keys;
+        if (pair) {
+          const deck = POOL[d][i] && POOL[d][i].deck;
+          const evList = deckIdx.ev[deck] || []; const twList = deckIdx.tw[deck] || [];
+          const pos = evList.indexOf(i);
+          const twi = pos >= 0 && pos < twList.length ? twList[pos] : i;
+          keys = [ekey('ev', i), ekey('tw', twi)];
+        } else {
+          keys = [ekey(d, i)];
+        }
         if (b.dataset.a === 'x') {
           const on = excluded.has(keys[0]);
           keys.forEach((k) => { if (on) excluded.delete(k); else { excluded.add(k); loved.delete(k); } });

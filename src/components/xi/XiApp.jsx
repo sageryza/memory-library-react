@@ -1,14 +1,26 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dailyDeck, boardDeck, DECKS } from '../../xi/decks';
 import { initXi } from '../../xi/xiEngine';
 import { makeXiStorage } from '../../xi/xiStorage';
+import { useGeneratedCards } from '../../hooks/useGeneratedCards';
+import useAuth from '../../hooks/useAuth';
 import { XI_MARKUP } from './xiMarkup';
 import XiNavBar from './XiNavBar';
+import XiGenerator from './XiGenerator';
 import './XiApp.css';
 
 /* global __BUILD_ID__ */
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
+
+// Who may build their own deck. Owner-only for now; add emails (or open it up)
+// here to let others generate decks later.
+const GENERATOR_OWNERS = ['sageryza@gmail.com'];
+
+// Namespaced pool entries for the user's generated ("yours") deck. Interchangeable
+// (each card can be event or twist), appended after the static decks.
+const genPool = (ns, kind, gen) =>
+  gen.map((c) => ({ id: `${ns}-${kind}-${c.id}`, cap: c.cap, img: c.img, kind, deck: 'generated' }));
 
 // XI — the standalone app, ported in faithfully. The exact markup is injected
 // as raw HTML and the original game engine drives it; only the storage layer is
@@ -29,20 +41,31 @@ export default function XiApp({ memories = [], addMemory, userId }) {
   screenRef.current = screen;
   const appliedRef = useRef(screen);
 
+  const { user } = useAuth();
+  const canGenerate = !!(user && user.email && GENERATOR_OWNERS.includes(user.email));
+  const [genOpen, setGenOpen] = useState(false);
+  const { cards: genCards, addCards } = useGeneratedCards(userId);
+  // Re-init the engine only when the SET of generated cards changes. ids are
+  // stable, so this signature is stable — empty for users with no generated deck
+  // (so they get a single, immediate init with no extra wait), and it changes
+  // once when a generated deck loads or the user adds cards.
+  const genSig = genCards.map((c) => c.id).join(',');
+
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root) return undefined;
 
-    // Inject the engine markup ONCE, imperatively, so React never manages — and
+    // Inject the engine markup, imperatively, so React never manages — and
     // therefore can't wipe — the DOM the engine draws into.
     root.innerHTML = XI_MARKUP;
 
     const POOL = {
-      ev: dailyDeck.events,
-      tw: dailyDeck.twists,
-      be: boardDeck.events,
-      bw: boardDeck.twists,
+      ev: [...dailyDeck.events, ...genPool('daily', 'event', genCards)],
+      tw: [...dailyDeck.twists, ...genPool('daily', 'twist', genCards)],
+      be: [...boardDeck.events, ...genPool('board', 'event', genCards)],
+      bw: [...boardDeck.twists, ...genPool('board', 'twist', genCards)],
     };
+    const decks = genCards.length ? [...DECKS, { id: 'generated', nick: 'yours', split: false }] : DECKS;
 
     const storage = makeXiStorage({
       userId,
@@ -53,7 +76,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
 
     engineRef.current = initXi(root, {
       POOL,
-      decks: DECKS,
+      decks,
       storage,
       onOpenLibrary: () => navigate('/archive'),
       initialScreen: screenRef.current,
@@ -66,14 +89,14 @@ export default function XiApp({ memories = [], addMemory, userId }) {
       },
     });
 
-    // The URL (?s=) is now the source of truth for which screen shows, so just
+    // The URL (?s=) is the source of truth for which screen shows, so just
     // re-render with the hydrated data rather than restoring a saved screen.
     storage.hydrateFromFirestore(() => engineRef.current && engineRef.current.refresh());
 
     return () => { engineRef.current = null; };
-    // Mount once; the engine reads live memories via memoriesRef.
+    // Re-inits when the generated deck loads/changes; reads live memories via ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [genSig]);
 
   // Drive the engine screen from the URL (nav taps change ?s=).
   useEffect(() => {
@@ -102,6 +125,17 @@ export default function XiApp({ memories = [], addMemory, userId }) {
             <path d="M16 2.5v4M8 2.5v4M3 9.5h18" />
           </svg>
         </button>
+      )}
+      {screen === 'curate' && canGenerate && (
+        <button className="xi-genbtn" onClick={() => setGenOpen(true)}>✨ Generate cards from memories</button>
+      )}
+      {canGenerate && (
+        <XiGenerator
+          open={genOpen}
+          onClose={() => setGenOpen(false)}
+          memories={memories}
+          onAdd={addCards}
+        />
       )}
       <XiNavBar />
       <div className="xi-build-stamp">build {BUILD_ID}</div>

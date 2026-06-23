@@ -15,6 +15,10 @@
 .xi-cal:hover{color:#241d18}
 .xi-cal svg{width:23px;height:23px}
 
+/* Floating CTA on the Curate screen to open the card generator. */
+.xi-genbtn{position:fixed;z-index:9550;left:50%;transform:translateX(-50%);bottom:72px;font-family:'EB Garamond',Georgia,serif;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:9px 18px;background:#241d18;color:#fdf7ec;border:1px solid #241d18;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.28);cursor:pointer}
+.xi-genbtn:active{transform:translateX(-50%) scale(.98)}
+
 .xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08a3e;--line:#d8ccb2;--sepia:#7a5a36}
 .xi-app *{box-sizing:border-box}
 .xi-app,.xi-app{margin:0}
