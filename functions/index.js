@@ -211,6 +211,53 @@ async function persistImage(imageUrl, groupId, entryId) {
   }
 }
 
+// Generate one image with the Book Illustrations LoRA: resolve the model's
+// current version, create the flux-dev prediction (same settings ImageForge
+// uses), and poll to completion. Returns the raw (temporary) Replicate URL.
+async function generateReplicateImage(token, prompt) {
+  const model = await replicateFetch(`/v1/models/${REPLICATE_MODEL}`, token);
+  const version = model.latest_version?.id;
+  if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
+
+  let prediction = await replicateFetch('/v1/predictions', token, {
+    method: 'POST',
+    body: JSON.stringify({
+      version,
+      input: {
+        prompt,
+        model: 'dev',
+        aspect_ratio: '1:1',
+        num_outputs: 1,
+        num_inference_steps: 28,
+        guidance_scale: 3,
+        lora_scale: 1,
+        output_format: 'webp',
+        output_quality: 80,
+      },
+    }),
+  });
+
+  // Poll until finished (~every 1.5s), with a hard deadline under the timeout.
+  const deadline = Date.now() + 110000;
+  while (prediction.status === 'starting' || prediction.status === 'processing') {
+    if (Date.now() > deadline) {
+      throw new HttpsError('deadline-exceeded', 'The image took too long.');
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+    prediction = await replicateFetch(`/v1/predictions/${prediction.id}`, token);
+  }
+
+  if (prediction.status !== 'succeeded') {
+    throw new HttpsError('internal',
+      `Image generation ${prediction.status}: ${prediction.error || 'unknown error'}`);
+  }
+
+  const out = prediction.output;
+  const rawUrl = Array.isArray(out) ? out[0] : out;
+  if (!rawUrl) throw new HttpsError('internal', 'No image was returned.');
+  return rawUrl;
+}
+
 exports.illustrateDream = onCall(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
   async (request) => {
@@ -244,50 +291,7 @@ exports.illustrateDream = onCall(
 
     const prompt = buildDreamPrompt(entry);
 
-    // Resolve the model's current version, then create the prediction with the
-    // same flux-dev LoRA settings ImageForge uses.
-    const model = await replicateFetch(`/v1/models/${REPLICATE_MODEL}`, token);
-    const version = model.latest_version?.id;
-    if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
-
-    let prediction = await replicateFetch('/v1/predictions', token, {
-      method: 'POST',
-      body: JSON.stringify({
-        version,
-        input: {
-          prompt,
-          model: 'dev',
-          aspect_ratio: '1:1',
-          num_outputs: 1,
-          num_inference_steps: 28,
-          guidance_scale: 3,
-          lora_scale: 1,
-          output_format: 'webp',
-          output_quality: 80,
-        },
-      }),
-    });
-
-    // Poll until finished (~every 1.5s), with a hard deadline under the
-    // function timeout.
-    const deadline = Date.now() + 110000;
-    while (prediction.status === 'starting' || prediction.status === 'processing') {
-      if (Date.now() > deadline) {
-        throw new HttpsError('deadline-exceeded', 'The illustration took too long.');
-      }
-      await new Promise((r) => setTimeout(r, 1500));
-      prediction = await replicateFetch(`/v1/predictions/${prediction.id}`, token);
-    }
-
-    if (prediction.status !== 'succeeded') {
-      throw new HttpsError('internal',
-        `Illustration ${prediction.status}: ${prediction.error || 'unknown error'}`);
-    }
-
-    const out = prediction.output;
-    const rawUrl = Array.isArray(out) ? out[0] : out;
-    if (!rawUrl) throw new HttpsError('internal', 'No image was returned.');
-
+    const rawUrl = await generateReplicateImage(token, prompt);
     const url = await persistImage(rawUrl, groupId, entryId);
 
     const illustration = {
@@ -301,6 +305,29 @@ exports.illustrateDream = onCall(
     await entryRef.update({ illustration, updatedAt: FieldValue.serverTimestamp() });
 
     return { url };
+  }
+);
+
+// Standalone image-generation test. Takes a prompt, runs it through the Book
+// Illustrations LoRA, and returns the image URL — no dream entry, group, or
+// storage involved. Lets us verify the Replicate setup independent of the
+// dream-journal UI.
+exports.generateTestImage = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const raw = String(request.data?.prompt || '').trim();
+    if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
+
+    const token = await loadReplicateToken();
+    if (!token) {
+      throw new HttpsError('failed-precondition',
+        'No Replicate token set yet — add it to config/replicate in Firestore.');
+    }
+
+    const prompt = `${REPLICATE_TRIGGER}, ${raw.slice(0, 1500)}`;
+    const url = await generateReplicateImage(token, prompt);
+    return { url, prompt };
   }
 );
 
