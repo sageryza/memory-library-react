@@ -89,10 +89,12 @@
 .xiv-undo svg{width:20px;height:20px}
 
 /* Story composer + feed */
-/* The composer rides in a KeyboardSheet: a fixed layer sized to the visual
-   viewport, with the sheet pinned to its bottom (= the keyboard's top edge). */
-.xiv-kblayer{position:fixed;left:0;right:0;z-index:9700;pointer-events:none}
-.xiv-sheet{position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;pointer-events:auto}
+/* The composer rides in a KeyboardSheet pinned to the bottom of the screen. The
+   viewport meta (interactive-widget=resizes-content) shrinks the layout viewport
+   when the keyboard opens, so `bottom:0` is the keyboard's top edge — no pixel
+   math. The layer is pass-through; only the sheet itself is interactive. */
+.xiv-kblayer{position:fixed;left:0;right:0;bottom:0;z-index:9700;pointer-events:none}
+.xiv-sheet{left:0;right:0;max-width:520px;margin:0 auto;pointer-events:auto}
 /* While the composer is up, freeze the board so iOS can't scroll it off-screen
    to chase the focused textbox (that's what left the empty white space). */
 .xiv.composing{overflow:hidden}
