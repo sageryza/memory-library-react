@@ -122,16 +122,6 @@
 /* Hide the bottom nav while writing (keyboard up) and when the board is in
    immersive mode (toggled by tapping empty board space). */
 .xi-app.writing .botnav,.xi-app.nav-hidden .botnav{transform:translateY(110%)}
-/* Writing mode (textbox focused): keep the cards in view as a compact strip and
-   tuck away the collected memories + the deal buttons, so nothing competes with
-   the textbox. Everything fits above the keyboard, so the cards never scroll off. */
-.xi-app.writing #cardSlot .collected,
-.xi-app.writing #cardSlot .mem{display:none}
-.xi-app.writing #center{display:none}
-.xi-app.writing #cardSlot .cardrow{gap:8px;margin-bottom:4px}
-.xi-app.writing #cardSlot .cardrow .card{flex:0 0 auto;width:auto;margin:0}
-.xi-app.writing #cardSlot .cardrow img{height:118px;width:auto}
-.xi-app.writing .composer{margin-top:6px}
 /* Grabber handle to bring the nav back while the board is immersive. */
 .xi-app .navhandle{display:none}
 .xi-app.nav-hidden .navhandle{display:flex;align-items:flex-end;justify-content:center;position:fixed;left:0;right:0;bottom:0;height:26px;padding-bottom:6px;z-index:51;background:none;border:none;cursor:pointer}
