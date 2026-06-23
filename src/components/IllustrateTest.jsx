@@ -13,6 +13,7 @@ const generateTestImage = httpsCallable(functions, 'generateTestImage');
 export default function IllustrateTest() {
   const { user, loading: authLoading } = useAuth();
   const [prompt, setPrompt] = useState('a small fox asleep under a crescent moon, soft and dreamlike');
+  const [style, setStyle] = useState('vict');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +23,7 @@ export default function IllustrateTest() {
     setUrl('');
     setBusy(true);
     try {
-      const res = await generateTestImage({ prompt });
+      const res = await generateTestImage({ prompt, style });
       setUrl(res.data.url);
     } catch (e) {
       setError(e?.message || String(e));
@@ -57,6 +58,16 @@ export default function IllustrateTest() {
         placeholder="Describe an image…"
       />
 
+      <label style={S.label}>
+        Style
+        <select value={style} onChange={(e) => setStyle(e.target.value)} style={S.select}>
+          <option value="vict">Book Illustrations</option>
+          <option value="wtr">Watercolor</option>
+          <option value="tok">PWC Scans</option>
+          <option value="pnt">Painterly</option>
+        </select>
+      </label>
+
       <button onClick={run} disabled={busy || !prompt.trim()} style={S.btn}>
         {busy ? 'generating… (10–30s)' : 'generate image'}
       </button>
@@ -77,6 +88,8 @@ const S = {
   },
   h1: { fontSize: 22, margin: '0 0 4px' },
   sub: { color: '#666', fontSize: 14, margin: '0 0 18px', lineHeight: 1.5 },
+  label: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, fontSize: 14, color: '#444' },
+  select: { padding: '8px 10px', fontSize: 15, border: '1px solid #ccc', borderRadius: 6, flex: 1 },
   textarea: {
     width: '100%',
     padding: 12,

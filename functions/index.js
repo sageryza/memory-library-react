@@ -223,8 +223,8 @@ async function persistImage(imageUrl, groupId, entryId) {
 // Generate one image with the Book Illustrations LoRA: resolve the model's
 // current version, create the flux-dev prediction (same settings ImageForge
 // uses), and poll to completion. Returns the raw (temporary) Replicate URL.
-async function generateReplicateImage(token, prompt) {
-  const model = await replicateFetch(`/v1/models/${REPLICATE_MODEL}`, token);
+async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL) {
+  const model = await replicateFetch(`/v1/models/${modelSlug}`, token);
   const version = model.latest_version?.id;
   if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
 
@@ -317,10 +317,20 @@ exports.illustrateDream = onCall(
   }
 );
 
-// Standalone image-generation test. Takes a prompt, runs it through the Book
-// Illustrations LoRA, and returns the image URL — no dream entry, group, or
-// storage involved. Lets us verify the Replicate setup independent of the
-// dream-journal UI.
+// The trained ImageForge styles, by key. Each is a Replicate LoRA owned by
+// sageryza with its own trigger word. Used by the test page so we can compare
+// styles and find the one that matches the dream-drawing look.
+const TEST_STYLES = {
+  vict: { model: 'sageryza/victorianstyle', trigger: 'vict' }, // Book Illustrations
+  wtr: { model: 'sageryza/watercolordrawings', trigger: 'wtr' }, // Watercolor
+  tok: { model: 'sageryza/pwcscans', trigger: 'tok' }, // PWC Scans
+  pnt: { model: 'sageryza/paint', trigger: 'pnt' }, // Painterly
+};
+
+// Standalone image-generation test. Takes a prompt + style key, runs it through
+// the chosen LoRA, and returns the image URL — no dream entry, group, or storage
+// involved. Lets us verify the Replicate setup and compare styles independent of
+// the dream-journal UI.
 exports.generateTestImage = onCall(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
   async (request) => {
@@ -331,11 +341,12 @@ exports.generateTestImage = onCall(
     const token = await loadReplicateToken();
     if (!token) {
       throw new HttpsError('failed-precondition',
-        'No Replicate token set yet — add it to config/replicate in Firestore.');
+        'No Replicate token found in config/* (looking for an r8_… value).');
     }
 
-    const prompt = `${REPLICATE_TRIGGER}, ${raw.slice(0, 1500)}`;
-    const url = await generateReplicateImage(token, prompt);
+    const style = TEST_STYLES[String(request.data?.style || 'vict')] || TEST_STYLES.vict;
+    const prompt = `${style.trigger}, ${raw.slice(0, 1500)}`;
+    const url = await generateReplicateImage(token, prompt, style.model);
     return { url, prompt };
   }
 );
