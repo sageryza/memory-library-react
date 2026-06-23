@@ -149,12 +149,21 @@ const REPLICATE_MODEL = 'sageryza/victorianstyle'; // "Book Illustrations"
 const REPLICATE_TRIGGER = 'vict';
 const STORAGE_BUCKET = 'membry-df528.firebasestorage.app';
 
+// Find the Replicate API token in the config collection. It's added by hand
+// from the Firebase console, so it may live in any config/* doc under any field
+// name (e.g. config/replicate.apiToken, or config/anthropic with a field named
+// "api token"). Replicate tokens always start with "r8_", which lets us locate
+// it unambiguously without depending on an exact path/field name.
 async function loadReplicateToken() {
   try {
-    const snap = await db.doc('config/replicate').get();
-    const d = snap.exists ? snap.data() : null;
-    return d && d.apiToken ? String(d.apiToken).trim() : null;
-  } catch { return null; }
+    const snap = await db.collection('config').get();
+    for (const doc of snap.docs) {
+      for (const v of Object.values(doc.data() || {})) {
+        if (typeof v === 'string' && v.trim().startsWith('r8_')) return v.trim();
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
 }
 
 // Turn a dream entry into a Replicate prompt. The LoRA trigger word must be
