@@ -13,6 +13,7 @@ import { ConfirmProvider } from './contexts/ConfirmContext'
 import Login from './components/Login'
 import Home from './components/Home'
 import Archive from './components/archive/Archive'
+import SmsConsent from './components/SmsConsent'
 // Heavy feature screens are loaded on demand so they don't bloat the initial
 // download — you only fetch them when you open them. Landing screens (Home,
 // Login, Archive) stay eager so the first paint is immediate.
@@ -390,6 +391,10 @@ function App() {
           <Route
             path="/login"
             element={<Login />}
+          />
+          <Route
+            path="/sms"
+            element={<SmsConsent />}
           />
           <Route
             path="/share/:shareId"
