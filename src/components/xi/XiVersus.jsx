@@ -147,7 +147,7 @@ export default function XiVersus() {
             <input className="xiv-notif-phone" type="tel" inputMode="tel" autoComplete="tel"
               placeholder="Mobile number" value={phoneInput} maxLength={20}
               onChange={(e) => setPhoneInput(e.target.value)} />
-            <div className="xiv-notif-fine">We’ll never text you anything else.</div>
+            <div className="xiv-notif-fine">We’ll never text you anything else. <a href="/sms" target="_blank" rel="noreferrer">SMS terms</a></div>
           </>
         )}
         {inline && (
