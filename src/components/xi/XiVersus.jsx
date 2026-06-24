@@ -47,7 +47,12 @@ export default function XiVersus() {
   const [storyText, setStoryText] = useState('');
   const [working, setWorking] = useState(false);
   const [notifBusy, setNotifBusy] = useState(false);
-  const [notifOn, setNotifOn] = useState(false);
+  const [notifOn, setNotifOn] = useState(() => { try { return localStorage.getItem('xiNotifDone') === '1'; } catch { return false; } });
+  const [notifWanted, setNotifWanted] = useState(true);   // pre-checked opt-in
+  const [notifDismissed, setNotifDismissed] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(() => {
+    try { return localStorage.getItem('xiVersusPhone') || ''; } catch { return ''; }
+  });
   const [nameInput, setNameInput] = useState(() => {
     try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
   });
@@ -99,12 +104,62 @@ export default function XiVersus() {
     }
   };
 
+  // Turn on "your turn" alerts for this user. Email + push are free; SMS only
+  // fires if they gave a number. The number is remembered locally so it prefills
+  // next time. Never throws — a notify hiccup must not block starting a game.
+  const applyNotif = async (asUser) => {
+    const usr = asUser || user;
+    if (!usr || !notifWanted) { setNotifDismissed(true); return; }
+    const phone = phoneInput.trim();
+    try { if (phone) localStorage.setItem('xiVersusPhone', phone); } catch { /* ignore */ }
+    setNotifBusy(true);
+    try {
+      await enableTurnNotifications(usr, { phone });
+      setNotifOn(true);
+      try { localStorage.setItem('xiNotifDone', '1'); } catch { /* ignore */ }
+    } catch (e) { console.warn('[notify]', e?.message || e); }
+    finally { setNotifBusy(false); }
+  };
+
   const startGame = async (asUser) => {
     setBusy(true);
     try {
       const id = await createVersusGame(asUser || user, profile);
+      await applyNotif(asUser || user);
       navigate('/xi/versus/' + id);
     } catch (e) { alert(e.message); setBusy(false); }
+  };
+
+  // The pre-checked "text me when it's my turn" opt-in. Used on the lobby (where
+  // Start applies it) and as an in-game banner for players who joined via a link
+  // (where its own Save applies it). Hidden once they've opted in.
+  const notifOptInBlock = (inline) => {
+    if (notifOn) return null;
+    return (
+      <div className={'xiv-notif' + (inline ? ' inline' : '')}>
+        <div className="xiv-notif-hook">Don’t keep your friends waiting.</div>
+        <label className="xiv-notif-row">
+          <input type="checkbox" checked={notifWanted} onChange={(e) => setNotifWanted(e.target.checked)} />
+          <span className="xiv-notif-label">Text me when it’s my turn</span>
+        </label>
+        {notifWanted && (
+          <>
+            <input className="xiv-notif-phone" type="tel" inputMode="tel" autoComplete="tel"
+              placeholder="Mobile number" value={phoneInput} maxLength={20}
+              onChange={(e) => setPhoneInput(e.target.value)} />
+            <div className="xiv-notif-fine">We’ll never text you anything else.</div>
+          </>
+        )}
+        {inline && (
+          <div className="xiv-notif-actions">
+            <button className="xiv-ghost" onClick={() => setNotifDismissed(true)}>Not now</button>
+            <button className="xiv-btn-sm" disabled={notifBusy} onClick={() => applyNotif()}>
+              {notifBusy ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const NameField = (
@@ -141,6 +196,7 @@ export default function XiVersus() {
               ))}
             </div>
           )}
+          {notifOptInBlock(false)}
           {user ? (
             <button className="xiv-btn" disabled={busy} onClick={() => startGame()}>
               {busy ? 'Starting…' : 'Start a new game'}
@@ -259,21 +315,14 @@ export default function XiVersus() {
   };
 
   // Opt in to "it's your turn" alerts (text + web push + email).
-  const turnOnNotifs = async () => {
+  // The header bell just (re)opens the opt-in banner — to turn alerts on, or to
+  // change the number later. No more window.prompt.
+  const openNotifOptIn = () => {
     if (!user) { alert('Join or sign in first to get turn alerts.'); return; }
-    if (notifBusy || notifOn) return;
-    let phone = '';
-    try { phone = window.prompt('Mobile number for a text when it’s your turn (optional — leave blank to skip):', '') || ''; } catch { phone = ''; }
-    setNotifBusy(true);
-    try {
-      const r = await enableTurnNotifications(user, { phone });
-      setNotifOn(true);
-      const chans = [r.smsOn && 'text', r.pushOn && 'push', r.emailOn && 'email'].filter(Boolean);
-      alert(chans.length
-        ? `Done — you’ll get a ${chans.join(' + ')} when it’s your turn.`
-        : 'Turn alerts are on. Add a number, allow notifications, or sign in to actually receive them.');
-    } catch (e) { alert(e.message || 'Could not enable alerts.'); }
-    finally { setNotifBusy(false); }
+    setNotifWanted(true);
+    setNotifDismissed(false);
+    setNotifOn(false);
+    try { localStorage.removeItem('xiNotifDone'); } catch { /* ignore */ }
   };
 
   // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
@@ -308,7 +357,7 @@ export default function XiVersus() {
             </select>
           )}
           <button className={'xiv-bell' + (notifOn ? ' on' : '')} disabled={notifBusy}
-            onClick={turnOnNotifs} aria-label="Notify me when it's my turn"
+            onClick={openNotifOptIn} aria-label="Notify me when it's my turn"
             title="Notify me when it's my turn">
             <svg viewBox="0 0 24 24" fill={notifOn ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
@@ -339,6 +388,8 @@ export default function XiVersus() {
       {isAnonymous && (
         <div className="xiv-nudge"><a href="/login">Sign in</a> to keep your stories &amp; stats.</div>
       )}
+
+      {amInGame && !notifOn && !notifDismissed && notifOptInBlock(true)}
 
       <div className="xiv-players">
         {players.map((p) => (
