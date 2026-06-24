@@ -264,7 +264,7 @@ async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL
   const out = prediction.output;
   const rawUrl = Array.isArray(out) ? out[0] : out;
   if (!rawUrl) throw new HttpsError('internal', 'No image was returned.');
-  return rawUrl;
+  return { rawUrl, modelSlug, version, predictionId: prediction.id };
 }
 
 exports.illustrateDream = onCall(
@@ -300,7 +300,7 @@ exports.illustrateDream = onCall(
 
     const prompt = buildDreamPrompt(entry);
 
-    const rawUrl = await generateReplicateImage(token, prompt);
+    const { rawUrl } = await generateReplicateImage(token, prompt);
     const url = await persistImage(rawUrl, groupId, entryId);
 
     const illustration = {
@@ -346,8 +346,15 @@ exports.generateTestImage = onCall(
 
     const style = TEST_STYLES[String(request.data?.style || 'vict')] || TEST_STYLES.vict;
     const prompt = `${style.trigger}, ${raw.slice(0, 1500)}`;
-    const url = await generateReplicateImage(token, prompt, style.model);
-    return { url, prompt };
+    const { rawUrl, modelSlug, version, predictionId } =
+      await generateReplicateImage(token, prompt, style.model);
+    return {
+      url: rawUrl,
+      prompt,
+      model: modelSlug,
+      version,
+      predictionUrl: `https://replicate.com/p/${predictionId}`,
+    };
   }
 );
 
