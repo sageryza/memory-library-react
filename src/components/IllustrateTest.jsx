@@ -16,15 +16,18 @@ export default function IllustrateTest() {
   const [style, setStyle] = useState('vict');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
+  const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
 
   const run = async () => {
     setError('');
     setUrl('');
+    setInfo(null);
     setBusy(true);
     try {
       const res = await generateTestImage({ prompt, style });
       setUrl(res.data.url);
+      setInfo(res.data);
     } catch (e) {
       setError(e?.message || String(e));
     } finally {
@@ -74,6 +77,20 @@ export default function IllustrateTest() {
 
       {error && <p style={S.error}>⚠️ {error}</p>}
       {url && <img src={url} alt="generated result" style={S.img} />}
+      {info && (
+        <div style={S.receipt}>
+          <div><strong>model:</strong> {info.model}</div>
+          <div><strong>version:</strong> {info.version}</div>
+          <div><strong>prompt sent:</strong> {info.prompt}</div>
+          {info.predictionUrl && (
+            <div>
+              <a href={info.predictionUrl} target="_blank" rel="noreferrer" style={S.link}>
+                view this run on Replicate →
+              </a>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -113,4 +130,15 @@ const S = {
   },
   error: { color: '#b00020', marginTop: 16, whiteSpace: 'pre-wrap', lineHeight: 1.5 },
   img: { width: '100%', marginTop: 20, borderRadius: 8, display: 'block' },
+  receipt: {
+    marginTop: 14,
+    padding: 12,
+    background: '#f5f3f4',
+    borderRadius: 6,
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 1.6,
+    wordBreak: 'break-all',
+  },
+  link: { color: '#8a5a6b', fontWeight: 600 },
 };
