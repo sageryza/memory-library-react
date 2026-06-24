@@ -59,6 +59,18 @@
 
 .xiv-note{text-align:center;font-size:13px;line-height:1.4;color:#8a7d6e;padding:8px 20px 28px}
 
+/* "Text me when it's my turn" opt-in — pre-checked, shown on the lobby (Start
+   applies it) and as an in-game banner for players who joined via a link. */
+.xiv-notif{width:100%;max-width:300px;margin:2px auto 14px;background:rgba(36,29,24,.05);border:1px solid #e2d8c2;border-radius:6px;padding:11px 13px;text-align:left}
+.xiv-notif.inline{max-width:440px;margin:8px auto 4px;background:#fbf7ec}
+.xiv-notif-hook{font-size:14.5px;color:#241d18;font-weight:600;margin-bottom:6px}
+.xiv-notif-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
+.xiv-notif-row input{margin:3px 0 0;flex:none;width:16px;height:16px;accent-color:#800020}
+.xiv-notif-label{font-size:14.5px;color:#3b332b;line-height:1.35}
+.xiv-notif-phone{width:100%;box-sizing:border-box;margin-top:8px;font-family:inherit;font-size:16px;padding:8px 11px;border:1px solid #cbbfa6;border-radius:6px;background:#fbf8f1;color:#241d18}
+.xiv-notif-fine{margin-top:5px;font-size:12px;color:#8a7d6e}
+.xiv-notif-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:9px}
+
 /* Guest / sign-in join controls */
 .xiv-guest{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:16px}
 .xiv-name{font-family:inherit;font-size:16px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
