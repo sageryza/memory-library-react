@@ -1,7 +1,7 @@
-// Public SMS-consent page (/sms) — a single, self-contained page that tells the
-// whole opt-in story for Twilio toll-free verification: a visual of the opt-in
-// checkbox plus what we send, how often, and how to opt out (STOP/HELP). No auth,
-// no app chrome — it must be reachable by anyone (including a Twilio reviewer).
+// Public SMS terms page (/sms) — a real, customer-facing page describing the
+// turn-alert texts: what we send, how often, how to opt out (STOP/HELP), cost,
+// and privacy. Linked from the opt-in checkbox, and used as the written-terms
+// URL for Twilio toll-free verification. No auth — reachable by anyone.
 const C = {
   bg: '#efe7d6', card: '#fbf7ec', ink: '#241d18', soft: '#5b4f44',
   faint: '#8a7d6e', accent: '#800020', line: '#e2d8c2', field: '#fbf8f1',
@@ -16,31 +16,15 @@ export default function SmsConsent() {
         <div style={{ fontVariant: 'small-caps', letterSpacing: '.06em', fontSize: 22, marginBottom: 6 }}>
           XI · Versus
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 600, margin: '0 0 14px' }}>Text Notifications</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 600, margin: '0 0 14px' }}>Text Message Terms</h1>
 
-        <p style={{ fontSize: 17, lineHeight: 1.5, color: C.soft, margin: '0 0 22px' }}>
+        <p style={{ fontSize: 17, lineHeight: 1.5, color: C.soft, margin: '0 0 24px' }}>
           XI · Versus is a turn-based memory game at{' '}
           <a href="https://incaseofamnesia.com/xi/versus" style={{ color: C.accent }}>incaseofamnesia.com</a>.
-          When you start or join a game, you can choose to get a text message when it becomes
-          your turn — so you don't keep the other players waiting.
+          When you start or join a game, you can check <b style={{ color: C.ink }}>“Text me when it's my
+          turn”</b> and enter your mobile number to receive a text each time it becomes your turn. Opting
+          in is entirely optional — the game works the same without it.
         </p>
-
-        {/* A faithful, static rendition of the actual in-app opt-in. */}
-        <div style={{ fontSize: 13, color: C.faint, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
-          How you opt in (shown when you start or join a game)
-        </div>
-        <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 6,
-          padding: '14px 16px', maxWidth: 320, marginBottom: 26 }}>
-          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Don't keep your friends waiting.</div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-            <span aria-hidden style={{ width: 18, height: 18, borderRadius: 4, background: C.accent, color: '#fff',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flex: 'none', marginTop: 2 }}>✓</span>
-            <span style={{ fontSize: 15.5 }}>Text me when it's my turn</span>
-          </div>
-          <div style={{ marginTop: 9, border: `1px solid #cbbfa6`, borderRadius: 6, background: C.field,
-            padding: '9px 11px', color: C.faint, fontSize: 15.5 }}>Mobile number</div>
-          <div style={{ marginTop: 6, fontSize: 12.5, color: C.faint }}>We'll never text you anything else.</div>
-        </div>
 
         <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 20 }}>
           {[
