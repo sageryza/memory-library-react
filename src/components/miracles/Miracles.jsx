@@ -1,6 +1,7 @@
 // The Little Book of Miracles — write tiny lovely moments on the lines; each is
 // drawn as a simple Sketchy-style doodle. Per-box generation never blocks your
-// typing, and opening the book flips quickly through the pages you've already made.
+// typing; opening the book riffles through pages you've already made; turn the
+// page to start a fresh one.
 //
 // v1 persistence is localStorage (per device); the drawings themselves are saved
 // permanently in Firebase Storage by the backend.
@@ -15,7 +16,7 @@ import './Miracles.css';
 /* global __BUILD_ID__ */
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
-const UI_VERSION = 'v3'; // bump when the Miracles page changes
+const UI_VERSION = 'v4'; // bump when the Miracles page changes
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
 
 // Wipe the cached app (service worker + caches) and reload — a reliable "get
@@ -33,12 +34,13 @@ async function forceRefresh() {
   } catch { /* ignore */ }
   window.location.reload();
 }
+
 const STORE_KEY = 'miraclesBook';
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const uid = () =>
   (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 const newBox = () => ({ id: uid(), text: '', url: '', status: 'idle' });
-const newPage = () => [newBox(), newBox(), newBox(), newBox()];
+const newPage = (date) => ({ id: uid(), date, boxes: [newBox(), newBox(), newBox(), newBox()] });
 
 // Test seed — the four miracles, so we can just press draw.
 const SAMPLE_MIRACLES = [
@@ -48,14 +50,30 @@ const SAMPLE_MIRACLES = [
   "I almost fainted in the bathroom and a girl named Hope got me water — she has a doctor's appointment for fainting tomorrow",
 ];
 
+// Book is an ordered array of pages: { id, date, boxes:[4] }. Migrate the old
+// { [date]: boxes[] } shape so existing drawings aren't lost.
 const loadBook = () => {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch { return {}; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (Array.isArray(raw) && raw.length) return raw;
+    if (raw && typeof raw === 'object') {
+      const pages = Object.entries(raw)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, boxes]) => ({
+          id: uid(),
+          date,
+          boxes: Array.isArray(boxes) ? boxes : newPage(date).boxes,
+        }));
+      if (pages.length) return pages;
+    }
+  } catch { /* ignore */ }
+  return [newPage(todayStr())];
 };
 
 const prettyDate = (d) => {
   try {
     return new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
-      weekday: 'long', month: 'long', day: 'numeric',
+      month: 'long', day: 'numeric',
     });
   } catch { return d; }
 };
@@ -65,17 +83,12 @@ export default function Miracles() {
   const today = todayStr();
 
   const [book, setBook] = useState(loadBook);
-  const [viewDate, setViewDate] = useState(today);
+  const [viewIndex, setViewIndex] = useState(0);
   const [flipping, setFlipping] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const [distill, setDistill] = useState(true);
   const [engineVersion, setEngineVersion] = useState('');
   const flipTimer = useRef(null);
-
-  // Make sure today's page exists.
-  useEffect(() => {
-    setBook((b) => (b[today] ? b : { ...b, [today]: newPage() }));
-  }, [today]);
 
   // Persist on every change.
   useEffect(() => {
@@ -84,43 +97,50 @@ export default function Miracles() {
 
   useEffect(() => () => clearInterval(flipTimer.current), []);
 
-  // Open the cover, then riffle through past pages and land on today.
+  // Open the cover, then riffle through the pages and land on the latest.
   const openBook = () => {
     setCoverOpen(true);
-    const past = Object.keys(loadBook()).filter((d) => d !== today).sort();
-    if (past.length === 0) { setViewDate(today); return; }
-    const seq = [...past, today];
+    const last = book.length - 1;
+    if (last <= 0) { setViewIndex(0); return; }
     setFlipping(true);
     let i = 0;
-    setViewDate(seq[0]);
+    setViewIndex(0);
     flipTimer.current = setInterval(() => {
       i += 1;
-      if (i >= seq.length) {
+      if (i > last) {
         clearInterval(flipTimer.current);
-        setViewDate(today);
+        setViewIndex(last);
         setFlipping(false);
       } else {
-        setViewDate(seq[i]);
+        setViewIndex(i);
       }
     }, 220);
   };
 
-  const pages = Object.keys(book).sort();
-  const page = book[viewDate] || newPage();
-  const idx = pages.indexOf(viewDate);
+  const page = book[viewIndex] || book[0];
 
   const updateBox = (boxId, patch) =>
-    setBook((b) => ({
-      ...b,
-      [viewDate]: (b[viewDate] || newPage()).map((bx) =>
-        bx.id === boxId ? { ...bx, ...patch } : bx),
-    }));
-
-  const addBox = () =>
-    setBook((b) => ({ ...b, [viewDate]: [...(b[viewDate] || newPage()), newBox()] }));
+    setBook((b) => b.map((pg, i) => (i !== viewIndex ? pg : {
+      ...pg,
+      boxes: pg.boxes.map((bx) => (bx.id === boxId ? { ...bx, ...patch } : bx)),
+    })));
 
   const loadSamples = () =>
-    setBook((b) => ({ ...b, [viewDate]: SAMPLE_MIRACLES.map((t) => ({ ...newBox(), text: t })) }));
+    setBook((b) => b.map((pg, i) => (i !== viewIndex ? pg : {
+      ...pg,
+      boxes: SAMPLE_MIRACLES.map((t) => ({ ...newBox(), text: t })),
+    })));
+
+  const pageHasContent = (pg) => pg.boxes.some((bx) => bx.text.trim() || bx.url);
+  const canTurnForward = viewIndex < book.length - 1 || pageHasContent(page);
+
+  const turnBack = () => viewIndex > 0 && setViewIndex(viewIndex - 1);
+  const turnForward = () => {
+    if (viewIndex < book.length - 1) { setViewIndex(viewIndex + 1); return; }
+    if (!pageHasContent(page)) return; // don't stack blank pages
+    setBook((b) => [...b, newPage(today)]);
+    setViewIndex(book.length);
+  };
 
   const illustrate = async (box) => {
     if (!box.text.trim() || box.status === 'drawing') return;
@@ -151,12 +171,10 @@ export default function Miracles() {
   if (!coverOpen) {
     return (
       <div className="miracles-root miracles-cover-wrap">
-        <button type="button" className="miracles-cover" onClick={openBook}>
-          <span className="miracles-cover-rule" />
-          <span className="miracles-cover-emblem">✦</span>
-          <span className="miracles-cover-title">The Little Book<br />of Miracles</span>
-          <span className="miracles-cover-rule" />
-          <span className="miracles-cover-open">tap to open</span>
+        <button type="button" className="miracles-cover" onClick={openBook} aria-label="Open the book">
+          <span className="miracles-cover-frame">
+            <span className="miracles-cover-title gold-foil">Little<br />Book of<br />Miracles</span>
+          </span>
         </button>
       </div>
     );
@@ -192,14 +210,14 @@ export default function Miracles() {
         load sample miracles (test)
       </button>
 
-      <div className={`miracles-page${flipping ? ' is-flipping' : ''}`} key={viewDate}>
+      <div className={`miracles-page${flipping ? ' is-flipping' : ''}`} key={page.id}>
         <div className="miracles-daterow">
           <span className="miracles-date-label">date</span>
-          <span className="miracles-date">{prettyDate(viewDate)}</span>
+          <span className="miracles-date">{prettyDate(page.date)}</span>
         </div>
 
         <div className="miracles-grid">
-          {page.map((box) => (
+          {page.boxes.map((box) => (
             <div className="miracle-box" key={box.id}>
               <div className="miracle-frame">
                 {box.url && <img src={box.url} alt="" className="miracle-img" />}
@@ -223,7 +241,7 @@ export default function Miracles() {
               >
                 {box.status === 'drawing'
                   ? 'drawing…'
-                  : box.url ? 'redraw' : '✦ draw'}
+                  : box.url ? 'redraw' : '✨ draw'}
               </button>
 
               {box.status === 'error' && box.error && (
@@ -232,31 +250,25 @@ export default function Miracles() {
             </div>
           ))}
         </div>
-
-        <button type="button" className="miracles-add" onClick={addBox}>
-          + add another
-        </button>
       </div>
 
       <div className="miracles-nav">
         <button
           type="button"
           className="miracles-arrow"
-          onClick={() => idx > 0 && setViewDate(pages[idx - 1])}
-          disabled={idx <= 0}
+          onClick={turnBack}
+          disabled={viewIndex <= 0}
         >
-          ‹ earlier
+          ‹ back
         </button>
-        <span className="miracles-pageno">
-          {idx + 1} / {pages.length}
-        </span>
+        <span className="miracles-pageno">{viewIndex + 1} / {book.length}</span>
         <button
           type="button"
           className="miracles-arrow"
-          onClick={() => idx < pages.length - 1 && setViewDate(pages[idx + 1])}
-          disabled={idx >= pages.length - 1}
+          onClick={turnForward}
+          disabled={!canTurnForward}
         >
-          later ›
+          turn page ›
         </button>
       </div>
     </div>
