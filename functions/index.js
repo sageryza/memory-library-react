@@ -166,6 +166,24 @@ async function loadReplicateToken() {
   return null;
 }
 
+// Find the OpenAI API key in the config collection (same hand-entry tolerance
+// as the Replicate token). OpenAI keys start with "sk-" / "sk-proj-"; we
+// explicitly skip "sk-ant-" so we never grab the Anthropic key by mistake.
+async function loadOpenAIKey() {
+  try {
+    const snap = await db.collection('config').get();
+    for (const doc of snap.docs) {
+      for (const v of Object.values(doc.data() || {})) {
+        if (typeof v === 'string') {
+          const s = v.trim();
+          if (s.startsWith('sk-') && !s.startsWith('sk-ant')) return s;
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 // Turn a dream entry into a Replicate prompt. The LoRA trigger word must be
 // present in the prompt for the trained style to apply.
 function buildDreamPrompt(entry) {
@@ -355,6 +373,52 @@ exports.generateTestImage = onCall(
       version,
       predictionUrl: `https://replicate.com/p/${predictionId}`,
     };
+  }
+);
+
+// Image-reference test via OpenAI gpt-image-1. Takes an uploaded image + prompt
+// and returns a transformed image (data URL). Uses the images/edits endpoint —
+// the one that accepts an input image — so we can compare reference output
+// against the Replicate trained styles.
+exports.generateReferenceImage = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const prompt = String(request.data?.prompt || '').trim();
+    const imageBase64 = String(request.data?.imageBase64 || '');
+    const mimeType = String(request.data?.mimeType || 'image/png');
+    if (!prompt) throw new HttpsError('invalid-argument', 'Enter a prompt.');
+    if (!imageBase64) throw new HttpsError('invalid-argument', 'Upload a reference image.');
+
+    const key = await loadOpenAIKey();
+    if (!key) {
+      throw new HttpsError('failed-precondition',
+        'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+    }
+
+    const buffer = Buffer.from(imageBase64, 'base64');
+    const ext = /jpe?g/.test(mimeType) ? 'jpg' : (/webp/.test(mimeType) ? 'webp' : 'png');
+
+    const form = new FormData();
+    form.append('model', 'gpt-image-1');
+    form.append('prompt', prompt);
+    form.append('size', '1024x1024');
+    form.append('n', '1');
+    form.append('image', new Blob([buffer], { type: mimeType }), `reference.${ext}`);
+
+    const res = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}` },
+      body: form,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 500)}`);
+    }
+    const json = await res.json();
+    const b64 = json?.data?.[0]?.b64_json;
+    if (!b64) throw new HttpsError('internal', 'No image returned from OpenAI.');
+    return { url: `data:image/png;base64,${b64}`, model: 'gpt-image-1', prompt };
   }
 );
 
