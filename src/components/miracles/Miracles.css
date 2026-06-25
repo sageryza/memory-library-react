@@ -89,6 +89,26 @@
   color: #4a4239;
 }
 
+.miracles-mode {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border: 1px solid #ddd0b3;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.miracles-mode-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  color: #9a8f78;
+}
+.miracles-mode-btn.is-on { background: #efe7d4; color: #6b531f; }
+.miracles-mode-btn + .miracles-mode-btn { border-left: 1px solid #ddd0b3; }
+
 .miracles-seed {
   margin: -10px 0 18px;
   padding: 4px 12px;

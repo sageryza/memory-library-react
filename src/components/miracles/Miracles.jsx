@@ -49,6 +49,7 @@ export default function Miracles() {
   const [viewDate, setViewDate] = useState(today);
   const [flipping, setFlipping] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [distill, setDistill] = useState(true);
   const flipTimer = useRef(null);
 
   // Make sure today's page exists.
@@ -105,7 +106,7 @@ export default function Miracles() {
     if (!box.text.trim() || box.status === 'drawing') return;
     updateBox(box.id, { status: 'drawing' });
     try {
-      const res = await illustrateMiracleFn({ text: box.text, id: box.id });
+      const res = await illustrateMiracleFn({ text: box.text, id: box.id, distill });
       updateBox(box.id, { url: res.data.url, status: 'done' });
     } catch (e) {
       const code = e?.code ? String(e.code).replace('functions/', '') : '';
@@ -143,6 +144,23 @@ export default function Miracles() {
   return (
     <div className="miracles-root">
       <h1 className="miracles-title">The Little Book of Miracles</h1>
+
+      <div className="miracles-mode">
+        <button
+          type="button"
+          className={`miracles-mode-btn${distill ? ' is-on' : ''}`}
+          onClick={() => setDistill(true)}
+        >
+          let it choose the drawing
+        </button>
+        <button
+          type="button"
+          className={`miracles-mode-btn${!distill ? ' is-on' : ''}`}
+          onClick={() => setDistill(false)}
+        >
+          draw exactly what I wrote
+        </button>
+      </div>
 
       <button type="button" className="miracles-seed" onClick={loadSamples}>
         load sample miracles (test)

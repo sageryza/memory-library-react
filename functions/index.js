@@ -566,24 +566,28 @@ exports.illustrateMiracle = onCall(
       throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
     }
 
-    // Distill the moment into a caption + a simple drawing prompt (best-effort).
+    // Distill the moment into a simple drawing prompt (best-effort). When
+    // distill is false, draw the user's text verbatim instead.
+    const distill = request.data?.distill !== false;
     let caption = text.slice(0, 80);
     let drawing = text;
-    const anthropicKey = await loadAnthropicKey();
-    if (anthropicKey) {
-      try {
-        const client = new Anthropic({ apiKey: anthropicKey });
-        const msg = await client.messages.create({
-          model: 'claude-haiku-4-5',
-          max_tokens: 200,
-          system: MIRACLE_SYSTEM,
-          messages: [{ role: 'user', content: text.slice(0, 2000) }],
-        });
-        const parsed = JSON.parse(textOf(msg).trim().replace(/^```json\s*|\s*```$/g, ''));
-        if (parsed.caption) caption = String(parsed.caption).trim();
-        if (parsed.drawing) drawing = String(parsed.drawing).trim();
-      } catch (e) {
-        console.error('miracle distill failed; using raw text', e);
+    if (distill) {
+      const anthropicKey = await loadAnthropicKey();
+      if (anthropicKey) {
+        try {
+          const client = new Anthropic({ apiKey: anthropicKey });
+          const msg = await client.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 200,
+            system: MIRACLE_SYSTEM,
+            messages: [{ role: 'user', content: text.slice(0, 2000) }],
+          });
+          const parsed = JSON.parse(textOf(msg).trim().replace(/^```json\s*|\s*```$/g, ''));
+          if (parsed.caption) caption = String(parsed.caption).trim();
+          if (parsed.drawing) drawing = String(parsed.drawing).trim();
+        } catch (e) {
+          console.error('miracle distill failed; using raw text', e);
+        }
       }
     }
 
