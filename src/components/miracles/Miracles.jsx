@@ -14,6 +14,7 @@ import './Miracles.css';
 
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
+const UI_VERSION = 'v2'; // bump when the Miracles page changes
 const STORE_KEY = 'miraclesBook';
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const uid = () =>
@@ -50,6 +51,7 @@ export default function Miracles() {
   const [flipping, setFlipping] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const [distill, setDistill] = useState(true);
+  const [engineVersion, setEngineVersion] = useState('');
   const flipTimer = useRef(null);
 
   // Make sure today's page exists.
@@ -108,6 +110,7 @@ export default function Miracles() {
     try {
       const res = await illustrateMiracleFn({ text: box.text, id: box.id, distill });
       updateBox(box.id, { url: res.data.url, status: 'done' });
+      if (res.data.version) setEngineVersion(res.data.version);
     } catch (e) {
       const code = e?.code ? String(e.code).replace('functions/', '') : '';
       updateBox(box.id, {
@@ -232,6 +235,10 @@ export default function Miracles() {
         >
           later ›
         </button>
+      </div>
+
+      <div className="miracles-version">
+        book {UI_VERSION} · engine {engineVersion || '— draw to check'}
       </div>
     </div>
   );

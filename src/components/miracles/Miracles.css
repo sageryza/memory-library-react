@@ -261,6 +261,13 @@
 .miracles-arrow:disabled { opacity: 0.35; cursor: default; }
 .miracles-pageno { font-size: 0.85rem; letter-spacing: 0.1em; color: #b3a78c; }
 
+.miracles-version {
+  margin-top: 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #c4b89c;
+}
+
 .miracles-btn {
   padding: 9px 24px;
   border: 1px solid var(--gold-soft);
