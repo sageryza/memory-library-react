@@ -23,6 +23,7 @@ const ChronologyV2 = lazy(() => import('./components/ChronologyV2'))
 const GroupDreamJournal = lazy(() => import('./components/dream-journal/GroupDreamJournal'))
 const GroupDreamJournalPreview = lazy(() => import('./components/dream-journal/GroupDreamJournalPreview'))
 const IllustrateTest = lazy(() => import('./components/IllustrateTest'))
+const Miracles = lazy(() => import('./components/miracles/Miracles'))
 const PublicBoardsContainer = lazy(() => import('./components/public/PublicBoardsContainer'))
 const SharedBoardContainer = lazy(() => import('./components/shared-board/SharedBoardContainer'))
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
@@ -352,6 +353,14 @@ function App() {
             element={
               <div className="scrollable-page">
                 <IllustrateTest />
+              </div>
+            }
+          />
+          <Route
+            path="/miracles"
+            element={
+              <div className="scrollable-page">
+                <Miracles />
               </div>
             }
           />
