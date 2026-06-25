@@ -150,6 +150,14 @@
 }
 @keyframes miracle-spin { to { transform: rotate(360deg); } }
 .miracle-err { color: #b00020; font-size: 1.4rem; font-weight: 700; }
+.miracle-errmsg {
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #b00020;
+  word-break: break-word;
+}
 
 .miracle-caption {
   margin-top: 8px;
