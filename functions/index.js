@@ -214,13 +214,13 @@ async function replicateFetch(path, token, init = {}) {
 // returning a stable Firebase download URL (works regardless of bucket access
 // settings, no makePublic/signing needed). Falls back to the temporary
 // Replicate URL if the upload fails for any reason.
-async function persistImage(imageUrl, groupId, entryId) {
+async function persistImage(imageUrl, path) {
   try {
     const resp = await fetch(imageUrl);
     if (!resp.ok) throw new Error(`download ${resp.status}`);
     const buffer = Buffer.from(await resp.arrayBuffer());
     const bucket = getStorage().bucket(STORAGE_BUCKET);
-    const file = bucket.file(`dreams/${groupId}/${entryId}.webp`);
+    const file = bucket.file(path);
     const downloadToken = crypto.randomUUID();
     await file.save(buffer, {
       resumable: false,
@@ -319,7 +319,7 @@ exports.illustrateDream = onCall(
     const prompt = buildDreamPrompt(entry);
 
     const { rawUrl } = await generateReplicateImage(token, prompt);
-    const url = await persistImage(rawUrl, groupId, entryId);
+    const url = await persistImage(rawUrl, `dreams/${groupId}/${entryId}.webp`);
 
     const illustration = {
       url,
@@ -529,3 +529,67 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 
   throw new HttpsError('invalid-argument', 'Unknown mode.');
 });
+
+/* ===== The Little Book of Miracles ======================================= */
+// One style (Sketchy / sageryza/special) + baked-in style guidelines. A moment
+// is distilled by Claude into a short caption + a single simple thing to doodle,
+// then drawn as a black-ink line doodle and saved permanently.
+
+const MIRACLE_MODEL = 'sageryza/special';
+const MIRACLE_TRIGGER = 'special';
+const MIRACLE_STYLE_GUIDE =
+  'simple minimal black ink line doodle, single subject, lots of white space, '
+  + 'no color, no text, charming and childlike, centered on a plain white background';
+
+const MIRACLE_SYSTEM = [
+  "You help make a 'Little Book of Miracles' — tiny lovely or strange moments from",
+  "someone's day, each drawn as a simple black-ink line doodle with a short caption.",
+  'Given a moment, respond with ONLY a JSON object: {"caption": "...", "drawing": "..."}.',
+  '- caption: a short, warm, lowercase handwritten-style note, max ~8 words',
+  '  (e.g. "they opened the bakery just for us").',
+  '- drawing: ONE simple concrete thing to doodle that captures the moment — a single',
+  '  object or tiny scene, simple enough for a quick line drawing, no words in it.',
+  'Keep it gentle, specific, and a little whimsical.',
+].join('\n');
+
+exports.illustrateMiracle = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const text = String(request.data?.text || '').trim();
+    if (!text) throw new HttpsError('invalid-argument', 'Write a miracle first.');
+    const id = String(request.data?.id || crypto.randomUUID());
+
+    const repToken = await loadReplicateToken();
+    if (!repToken) {
+      throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
+    }
+
+    // Distill the moment into a caption + a simple drawing prompt (best-effort).
+    let caption = text.slice(0, 80);
+    let drawing = text;
+    const anthropicKey = await loadAnthropicKey();
+    if (anthropicKey) {
+      try {
+        const client = new Anthropic({ apiKey: anthropicKey });
+        const msg = await client.messages.create({
+          model: 'claude-haiku-4-5',
+          max_tokens: 200,
+          system: MIRACLE_SYSTEM,
+          messages: [{ role: 'user', content: text.slice(0, 2000) }],
+        });
+        const parsed = JSON.parse(textOf(msg).trim().replace(/^```json\s*|\s*```$/g, ''));
+        if (parsed.caption) caption = String(parsed.caption).trim();
+        if (parsed.drawing) drawing = String(parsed.drawing).trim();
+      } catch (e) {
+        console.error('miracle distill failed; using raw text', e);
+      }
+    }
+
+    const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
+    const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL);
+    const url = await persistImage(rawUrl, `miracles/${uid}/${id}.webp`);
+    return { url, caption, drawing, id };
+  }
+);

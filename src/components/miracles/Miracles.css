@@ -1,0 +1,231 @@
+/* The Little Book of Miracles — black-passport cover + cream doodle pages. */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Cormorant+Garamond:wght@400;500&display=swap');
+
+.miracles-root {
+  --gold: #d4af37;
+  --gold-soft: rgba(212, 175, 55, 0.35);
+  --ink: #2e2a26;
+  min-height: 100vh;
+  padding: 40px 18px 100px;
+  background: #f4efe6;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.miracles-state {
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #8a8278;
+}
+
+/* ---- passport cover ---- */
+.miracles-cover-wrap { justify-content: center; min-height: 100vh; }
+
+.miracles-cover {
+  width: min(340px, 78vw);
+  aspect-ratio: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 44px 32px;
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(155deg, #181818 0%, #232323 48%, #0c0c0c 100%);
+  box-shadow:
+    0 26px 70px -22px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 7px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 8px var(--gold-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.miracles-cover:hover { transform: translateY(-3px); }
+
+.miracles-cover-rule {
+  width: 84px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.gold-foil,
+.miracles-cover-emblem,
+.miracles-cover-title,
+.miracles-cover-open {
+  background: linear-gradient(180deg, #f6e9ad 0%, #d9b44a 45%, #b8862f 56%, #f3e29a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.miracles-cover-emblem { font-size: 2rem; line-height: 1; }
+.miracles-cover-title {
+  text-align: center;
+  font-size: 1.9rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+}
+.miracles-cover-open {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: lowercase;
+  opacity: 0.85;
+}
+
+/* ---- title (inside) ---- */
+.miracles-title {
+  margin: 0 0 22px;
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: #4a4239;
+}
+
+/* ---- the page ---- */
+.miracles-page {
+  width: 100%;
+  max-width: 560px;
+  padding: 26px 22px 18px;
+  background: #fffdf8;
+  border: 1px solid #e7ddc8;
+  border-radius: 6px;
+  box-shadow: 0 14px 40px -26px rgba(80, 60, 30, 0.5);
+}
+.miracles-page.is-flipping { animation: miracle-flip 0.22s ease; }
+@keyframes miracle-flip {
+  0% { transform: rotateY(-12deg); opacity: 0.5; transform-origin: left center; }
+  100% { transform: rotateY(0); opacity: 1; }
+}
+
+.miracles-daterow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #ece3d0;
+  padding-bottom: 6px;
+}
+.miracles-date-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #b3a78c;
+}
+.miracles-date { font-family: 'Caveat', cursive; font-size: 1.35rem; color: #5a5043; }
+
+/* ---- grid of boxes ---- */
+.miracles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 18px;
+}
+
+.miracle-box { display: flex; flex-direction: column; }
+
+.miracle-frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: 1px solid #d8cdb4;
+  border-radius: 3px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.miracle-img { width: 100%; height: 100%; object-fit: contain; }
+
+.miracle-spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #e7ddc8; border-top-color: var(--gold);
+  animation: miracle-spin 0.8s linear infinite;
+}
+@keyframes miracle-spin { to { transform: rotate(360deg); } }
+.miracle-err { color: #b00020; font-size: 1.4rem; font-weight: 700; }
+
+.miracle-caption {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 27px, #e3d8bf 27px 28px);
+  line-height: 28px;
+  padding: 0 2px;
+  font-family: 'Caveat', cursive;
+  font-size: 1.15rem;
+  color: #463f35;
+  resize: none;
+  box-sizing: border-box;
+}
+.miracle-caption:focus { outline: none; }
+.miracle-caption::placeholder { color: #c4b89c; }
+
+.miracle-draw {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid #d8cdb4;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  color: #8a6d3b;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.miracle-draw:hover:not(:disabled) { background: #faf4e6; border-color: var(--gold); color: #6b531f; }
+.miracle-draw:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.miracles-add {
+  display: block;
+  margin: 22px auto 0;
+  padding: 6px 16px;
+  border: 1px dashed #d8cdb4;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  color: #9a8f78;
+}
+.miracles-add:hover { color: #6b531f; border-color: var(--gold); }
+
+/* ---- page nav ---- */
+.miracles-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  color: #8a8278;
+}
+.miracles-arrow {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: #8a6d3b;
+}
+.miracles-arrow:disabled { opacity: 0.35; cursor: default; }
+.miracles-pageno { font-size: 0.85rem; letter-spacing: 0.1em; color: #b3a78c; }
+
+.miracles-btn {
+  padding: 9px 24px;
+  border: 1px solid var(--gold-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: #8a6d3b;
+  text-decoration: none;
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.08em;
+}
