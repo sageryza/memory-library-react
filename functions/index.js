@@ -21,7 +21,9 @@ const Anthropic = require('@anthropic-ai/sdk');
 initializeApp();
 const db = getFirestore();
 
-const APP_URL = 'https://membry-df528.web.app';
+// Turn-alert links (SMS/email/push) point at the public custom domain so they
+// match what players actually use — and the Twilio toll-free sample message.
+const APP_URL = 'https://incaseofamnesia.com';
 
 // Twilio credentials live in a locked-down Firestore doc (config/twilio:
 // { accountSid, authToken, from }) so they can be set from the Firebase console
