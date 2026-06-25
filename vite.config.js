@@ -43,13 +43,13 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // XI card art (public/xi-cards/*.webp) is intentionally NOT precached —
+        // it's cached on demand via runtimeCaching below, so the SW install stays
+        // small and the first paint isn't gated on downloading every card.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         // Drop stale precaches when a new service worker activates, so updates
         // don't get stuck behind old cached assets.
         cleanupOutdatedCaches: true,
-        // XI's illustrated decks bundle ~1.3 MB of inline card art into their
-        // own lazy-loaded chunk; raise the precache limit so it can be cached.
-        maximumFileSizeToCacheInBytes: 7 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -58,6 +58,19 @@ export default defineConfig({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+              }
+            }
+          },
+          {
+            // Cache each XI card the first time it's shown, then serve it
+            // instantly (and offline) thereafter.
+            urlPattern: /\/xi-cards\/.*\.webp$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'xi-card-art',
+              expiration: {
+                maxEntries: 400,
                 maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
               }
             }
