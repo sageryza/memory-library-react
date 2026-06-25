@@ -97,7 +97,11 @@ export default function Miracles() {
       const res = await illustrateMiracleFn({ text: box.text, id: box.id });
       updateBox(box.id, { url: res.data.url, status: 'done' });
     } catch (e) {
-      updateBox(box.id, { status: 'error', error: e?.message || 'could not draw' });
+      const code = e?.code ? String(e.code).replace('functions/', '') : '';
+      updateBox(box.id, {
+        status: 'error',
+        error: [code, e?.message].filter(Boolean).join(' — ') || 'could not draw',
+      });
     }
   };
 
@@ -162,6 +166,10 @@ export default function Miracles() {
                   ? 'drawing…'
                   : box.url ? 'redraw' : '✦ draw'}
               </button>
+
+              {box.status === 'error' && box.error && (
+                <div className="miracle-errmsg">{box.error}</div>
+              )}
             </div>
           ))}
         </div>
