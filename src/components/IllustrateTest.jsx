@@ -3,7 +3,7 @@
 // (upload an image + prompt → transformed image). No dream journal, no groups.
 // Route: /illustrate-test.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { httpsCallable } from 'firebase/functions';
 import useAuth from '../hooks/useAuth';
@@ -50,6 +50,20 @@ export default function IllustrateTest() {
   const [url, setUrl] = useState('');
   const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+
+  // Animated elapsed-time counter while a request is in flight. gpt-image-1's
+  // blocking endpoint gives no real progress, so the bar is a time-based
+  // estimate (slower for reference than for the faster Replicate styles).
+  useEffect(() => {
+    if (!busy) { setElapsed(0); return undefined; }
+    const start = Date.now();
+    const id = setInterval(() => setElapsed((Date.now() - start) / 1000), 200);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  const estSeconds = mode === 'reference' ? 30 : 12;
+  const pct = Math.min(96, (elapsed / estSeconds) * 100);
 
   const onFile = async (e) => {
     const f = e.target.files?.[0];
@@ -151,6 +165,15 @@ export default function IllustrateTest() {
         {busy ? 'generating… (10–30s)' : 'generate image'}
       </button>
 
+      {busy && (
+        <div style={{ marginTop: 14 }}>
+          <div style={S.progressTrack}>
+            <div style={{ ...S.progressFill, width: `${pct}%` }} />
+          </div>
+          <div style={S.progressText}>generating… {Math.round(elapsed)}s</div>
+        </div>
+      )}
+
       {error && <p style={S.error}>⚠️ {error}</p>}
       {url && <img src={url} alt="generated result" style={S.img} />}
       {info && (
@@ -208,6 +231,9 @@ const S = {
     cursor: 'pointer',
     textDecoration: 'none',
   },
+  progressTrack: { height: 8, background: '#eee', borderRadius: 6, overflow: 'hidden' },
+  progressFill: { height: '100%', background: '#8a5a6b', transition: 'width 0.2s linear' },
+  progressText: { marginTop: 6, fontSize: 12, color: '#888' },
   error: { color: '#b00020', marginTop: 16, whiteSpace: 'pre-wrap', lineHeight: 1.5 },
   img: { width: '100%', marginTop: 20, borderRadius: 8, display: 'block' },
   receipt: {
