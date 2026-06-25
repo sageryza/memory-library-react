@@ -31,6 +31,12 @@
 .xi-app .cardmenu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:rgba(241,233,216,.9);z-index:5}
 .xi-app .cardmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.92rem;padding:7px 20px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .cardmenu button:hover{background:rgba(36,29,24,.06)}
+/* ♥/✕ row above Replace — circular icon buttons (the no-pill rule is about text
+   buttons; round icon toggles are fine). */
+.xi-app .cardmenu .cm-iconrow{display:flex;gap:16px}
+.xi-app .cardmenu button.cm-icon{font-variant:normal;letter-spacing:0;padding:0;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1}
+.xi-app .cardmenu button.cm-love.on{color:#800020;border-color:#800020}
+.xi-app .cardmenu button.cm-x{color:#8a3b3b}
 .xi-app .newcards{background:none;border:1px solid var(--ink);color:var(--ink);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.82rem;padding:4px 13px;border-radius:6px;cursor:pointer}
 .xi-app .newcards:hover{background:rgba(36,29,24,.05)}
 .xi-app .topright{justify-content:flex-end;gap:12px}
