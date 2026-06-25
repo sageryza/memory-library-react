@@ -538,18 +538,23 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 const MIRACLE_MODEL = 'sageryza/special';
 const MIRACLE_TRIGGER = 'special';
 const MIRACLE_STYLE_GUIDE =
-  'simple minimal black ink line doodle, single subject, lots of white space, '
-  + 'no color, no text, charming and childlike, centered on a plain white background';
+  'simple black ink line drawing, bold confident strokes, the single subject drawn '
+  + 'large and filling most of the frame, minimal background, no color, no text or '
+  + 'letters, charming and childlike, plain white background';
 
 const MIRACLE_SYSTEM = [
-  "You help make a 'Little Book of Miracles' — tiny lovely or strange moments from",
-  "someone's day, each drawn as a simple black-ink line doodle with a short caption.",
-  'Given a moment, respond with ONLY a JSON object: {"caption": "...", "drawing": "..."}.',
-  '- caption: a short, warm, lowercase handwritten-style note, max ~8 words',
-  '  (e.g. "they opened the bakery just for us").',
-  '- drawing: ONE simple concrete thing to doodle that captures the moment — a single',
-  '  object or tiny scene, simple enough for a quick line drawing, no words in it.',
-  'Keep it gentle, specific, and a little whimsical.',
+  'You turn a small real-life moment into ONE clever little doodle for a keepsake book',
+  'of tiny daily miracles. This is a creative task: think about what single image would',
+  'make someone instantly recall — and smile at — this exact moment. The best choice is',
+  'recognizable at a glance AND captures what made the moment special, funny, or sweet.',
+  'It is usually a specific object or a tiny two-element scene, NOT a literal retelling of',
+  'the whole story. Consider a few options and pick the most evocative one.',
+  '',
+  'Respond with ONLY a JSON object: {"caption": "...", "drawing": "..."}.',
+  '- drawing: name the literal subject to draw, plainly and concretely (e.g. "a slice of',
+  '  birthday cake", "a hand holding a glass of water", "a sleeping fox"). Keep it simple',
+  '  enough to draw in a few lines. Never include any words, letters, signs, or text.',
+  '- caption: a short, warm, lowercase note, max ~8 words.',
 ].join('\n');
 
 exports.illustrateMiracle = onCall(
@@ -577,12 +582,17 @@ exports.illustrateMiracle = onCall(
         try {
           const client = new Anthropic({ apiKey: anthropicKey });
           const msg = await client.messages.create({
-            model: 'claude-haiku-4-5',
-            max_tokens: 200,
+            model: 'claude-opus-4-8',
+            max_tokens: 2000,
+            thinking: { type: 'adaptive' }, // let it actually reason about the best image
+            output_config: { effort: 'medium' },
             system: MIRACLE_SYSTEM,
             messages: [{ role: 'user', content: text.slice(0, 2000) }],
           });
-          const parsed = JSON.parse(textOf(msg).trim().replace(/^```json\s*|\s*```$/g, ''));
+          // With thinking on, the answer is the text block (not content[0]).
+          const block = (msg.content || []).find((b) => b.type === 'text');
+          const raw = (block?.text || '').trim().replace(/^```json\s*|\s*```$/g, '');
+          const parsed = JSON.parse(raw);
           if (parsed.caption) caption = String(parsed.caption).trim();
           if (parsed.drawing) drawing = String(parsed.drawing).trim();
         } catch (e) {
