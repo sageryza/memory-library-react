@@ -12,9 +12,27 @@ import useAuth from '../../hooks/useAuth';
 import { functions } from '../../firebase';
 import './Miracles.css';
 
+/* global __BUILD_ID__ */
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
-const UI_VERSION = 'v2'; // bump when the Miracles page changes
+const UI_VERSION = 'v3'; // bump when the Miracles page changes
+const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
+
+// Wipe the cached app (service worker + caches) and reload — a reliable "get
+// the latest" that beats close-and-reopen on stubborn PWAs.
+async function forceRefresh() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch { /* ignore */ }
+  window.location.reload();
+}
 const STORE_KEY = 'miraclesBook';
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const uid = () =>
@@ -148,6 +166,11 @@ export default function Miracles() {
     <div className="miracles-root">
       <h1 className="miracles-title">The Little Book of Miracles</h1>
 
+      <div className="miracles-version">
+        <span>book {UI_VERSION} · built {BUILD_ID} · engine {engineVersion || '— draw to check'}</span>
+        <button type="button" className="miracles-refresh" onClick={forceRefresh}>↻ force update</button>
+      </div>
+
       <div className="miracles-mode">
         <button
           type="button"
@@ -235,10 +258,6 @@ export default function Miracles() {
         >
           later ›
         </button>
-      </div>
-
-      <div className="miracles-version">
-        book {UI_VERSION} · engine {engineVersion || '— draw to check'}
       </div>
     </div>
   );

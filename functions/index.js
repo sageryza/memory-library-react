@@ -241,7 +241,7 @@ async function persistImage(imageUrl, path) {
 // Generate one image with the Book Illustrations LoRA: resolve the model's
 // current version, create the flux-dev prediction (same settings ImageForge
 // uses), and poll to completion. Returns the raw (temporary) Replicate URL.
-async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL) {
+async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL, loraScale = 1) {
   const model = await replicateFetch(`/v1/models/${modelSlug}`, token);
   const version = model.latest_version?.id;
   if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
@@ -257,7 +257,7 @@ async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL
         num_outputs: 1,
         num_inference_steps: 28,
         guidance_scale: 3,
-        lora_scale: 1,
+        lora_scale: loraScale,
         output_format: 'webp',
         output_quality: 80,
       },
@@ -538,11 +538,12 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 const MIRACLE_MODEL = 'sageryza/special';
 const MIRACLE_TRIGGER = 'special';
 // Bump on any change to the miracle pipeline so the client can confirm what's live.
-const MIRACLE_FN_VERSION = 'v2-opus-thinking';
+const MIRACLE_FN_VERSION = 'v3-no-text';
 const MIRACLE_STYLE_GUIDE =
   'simple black ink line drawing, bold confident strokes, the single subject drawn '
-  + 'large and filling most of the frame, minimal background, no color, no text or '
-  + 'letters, charming and childlike, plain white background';
+  + 'large and filling most of the frame, minimal background, no color, charming and '
+  + 'childlike, plain white background. Absolutely no words, letters, captions, numbers, '
+  + 'signs, or writing anywhere in the image.';
 
 const MIRACLE_SYSTEM = [
   'You turn a small real-life moment into ONE clever little doodle for a keepsake book',
@@ -604,7 +605,9 @@ exports.illustrateMiracle = onCall(
     }
 
     const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
-    const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL);
+    // Ease the LoRA strength a touch — at full scale it tends to scrawl its
+    // trigger word ("special") into the picture.
+    const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
     const url = await persistImage(rawUrl, `miracles/${uid}/${id}.webp`);
     return { url, caption, drawing, id, version: MIRACLE_FN_VERSION };
   }
