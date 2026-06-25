@@ -343,8 +343,8 @@ const TEST_STYLES = {
   wtr: { model: 'sageryza/watercolordrawings', trigger: 'wtr' }, // Watercolor
   tok: { model: 'sageryza/pwcscans', trigger: 'tok' }, // PWC Scans
   pnt: { model: 'sageryza/paint', trigger: 'pnt' }, // Painterly
-  special: { model: 'sageryza/special', trigger: '' }, // Sketchy — trigger TBD
-  gosh: { model: 'sageryza/gosh', trigger: '' }, // Gouache — trigger TBD
+  special: { model: 'sageryza/special', trigger: 'special' }, // Sketchy
+  gosh: { model: 'sageryza/gosh', trigger: 'gosh' }, // Gouache
 };
 
 // Standalone image-generation test. Takes a prompt + style key, runs it through
