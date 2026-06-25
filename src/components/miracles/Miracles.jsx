@@ -17,7 +17,7 @@ import './Miracles.css';
 /* global __BUILD_ID__ */
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
-const UI_VERSION = 'v5'; // bump when the Miracles page changes
+const UI_VERSION = 'v6'; // bump when the Miracles page changes
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
 
 // Wipe the cached app (service worker + caches) and reload — a reliable "get
@@ -143,12 +143,33 @@ export default function Miracles() {
     setViewIndex(book.length);
   };
 
+  // Step through a box's drawing history (dir -1 = undo, +1 = redo).
+  const stepDraw = (box, dir) =>
+    setBook((b) => b.map((pg, i) => (i !== viewIndex ? pg : {
+      ...pg,
+      boxes: pg.boxes.map((bx) => {
+        if (bx.id !== box.id || !bx.history) return bx;
+        const hi = Math.max(0, Math.min(bx.history.length - 1, (bx.histIndex ?? 0) + dir));
+        return { ...bx, histIndex: hi, url: bx.history[hi] };
+      }),
+    })));
+
   const illustrate = async (box) => {
     if (!box.text.trim() || box.status === 'drawing') return;
     updateBox(box.id, { status: 'drawing' });
     try {
       const res = await illustrateMiracleFn({ text: box.text, id: box.id, distill });
-      updateBox(box.id, { url: res.data.url, status: 'done' });
+      const url = res.data.url;
+      // Append to the box's drawing history (dropping any redo-future).
+      setBook((b) => b.map((pg, i) => (i !== viewIndex ? pg : {
+        ...pg,
+        boxes: pg.boxes.map((bx) => {
+          if (bx.id !== box.id) return bx;
+          const cut = (bx.histIndex ?? ((bx.history?.length ?? 1) - 1)) + 1;
+          const history = [...(bx.history || []).slice(0, cut), url];
+          return { ...bx, url, history, histIndex: history.length - 1, status: 'done' };
+        }),
+      })));
       if (res.data.version) setEngineVersion(res.data.version);
     } catch (e) {
       const code = e?.code ? String(e.code).replace('functions/', '') : '';
@@ -217,42 +238,68 @@ export default function Miracles() {
         </div>
 
         <div className="miracles-grid">
-          {page.boxes.map((box) => (
-            <div className="miracle-box" key={box.id}>
-              <div className="miracle-frame">
-                {box.url && <img src={box.url} alt="" className="miracle-img" />}
-                {box.status === 'drawing' && <span className="miracle-spinner" />}
-                {box.status === 'error' && <span className="miracle-err">!</span>}
-              </div>
+          {page.boxes.map((box) => {
+            const canUndo = (box.history?.length || 0) > 1 && (box.histIndex ?? 0) > 0;
+            const canRedo = !!box.history && (box.histIndex ?? 0) < box.history.length - 1;
+            return (
+              <div className="miracle-box" key={box.id}>
+                <div className="miracle-frame">
+                  {box.url && <img src={box.url} alt="" className="miracle-img" />}
+                  {box.status === 'drawing' && <span className="miracle-spinner" />}
+                  {box.status === 'error' && <span className="miracle-err">!</span>}
 
-              <textarea
-                className="miracle-caption"
-                value={box.text}
-                rows={2}
-                onChange={(e) => updateBox(box.id, { text: e.target.value })}
-              />
+                  <div className="miracle-controls">
+                    {canUndo && (
+                      <button
+                        type="button"
+                        className="miracle-arrow"
+                        onClick={() => stepDraw(box, -1)}
+                        aria-label="previous drawing"
+                      >
+                        ‹
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="miracle-draw"
+                      onClick={() => illustrate(box)}
+                      disabled={!box.text.trim() || box.status === 'drawing'}
+                    >
+                      {box.status === 'drawing' ? (
+                        'drawing…'
+                      ) : (
+                        <>
+                          {box.url ? 'redraw' : 'draw'}
+                          <Sparkles size={13} strokeWidth={1.75} />
+                        </>
+                      )}
+                    </button>
+                    {canRedo && (
+                      <button
+                        type="button"
+                        className="miracle-arrow"
+                        onClick={() => stepDraw(box, 1)}
+                        aria-label="next drawing"
+                      >
+                        ›
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                className="miracle-draw"
-                onClick={() => illustrate(box)}
-                disabled={!box.text.trim() || box.status === 'drawing'}
-              >
-                {box.status === 'drawing' ? (
-                  'drawing…'
-                ) : (
-                  <>
-                    {box.url ? 'redraw' : 'draw'}
-                    <Sparkles size={13} strokeWidth={1.75} />
-                  </>
+                <textarea
+                  className="miracle-caption"
+                  value={box.text}
+                  rows={3}
+                  onChange={(e) => updateBox(box.id, { text: e.target.value })}
+                />
+
+                {box.status === 'error' && box.error && (
+                  <div className="miracle-errmsg">{box.error}</div>
                 )}
-              </button>
-
-              {box.status === 'error' && box.error && (
-                <div className="miracle-errmsg">{box.error}</div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 

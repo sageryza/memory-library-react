@@ -204,25 +204,50 @@
 .miracle-caption:focus { outline: none; }
 .miracle-caption::placeholder { color: #c4b89c; }
 
+/* controls live in the bottom-right of the drawing frame */
+.miracle-controls {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .miracle-draw {
-  align-self: flex-end;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-  padding: 4px 12px;
+  gap: 4px;
+  padding: 3px 9px;
   border: 1px solid #d8cdb4;
   border-radius: 6px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   font-family: 'Cormorant Garamond', serif;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   letter-spacing: 0.04em;
   color: #8a6d3b;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.miracle-draw:hover:not(:disabled) { background: #faf4e6; border-color: var(--gold); color: #6b531f; }
+.miracle-draw:hover:not(:disabled) { background: #fff; border-color: var(--gold); color: #6b531f; }
 .miracle-draw:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.miracle-arrow {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.miracle-arrow:hover { color: #b8862f; border-color: var(--gold); }
 
 .miracles-add {
   display: block;
