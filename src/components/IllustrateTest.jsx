@@ -78,7 +78,8 @@ export default function IllustrateTest() {
       setUrl(res.data.url);
       setInfo(res.data);
     } catch (e) {
-      setError(e?.message || String(e));
+      const code = e?.code ? String(e.code).replace('functions/', '') : '';
+      setError([code, e?.message || String(e)].filter(Boolean).join(' — '));
     } finally {
       setBusy(false);
     }
