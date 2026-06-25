@@ -537,6 +537,8 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 
 const MIRACLE_MODEL = 'sageryza/special';
 const MIRACLE_TRIGGER = 'special';
+// Bump on any change to the miracle pipeline so the client can confirm what's live.
+const MIRACLE_FN_VERSION = 'v2-opus-thinking';
 const MIRACLE_STYLE_GUIDE =
   'simple black ink line drawing, bold confident strokes, the single subject drawn '
   + 'large and filling most of the frame, minimal background, no color, no text or '
@@ -604,6 +606,6 @@ exports.illustrateMiracle = onCall(
     const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
     const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL);
     const url = await persistImage(rawUrl, `miracles/${uid}/${id}.webp`);
-    return { url, caption, drawing, id };
+    return { url, caption, drawing, id, version: MIRACLE_FN_VERSION };
   }
 );
