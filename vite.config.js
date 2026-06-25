@@ -85,5 +85,21 @@ export default defineConfig({
         '.map': 'empty'
       }
     }
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the big, rarely-changing third-party code (Firebase, React) into
+        // their own chunks. The app deploys often; isolating vendor code means a
+        // deploy only invalidates the small app chunk, so returning visitors keep
+        // ~330KB of vendor cached instead of re-downloading it every time.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('/firebase/') || id.includes('/@firebase/')) return 'firebase';
+          if (id.includes('/react') || id.includes('/scheduler/')) return 'react-vendor';
+          return 'vendor';
+        },
+      },
+    },
+  },
 })
