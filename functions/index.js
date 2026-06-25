@@ -343,6 +343,8 @@ const TEST_STYLES = {
   wtr: { model: 'sageryza/watercolordrawings', trigger: 'wtr' }, // Watercolor
   tok: { model: 'sageryza/pwcscans', trigger: 'tok' }, // PWC Scans
   pnt: { model: 'sageryza/paint', trigger: 'pnt' }, // Painterly
+  special: { model: 'sageryza/special', trigger: '' }, // Sketchy — trigger TBD
+  gosh: { model: 'sageryza/gosh', trigger: '' }, // Gouache — trigger TBD
 };
 
 // Standalone image-generation test. Takes a prompt + style key, runs it through
@@ -363,7 +365,8 @@ exports.generateTestImage = onCall(
     }
 
     const style = TEST_STYLES[String(request.data?.style || 'vict')] || TEST_STYLES.vict;
-    const prompt = `${style.trigger}, ${raw.slice(0, 1500)}`;
+    const body = raw.slice(0, 1500);
+    const prompt = style.trigger ? `${style.trigger}, ${body}` : body;
     const { rawUrl, modelSlug, version, predictionId } =
       await generateReplicateImage(token, prompt, style.model);
     return {
