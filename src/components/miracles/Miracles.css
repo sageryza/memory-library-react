@@ -262,11 +262,28 @@
 .miracles-pageno { font-size: 0.85rem; letter-spacing: 0.1em; color: #b3a78c; }
 
 .miracles-version {
-  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  margin: -8px 0 16px;
   font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  color: #c4b89c;
+  letter-spacing: 0.06em;
+  color: #b3a78c;
 }
+.miracles-refresh {
+  border: 1px solid #ddd0b3;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 9px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #8a6d3b;
+}
+.miracles-refresh:hover { border-color: var(--gold); color: #6b531f; }
 
 .miracles-btn {
   padding: 9px 24px;
