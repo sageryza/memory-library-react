@@ -381,7 +381,7 @@ exports.generateTestImage = onCall(
 // the one that accepts an input image — so we can compare reference output
 // against the Replicate trained styles.
 exports.generateReferenceImage = onCall(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  { region: 'us-central1', timeoutSeconds: 120, memory: '1GiB' },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
     const prompt = String(request.data?.prompt || '').trim();
@@ -413,7 +413,11 @@ exports.generateReferenceImage = onCall(
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 500)}`);
+      if (res.status === 429) {
+        throw new HttpsError('resource-exhausted',
+          'OpenAI rate limit (~5 images/minute). Wait ~30–60s and try again.');
+      }
+      throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
     }
     const json = await res.json();
     const b64 = json?.data?.[0]?.b64_json;
