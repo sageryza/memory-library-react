@@ -147,7 +147,13 @@
   text-transform: uppercase;
   color: #b3a78c;
 }
-.miracles-date { font-family: 'Caveat', cursive; font-size: 1.35rem; color: #5a5043; }
+.miracles-date {
+  font-family: 'Caveat', cursive;
+  font-size: 1.35rem;
+  color: #5a5043;
+  border-bottom: 1px solid #ddd0b3;
+  padding-bottom: 2px;
+}
 
 /* ---- grid of boxes ---- */
 .miracles-grid {
