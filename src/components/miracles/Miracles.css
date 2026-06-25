@@ -89,6 +89,20 @@
   color: #4a4239;
 }
 
+.miracles-seed {
+  margin: -10px 0 18px;
+  padding: 4px 12px;
+  border: 1px dashed #cdbfa0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  color: #a89b80;
+}
+.miracles-seed:hover { color: #6b531f; border-color: var(--gold); }
+
 /* ---- the page ---- */
 .miracles-page {
   width: 100%;
