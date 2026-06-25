@@ -111,10 +111,51 @@ export function initXi(root, ctx) {
     const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
   }
   function closeMenu() { root.querySelectorAll('.cardmenu').forEach((m) => m.remove()); }
+  // Shared curate toggles (love / remove). Resolve a card's role-key(s),
+  // handling interchangeable cards that occupy both the event and twist pools so
+  // ♥/✕ affect the card in both roles. Used by both the Curate grid and the
+  // Card-of-the-Day tap menu.
+  function curateRoleKeys(d, i) {
+    const c = POOL[d] && POOL[d][i];
+    if (!c || splitSet.has(c.deck)) return [ekey(d, i)];
+    const evList = deckIdx.ev[c.deck] || []; const twList = deckIdx.tw[c.deck] || [];
+    const pos = (d === 'ev' ? evList : twList).indexOf(i);
+    if (pos < 0) return [ekey(d, i)];
+    const evi = pos < evList.length ? evList[pos] : i;
+    const twi = pos < twList.length ? twList[pos] : i;
+    return [ekey('ev', evi), ekey('tw', twi)];
+  }
+  async function curateToggle(d, i, action) {
+    const keys = curateRoleKeys(d, i);
+    if (action === 'x') {
+      const on = excluded.has(keys[0]);
+      keys.forEach((k) => { if (on) excluded.delete(k); else { excluded.add(k); loved.delete(k); } });
+      await saveExcluded(); await saveLoved();
+    } else {
+      const on = loved.has(keys[0]);
+      keys.forEach((k) => { if (on) loved.delete(k); else { loved.add(k); excluded.delete(k); } });
+      await saveLoved(); await saveExcluded();
+    }
+  }
   function showCardMenu(el, k) {
     closeMenu(); const m = document.createElement('div'); m.className = 'cardmenu';
-    m.innerHTML = '<button data-a="replace">Replace</button>'; el.appendChild(m);
-    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
+    const d = S.shown[k].d, i = S.shown[k].i;
+    const isLoved = curateRoleKeys(d, i).some((key) => loved.has(key));
+    m.innerHTML = `<div class="cm-iconrow">`
+      + `<button class="cm-icon cm-love${isLoved ? ' on' : ''}" data-a="love" aria-label="Love this card" title="Love">${isLoved ? '♥' : '♡'}</button>`
+      + `<button class="cm-icon cm-x" data-a="x" aria-label="Remove this card" title="Remove">✕</button>`
+      + `</div><button data-a="replace">Replace</button>`;
+    el.appendChild(m);
+    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const dd = S.shown[k].d; S.shown[k] = { d: dd, i: stepI(dd, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
+    // Love: toggle in place (card stays); just reflect the new heart state.
+    m.querySelector('[data-a=love]').onclick = async (e) => {
+      e.stopPropagation();
+      await curateToggle(d, i, 'love');
+      const lb = m.querySelector('[data-a=love]'); const now = curateRoleKeys(d, i).some((key) => loved.has(key));
+      lb.classList.toggle('on', now); lb.textContent = now ? '♥' : '♡';
+    };
+    // Remove: exclude the card from play, then swap in a fresh one in its place.
+    m.querySelector('[data-a=x]').onclick = async (e) => { e.stopPropagation(); await curateToggle(d, i, 'x'); if (sanitizeShown()) await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
     setTimeout(() => document.addEventListener('click', function h(ev) { if (!ev.target.closest('.cardmenu')) { closeMenu(); document.removeEventListener('click', h, true); } }, true), 0);
   }
   function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); softUpdateToday(); }); }
@@ -232,31 +273,10 @@ export function initXi(root, ctx) {
     root.querySelectorAll('#curateSlot .curbtn').forEach((b) => {
       b.onclick = async (e) => {
         e.stopPropagation();
-        const d = b.dataset.d; const i = +b.dataset.i; const pair = b.dataset.pair === '1';
-        // Interchangeable cards live in both pools; toggle the partner role too.
-        // Resolve the partner by POSITION within the deck (not by equal index) so
-        // it's correct even when ev/tw pools differ in length (e.g. a generated
-        // deck appended after the split decks).
-        let keys;
-        if (pair) {
-          const deck = POOL[d][i] && POOL[d][i].deck;
-          const evList = deckIdx.ev[deck] || []; const twList = deckIdx.tw[deck] || [];
-          const pos = evList.indexOf(i);
-          const twi = pos >= 0 && pos < twList.length ? twList[pos] : i;
-          keys = [ekey('ev', i), ekey('tw', twi)];
-        } else {
-          keys = [ekey(d, i)];
-        }
-        if (b.dataset.a === 'x') {
-          const on = excluded.has(keys[0]);
-          keys.forEach((k) => { if (on) excluded.delete(k); else { excluded.add(k); loved.delete(k); } });
-          await saveExcluded(); await saveLoved();
-          if (sanitizeShown()) await savePair();
-        } else {
-          const on = loved.has(keys[0]);
-          keys.forEach((k) => { if (on) loved.delete(k); else { loved.add(k); excluded.delete(k); } });
-          await saveLoved(); await saveExcluded();
-        }
+        const d = b.dataset.d; const i = +b.dataset.i;
+        const action = b.dataset.a === 'x' ? 'x' : 'love';
+        await curateToggle(d, i, action);
+        if (action === 'x' && sanitizeShown()) await savePair();
         renderCurate();
       };
     });
