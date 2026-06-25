@@ -138,12 +138,8 @@
 
 .miracles-daterow {
   display: flex;
-  align-items: baseline;
   justify-content: flex-end;
-  gap: 10px;
   margin-bottom: 18px;
-  border-bottom: 1px solid #ece3d0;
-  padding-bottom: 6px;
 }
 .miracles-date-label {
   font-size: 0.7rem;
@@ -210,6 +206,9 @@
 
 .miracle-draw {
   align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-top: 8px;
   padding: 4px 12px;
   border: 1px solid #d8cdb4;

@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import useAuth from '../../hooks/useAuth';
 import { functions } from '../../firebase';
@@ -16,7 +17,7 @@ import './Miracles.css';
 /* global __BUILD_ID__ */
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
-const UI_VERSION = 'v4'; // bump when the Miracles page changes
+const UI_VERSION = 'v5'; // bump when the Miracles page changes
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
 
 // Wipe the cached app (service worker + caches) and reload — a reliable "get
@@ -212,7 +213,6 @@ export default function Miracles() {
 
       <div className={`miracles-page${flipping ? ' is-flipping' : ''}`} key={page.id}>
         <div className="miracles-daterow">
-          <span className="miracles-date-label">date</span>
           <span className="miracles-date">{prettyDate(page.date)}</span>
         </div>
 
@@ -227,7 +227,6 @@ export default function Miracles() {
 
               <textarea
                 className="miracle-caption"
-                placeholder="a small miracle…"
                 value={box.text}
                 rows={2}
                 onChange={(e) => updateBox(box.id, { text: e.target.value })}
@@ -239,9 +238,14 @@ export default function Miracles() {
                 onClick={() => illustrate(box)}
                 disabled={!box.text.trim() || box.status === 'drawing'}
               >
-                {box.status === 'drawing'
-                  ? 'drawing…'
-                  : box.url ? 'redraw' : '✨ draw'}
+                {box.status === 'drawing' ? (
+                  'drawing…'
+                ) : (
+                  <>
+                    {box.url ? 'redraw' : 'draw'}
+                    <Sparkles size={13} strokeWidth={1.75} />
+                  </>
+                )}
               </button>
 
               {box.status === 'error' && box.error && (
