@@ -136,6 +136,8 @@ export default function IllustrateTest() {
             <option value="wtr">Watercolor</option>
             <option value="tok">PWC Scans</option>
             <option value="pnt">Painterly</option>
+            <option value="special">Sketchy</option>
+            <option value="gosh">Gouache</option>
           </select>
         </label>
       ) : (
