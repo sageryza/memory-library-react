@@ -21,6 +21,14 @@ const uid = () =>
 const newBox = () => ({ id: uid(), text: '', url: '', status: 'idle' });
 const newPage = () => [newBox(), newBox(), newBox(), newBox()];
 
+// Test seed — the four miracles, so we can just press draw.
+const SAMPLE_MIRACLES = [
+  'It was my birthday and we went to get cake but the shop was closed — we told them and they let us in anyway',
+  "I ran into a guy I'd run into twice before — last time he'd taken a picture of a book I dropped",
+  'My mom got me a Mini Brands surprise ball, and the food inside was strawberry whipped-cream pancakes',
+  "I almost fainted in the bathroom and a girl named Hope got me water — she has a doctor's appointment for fainting tomorrow",
+];
+
 const loadBook = () => {
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch { return {}; }
 };
@@ -90,6 +98,9 @@ export default function Miracles() {
   const addBox = () =>
     setBook((b) => ({ ...b, [viewDate]: [...(b[viewDate] || newPage()), newBox()] }));
 
+  const loadSamples = () =>
+    setBook((b) => ({ ...b, [viewDate]: SAMPLE_MIRACLES.map((t) => ({ ...newBox(), text: t })) }));
+
   const illustrate = async (box) => {
     if (!box.text.trim() || box.status === 'drawing') return;
     updateBox(box.id, { status: 'drawing' });
@@ -132,6 +143,10 @@ export default function Miracles() {
   return (
     <div className="miracles-root">
       <h1 className="miracles-title">The Little Book of Miracles</h1>
+
+      <button type="button" className="miracles-seed" onClick={loadSamples}>
+        load sample miracles (test)
+      </button>
 
       <div className={`miracles-page${flipping ? ' is-flipping' : ''}`} key={viewDate}>
         <div className="miracles-daterow">
