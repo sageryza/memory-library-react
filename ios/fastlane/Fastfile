@@ -1,0 +1,52 @@
+default_platform(:ios)
+
+# Builds the Miracles app on a cloud Mac and ships it to TestFlight.
+# Signing is fully automatic: the App Store Connect API key (passed via the
+# ASC_* env vars / GitHub secrets) lets Xcode create the distribution
+# certificate + provisioning profile on the fly with -allowProvisioningUpdates,
+# so there is no local Mac and no certificate files to juggle.
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_KEY_P8"]
+    )
+
+    team_id = ENV["APPLE_TEAM_ID"]
+
+    # Make sure the app record exists in App Store Connect (idempotent —
+    # skips if it's already there).
+    begin
+      produce(
+        app_identifier: "com.sageryza.miracles",
+        app_name: ENV.fetch("APP_NAME", "Little Book of Miracles"),
+        language: "English",
+        sku: "miracles-001",
+        team_id: team_id,
+        api_key: api_key
+      )
+    rescue => e
+      UI.message("produce skipped (app likely already exists): #{e.message}")
+    end
+
+    # Give every CI run a unique, increasing build number so TestFlight
+    # always accepts it.
+    build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
+
+    build_app(
+      project: "Miracles.xcodeproj",
+      scheme: "Miracles",
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
+      export_options: { teamID: team_id }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true
+    )
+  end
+end

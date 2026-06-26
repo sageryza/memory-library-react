@@ -1,0 +1,39 @@
+name: iOS TestFlight
+
+# Builds the Miracles app on a cloud macOS runner, signs it with the App Store
+# Connect API key, and uploads it to TestFlight. Run it by hand from the
+# Actions tab (Run workflow). No local Mac required.
+on:
+  workflow_dispatch:
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: __TEAM_ID__
+      APP_NAME: "Little Book of Miracles"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # XcodeGen 2.45+ emits the Xcode 16 project format; pin the newest Xcode 16.
+      - name: Select Xcode 16
+        run: |
+          XC=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build & upload to TestFlight
+        working-directory: ios
+        run: fastlane beta
