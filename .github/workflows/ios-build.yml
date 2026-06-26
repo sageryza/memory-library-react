@@ -1,0 +1,42 @@
+name: iOS build (compile check)
+
+# Compiles the SwiftUI app on a cloud macOS runner — no local Mac needed. This
+# only verifies it builds for the Simulator (no code signing, no install). It
+# runs on demand and when ios/ changes.
+#
+# Note: macOS runner minutes count 10x against GitHub's free Actions budget, so
+# this is kept manual + path-scoped rather than running on every push.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-build.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build for Simulator (no signing)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Miracles.xcodeproj \
+            -scheme Miracles \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
