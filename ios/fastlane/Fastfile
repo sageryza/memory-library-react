@@ -5,6 +5,10 @@ default_platform(:ios)
 # ASC_* env vars / GitHub secrets) lets Xcode create the distribution
 # certificate + provisioning profile on the fly with -allowProvisioningUpdates,
 # so there is no local Mac and no certificate files to juggle.
+#
+# We drive xcodebuild directly (rather than gym's build_app) so that any
+# signing/export error is printed straight into the CI log instead of being
+# swallowed by fastlane's wrapper.
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
@@ -15,10 +19,12 @@ platform :ios do
     )
 
     team_id = ENV["APPLE_TEAM_ID"]
-
-    # Give every CI run a unique, increasing build number so TestFlight
-    # always accepts it.
     build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
+
+    base = "#{ENV['GITHUB_WORKSPACE']}/ios"
+    archive_path = "#{base}/build/Miracles.xcarchive"
+    export_path = "#{base}/build/export"
+    plist_path = "#{base}/ExportOptions.plist"
 
     # Write the API key to a .p8 file and hand it to xcodebuild via the
     # -authentication* flags. That's what lets -allowProvisioningUpdates talk
@@ -30,27 +36,44 @@ platform :ios do
            "-authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']} " \
            "-authenticationKeyPath #{key_path}"
 
-    build_app(
-      project: "Miracles.xcodeproj",
-      scheme: "Miracles",
-      export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates #{auth} DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
-      # The export (.ipa packaging) step is a separate xcodebuild call, so it
-      # needs the same auth + provisioning-update permission to fetch the
-      # App Store distribution profile.
-      export_xcargs: "-allowProvisioningUpdates #{auth}",
-      # Don't let gym try to inject a manual profile mapping — we're using
-      # Apple-managed automatic signing, and xcodebuild handles it.
-      skip_profile_detection: true,
-      export_options: {
-        method: "app-store",
-        teamID: team_id,
-        signingStyle: "automatic"
-      }
-    )
+    # 1) Archive (Apple-managed automatic signing).
+    sh("xcodebuild -project #{base}/Miracles.xcodeproj " \
+       "-scheme Miracles -configuration Release " \
+       "-destination 'generic/platform=iOS' " \
+       "-archivePath #{archive_path} " \
+       "#{auth} -allowProvisioningUpdates " \
+       "DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number} " \
+       "archive")
 
+    # 2) Export the .ipa with an explicit options plist.
+    File.write(plist_path, <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>method</key>
+        <string>app-store</string>
+        <key>teamID</key>
+        <string>#{team_id}</string>
+        <key>signingStyle</key>
+        <string>automatic</string>
+        <key>destination</key>
+        <string>export</string>
+      </dict>
+      </plist>
+    PLIST
+
+    sh("xcodebuild -exportArchive " \
+       "-archivePath #{archive_path} " \
+       "-exportPath #{export_path} " \
+       "-exportOptionsPlist #{plist_path} " \
+       "#{auth} -allowProvisioningUpdates")
+
+    # 3) Upload to TestFlight.
+    ipa = Dir["#{export_path}/*.ipa"].first
     upload_to_testflight(
       api_key: api_key,
+      ipa: ipa,
       skip_waiting_for_build_processing: true,
       skip_submission: true
     )
