@@ -39,7 +39,11 @@ platform :ios do
       # needs the same auth + provisioning-update permission to fetch the
       # App Store distribution profile.
       export_xcargs: "-allowProvisioningUpdates #{auth}",
+      # Don't let gym try to inject a manual profile mapping — we're using
+      # Apple-managed automatic signing, and xcodebuild handles it.
+      skip_profile_detection: true,
       export_options: {
+        method: "app-store",
         teamID: team_id,
         signingStyle: "automatic"
       }
