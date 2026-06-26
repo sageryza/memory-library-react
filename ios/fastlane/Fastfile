@@ -16,31 +16,23 @@ platform :ios do
 
     team_id = ENV["APPLE_TEAM_ID"]
 
-    # Make sure the app record exists in App Store Connect (idempotent —
-    # skips if it's already there). produce picks up the API-key auth from
-    # the token set above, so no api_key: param here.
-    begin
-      produce(
-        app_identifier: "com.sageryza.miracles",
-        app_name: ENV.fetch("APP_NAME", "Little Book of Miracles"),
-        language: "English",
-        sku: "miracles-001",
-        team_id: team_id
-      )
-    rescue => e
-      UI.message("produce skipped (app likely already exists): #{e.message}")
-    end
-
     # Give every CI run a unique, increasing build number so TestFlight
     # always accepts it.
     build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
 
+    # Passing api_key here lets gym hand the App Store Connect API key to
+    # xcodebuild, so -allowProvisioningUpdates can create the distribution
+    # certificate + provisioning profile on the fly (Apple-managed signing).
     build_app(
       project: "Miracles.xcodeproj",
       scheme: "Miracles",
       export_method: "app-store",
+      api_key: api_key,
       xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
-      export_options: { teamID: team_id }
+      export_options: {
+        teamID: team_id,
+        signingStyle: "automatic"
+      }
     )
 
     upload_to_testflight(
