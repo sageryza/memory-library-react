@@ -12,10 +12,12 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
+    # ASC_KEY_P8 is stored base64-encoded (one line, corruption-proof).
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
-      key_content: ENV["ASC_KEY_P8"]
+      key_content: ENV["ASC_KEY_P8"],
+      is_key_content_base64: true
     )
 
     team_id = ENV["APPLE_TEAM_ID"]
@@ -30,8 +32,9 @@ platform :ios do
     # -authentication* flags. That's what lets -allowProvisioningUpdates talk
     # to Apple and create the distribution cert + profile (Apple-managed
     # signing) with no Apple ID logged into Xcode.
+    require "base64"
     key_path = "/tmp/asc_api_key.p8"
-    File.write(key_path, ENV["ASC_KEY_P8"])
+    File.write(key_path, Base64.decode64(ENV["ASC_KEY_P8"]))
     auth = "-authenticationKeyID #{ENV['ASC_KEY_ID']} " \
            "-authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']} " \
            "-authenticationKeyPath #{key_path}"
