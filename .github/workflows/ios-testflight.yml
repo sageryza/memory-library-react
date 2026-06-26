@@ -5,6 +5,13 @@ name: iOS TestFlight
 # Actions tab (Run workflow). No local Mac required.
 on:
   workflow_dispatch:
+  # Temporary: lets the build run from the feature branch while we get the
+  # first TestFlight upload green. Removed once merged to main.
+  push:
+    branches: [claude/dream-journal-db-choice-4mepgk]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-testflight.yml'
 
 jobs:
   testflight:
