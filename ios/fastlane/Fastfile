@@ -35,6 +35,10 @@ platform :ios do
       scheme: "Miracles",
       export_method: "app-store",
       xcargs: "-allowProvisioningUpdates #{auth} DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
+      # The export (.ipa packaging) step is a separate xcodebuild call, so it
+      # needs the same auth + provisioning-update permission to fetch the
+      # App Store distribution profile.
+      export_xcargs: "-allowProvisioningUpdates #{auth}",
       export_options: {
         teamID: team_id,
         signingStyle: "automatic"
