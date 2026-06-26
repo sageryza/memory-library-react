@@ -52,7 +52,7 @@ platform :ios do
       <plist version="1.0">
       <dict>
         <key>method</key>
-        <string>app-store</string>
+        <string>app-store-connect</string>
         <key>teamID</key>
         <string>#{team_id}</string>
         <key>signingStyle</key>
