@@ -20,15 +20,21 @@ platform :ios do
     # always accepts it.
     build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
 
-    # Passing api_key here lets gym hand the App Store Connect API key to
-    # xcodebuild, so -allowProvisioningUpdates can create the distribution
-    # certificate + provisioning profile on the fly (Apple-managed signing).
+    # Write the API key to a .p8 file and hand it to xcodebuild via the
+    # -authentication* flags. That's what lets -allowProvisioningUpdates talk
+    # to Apple and create the distribution cert + profile (Apple-managed
+    # signing) with no Apple ID logged into Xcode.
+    key_path = "/tmp/asc_api_key.p8"
+    File.write(key_path, ENV["ASC_KEY_P8"])
+    auth = "-authenticationKeyID #{ENV['ASC_KEY_ID']} " \
+           "-authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']} " \
+           "-authenticationKeyPath #{key_path}"
+
     build_app(
       project: "Miracles.xcodeproj",
       scheme: "Miracles",
       export_method: "app-store",
-      api_key: api_key,
-      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
+      xcargs: "-allowProvisioningUpdates #{auth} DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
       export_options: {
         teamID: team_id,
         signingStyle: "automatic"
