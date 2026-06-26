@@ -17,15 +17,15 @@ platform :ios do
     team_id = ENV["APPLE_TEAM_ID"]
 
     # Make sure the app record exists in App Store Connect (idempotent —
-    # skips if it's already there).
+    # skips if it's already there). produce picks up the API-key auth from
+    # the token set above, so no api_key: param here.
     begin
       produce(
         app_identifier: "com.sageryza.miracles",
         app_name: ENV.fetch("APP_NAME", "Little Book of Miracles"),
         language: "English",
         sku: "miracles-001",
-        team_id: team_id,
-        api_key: api_key
+        team_id: team_id
       )
     rescue => e
       UI.message("produce skipped (app likely already exists): #{e.message}")
