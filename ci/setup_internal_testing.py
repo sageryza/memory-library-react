@@ -110,20 +110,21 @@ def main():
         print(f"Created internal group '{gname}' -> {gid}")
 
     # add the team member as an internal tester
+    tester_id = None
     st, d = api("POST", "/betaTesters", tok, {
         "data": {"type": "betaTesters",
                  "attributes": {"email": email, "firstName": first, "lastName": last},
                  "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": gid}]}}}})
     if st in (200, 201):
+        tester_id = d["data"]["id"]
         print(f"Added {email} as an internal tester.")
     elif st == 409:
         st2, d2 = api("GET", f"/betaTesters?filter[email]={email}&limit=1", tok)
-        tid = d2["data"][0]["id"] if st2 == 200 and d2.get("data") else None
-        if tid:
-            st3, d3 = api("POST", f"/betaGroups/{gid}/relationships/betaTesters", tok,
-                          {"data": [{"type": "betaTesters", "id": tid}]})
-            print(f"{email} already a tester — added to internal group (HTTP {st3})."
-                  if st3 in (200, 201, 204) else f"::warning::add-to-group failed ({st3}): {d3}")
+        tester_id = d2["data"][0]["id"] if st2 == 200 and d2.get("data") else None
+        if tester_id:
+            api("POST", f"/betaGroups/{gid}/relationships/betaTesters", tok,
+                {"data": [{"type": "betaTesters", "id": tester_id}]})
+            print(f"{email} already a tester — ensured in the internal group.")
         else:
             print(f"::warning::{email} exists but lookup failed: {d}")
     else:
@@ -135,6 +136,16 @@ def main():
                     {"data": [{"type": "builds", "id": build_id}]})
         print(f"Attach build {build_ver} to '{gname}': HTTP {st}"
               + ("" if st in (200, 201, 204) else f"  resp={d}"))
+
+    # (re)send the TestFlight invitation email so the tester actually gets it
+    if tester_id:
+        st, d = api("POST", "/betaTesterInvitations", tok, {
+            "data": {"type": "betaTesterInvitations",
+                     "relationships": {
+                         "app": {"data": {"type": "apps", "id": app_id}},
+                         "betaTester": {"data": {"type": "betaTesters", "id": tester_id}}}}})
+        print(f"Send TestFlight invite email to {email}: HTTP {st}"
+              + ("" if st in (200, 201) else f"  resp={d}"))
 
     # diagnostics — what does the group actually contain now?
     st, d = api("GET", f"/betaGroups/{gid}/builds?limit=10", tok)
