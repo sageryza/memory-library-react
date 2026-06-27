@@ -45,19 +45,6 @@ jobs:
             exit 1
           fi
 
-      # Decode the iOS Firebase config from a base64 secret into the app
-      # sources, so FirebaseApp.configure() finds it at launch. Must happen
-      # before xcodegen so the file gets bundled as a resource.
-      - name: Write Firebase config
-        working-directory: ios
-        run: |
-          echo "${{ secrets.GOOGLE_SERVICE_PLIST_B64 }}" | base64 --decode > Miracles/GoogleService-Info.plist
-          if [ ! -s Miracles/GoogleService-Info.plist ]; then
-            echo "::error::GOOGLE_SERVICE_PLIST_B64 secret is missing or empty"
-            exit 1
-          fi
-          echo "Wrote $(wc -c < Miracles/GoogleService-Info.plist) bytes"
-
       - name: Install XcodeGen
         run: brew install xcodegen
 
