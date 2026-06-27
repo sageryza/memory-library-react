@@ -6,11 +6,9 @@ struct XIApp: App {
     init() { Self.configureFirebase() }
 
     var body: some Scene {
-        WindowGroup { BoardView() }
+        WindowGroup { RootView() }
     }
 
-    /// Bundled GoogleService-Info.plist with an explicit-options fallback, so a
-    /// missing/unbundled config can never crash launch.
     static func configureFirebase() {
         if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
            let options = FirebaseOptions(contentsOfFile: path) {
@@ -27,5 +25,17 @@ struct XIApp: App {
         options.bundleID = "com.sageryza.xi"
         options.clientID = "513384339473-if0buongt6cjhhc096usgf3g6iub07nk.apps.googleusercontent.com"
         FirebaseApp.configure(options: options)
+    }
+}
+
+struct RootView: View {
+    @StateObject private var auth = AuthState()
+
+    var body: some View {
+        if auth.signedIn {
+            BoardView(auth: auth)
+        } else {
+            SignInView()
+        }
     }
 }

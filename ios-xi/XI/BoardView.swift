@@ -8,9 +8,12 @@ struct Pairing: Identifiable {
 }
 
 struct BoardView: View {
+    @ObservedObject var auth: AuthState
+
     @State private var viewDay = BoardEngine.dayNumber()
     @State private var selected: Cell?
     @State private var composing: Pairing?
+    @State private var showLibrary = false
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
@@ -22,26 +25,47 @@ struct BoardView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            header
-            board
-            Text(isToday
-                 ? "Tap two touching cards to tell that story."
-                 : "Past board — view only. Tap › to come back to today.")
-                .font(.system(.footnote, design: .serif))
-                .foregroundStyle(XITheme.line)
-                .multilineTextAlignment(.center)
-                .padding(.top, 4)
-            Spacer()
+        NavigationStack {
+            VStack(spacing: 16) {
+                header
+                board
+                Text(isToday
+                     ? "Tap two touching cards to tell that story."
+                     : "Past board — view only. Tap › to come back to today.")
+                    .font(.system(.footnote, design: .serif))
+                    .foregroundStyle(XITheme.line)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+                Spacer()
+            }
+            .padding(16)
+            .frame(maxWidth: 520)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(XITheme.paper.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showLibrary = true } label: { Image(systemName: "books.vertical") }
+                        .tint(XITheme.gold)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        if let email = auth.email {
+                            Text(email)
+                        } else if auth.isAnonymous {
+                            Text("playing without an account")
+                        }
+                        Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
+                    } label: {
+                        Image(systemName: "person.circle").tint(XITheme.gold)
+                    }
+                }
+            }
+            .sheet(item: $composing) { pair in
+                ComposerSheet(pairing: pair, boardDay: viewDay)
+            }
+            .sheet(isPresented: $showLibrary) { LibraryView() }
         }
-        .padding(16)
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(XITheme.paper.ignoresSafeArea())
-        .task { try? await XIService.shared.ensureSignedIn() }
-        .sheet(item: $composing) { pair in
-            ComposerSheet(pairing: pair, boardDay: viewDay)
-        }
+        .tint(XITheme.gold)
     }
 
     private var header: some View {
