@@ -1,15 +1,30 @@
 import SwiftUI
+import CoreText
 import FirebaseCore
 
 @main
 struct MiraclesApp: App {
     init() {
+        Self.registerFonts()
         Self.configureFirebase()
     }
 
     var body: some Scene {
         WindowGroup {
             RootView()
+        }
+    }
+
+    /// Register the bundled Google fonts (Caveat, Cormorant Garamond) at launch,
+    /// so we don't depend on an Info.plist UIAppFonts entry.
+    static func registerFonts() {
+        let subdirs: [String?] = [nil, "Fonts"]
+        for sub in subdirs {
+            for ext in ["ttf", "otf"] {
+                for url in Bundle.main.urls(forResourcesWithExtension: ext, subdirectory: sub) ?? [] {
+                    CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+                }
+            }
         }
     }
 
@@ -54,6 +69,7 @@ struct RootView: View {
         }
         .task {
             try? await MiraclesService.shared.ensureSignedIn()
+            await store.startSync()
         }
     }
 }

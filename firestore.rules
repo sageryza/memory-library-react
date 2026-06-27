@@ -11,6 +11,11 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Little Book of Miracles — one cloud-backup document per (anonymous) user.
+    match /miracleBooks/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
     // User-specific data (existing rules)
     match /users/{userId} {
       allow read, write: if isOwner(userId);

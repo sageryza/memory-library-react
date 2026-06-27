@@ -35,3 +35,5 @@ targets:
         product: FirebaseAuth
       - package: Firebase
         product: FirebaseFunctions
+      - package: Firebase
+        product: FirebaseFirestore

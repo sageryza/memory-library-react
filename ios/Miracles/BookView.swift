@@ -12,10 +12,10 @@ struct BookView: View {
             HStack {
                 Spacer()
                 Text(store.page.date, format: .dateTime.month(.wide).day())
-                    .font(.custom(Theme.handwriting, size: 24))
-                    .foregroundStyle(Theme.ink.opacity(0.8))
+                    .font(.custom(Theme.handwriting, size: 27))
+                    .foregroundStyle(Theme.dateInk)
                     .padding(.bottom, 2)
-                    .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
+                    .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.dateUnderline), alignment: .bottom)
             }
 
             LazyVGrid(columns: columns, spacing: 18) {
@@ -31,13 +31,13 @@ struct BookView: View {
                     .disabled(store.index == 0)
                 Spacer()
                 Text("\(store.index + 1) / \(store.pages.count)")
-                    .font(.footnote).foregroundStyle(Theme.muted)
+                    .font(.custom(Theme.serif, size: 15)).foregroundStyle(Theme.muted)
                 Spacer()
                 Button("turn page ›") { store.turnForward() }
                     .disabled(!store.canTurnForward)
             }
-            .font(.system(.body, design: .serif))
-            .tint(Color(red: 0.54, green: 0.43, blue: 0.23))
+            .font(.custom(Theme.serif, size: 18))
+            .tint(Theme.serifInk)
         }
         .padding(20)
         .frame(maxWidth: 560)
