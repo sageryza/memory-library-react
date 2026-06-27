@@ -8,14 +8,15 @@ struct BookView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Date — right-aligned, underline only as wide as the date.
+            // Date — left-aligned to match the physical book, underline only as
+            // wide as the date.
             HStack {
-                Spacer()
                 Text(store.page.date, format: .dateTime.month(.wide).day())
                     .font(.custom(Theme.handwriting, size: 27))
                     .foregroundStyle(Theme.dateInk)
                     .padding(.bottom, 2)
                     .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.dateUnderline), alignment: .bottom)
+                Spacer()
             }
 
             LazyVGrid(columns: columns, spacing: 18) {
