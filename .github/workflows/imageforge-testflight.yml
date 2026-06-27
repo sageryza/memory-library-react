@@ -48,6 +48,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Patch ImageForge project (home-screen name + auto-compliance)
+        env:
+          DISPLAY_NAME: "Deck Factory"
+        run: python3 tools/ci/patch_imageforge_project.py
+
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
