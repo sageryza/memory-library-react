@@ -82,11 +82,13 @@ def main():
     print(f"App {bundle} -> {app_id}")
 
     # latest build + processing state
+    build_id = build_state = build_ver = None
     st, d = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=1", tok)
     if st == 200 and d.get("data"):
         b = d["data"][0]
-        print(f"Latest build {b['attributes'].get('version')} processingState="
-              f"{b['attributes'].get('processingState')}")
+        build_id = b["id"]; build_state = b["attributes"].get("processingState")
+        build_ver = b["attributes"].get("version")
+        print(f"Latest build {build_ver} processingState={build_state} id={build_id}")
     else:
         print("::warning::no build found yet for this app.")
 
@@ -126,6 +128,22 @@ def main():
             print(f"::warning::{email} exists but lookup failed: {d}")
     else:
         print(f"::error::could not add tester ({st}): {d}"); return 1
+
+    # attach the latest valid build to the internal group (testers need it linked)
+    if build_id and build_state == "VALID":
+        st, d = api("POST", f"/betaGroups/{gid}/relationships/builds", tok,
+                    {"data": [{"type": "builds", "id": build_id}]})
+        print(f"Attach build {build_ver} to '{gname}': HTTP {st}"
+              + ("" if st in (200, 201, 204) else f"  resp={d}"))
+
+    # diagnostics — what does the group actually contain now?
+    st, d = api("GET", f"/betaGroups/{gid}/builds?limit=10", tok)
+    print("group build count:", len(d.get("data", [])) if st == 200 else (st, d))
+    st, d = api("GET", f"/betaGroups/{gid}/betaTesters?limit=25", tok)
+    if st == 200:
+        for t in d.get("data", []):
+            a = t.get("attributes", {})
+            print(f"  tester: {a.get('email')} state={a.get('state')} invite={a.get('inviteType')}")
 
     print("Internal testing is set up. The tester should see the build in TestFlight "
           "(once it finishes processing) and gets an email.")
