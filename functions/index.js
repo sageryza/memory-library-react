@@ -17,6 +17,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 const { getStorage } = require('firebase-admin/storage');
 const crypto = require('node:crypto');
 const Anthropic = require('@anthropic-ai/sdk');
+const sharp = require('sharp');
 
 initializeApp();
 const db = getFirestore();
@@ -216,11 +217,12 @@ async function replicateFetch(path, token, init = {}) {
 // returning a stable Firebase download URL (works regardless of bucket access
 // settings, no makePublic/signing needed). Falls back to the temporary
 // Replicate URL if the upload fails for any reason.
-async function persistImage(imageUrl, path) {
+async function persistImage(imageUrl, path, transform = null) {
   try {
     const resp = await fetch(imageUrl);
     if (!resp.ok) throw new Error(`download ${resp.status}`);
-    const buffer = Buffer.from(await resp.arrayBuffer());
+    let buffer = Buffer.from(await resp.arrayBuffer());
+    if (transform) buffer = await transform(buffer);
     const bucket = getStorage().bucket(STORAGE_BUCKET);
     const file = bucket.file(path);
     const downloadToken = crypto.randomUUID();
@@ -638,7 +640,43 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 const MIRACLE_MODEL = 'sageryza/special';
 const MIRACLE_TRIGGER = 'special';
 // Bump on any change to the miracle pipeline so the client can confirm what's live.
-const MIRACLE_FN_VERSION = 'v4-history';
+const MIRACLE_FN_VERSION = 'v5-fill';
+
+// The "special" LoRA tends to draw a small doodle floating in a big white
+// square, so the result reads as tiny in the app's frame. Trim the white
+// margins down to the ink, then recenter the drawing on a square white canvas
+// with a small even margin so it fills the frame. Best-effort: any failure
+// (e.g. a near-blank image) falls back to the original bytes.
+async function trimToSubject(buffer) {
+  try {
+    const trimmed = await sharp(buffer)
+      .flatten({ background: '#ffffff' })
+      .trim({ background: '#ffffff', threshold: 12 })
+      .toBuffer({ resolveWithObject: true });
+    const { width, height } = trimmed.info;
+    if (!width || !height) return buffer;
+    const side = Math.max(width, height);
+    const margin = Math.round(side * 0.08); // ~86% of the frame is the drawing
+    const canvas = side + margin * 2;
+    // Center the trimmed drawing on a square white canvas. (Done as its own
+    // pipeline: sharp applies composite last, after any resize, so the resize
+    // to a fixed size has to happen in a separate step below.)
+    const centered = await sharp({
+      create: { width: canvas, height: canvas, channels: 3, background: '#ffffff' },
+    })
+      .composite([{ input: trimmed.data, gravity: 'centre' }])
+      .png()
+      .toBuffer();
+    // Normalize to a fixed size so a small trimmed doodle still reads crisp.
+    return await sharp(centered)
+      .resize(1024, 1024, { kernel: 'lanczos3' })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch (e) {
+    console.error('trimToSubject failed; using original image', e);
+    return buffer;
+  }
+}
 const MIRACLE_STYLE_GUIDE =
   'simple black ink line drawing, bold confident strokes, the single subject drawn '
   + 'large and filling most of the frame, minimal background, no color, charming and '
@@ -709,7 +747,10 @@ exports.illustrateMiracle = onCall(
     // trigger word ("special") into the picture.
     const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
     // Unique path per draw so redraws don't overwrite earlier ones (enables undo).
-    const url = await persistImage(rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`);
+    // Trim the LoRA's white margins so the doodle fills the frame.
+    const url = await persistImage(
+      rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`, trimToSubject,
+    );
     return { url, caption, drawing, id, version: MIRACLE_FN_VERSION };
   }
 );

@@ -16,7 +16,7 @@ import './Miracles.css';
 /* global __BUILD_ID__ */
 const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
 
-const UI_VERSION = 'v7'; // bump when the Miracles page changes
+const UI_VERSION = 'v8'; // bump when the Miracles page changes
 
 // Filled three-star sparkle (Heroicons solid shape) — like the ✨ emoji but
 // monochrome, rendered in the surrounding text color.
@@ -95,6 +95,7 @@ export default function Miracles() {
   const [book, setBook] = useState(loadBook);
   const [viewIndex, setViewIndex] = useState(0);
   const [flipping, setFlipping] = useState(false);
+  const [turnDir, setTurnDir] = useState('back'); // 'fwd' | 'back' — which edge the page flip swings from
   const [coverOpen, setCoverOpen] = useState(false);
   const [distill, setDistill] = useState(true);
   const [engineVersion, setEngineVersion] = useState('');
@@ -110,6 +111,7 @@ export default function Miracles() {
   // Open the cover, then riffle through the pages and land on the latest.
   const openBook = () => {
     setCoverOpen(true);
+    setTurnDir('fwd'); // riffling forward to the latest page
     const last = book.length - 1;
     if (last <= 0) { setViewIndex(0); return; }
     setFlipping(true);
@@ -144,10 +146,15 @@ export default function Miracles() {
   const pageHasContent = (pg) => pg.boxes.some((bx) => bx.text.trim() || bx.url);
   const canTurnForward = viewIndex < book.length - 1 || pageHasContent(page);
 
-  const turnBack = () => viewIndex > 0 && setViewIndex(viewIndex - 1);
+  const turnBack = () => {
+    if (viewIndex <= 0) return;
+    setTurnDir('back');
+    setViewIndex(viewIndex - 1);
+  };
   const turnForward = () => {
-    if (viewIndex < book.length - 1) { setViewIndex(viewIndex + 1); return; }
+    if (viewIndex < book.length - 1) { setTurnDir('fwd'); setViewIndex(viewIndex + 1); return; }
     if (!pageHasContent(page)) return; // don't stack blank pages
+    setTurnDir('fwd');
     setBook((b) => [...b, newPage(today)]);
     setViewIndex(book.length);
   };
@@ -241,7 +248,7 @@ export default function Miracles() {
         load sample miracles (test)
       </button>
 
-      <div className={`miracles-page${flipping ? ' is-flipping' : ''}`} key={page.id}>
+      <div className={`miracles-page turn-${turnDir}${flipping ? ' is-flipping' : ''}`} key={page.id}>
         <div className="miracles-daterow">
           <span className="miracles-date">{prettyDate(page.date)}</span>
         </div>
