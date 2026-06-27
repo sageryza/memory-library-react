@@ -48,7 +48,17 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Patch ImageForge project (home-screen name + auto-compliance)
+      - name: Add app icon (ImageForge ships without one)
+        run: |
+          set -e
+          ICON=ios/ImageForge/Assets.xcassets/AppIcon.appiconset
+          mkdir -p "$ICON"
+          cp tools/ci/imageforge/AppIcon.png "$ICON/AppIcon.png"
+          printf '%s' '{"info":{"author":"xcode","version":1}}' > ios/ImageForge/Assets.xcassets/Contents.json
+          printf '%s' '{"images":[{"filename":"AppIcon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}' > "$ICON/Contents.json"
+          echo "icon catalog:"; ls -R ios/ImageForge/Assets.xcassets
+
+      - name: Patch ImageForge project (home-screen name + auto-compliance + icon)
         env:
           DISPLAY_NAME: "Deck Factory"
         run: python3 tools/ci/patch_imageforge_project.py

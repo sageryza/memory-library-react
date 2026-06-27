@@ -30,6 +30,7 @@ if marker not in s:
 inject = (
     f'        INFOPLIST_KEY_CFBundleDisplayName: "{display}"\n'
     f"        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO\n"
+    f"        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon\n"
 )
 s = s.replace(marker, marker + inject, 1)
 with open(path, "w") as f:
