@@ -1,0 +1,84 @@
+default_platform(:ios)
+
+# Builds the Miracles app on a cloud Mac and ships it to TestFlight.
+# Signing is fully automatic: the App Store Connect API key (passed via the
+# ASC_* env vars / GitHub secrets) lets Xcode create the distribution
+# certificate + provisioning profile on the fly with -allowProvisioningUpdates,
+# so there is no local Mac and no certificate files to juggle.
+#
+# We drive xcodebuild directly (rather than gym's build_app) so that any
+# signing/export error is printed straight into the CI log instead of being
+# swallowed by fastlane's wrapper.
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # ASC_KEY_P8 is stored base64-encoded (one line, corruption-proof).
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_KEY_P8"],
+      is_key_content_base64: true
+    )
+
+    team_id = ENV["APPLE_TEAM_ID"]
+    build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
+
+    base = "#{ENV['GITHUB_WORKSPACE']}/ios"
+    archive_path = "#{base}/build/Miracles.xcarchive"
+    export_path = "#{base}/build/export"
+    plist_path = "#{base}/ExportOptions.plist"
+
+    # Write the API key to a .p8 file and hand it to xcodebuild via the
+    # -authentication* flags. That's what lets -allowProvisioningUpdates talk
+    # to Apple and create the distribution cert + profile (Apple-managed
+    # signing) with no Apple ID logged into Xcode.
+    require "base64"
+    key_path = "/tmp/asc_api_key.p8"
+    File.write(key_path, Base64.decode64(ENV["ASC_KEY_P8"]))
+    auth = "-authenticationKeyID #{ENV['ASC_KEY_ID']} " \
+           "-authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']} " \
+           "-authenticationKeyPath #{key_path}"
+
+    # 1) Archive (Apple-managed automatic signing).
+    sh("xcodebuild -project #{base}/Miracles.xcodeproj " \
+       "-scheme Miracles -configuration Release " \
+       "-destination 'generic/platform=iOS' " \
+       "-archivePath #{archive_path} " \
+       "#{auth} -allowProvisioningUpdates " \
+       "DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number} " \
+       "archive")
+
+    # 2) Export the .ipa with an explicit options plist.
+    File.write(plist_path, <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>method</key>
+        <string>app-store-connect</string>
+        <key>teamID</key>
+        <string>#{team_id}</string>
+        <key>signingStyle</key>
+        <string>automatic</string>
+        <key>destination</key>
+        <string>export</string>
+      </dict>
+      </plist>
+    PLIST
+
+    sh("xcodebuild -exportArchive " \
+       "-archivePath #{archive_path} " \
+       "-exportPath #{export_path} " \
+       "-exportOptionsPlist #{plist_path} " \
+       "#{auth} -allowProvisioningUpdates")
+
+    # 3) Upload to TestFlight.
+    ipa = Dir["#{export_path}/*.ipa"].first
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true
+    )
+  end
+end
