@@ -19,17 +19,19 @@ jobs:
       FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "180"
       FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
     steps:
-      - name: Checkout tooling (this repo)
-        uses: actions/checkout@v4
-        with:
-          path: tools
-
-      - name: Checkout ImageForge (public)
+      # ImageForge's Fastfile builds from $GITHUB_WORKSPACE/ios, and GITHUB_WORKSPACE
+      # is a reserved var a workflow can't override — so check ImageForge out AT the
+      # workspace root (no path) and put our tooling in a subdir.
+      - name: Checkout ImageForge (public) at workspace root
         uses: actions/checkout@v4
         with:
           repository: sageryza/imageforge
           ref: main
-          path: imageforge
+
+      - name: Checkout tooling (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: tools
 
       - name: Select newest Xcode (need 26+)
         run: |
@@ -47,7 +49,7 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        working-directory: imageforge/ios
+        working-directory: ios
         run: xcodegen generate
 
       - name: Revoke stale signing certificates
@@ -60,9 +62,5 @@ jobs:
       # bundle id auto-registers here during -allowProvisioningUpdates signing.
 
       - name: Build & upload to TestFlight
-        working-directory: imageforge/ios
-        env:
-          # ImageForge's Fastfile builds from $GITHUB_WORKSPACE/ios; point it at
-          # the imageforge checkout instead of the (tooling) workspace root.
-          GITHUB_WORKSPACE: ${{ github.workspace }}/imageforge
+        working-directory: ios
         run: fastlane beta
