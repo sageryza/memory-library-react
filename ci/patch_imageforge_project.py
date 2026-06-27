@@ -27,10 +27,16 @@ if marker not in s:
     print(f"::error::could not find target settings 'base:' in {path}")
     sys.exit(1)
 
+ipad_orientations = (
+    "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown "
+    "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+)
 inject = (
     f'        INFOPLIST_KEY_CFBundleDisplayName: "{display}"\n'
     f"        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO\n"
     f"        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon\n"
+    f"        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait\n"
+    f'        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "{ipad_orientations}"\n'
 )
 s = s.replace(marker, marker + inject, 1)
 with open(path, "w") as f:
