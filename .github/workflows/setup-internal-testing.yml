@@ -1,0 +1,35 @@
+name: Set up internal testing
+
+# Creates an internal TestFlight group for an app and adds a team member as an
+# internal tester (instant builds, no Beta App Review), and reports the latest
+# build's processing state. Uses the existing repo secrets — no local Mac.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: App bundle id
+        required: true
+        default: com.sageryza.imageforge
+      tester_email:
+        description: Tester email (must be a team member)
+        required: true
+        default: sageryza@gmail.com
+      group_name:
+        description: Internal group name
+        required: true
+        default: Internal
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APP_BUNDLE_ID: ${{ inputs.bundle_id }}
+      TESTER_EMAIL: ${{ inputs.tester_email }}
+      GROUP_NAME: ${{ inputs.group_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up internal testing
+        run: python3 ci/setup_internal_testing.py
