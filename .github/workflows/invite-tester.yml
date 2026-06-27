@@ -1,0 +1,53 @@
+name: Invite TestFlight tester
+
+# Adds an external TestFlight tester (by email) to a named beta group for one of
+# the apps, makes the latest build available to that group, and best-effort
+# submits it for Beta App Review. Runs on a cloud runner using the existing App
+# Store Connect API secrets — no local Mac, nothing to paste.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Tester's email (their Apple ID)
+        required: true
+      first_name:
+        description: Tester's first name
+        required: false
+      last_name:
+        description: Tester's last name
+        required: false
+      bundle_id:
+        description: App bundle id
+        required: true
+        default: com.sageryza.xi
+        type: choice
+        options:
+          - com.sageryza.xi
+          - com.sageryza.miracles
+      group_name:
+        description: External beta group name
+        required: true
+        default: Friends
+      submit_build:
+        description: Also submit the latest build for Beta App Review
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  invite:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      TESTER_EMAIL: ${{ inputs.email }}
+      TESTER_FIRST: ${{ inputs.first_name }}
+      TESTER_LAST: ${{ inputs.last_name }}
+      APP_BUNDLE_ID: ${{ inputs.bundle_id }}
+      GROUP_NAME: ${{ inputs.group_name }}
+      SUBMIT_BUILD: ${{ inputs.submit_build }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Invite tester
+        run: python3 ci/invite_tester.py
