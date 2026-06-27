@@ -240,10 +240,29 @@ async function persistImage(imageUrl, path) {
   }
 }
 
+// Save a raw image buffer (e.g. gpt-image-2 base64 output) to Storage and
+// return a stable Firebase download URL. Throws on failure (no temp URL to
+// fall back to, unlike persistImage).
+async function persistBuffer(buffer, path, contentType = 'image/webp') {
+  const bucket = getStorage().bucket(STORAGE_BUCKET);
+  const file = bucket.file(path);
+  const downloadToken = crypto.randomUUID();
+  await file.save(buffer, {
+    resumable: false,
+    contentType,
+    metadata: {
+      cacheControl: 'public, max-age=31536000',
+      metadata: { firebaseStorageDownloadTokens: downloadToken },
+    },
+  });
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
+    + `${encodeURIComponent(file.name)}?alt=media&token=${downloadToken}`;
+}
+
 // Generate one image with the Book Illustrations LoRA: resolve the model's
 // current version, create the flux-dev prediction (same settings ImageForge
 // uses), and poll to completion. Returns the raw (temporary) Replicate URL.
-async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL, loraScale = 1) {
+async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL, loraScale = 1, opts = {}) {
   const model = await replicateFetch(`/v1/models/${modelSlug}`, token);
   const version = model.latest_version?.id;
   if (!version) throw new HttpsError('internal', 'Could not resolve the image model version.');
@@ -257,7 +276,7 @@ async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL
         model: 'dev',
         aspect_ratio: '1:1',
         num_outputs: 1,
-        num_inference_steps: 28,
+        num_inference_steps: opts.numInferenceSteps ?? 28,
         guidance_scale: 3,
         lora_scale: loraScale,
         output_format: 'webp',
@@ -378,6 +397,85 @@ exports.generateTestImage = onCall(
       version,
       predictionUrl: `https://replicate.com/p/${predictionId}`,
     };
+  }
+);
+
+// ===========================================================================
+// ImageForge — Test Station backend (shared with the SwiftUI iOS app).
+// One prompt, run through any house style. Replicate LoRAs (incl. HOONIE's
+// linocut, with its suffix + 40 steps) and OpenAI gpt-image-2 (quality low).
+// Mirrors imageforge/server.js so the app and the web app behave identically.
+// Result is persisted to Storage so the URL is permanent (and cacheable).
+// ===========================================================================
+const FORGE_STYLES = {
+  gosh:    { provider: 'replicate', model: 'sageryza/gosh',              trigger: 'gosh',    name: 'Gouache' },
+  pnt:     { provider: 'replicate', model: 'sageryza/paint',             trigger: 'pnt',     name: 'Painterly' },
+  special: { provider: 'replicate', model: 'sageryza/special',           trigger: 'special', name: 'Sketchy' },
+  vict:    { provider: 'replicate', model: 'sageryza/victorianstyle',    trigger: 'vict',    name: 'Book Illustrations' },
+  wtr:     { provider: 'replicate', model: 'sageryza/watercolordrawings', trigger: 'wtr',    name: 'Watercolor Drawings' },
+  tok:     { provider: 'replicate', model: 'sageryza/pwcscans',          trigger: 'tok',     name: 'PWC Scans' },
+  hoonie:  { provider: 'replicate', model: 'sageryza/hoonie',            trigger: 'HOONIE',  name: 'Hoonie Linocut',
+             promptSuffix: 'linocut relief print, white background', steps: 40 },
+  'gpt-image-2': { provider: 'openai', name: 'ChatGPT (gpt-image-2)', quality: 'low' },
+};
+
+// Render one gpt-image-2 image at the given quality; returns a temporary data
+// URL source buffer is persisted by the caller. Returns { rawBuffer }.
+async function generateOpenAIImage(key, prompt, quality = 'low') {
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-image-2', prompt, n: 1, size: '1024x1024', quality, output_format: 'webp' }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    if (res.status === 429) {
+      throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
+    }
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const json = await res.json();
+  const b64 = json?.data?.[0]?.b64_json;
+  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
+  return Buffer.from(b64, 'base64');
+}
+
+exports.forgeTestImage = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const raw = String(request.data?.prompt || '').trim();
+    if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
+
+    const styleKey = String(request.data?.style || 'gosh');
+    const style = FORGE_STYLES[styleKey];
+    if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
+
+    const body = raw.slice(0, 1500);
+    const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+
+    if (style.provider === 'openai') {
+      const key = await loadOpenAIKey();
+      if (!key) {
+        throw new HttpsError('failed-precondition',
+          'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+      }
+      const buffer = await generateOpenAIImage(key, body, style.quality || 'low');
+      const url = await persistBuffer(buffer, `forge-test/${stamp}.webp`);
+      return { url, style: styleKey, model: 'gpt-image-2', prompt: body };
+    }
+
+    const token = await loadReplicateToken();
+    if (!token) {
+      throw new HttpsError('failed-precondition',
+        'No Replicate token found in config/* (looking for an r8_… value).');
+    }
+    let prompt = style.trigger ? `${style.trigger}, ${body}` : body;
+    if (style.promptSuffix) prompt = `${prompt}, ${style.promptSuffix}`;
+    const { rawUrl, modelSlug } = await generateReplicateImage(
+      token, prompt, style.model, 1, { numInferenceSteps: style.steps });
+    const url = await persistImage(rawUrl, `forge-test/${stamp}.webp`);
+    return { url, style: styleKey, model: modelSlug, prompt };
   }
 );
 
