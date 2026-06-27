@@ -1,0 +1,66 @@
+name: ImageForge TestFlight
+
+# Builds the ImageForge app (which lives in the PUBLIC sageryza/imageforge repo)
+# from here, reusing this repo's App Store Connect secrets — so no secrets need
+# to be added to the imageforge repo. Checks out both repos, creates the App
+# Store Connect app record via fastlane produce (idempotent), revokes stale
+# signing certs, then runs imageforge's own `fastlane beta` to archive + upload.
+on:
+  workflow_dispatch:
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: 5XR23N2CBH
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "180"
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
+    steps:
+      - name: Checkout tooling (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: tools
+
+      - name: Checkout ImageForge (public)
+        uses: actions/checkout@v4
+        with:
+          repository: sageryza/imageforge
+          ref: main
+          path: imageforge
+
+      - name: Select newest Xcode (need 26+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Selecting $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')
+          if [ "$MAJOR" -lt 26 ]; then
+            echo "::error::App Store needs Xcode 26+, but newest on this runner is $MAJOR"
+            exit 1
+          fi
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: imageforge/ios
+        run: xcodegen generate
+
+      - name: Revoke stale signing certificates
+        run: python3 tools/ci/revoke_stale_certs.py
+
+      - name: Create App Store Connect app record (idempotent)
+        working-directory: tools/ci/imageforge
+        run: fastlane ensure_app
+
+      - name: Build & upload to TestFlight
+        working-directory: imageforge/ios
+        env:
+          # ImageForge's Fastfile builds from $GITHUB_WORKSPACE/ios; point it at
+          # the imageforge checkout instead of the (tooling) workspace root.
+          GITHUB_WORKSPACE: ${{ github.workspace }}/imageforge
+        run: fastlane beta
