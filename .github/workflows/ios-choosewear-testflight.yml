@@ -1,0 +1,53 @@
+name: ChooseWear TestFlight
+
+# Builds the Choose What I Wear app on a cloud macOS runner, signs it with the
+# App Store Connect API key, and uploads to TestFlight. Reuses the account-wide
+# secrets + the self-healing cert cleanup. No local Mac.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios-choosewear/**'
+      - '.github/workflows/ios-choosewear-testflight.yml'
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: 5XR23N2CBH
+      APP_NAME: "Choose What I Wear"
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "180"
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest Xcode (need 26+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Selecting $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')
+          if [ "$MAJOR" -lt 26 ]; then
+            echo "::error::App Store needs Xcode 26+, but newest on this runner is $MAJOR"
+            exit 1
+          fi
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios-choosewear
+        run: xcodegen generate
+
+      - name: Revoke stale signing certificates
+        run: python3 ci/revoke_stale_certs.py
+
+      - name: Build & upload to TestFlight
+        working-directory: ios-choosewear
+        run: fastlane beta
