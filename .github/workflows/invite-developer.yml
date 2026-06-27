@@ -1,0 +1,43 @@
+name: Invite developer
+
+# Sends an Apple Developer team invitation (App Store Connect API) so a teammate
+# can help build and gets internal-tester eligibility (instant TestFlight, no
+# Beta App Review). They still accept the email invite themselves. Uses the
+# existing repo secrets — no local Mac.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Invitee's email (their Apple ID)
+        required: true
+      first_name:
+        description: First name
+        required: false
+      last_name:
+        description: Last name
+        required: false
+      role:
+        description: Team role
+        required: true
+        default: DEVELOPER
+        type: choice
+        options:
+          - DEVELOPER
+          - APP_MANAGER
+          - ADMIN
+
+jobs:
+  invite:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      INVITE_EMAIL: ${{ inputs.email }}
+      INVITE_FIRST: ${{ inputs.first_name }}
+      INVITE_LAST: ${{ inputs.last_name }}
+      INVITE_ROLE: ${{ inputs.role }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send invitation
+        run: python3 ci/invite_developer.py
