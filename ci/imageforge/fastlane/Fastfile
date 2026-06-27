@@ -6,14 +6,15 @@ default_platform(:ios)
 platform :ios do
   desc "Create the App Store Connect app record + bundle id (idempotent)"
   lane :ensure_app do
-    key = app_store_connect_api_key(
+    # Sets Spaceship::ConnectAPI.token globally, which produce then uses — the
+    # produce action itself has no api_key parameter.
+    app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
       key_content: ENV["ASC_KEY_P8"],
       is_key_content_base64: true
     )
     produce(
-      api_key: key,
       app_identifier: "com.sageryza.imageforge",
       app_name: "ImageForge",
       team_id: ENV["APPLE_TEAM_ID"],
