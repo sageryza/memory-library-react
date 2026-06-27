@@ -95,7 +95,7 @@ def main() -> int:
         "data": {"type": "userInvitations",
                  "attributes": {"email": email, "firstName": first, "lastName": last,
                                 "roles": [role], "allAppsVisible": True,
-                                "provisioningAllowed": True}}})
+                                "provisioningAllowed": False}}})
     if st in (200, 201):
         print(f"Invited {email} as {role}. Apple emailed them an invite — once they accept, "
               f"add them to TestFlight → Internal Testing for instant build access.")
