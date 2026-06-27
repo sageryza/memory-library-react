@@ -53,9 +53,11 @@ jobs:
       - name: Revoke stale signing certificates
         run: python3 tools/ci/revoke_stale_certs.py
 
-      - name: Create App Store Connect app record (idempotent)
-        working-directory: tools/ci/imageforge
-        run: fastlane ensure_app
+      # NOTE: the App Store Connect *app record* (com.sageryza.imageforge /
+      # "ImageForge") must be created once by hand in App Store Connect — the
+      # public API can't create app records, and fastlane `produce` requires an
+      # interactive Apple ID login (2FA) that can't run in CI. The App *ID* /
+      # bundle id auto-registers here during -allowProvisioningUpdates signing.
 
       - name: Build & upload to TestFlight
         working-directory: imageforge/ios
