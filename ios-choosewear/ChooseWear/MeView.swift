@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MeView: View {
     @EnvironmentObject var store: ClosetStore
+    @State private var showReport = false
+    @State private var reportAck = false
 
     var body: some View {
         NavigationStack {
@@ -32,12 +34,27 @@ struct MeView: View {
                     swatches(ClosetStore.hairColors, index: store.figure.hairColor) { store.figure.hairColor = $0; store.persist() }
                 }
 
+                Section("Legal & Safety") {
+                    Link("Terms of Use (EULA)", destination: URL(string: "https://incaseofamnesia.com/eula.html")!)
+                    Link("Privacy Policy", destination: URL(string: "https://incaseofamnesia.com/privacy.html")!)
+                    Button("Report a concern") { showReport = true }
+                }
+
                 Section {
                     Text("Coming in Phase 2: sign-in, become a model (set your prices per day, photo/video add-ons), the booking calendar, escrow payouts via Stripe, and disputes.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Me")
+            .sheet(isPresented: $showReport) {
+                ReportSheet(
+                    onSubmit: { _, _ in showReport = false; reportAck = true },
+                    onCancel: { showReport = false }
+                )
+            }
+            .alert("Thanks — we'll review this.", isPresented: $reportAck) {
+                Button("OK", role: .cancel) {}
+            }
         }
     }
 

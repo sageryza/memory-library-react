@@ -10,13 +10,20 @@ struct ChooseWearApp: App {
 
 struct RootView: View {
     var body: some View {
-        TabView {
-            ClosetView()
-                .tabItem { Label("Closet", systemImage: "tshirt") }
-            BuilderView()
-                .tabItem { Label("Build", systemImage: "figure.stand") }
-            MeView()
-                .tabItem { Label("Me", systemImage: "person.crop.circle") }
+        EULAGate(
+            theme: .system,
+            appName: "Choose What I Wear",
+            eulaURL: URL(string: "https://incaseofamnesia.com/eula.html"),
+            privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html")
+        ) {
+            TabView {
+                ClosetView()
+                    .tabItem { Label("Closet", systemImage: "tshirt") }
+                BuilderView()
+                    .tabItem { Label("Build", systemImage: "figure.stand") }
+                MeView()
+                    .tabItem { Label("Me", systemImage: "person.crop.circle") }
+            }
         }
     }
 }
