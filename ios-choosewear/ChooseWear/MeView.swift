@@ -12,7 +12,7 @@ struct MeView: View {
                     FigureView(figure: store.figure, scale: 1.2)
                         .frame(maxWidth: .infinity).padding(.vertical, 8)
                 } header: { Text("Your figure") } footer: {
-                    Text("Choosers see this figure when they build an outfit for you.")
+                    Text("This is your figure for trying on the outfits you build.")
                 }
 
                 Section("Profile") {
@@ -41,7 +41,7 @@ struct MeView: View {
                 }
 
                 Section {
-                    Text("Coming in Phase 2: sign-in, become a model (set your prices per day, photo/video add-ons), the booking calendar, escrow payouts via Stripe, and disputes.")
+                    Text("Build outfits from your closet, save the looks you love, and revisit them anytime.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

@@ -21,6 +21,8 @@ struct RootView: View {
                     .tabItem { Label("Closet", systemImage: "tshirt") }
                 BuilderView()
                     .tabItem { Label("Build", systemImage: "figure.stand") }
+                LooksView()
+                    .tabItem { Label("Looks", systemImage: "rectangle.stack") }
                 MeView()
                     .tabItem { Label("Me", systemImage: "person.crop.circle") }
             }
