@@ -32,10 +32,17 @@ struct RootView: View {
     @StateObject private var auth = AuthState()
 
     var body: some View {
-        if auth.signedIn {
-            BoardView(auth: auth)
-        } else {
-            SignInView()
+        EULAGate(
+            theme: .xi,
+            appName: "XI",
+            eulaURL: URL(string: "https://incaseofamnesia.com/eula.html"),
+            privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html")
+        ) {
+            if auth.signedIn {
+                BoardView(auth: auth)
+            } else {
+                SignInView()
+            }
         }
     }
 }

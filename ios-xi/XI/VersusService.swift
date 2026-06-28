@@ -13,7 +13,7 @@ struct VersusPlayer: Identifiable, Equatable {
 }
 
 struct VersusStory: Identifiable, Equatable {
-    let id: String, byName: String, color: String, pairKey: String
+    let id: String, byUid: String, byName: String, color: String, pairKey: String
     let eventCap: String, twistCap: String, text: String
     let ts: Double
 }
@@ -305,7 +305,8 @@ final class VersusService {
     static func decodeStory(_ doc: QueryDocumentSnapshot) -> VersusStory? {
         let m = doc.data()
         return VersusStory(
-            id: doc.documentID, byName: m["byName"] as? String ?? "Player", color: m["color"] as? String ?? "#34495e",
+            id: doc.documentID, byUid: m["byUid"] as? String ?? "", byName: m["byName"] as? String ?? "Player",
+            color: m["color"] as? String ?? "#34495e",
             pairKey: m["pairKey"] as? String ?? "", eventCap: m["eventCap"] as? String ?? "",
             twistCap: m["twistCap"] as? String ?? "", text: m["text"] as? String ?? "", ts: m["ts"] as? Double ?? 0
         )

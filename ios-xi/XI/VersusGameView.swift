@@ -18,11 +18,16 @@ struct VersusGameView: View {
     @ObservedObject var auth: AuthState
 
     @StateObject private var store = VersusStore()
+    @StateObject private var moderation = Moderation()
     @State private var selectedCard: HandCard?      // placement mode when set
     @State private var anchor: Anchor?              // first tapped cell for a story
     @State private var composing: StoryTarget?
+    @State private var reportingStory: VersusStory?
+    @State private var reported = false
     @State private var error: String?
     @State private var busy = false
+
+    private var visibleStories: [VersusStory] { store.stories.filter { !moderation.isBlocked($0.byUid) } }
 
     private struct Anchor: Equatable { let r: Int; let c: Int }
     private struct StoryTarget: Identifiable {
@@ -74,6 +79,16 @@ struct VersusGameView: View {
         .tint(XITheme.gold)
         .sheet(item: $composing) { t in
             StoryComposer(gameId: gameId, event: t.event, twist: t.twist) { selectedCard = nil; anchor = nil }
+        }
+        .sheet(item: $reportingStory) { _ in
+            ReportSheet(
+                subjectLabel: "story",
+                onSubmit: { _, _ in reportingStory = nil; reported = true },
+                onCancel: { reportingStory = nil }
+            )
+        }
+        .alert("Thanks — we'll review this.", isPresented: $reported) {
+            Button("OK", role: .cancel) {}
         }
         .task(id: gameId) {
             guard let uid else { return }
@@ -208,10 +223,10 @@ struct VersusGameView: View {
 
     @ViewBuilder
     private var stories: some View {
-        if !store.stories.isEmpty {
+        if !visibleStories.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("the stories so far").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
-                ForEach(store.stories) { s in
+                ForEach(visibleStories) { s in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Circle().fill(Color(xiHex: s.color)).frame(width: 8, height: 8)
@@ -220,6 +235,7 @@ struct VersusGameView: View {
                             Text("times i \(s.eventCap.lowercased()) \(s.twistCap.lowercased())")
                                 .font(.system(.caption2, design: .serif)).foregroundStyle(XITheme.line)
                                 .lineLimit(1)
+                            storyMenu(s)
                         }
                         Text(s.text).font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
@@ -231,6 +247,24 @@ struct VersusGameView: View {
                 }
             }
             .padding(.top, 8)
+        }
+    }
+
+    /// Report / block menu — only for other players' stories.
+    @ViewBuilder
+    private func storyMenu(_ s: VersusStory) -> some View {
+        if let myUid = uid, !s.byUid.isEmpty, s.byUid != myUid {
+            Menu {
+                Button { reportingStory = s } label: { Label("Report story", systemImage: "flag") }
+                Button(role: .destructive) {
+                    withAnimation { moderation.block(s.byUid) }
+                } label: {
+                    Label("Block \(s.byName)", systemImage: "hand.raised")
+                }
+            } label: {
+                Image(systemName: "ellipsis").font(.caption).foregroundStyle(XITheme.line)
+                    .frame(width: 24, height: 18, alignment: .trailing).contentShape(Rectangle())
+            }
         }
     }
 
