@@ -43,6 +43,17 @@ struct TodayView: View {
             .frame(maxWidth: .infinity)
         }
         .background(XITheme.paper.ignoresSafeArea())
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Button("Done") { writing = false }
+                    .font(.system(.body, design: .serif)).tint(XITheme.navInk)
+                Spacer()
+                Button(saving ? "Saving…" : "Save memory") { Task { await save() } }
+                    .font(.system(.body, design: .serif).weight(.medium)).tint(XITheme.maroon)
+                    .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
         .task { startIfNeeded() }
         .task(id: pairKey) { await reload() }
     }
