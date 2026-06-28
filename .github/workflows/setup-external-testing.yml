@@ -23,6 +23,10 @@ on:
         description: "Notes for this build"
         required: false
         default: ""
+      privacy_url:
+        description: "Privacy policy URL"
+        required: false
+        default: https://incaseofamnesia.com/privacy.html
 
 jobs:
   setup:
@@ -35,6 +39,7 @@ jobs:
       GROUP_NAME: ${{ inputs.group_name }}
       BETA_DESCRIPTION: ${{ inputs.beta_description }}
       WHATS_NEW: ${{ inputs.whats_new }}
+      PRIVACY_URL: ${{ inputs.privacy_url }}
       CONTACT_FIRST: Sage
       CONTACT_LAST: Ryza
       CONTACT_EMAIL: sageryza@gmail.com

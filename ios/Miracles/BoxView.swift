@@ -62,6 +62,7 @@ struct BoxView: View {
                     AIProvider(name: "Replicate", role: "Generates the illustration"),
                 ],
                 dataDescription: "the text you write",
+                privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html"),
                 onAgree: {
                     aiConsentAccepted = true
                     showConsent = false
