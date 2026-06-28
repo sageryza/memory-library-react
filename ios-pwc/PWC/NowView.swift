@@ -1,8 +1,11 @@
 import SwiftUI
 
 struct NowView: View {
+    @EnvironmentObject private var moderation: Moderation
     @State private var sightings = Mock.sightings
     @State private var composing = false
+    @State private var reporting: Sighting?
+    @State private var reported = false
 
     private var watchingNow: Int { sightings.filter { $0.minutesAgo <= 10 }.reduce(0) { $0 + $1.watchingHere } }
 
@@ -18,7 +21,15 @@ struct NowView: View {
                         Spacer()
                     }
                     .padding(.top, 4)
-                    ForEach($sightings) { $s in SightingCard(sighting: $s) }
+                    ForEach($sightings) { $s in
+                        if !moderation.isBlocked(s.handle) {
+                            SightingCard(
+                                sighting: $s,
+                                onReport: { reporting = s },
+                                onBlock: { withAnimation { moderation.block(s.handle) } }
+                            )
+                        }
+                    }
                 }
                 .padding(16)
                 .frame(maxWidth: 560)
@@ -32,6 +43,16 @@ struct NowView: View {
                     sightings.insert(.init(handle: "@you", note: note, place: place,
                                            neighborhood: hood, minutesAgo: 0, nods: 0, watchingHere: 1), at: 0)
                 }
+            }
+            .sheet(item: $reporting) { _ in
+                ReportSheet(
+                    subjectLabel: "this post",
+                    onSubmit: { _, _ in reporting = nil; reported = true },
+                    onCancel: { reporting = nil }
+                )
+            }
+            .alert("Thanks — we'll review this.", isPresented: $reported) {
+                Button("OK", role: .cancel) {}
             }
         }
     }
@@ -91,6 +112,8 @@ struct NowView: View {
 
 struct SightingCard: View {
     @Binding var sighting: Sighting
+    var onReport: () -> Void
+    var onBlock: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -98,6 +121,17 @@ struct SightingCard: View {
                 Text(sighting.handle).font(PWC.mono(12, .semibold)).foregroundStyle(PWC.ink)
                 Spacer()
                 Text(sighting.ago).font(PWC.mono(12)).foregroundStyle(PWC.dim)
+                Menu {
+                    Button { onReport() } label: { Label("Report post", systemImage: "flag") }
+                    Button(role: .destructive) { onBlock() } label: {
+                        Label("Block \(sighting.handle)", systemImage: "hand.raised")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(PWC.mono(13)).foregroundStyle(PWC.dim)
+                        .frame(width: 30, height: 22, alignment: .trailing)
+                        .contentShape(Rectangle())
+                }
             }
             Text(sighting.note).font(.system(.body, design: .serif)).foregroundStyle(PWC.ink)
                 .fixedSize(horizontal: false, vertical: true)
