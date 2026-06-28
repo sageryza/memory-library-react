@@ -1,0 +1,24 @@
+name: Check review status
+
+# Reports each app's latest build's TestFlight Beta App Review state. Used by
+# the in-session watcher to notify on approvals / rejections. Reuses ASC secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      bundles:
+        description: Comma-separated bundle ids to check
+        required: false
+        default: com.sageryza.sidequest,com.sageryza.miracles
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      CHECK_BUNDLES: ${{ inputs.bundles }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check review status
+        run: python3 ci/check_review_status.py

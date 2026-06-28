@@ -9,6 +9,9 @@ struct BoxView: View {
 
     @State private var drawing = false
     @State private var errorText: String?
+    @State private var showConsent = false
+    // 5.1.2(i): one-time consent before any text is sent to third-party AI.
+    @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
     private let lineHeight: CGFloat = 28
 
@@ -49,6 +52,23 @@ struct BoxView: View {
                     .font(.caption2).foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+        .sheet(isPresented: $showConsent) {
+            AIConsentSheet(
+                theme: .miracles,
+                appName: "Miracles",
+                providers: [
+                    AIProvider(name: "Anthropic (Claude)", role: "Turns your words into a drawing prompt"),
+                    AIProvider(name: "Replicate", role: "Generates the illustration"),
+                ],
+                dataDescription: "the text you write",
+                onAgree: {
+                    aiConsentAccepted = true
+                    showConsent = false
+                    performDraw()
+                },
+                onCancel: { showConsent = false }
+            )
         }
     }
 
@@ -113,7 +133,15 @@ struct BoxView: View {
         .buttonStyle(.plain)
     }
 
+    /// Gate the draw on AI consent (5.1.2(i)); on first use, ask before sending.
     private func draw() {
+        let text = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !drawing else { return }
+        if !aiConsentAccepted { showConsent = true; return }
+        performDraw()
+    }
+
+    private func performDraw() {
         let text = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !drawing else { return }
         drawing = true
