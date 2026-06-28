@@ -16,23 +16,25 @@ struct ConstellationView: View {
 
     /// Deterministic phyllotaxis ("sunflower") scatter so the layout is stable.
     private var placed: [(mem: XIMemory, p: CGPoint)] {
-        let golden = 2.399963229728653
+        let golden: CGFloat = 2.399963229728653
         let margin: CGFloat = 80
         var maxR: CGFloat = 0
-        var raw: [(XIMemory, CGPoint)] = []
+        var raw: [(mem: XIMemory, p: CGPoint)] = []
         for (i, m) in memories.enumerated() {
-            let r = step * sqrt(CGFloat(i))
-            let t = CGFloat(i) * CGFloat(golden)
+            let r: CGFloat = step * sqrt(CGFloat(i))
+            let t: CGFloat = CGFloat(i) * golden
             maxR = max(maxR, r)
-            raw.append((m, CGPoint(x: r * cos(t), y: r * sin(t))))
+            let x: CGFloat = r * cos(t)
+            let y: CGFloat = r * sin(t)
+            raw.append((mem: m, p: CGPoint(x: x, y: y)))
         }
-        let c = max(360, maxR * 2 + margin * 2) / 2
-        return raw.map { ($0.0, CGPoint(x: $0.1.x + c, y: $0.1.y + c)) }
+        let c: CGFloat = max(360, maxR * 2 + margin * 2) / 2
+        return raw.map { (mem: $0.mem, p: CGPoint(x: $0.p.x + c, y: $0.p.y + c)) }
     }
 
     private var canvasSize: CGFloat {
         let margin: CGFloat = 80
-        let maxR = memories.isEmpty ? 0 : step * sqrt(CGFloat(memories.count - 1))
+        let maxR: CGFloat = memories.isEmpty ? 0 : step * sqrt(CGFloat(memories.count - 1))
         return max(360, maxR * 2 + margin * 2)
     }
 

@@ -47,7 +47,48 @@ struct VersusGameView: View {
         return Set(VersusModel.legalCells(placed, card).map { "\($0.0),\($0.1)" })
     }
 
+    // Body is split into layered `some View` properties so each modifier chain
+    // stays short — keeps the SwiftUI type-checker well under its timeout.
     var body: some View {
+        decorated
+            .sheet(item: $composing) { t in
+                StoryComposer(gameId: gameId, event: t.event, twist: t.twist) { selectedCard = nil; anchor = nil }
+            }
+            .sheet(item: $reportingStory) { _ in
+                ReportSheet(
+                    subjectLabel: "story",
+                    onSubmit: { _, _ in reportingStory = nil; reported = true },
+                    onCancel: { reportingStory = nil }
+                )
+            }
+            .alert("Thanks — we'll review this.", isPresented: $reported) {
+                Button("OK", role: .cancel) {}
+            }
+            .task(id: gameId) {
+                guard let uid else { return }
+                store.subscribe(gameId: gameId, uid: uid)
+                do {
+                    try await VersusService.shared.joinGame(gameId)
+                    try await VersusService.shared.ensureHand(gameId)
+                } catch { self.error = error.localizedDescription }
+            }
+            .onDisappear { store.unsubscribe() }
+    }
+
+    private var decorated: some View {
+        scroll
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("Versus")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                }
+            }
+            .tint(XITheme.gold)
+    }
+
+    private var scroll: some View {
         ScrollView {
             VStack(spacing: 16) {
                 if store.notFound {
@@ -68,37 +109,6 @@ struct VersusGameView: View {
             .frame(maxWidth: 540)
             .frame(maxWidth: .infinity)
         }
-        .background(XITheme.paper.ignoresSafeArea())
-        .navigationTitle("Versus")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
-            }
-        }
-        .tint(XITheme.gold)
-        .sheet(item: $composing) { t in
-            StoryComposer(gameId: gameId, event: t.event, twist: t.twist) { selectedCard = nil; anchor = nil }
-        }
-        .sheet(item: $reportingStory) { _ in
-            ReportSheet(
-                subjectLabel: "story",
-                onSubmit: { _, _ in reportingStory = nil; reported = true },
-                onCancel: { reportingStory = nil }
-            )
-        }
-        .alert("Thanks — we'll review this.", isPresented: $reported) {
-            Button("OK", role: .cancel) {}
-        }
-        .task(id: gameId) {
-            guard let uid else { return }
-            store.subscribe(gameId: gameId, uid: uid)
-            do {
-                try await VersusService.shared.joinGame(gameId)
-                try await VersusService.shared.ensureHand(gameId)
-            } catch { self.error = error.localizedDescription }
-        }
-        .onDisappear { store.unsubscribe() }
     }
 
     // MARK: header — code + players + round
