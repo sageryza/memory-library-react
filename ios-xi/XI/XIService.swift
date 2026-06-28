@@ -60,7 +60,7 @@ final class XIService {
 
     // MARK: Save
 
-    func saveMemory(event: XICard, twist: XICard, text: String, boardDay: Int) async throws {
+    func saveMemory(event: XICard, twist: XICard, text: String, boardDay: Int, mode: String = "board") async throws {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "XI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not signed in."])
         }
@@ -77,7 +77,7 @@ final class XIService {
             "title": title,
             "hashtags": tags,
             "source": "xi",
-            "mode": "board",
+            "mode": mode,
             "event": ["id": event.id, "cap": evCap],
             "twist": ["id": twist.id, "cap": twCap],
             "pairKey": "\(event.id)__\(twist.id)",

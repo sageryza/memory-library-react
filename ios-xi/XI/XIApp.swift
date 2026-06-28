@@ -39,7 +39,7 @@ struct RootView: View {
             privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html")
         ) {
             if auth.signedIn {
-                BoardView(auth: auth)
+                XIShell(auth: auth)
             } else {
                 SignInView()
             }
