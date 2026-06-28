@@ -9,8 +9,9 @@ struct TodayView: View {
     private let soft = Color(red: 0.420, green: 0.365, blue: 0.306)    // #6B5D4F
     private let nothingRed = Color(red: 0.753, green: 0.224, blue: 0.169) // #c0392b
 
-    private var events: [XICard] { XIDeck.events }
-    private var twists: [XICard] { XIDeck.twists }
+    @ObservedObject private var curate = CurateStore.shared
+    private var events: [XICard] { curate.keep(XIDeck.events) }
+    private var twists: [XICard] { curate.keep(XIDeck.twists) }
 
     @State private var ev = 0
     @State private var tw = 0
