@@ -14,6 +14,8 @@
   test, give the live URL(s) to test it on as full clickable links — the deployed
   app page for the feature (e.g. `https://incaseofamnesia.com/xi`), plus the PR
   link. Don't make the user hunt for where to look.
+- **No military / 24-hour time.** Always write times in 12-hour format with
+  am/pm (e.g. "5:08 pm", not "17:08" or "22:08 UTC"). Convert before showing.
 
 ## Working style
 - When blocked on a decision but other work can proceed, surface the decision
