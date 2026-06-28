@@ -50,6 +50,9 @@ jobs:
         working-directory: ios
         run: xcodegen generate
 
+      - name: Revoke stale signing certificates
+        run: python3 ci/revoke_stale_certs.py
+
       - name: Build & upload to TestFlight
         working-directory: ios
         run: fastlane beta

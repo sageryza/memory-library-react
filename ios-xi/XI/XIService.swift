@@ -29,6 +29,7 @@ final class AuthState: ObservableObject {
     var signedIn: Bool { user != nil }
     var isAnonymous: Bool { user?.isAnonymous ?? false }
     var email: String? { user?.email }
+    var uid: String? { user?.uid }
 }
 
 /// Auth + reading/writing XI memories in the shared `users/{uid}/memories`

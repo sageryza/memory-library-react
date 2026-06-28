@@ -14,6 +14,7 @@ struct BoardView: View {
     @State private var selected: Cell?
     @State private var composing: Pairing?
     @State private var showLibrary = false
+    @State private var showVersus = false
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
@@ -48,6 +49,10 @@ struct BoardView: View {
                         .tint(XITheme.gold)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showVersus = true } label: { Image(systemName: "person.2") }
+                        .tint(XITheme.gold)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         if let email = auth.email {
                             Text(email)
@@ -64,6 +69,7 @@ struct BoardView: View {
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
             .sheet(isPresented: $showLibrary) { LibraryView() }
+            .sheet(isPresented: $showVersus) { VersusLobbyView(auth: auth) }
         }
         .tint(XITheme.gold)
     }
