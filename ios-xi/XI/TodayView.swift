@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var saving = false
     @State private var memories: [XIMemory] = []
     @State private var started = false
+    @State private var showGallery = false
     @FocusState private var writing: Bool
 
     private var event: XICard { events[min(ev, events.count - 1)] }
@@ -43,6 +44,18 @@ struct TodayView: View {
             .frame(maxWidth: .infinity)
         }
         .background(XITheme.paper.ignoresSafeArea())
+        .overlay(alignment: .topTrailing) {
+            if !writing {
+                Button { showGallery = true } label: {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 20)).foregroundStyle(soft)
+                        .padding(.top, 20).padding(.trailing, 18)
+                }
+            }
+        }
+        .sheet(isPresented: $showGallery) {
+            GalleryView { ev, tw in usePair(ev, tw) }
+        }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -186,6 +199,14 @@ struct TodayView: View {
         guard let last = hist.popLast() else { return }
         ev = last.0; tw = last.1
         flip = flip == "tw" ? "ev" : "tw"
+    }
+
+    /// Load a pairing chosen in the gallery into Today.
+    private func usePair(_ chosenEvent: XICard, _ chosenTwist: XICard) {
+        hist.append((ev, tw))
+        if let ei = events.firstIndex(where: { $0.id == chosenEvent.id }) { ev = ei }
+        if let ti = twists.firstIndex(where: { $0.id == chosenTwist.id }) { tw = ti }
+        text = ""
     }
 
     private func reload() async {
