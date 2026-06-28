@@ -2,15 +2,20 @@ import Foundation
 import FirebaseAuth
 import FirebaseFirestore
 
-/// A saved XI memory (subset of the shared schema we display).
+/// A saved XI memory (mirrors the shared `users/{uid}/memories` schema).
 struct XIMemory: Identifiable {
     let id: String
     let content: String
     let title: String
     let pairKey: String
+    let eventId: String
+    let twistId: String
     let eventCap: String
     let twistCap: String
-    let timestamp: String
+    let hashtags: [String]
+    let mode: String          // "board" or "versus"
+    let dateTime: String      // short display date, e.g. "6/28/26"
+    let timestamp: String     // ISO8601, used for sorting
 }
 
 /// Publishes the current Firebase auth user so the UI can gate sign-in.
@@ -29,6 +34,7 @@ final class AuthState: ObservableObject {
     var signedIn: Bool { user != nil }
     var isAnonymous: Bool { user?.isAnonymous ?? false }
     var email: String? { user?.email }
+    var uid: String? { user?.uid }
 }
 
 /// Auth + reading/writing XI memories in the shared `users/{uid}/memories`
@@ -111,8 +117,13 @@ final class XIService {
             content: content,
             title: d["title"] as? String ?? "",
             pairKey: d["pairKey"] as? String ?? "",
+            eventId: ev?["id"] as? String ?? "",
+            twistId: tw?["id"] as? String ?? "",
             eventCap: ev?["cap"] as? String ?? "",
             twistCap: tw?["cap"] as? String ?? "",
+            hashtags: (d["hashtags"] as? [String]) ?? [],
+            mode: d["mode"] as? String ?? "board",
+            dateTime: d["dateTime"] as? String ?? "",
             timestamp: d["timestamp"] as? String ?? ""
         )
     }
