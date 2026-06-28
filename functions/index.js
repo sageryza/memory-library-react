@@ -687,30 +687,42 @@ const MIRACLE_STYLE_GUIDE =
   + 'signs, or writing anywhere in the image.';
 
 const MIRACLE_SYSTEM = [
-  'You turn a small real-life moment into ONE clever little doodle for a keepsake book',
-  'of tiny daily miracles. This is a creative task: think about what single image would',
-  'make someone instantly recall — and smile at — this exact moment. The best choice is',
-  'recognizable at a glance AND captures what made the moment special, funny, or sweet.',
-  'It is usually a specific object or a tiny two-element scene, NOT a literal retelling of',
-  'the whole story. Consider a few options and pick the most evocative one.',
+  'You turn a small real-life moment into a clever single doodle for a keepsake book of',
+  'tiny daily miracles — like a ONE-PANEL CARTOON that captures the WHOLE little story at',
+  'a glance, including its funny or sweet twist. NOT just one object pulled from it, and',
+  'NOT a literal frame-by-frame retelling.',
   '',
-  'Respond with ONLY a JSON object: {"caption": "...", "drawing": "..."}.',
-  '- drawing: name the literal subject to draw, plainly and concretely (e.g. "a slice of',
-  '  birthday cake", "a hand holding a glass of water", "a sleeping fox"). Keep it simple',
-  '  enough to draw in a few lines. Never include any words, letters, signs, or text.',
-  '- caption: a short, warm, lowercase note, max ~8 words.',
+  'Think hard about the best visual idea. The strongest doodles capture the gist AND the',
+  'punchline, usually by combining two things or showing a small visual metaphor. Examples:',
+  '- "the bakery was closed but they unlocked it for my birthday" →',
+  '  a birthday cake sitting inside a shop window with a sign flipped to "OPEN", a hand',
+  '  turning the lock just for it.',
+  '- "a girl named Hope gave me water when I almost fainted" →',
+  '  one hand passing a glass of water to another hand, a little halo or sparkle over it.',
+  'Make it concrete enough to draw with a few pen lines. A few small hand-lettered words or',
+  'signs ARE allowed when they make the meaning click (keep them short).',
+  '',
+  'If a single idea clearly nails it, return ONE. If the moment could be drawn a few good',
+  'different ways, return up to THREE distinct concepts so the person can choose.',
+  '',
+  'Respond with ONLY JSON: {"concepts": [{"caption": "...", "drawing": "..."}, ...]}',
+  '(1 to 3 items).',
+  '- drawing: a concrete description of the whole doodle — name the elements and how they',
+  '  are arranged / interacting, so an illustrator could draw it. Keep it simple.',
+  '- caption: a short, warm, lowercase note for the moment, max ~8 words.',
 ].join('\n');
 
 // ---- OpenAI engine (experimental) -----------------------------------------
 // Instead of the trained "Sketchy" LoRA, draw with gpt-image-1's image *edits*
 // endpoint, passing a handful of the author's own doodles as style references.
 // Toggle per-call with { engine: 'openai' }; default stays Replicate/Sketchy.
-const MIRACLE_OPENAI_PROMPT = (subject) =>
-  `A single simple black-ink doodle of ${subject}, drawn in the exact same loose, `
-  + 'charming, childlike hand-drawn style as the reference images: confident black '
-  + 'ballpoint-pen line work, one subject, lots of empty white space, plain white '
-  + 'background, no shading, no color, no gray fills. Absolutely no words, letters, '
-  + 'numbers, captions, or signs anywhere in the image.';
+const MIRACLE_OPENAI_PROMPT = (concept) =>
+  'A simple black-ink doodle, drawn in the exact same loose, charming, childlike '
+  + 'hand-drawn style as the reference images: confident black ballpoint-pen line work, '
+  + 'plain white background, lots of empty white space, no shading, no color, no gray '
+  + `fills. Draw this little scene: ${concept}. Keep it simple — only the few elements `
+  + 'needed to tell the story. Small hand-lettered words or signs are okay if they help '
+  + 'tell it; otherwise no text.';
 
 // The author's reference doodles, committed under functions/miracle-refs/.
 // Read once and cached for the life of the instance.
@@ -756,7 +768,7 @@ async function generateMiracleOpenAIImage(key, subject) {
 }
 
 exports.illustrateMiracle = onCall(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '1GiB' },
+  { region: 'us-central1', timeoutSeconds: 300, memory: '2GiB' },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -767,11 +779,14 @@ exports.illustrateMiracle = onCall(
     // default 'replicate' (the Sketchy LoRA). Lets us compare them live.
     const engine = String(request.data?.engine || 'replicate').toLowerCase();
 
-    // Distill the moment into a simple drawing prompt (best-effort). When
-    // distill is false, draw the user's text verbatim instead.
+    // Distill the moment into 1–3 whole-story doodle concepts (best-effort).
+    // When distill is false, draw the user's text verbatim as a single concept.
     const distill = request.data?.distill !== false;
-    let caption = text.slice(0, 80);
-    let drawing = text;
+    // How many concept variants to actually render (the distiller may offer up
+    // to 3; render up to `variants` of them so the person can pick).
+    const variants = Math.max(1, Math.min(3, Number(request.data?.variants) || 1));
+
+    let concepts = [{ caption: text.slice(0, 80), drawing: text }];
     if (distill) {
       const anthropicKey = await loadAnthropicKey();
       if (anthropicKey) {
@@ -779,9 +794,9 @@ exports.illustrateMiracle = onCall(
           const client = new Anthropic({ apiKey: anthropicKey });
           const msg = await client.messages.create({
             model: 'claude-opus-4-8',
-            max_tokens: 2000,
-            thinking: { type: 'adaptive' }, // let it actually reason about the best image
-            output_config: { effort: 'medium' },
+            max_tokens: 3000,
+            thinking: { type: 'adaptive' }, // let it really reason about the best idea
+            output_config: { effort: 'high' },
             system: MIRACLE_SYSTEM,
             messages: [{ role: 'user', content: text.slice(0, 2000) }],
           });
@@ -789,44 +804,62 @@ exports.illustrateMiracle = onCall(
           const block = (msg.content || []).find((b) => b.type === 'text');
           const raw = (block?.text || '').trim().replace(/^```json\s*|\s*```$/g, '');
           const parsed = JSON.parse(raw);
-          if (parsed.caption) caption = String(parsed.caption).trim();
-          if (parsed.drawing) drawing = String(parsed.drawing).trim();
+          const arr = Array.isArray(parsed.concepts)
+            ? parsed.concepts
+            : (parsed.drawing ? [parsed] : []);
+          const clean = arr
+            .filter((c) => c && c.drawing)
+            .map((c) => ({ caption: String(c.caption || '').trim(), drawing: String(c.drawing).trim() }));
+          if (clean.length) concepts = clean;
         } catch (e) {
           console.error('miracle distill failed; using raw text', e);
         }
       }
     }
+    const chosen = concepts.slice(0, variants);
 
-    // Unique path per draw so redraws don't overwrite earlier ones (enables undo).
-    const storagePath = `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`;
-    let url;
+    // Load the engine's key/token once, then render each chosen concept.
+    let renderOne;
     let version;
-
     if (engine === 'openai') {
       const openaiKey = await loadOpenAIKey();
       if (!openaiKey) {
         throw new HttpsError('failed-precondition',
           'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
       }
-      // `drawing` is the distilled subject, or the raw text when distill is off.
-      const buffer = await generateMiracleOpenAIImage(openaiKey, drawing);
-      const filled = await trimToSubject(buffer); // fill the frame, same as Sketchy
-      url = await persistBuffer(filled, storagePath);
-      version = 'v6-openai-ref';
+      version = 'v7-concepts';
+      renderOne = async (concept) => {
+        const buffer = await generateMiracleOpenAIImage(openaiKey, concept.drawing);
+        const filled = await trimToSubject(buffer); // fill the frame, same as Sketchy
+        return persistBuffer(filled, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`);
+      };
     } else {
       const repToken = await loadReplicateToken();
       if (!repToken) {
         throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
       }
-      const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
-      // Ease the LoRA strength a touch — at full scale it tends to scrawl its
-      // trigger word ("special") into the picture.
-      const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
-      // Trim the LoRA's white margins so the doodle fills the frame.
-      url = await persistImage(rawUrl, storagePath, trimToSubject);
       version = MIRACLE_FN_VERSION;
+      renderOne = async (concept) => {
+        // Ease the LoRA strength a touch — at full scale it scrawls its trigger word.
+        const prompt = `${MIRACLE_TRIGGER}, ${concept.drawing}, ${MIRACLE_STYLE_GUIDE}`;
+        const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
+        return persistImage(rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`, trimToSubject);
+      };
     }
 
-    return { url, caption, drawing, id, version, engine };
+    const urls = await Promise.all(chosen.map((c) => renderOne(c)));
+    const out = chosen.map((c, i) => ({ caption: c.caption, drawing: c.drawing, url: urls[i] }));
+
+    // First concept is the primary (back-compat with the current single-image
+    // clients); `concepts` carries all rendered options to pick from.
+    return {
+      url: out[0].url,
+      caption: out[0].caption,
+      drawing: out[0].drawing,
+      concepts: out,
+      id,
+      version,
+      engine,
+    };
   }
 );
