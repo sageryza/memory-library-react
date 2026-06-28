@@ -203,17 +203,28 @@ def main():
     blocked = (st == 422 and isinstance(d, dict)
                and any(e.get("code", "").endswith("ANOTHER_BUILD_IN_REVIEW") for e in d.get("errors", [])))
     if blocked:
+        print("Newer build blocked — an older build occupies the single review slot. "
+              "Looking for a cancellable submission to free it…")
         st2, ob = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10", tok)
         cancelled = False
         for other in (ob.get("data", []) if st2 == 200 else []):
             if other["id"] == build_id:
                 continue
+            ov = other["attributes"].get("version")
             sst, sd = api("GET", f"/builds/{other['id']}/betaAppReviewSubmissions?limit=1", tok)
             for sub in (sd.get("data", []) if sst == 200 else []):
-                if sub["attributes"].get("betaReviewState") == "WAITING_FOR_REVIEW":
-                    dst, _ = api("DELETE", f"/betaAppReviewSubmissions/{sub['id']}", tok)
-                    print(f"Cancelled queued submission for build {other['attributes'].get('version')}: HTTP {dst}")
+                state = sub["attributes"].get("betaReviewState")
+                # WAITING_FOR_REVIEW submissions can be deleted; IN_REVIEW cannot via
+                # API (Apple is actively reviewing) — log it so the human can cancel
+                # build {ov} in App Store Connect if they want the newer build first.
+                dst, dd = api("DELETE", f"/betaAppReviewSubmissions/{sub['id']}", tok)
+                if dst in (200, 204):
+                    print(f"Cancelled build {ov} submission (was {state}): HTTP {dst}")
                     cancelled = True
+                else:
+                    print(f"::warning::build {ov} submission is {state} and could not be "
+                          f"cancelled (HTTP {dst}) — cancel it in App Store Connect → XI → "
+                          f"TestFlight to let build {build_ver} into review.")
         if cancelled:
             st, d = submit()
 
