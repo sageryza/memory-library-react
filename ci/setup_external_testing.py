@@ -90,8 +90,8 @@ def main():
     if not bundle:
         print("::error::APP_BUNDLE_ID is required"); return 1
     if not phone:
-        print("::error::CONTACT_PHONE is required for Beta App Review "
-              "(set the ASC_CONTACT_PHONE secret)"); return 1
+        print("note: no CONTACT_PHONE set — submitting without a reviewer phone "
+              "(fine for most TestFlight betas; set ASC_CONTACT_PHONE if Apple asks).")
 
     st, d = api("GET", f"/apps?filter[bundleId]={bundle}&limit=1", tok)
     if st != 200 or not d.get("data"):
@@ -114,10 +114,12 @@ def main():
     st, d = api("GET", f"/apps/{app_id}/betaAppReviewDetail", tok)
     attrs = {
         "contactFirstName": first, "contactLastName": last,
-        "contactEmail": email, "contactPhone": phone,
+        "contactEmail": email,
         "demoAccountRequired": bool(demo_user),
         "demoAccountName": demo_user, "demoAccountPassword": demo_pass,
     }
+    if phone:
+        attrs["contactPhone"] = phone
     if st == 200 and d.get("data"):
         rid = d["data"]["id"]
         st2, d2 = api("PATCH", f"/betaAppReviewDetails/{rid}", tok,
