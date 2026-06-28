@@ -23,6 +23,20 @@ struct SideQuestApp: App {
 }
 
 struct RootView: View {
+    @State private var showIntro = true
+
+    var body: some View {
+        ZStack {
+            MainTabs()
+            if showIntro {
+                IntroView { withAnimation(.easeInOut(duration: 0.5)) { showIntro = false } }
+                    .transition(.opacity)
+            }
+        }
+    }
+}
+
+struct MainTabs: View {
     @State private var tab = 0
 
     init() {
