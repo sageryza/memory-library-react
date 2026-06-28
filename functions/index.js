@@ -16,6 +16,8 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getStorage } = require('firebase-admin/storage');
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const Anthropic = require('@anthropic-ai/sdk');
 const sharp = require('sharp');
 
@@ -698,19 +700,71 @@ const MIRACLE_SYSTEM = [
   '- caption: a short, warm, lowercase note, max ~8 words.',
 ].join('\n');
 
+// ---- OpenAI engine (experimental) -----------------------------------------
+// Instead of the trained "Sketchy" LoRA, draw with gpt-image-1's image *edits*
+// endpoint, passing a handful of the author's own doodles as style references.
+// Toggle per-call with { engine: 'openai' }; default stays Replicate/Sketchy.
+const MIRACLE_OPENAI_PROMPT = (subject) =>
+  `A single simple black-ink doodle of ${subject}, drawn in the exact same loose, `
+  + 'charming, childlike hand-drawn style as the reference images: confident black '
+  + 'ballpoint-pen line work, one subject, lots of empty white space, plain white '
+  + 'background, no shading, no color, no gray fills. Absolutely no words, letters, '
+  + 'numbers, captions, or signs anywhere in the image.';
+
+// The author's reference doodles, committed under functions/miracle-refs/.
+// Read once and cached for the life of the instance.
+let _miracleRefs = null;
+function loadMiracleRefs() {
+  if (_miracleRefs) return _miracleRefs;
+  const dir = path.join(__dirname, 'miracle-refs');
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => /\.(webp|png|jpe?g)$/i.test(f)).sort(); } catch { /* none */ }
+  _miracleRefs = files.map((f) => ({
+    name: f,
+    buffer: fs.readFileSync(path.join(dir, f)),
+    type: f.endsWith('.webp') ? 'image/webp' : (/jpe?g$/i.test(f) ? 'image/jpeg' : 'image/png'),
+  }));
+  return _miracleRefs;
+}
+
+// Draw the subject with gpt-image-1 edits + the reference doodles. Returns a
+// PNG/webp buffer (caller trims + persists).
+async function generateMiracleOpenAIImage(key, subject) {
+  const refs = loadMiracleRefs();
+  if (!refs.length) throw new HttpsError('failed-precondition', 'No reference doodles bundled.');
+  const form = new FormData();
+  form.append('model', 'gpt-image-1');
+  form.append('prompt', MIRACLE_OPENAI_PROMPT(subject));
+  form.append('size', '1024x1024');
+  form.append('quality', 'medium');
+  form.append('n', '1');
+  for (const r of refs) form.append('image[]', new Blob([r.buffer], { type: r.type }), r.name);
+
+  const res = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and retry.');
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${t.slice(0, 400)}`);
+  }
+  const json = await res.json();
+  const b64 = json?.data?.[0]?.b64_json;
+  if (!b64) throw new HttpsError('internal', 'No image returned from OpenAI edits.');
+  return Buffer.from(b64, 'base64');
+}
+
 exports.illustrateMiracle = onCall(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  { region: 'us-central1', timeoutSeconds: 120, memory: '1GiB' },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
     const text = String(request.data?.text || '').trim();
     if (!text) throw new HttpsError('invalid-argument', 'Write a miracle first.');
     const id = String(request.data?.id || crypto.randomUUID());
-
-    const repToken = await loadReplicateToken();
-    if (!repToken) {
-      throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
-    }
+    // Which illustrator: 'openai' (gpt-image-1 + reference doodles) or the
+    // default 'replicate' (the Sketchy LoRA). Lets us compare them live.
+    const engine = String(request.data?.engine || 'replicate').toLowerCase();
 
     // Distill the moment into a simple drawing prompt (best-effort). When
     // distill is false, draw the user's text verbatim instead.
@@ -742,15 +796,36 @@ exports.illustrateMiracle = onCall(
       }
     }
 
-    const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
-    // Ease the LoRA strength a touch — at full scale it tends to scrawl its
-    // trigger word ("special") into the picture.
-    const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
     // Unique path per draw so redraws don't overwrite earlier ones (enables undo).
-    // Trim the LoRA's white margins so the doodle fills the frame.
-    const url = await persistImage(
-      rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`, trimToSubject,
-    );
-    return { url, caption, drawing, id, version: MIRACLE_FN_VERSION };
+    const storagePath = `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`;
+    let url;
+    let version;
+
+    if (engine === 'openai') {
+      const openaiKey = await loadOpenAIKey();
+      if (!openaiKey) {
+        throw new HttpsError('failed-precondition',
+          'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+      }
+      // `drawing` is the distilled subject, or the raw text when distill is off.
+      const buffer = await generateMiracleOpenAIImage(openaiKey, drawing);
+      const filled = await trimToSubject(buffer); // fill the frame, same as Sketchy
+      url = await persistBuffer(filled, storagePath);
+      version = 'v6-openai-ref';
+    } else {
+      const repToken = await loadReplicateToken();
+      if (!repToken) {
+        throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
+      }
+      const prompt = `${MIRACLE_TRIGGER}, ${drawing}, ${MIRACLE_STYLE_GUIDE}`;
+      // Ease the LoRA strength a touch — at full scale it tends to scrawl its
+      // trigger word ("special") into the picture.
+      const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
+      // Trim the LoRA's white margins so the doodle fills the frame.
+      url = await persistImage(rawUrl, storagePath, trimToSubject);
+      version = MIRACLE_FN_VERSION;
+    }
+
+    return { url, caption, drawing, id, version, engine };
   }
 );
