@@ -191,13 +191,40 @@ def main():
     print(f"Attach build {build_ver} to '{gname}': HTTP {st}")
 
     # ---- submit the build for Beta App Review ----
-    st, d = api("POST", "/betaAppReviewSubmissions", tok, {
-        "data": {"type": "betaAppReviewSubmissions",
-                 "relationships": {"build": {"data": {"type": "builds", "id": build_id}}}}})
+    def submit():
+        return api("POST", "/betaAppReviewSubmissions", tok, {
+            "data": {"type": "betaAppReviewSubmissions",
+                     "relationships": {"build": {"data": {"type": "builds", "id": build_id}}}}})
+
+    st, d = submit()
+    # If an OLDER build is still queued for review, cancel that queued submission
+    # (only possible while WAITING_FOR_REVIEW) so this newer build can take its
+    # place, then retry once.
+    blocked = (st == 422 and isinstance(d, dict)
+               and any(e.get("code", "").endswith("ANOTHER_BUILD_IN_REVIEW") for e in d.get("errors", [])))
+    if blocked:
+        st2, ob = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10", tok)
+        cancelled = False
+        for other in (ob.get("data", []) if st2 == 200 else []):
+            if other["id"] == build_id:
+                continue
+            sst, sd = api("GET", f"/builds/{other['id']}/betaAppReviewSubmissions?limit=1", tok)
+            for sub in (sd.get("data", []) if sst == 200 else []):
+                if sub["attributes"].get("betaReviewState") == "WAITING_FOR_REVIEW":
+                    dst, _ = api("DELETE", f"/betaAppReviewSubmissions/{sub['id']}", tok)
+                    print(f"Cancelled queued submission for build {other['attributes'].get('version')}: HTTP {dst}")
+                    cancelled = True
+        if cancelled:
+            st, d = submit()
+
     if st in (200, 201):
         print(f"Submitted build {build_ver} for Beta App Review (HTTP {st}).")
     elif st == 409:
         print(f"Build already submitted / in review (HTTP 409).")
+    elif st == 422 and isinstance(d, dict) and any(
+            e.get("code", "").endswith("ANOTHER_BUILD_IN_REVIEW") for e in d.get("errors", [])):
+        print("::warning::an older build is already IN review (can't cancel) — "
+              "will submit this build once that one resolves.")
     else:
         print(f"::warning::beta review submission HTTP {st}: {d}")
 
