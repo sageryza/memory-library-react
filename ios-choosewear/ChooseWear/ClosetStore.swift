@@ -7,6 +7,7 @@ final class ClosetStore: ObservableObject {
     @Published var displayName: String = ""
     @Published var items: [ClothingItem] = []
     @Published var figure = Figure()
+    @Published var looks: [SavedLook] = []
 
     // Figure palette options (plain placeholders — owner restyles).
     static let skinTones: [Color] = [
@@ -40,6 +41,14 @@ final class ClosetStore: ObservableObject {
 
     func item(_ id: UUID) -> ClothingItem? { items.first { $0.id == id } }
 
+    // MARK: saved looks
+    func saveLook(top: UUID?, bottom: UUID?, full: UUID?, jacket: UUID?, accessory: UUID?) {
+        looks.insert(SavedLook(top: top, bottom: bottom, full: full,
+                               jacket: jacket, accessory: accessory), at: 0)
+        save()
+    }
+    func removeLooks(at offsets: IndexSet) { looks.remove(atOffsets: offsets); save() }
+
     /// Downscale to max 800px and JPEG-compress to keep storage small (per the spec).
     static func compress(_ image: UIImage, maxDim: CGFloat = 800, quality: CGFloat = 0.5) -> Data? {
         let scale = min(1, maxDim / max(image.size.width, image.size.height))
@@ -50,16 +59,19 @@ final class ClosetStore: ObservableObject {
     }
 
     // MARK: persistence
-    private struct Snapshot: Codable { var displayName: String; var items: [ClothingItem]; var figure: Figure }
+    private struct Snapshot: Codable {
+        var displayName: String; var items: [ClothingItem]; var figure: Figure
+        var looks: [SavedLook]?   // optional for backward-compatible decoding
+    }
     private func save() {
-        let snap = Snapshot(displayName: displayName, items: items, figure: figure)
+        let snap = Snapshot(displayName: displayName, items: items, figure: figure, looks: looks)
         if let d = try? JSONEncoder().encode(snap) { try? d.write(to: url) }
     }
     func persist() { save() }
     private func load() {
         guard let d = try? Data(contentsOf: url),
               let s = try? JSONDecoder().decode(Snapshot.self, from: d) else { return }
-        displayName = s.displayName; items = s.items; figure = s.figure
+        displayName = s.displayName; items = s.items; figure = s.figure; looks = s.looks ?? []
     }
 }
 

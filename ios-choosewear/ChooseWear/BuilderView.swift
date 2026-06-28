@@ -8,8 +8,7 @@ struct BuilderView: View {
     @State private var full: UUID?       // dress or jumpsuit (covers top+bottom)
     @State private var jacket: UUID?
     @State private var accessory: UUID?
-    @State private var requests = ""
-    @State private var sent = false
+    @State private var saved = false
 
     private var valid: Bool { full != nil || (top != nil && bottom != nil) }
 
@@ -66,17 +65,13 @@ struct BuilderView: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Special requests").font(.subheadline.bold())
-                        TextField("e.g. roll up your sleeves, tuck in the shirt", text: $requests, axis: .vertical)
-                            .textFieldStyle(.roundedBorder).lineLimit(2...4)
-                    }
-                    .padding(.horizontal)
-
                     Button {
-                        sent = true
+                        store.saveLook(top: top, bottom: bottom, full: full,
+                                       jacket: jacket, accessory: accessory)
+                        top = nil; bottom = nil; full = nil; jacket = nil; accessory = nil
+                        saved = true
                     } label: {
-                        Text("Send request  ·  $5 (payment coming soon)")
+                        Label("Save look", systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -92,10 +87,10 @@ struct BuilderView: View {
                 .padding(.vertical)
             }
             .navigationTitle("Build an Outfit")
-            .alert("Request sent (demo)", isPresented: $sent) {
+            .alert("Look saved", isPresented: $saved) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("In Phase 2 this charges the chooser and holds the payment in escrow until proof is uploaded.")
+                Text("Saved to your Looks tab.")
             }
         }
     }
