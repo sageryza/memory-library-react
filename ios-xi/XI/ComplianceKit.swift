@@ -22,13 +22,13 @@ struct ComplianceTheme {
 }
 
 extension ComplianceTheme {
-    /// XI look — warm paper, ink, gold accent, serif.
+    /// XI look — warm paper, ink, maroon accent, serif.
     static let xi = ComplianceTheme(
         background: XITheme.paper,
         card: XITheme.white,
         ink: XITheme.ink,
         subtleInk: XITheme.line,
-        accent: XITheme.gold,
+        accent: XITheme.maroon,
         accentText: .white,
         line: XITheme.line,
         titleFont: { .system(size: $0, design: .serif).weight(.semibold) },

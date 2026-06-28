@@ -46,11 +46,11 @@ struct BoardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showLibrary = true } label: { Image(systemName: "books.vertical") }
-                        .tint(XITheme.gold)
+                        .tint(XITheme.maroon)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showVersus = true } label: { Image(systemName: "person.2") }
-                        .tint(XITheme.gold)
+                        .tint(XITheme.maroon)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -61,7 +61,7 @@ struct BoardView: View {
                         }
                         Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
                     } label: {
-                        Image(systemName: "person.circle").tint(XITheme.gold)
+                        Image(systemName: "person.circle").tint(XITheme.maroon)
                     }
                 }
             }
@@ -71,7 +71,7 @@ struct BoardView: View {
             .sheet(isPresented: $showLibrary) { LibraryView() }
             .sheet(isPresented: $showVersus) { VersusLobbyView(auth: auth) }
         }
-        .tint(XITheme.gold)
+        .tint(XITheme.maroon)
     }
 
     private var header: some View {
@@ -83,14 +83,14 @@ struct BoardView: View {
                     .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
                     .foregroundStyle(XITheme.ink)
                 Text(BoardEngine.dayLabel(viewDay, today: today))
-                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
             }
             Spacer()
             Button { if viewDay < today { viewDay += 1; selected = nil } } label: { Image(systemName: "chevron.right") }
                 .disabled(viewDay >= today)
         }
         .font(.system(.title3, design: .serif))
-        .tint(XITheme.gold)
+        .tint(XITheme.maroon)
         .padding(.horizontal, 4)
     }
 
@@ -163,7 +163,7 @@ struct CardCell: View {
         .aspectRatio(1, contentMode: .fit)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(selected ? XITheme.gold : XITheme.line, lineWidth: selected ? 2.5 : 0.5)
+                .stroke(selected ? XITheme.maroon : XITheme.line, lineWidth: selected ? 2.5 : 0.5)
         )
     }
 }
