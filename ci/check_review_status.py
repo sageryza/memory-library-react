@@ -68,18 +68,30 @@ def main():
             print(f"STATUS {bundle}: app-not-found ({st})"); continue
         app_id = d["data"][0]["id"]
 
-        st, d = api(f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=1", tok)
+        st, d = api(f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=5", tok)
         if st != 200 or not d.get("data"):
             print(f"STATUS {bundle}: no-build"); continue
-        b = d["data"][0]
-        bid = b["id"]; ver = b["attributes"].get("version"); proc = b["attributes"].get("processingState")
+        builds = d["data"]
 
-        ext = "UNKNOWN"
-        st, d = api(f"/builds/{bid}/buildBetaDetail", tok)
-        if st == 200 and d.get("data"):
-            ext = d["data"]["attributes"].get("externalBuildState", "UNKNOWN")
+        # Detail line per recent build: processing + internal + external state.
+        latest_states = None
+        for idx, b in enumerate(builds):
+            bid = b["id"]; ver = b["attributes"].get("version")
+            proc = b["attributes"].get("processingState")
+            ext = inta = "UNKNOWN"
+            st, dd = api(f"/builds/{bid}/buildBetaDetail", tok)
+            if st == 200 and dd.get("data"):
+                a = dd["data"]["attributes"]
+                ext = a.get("externalBuildState", "UNKNOWN")
+                inta = a.get("internalBuildState", "UNKNOWN")
+            print(f"BUILD {bundle}: v{ver} processing={proc} internal={inta} external={ext}")
+            if idx == 0:
+                latest_states = (ver, proc, ext)
 
-        print(f"STATUS {bundle}: build {ver} processing={proc} review={ext}")
+        # Keep the watcher-parsed STATUS line (latest build, external state).
+        if latest_states:
+            ver, proc, ext = latest_states
+            print(f"STATUS {bundle}: build {ver} processing={proc} review={ext}")
     return 0
 
 
