@@ -40,7 +40,7 @@ struct ComposerSheet: View {
                 Text(saving ? "saving…" : "save")
                     .font(.system(.body, design: .serif))
                     .padding(.horizontal, 28).padding(.vertical, 10)
-                    .background(XITheme.gold).foregroundStyle(.white)
+                    .background(XITheme.maroon).foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving)
@@ -51,7 +51,7 @@ struct ComposerSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("the times before")
-                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
+                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.maroon)
                         ForEach(existing) { m in
                             Text(m.content)
                                 .font(.system(.callout, design: .serif))

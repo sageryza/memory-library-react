@@ -82,10 +82,10 @@ struct VersusGameView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                    ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.maroon)
                 }
             }
-            .tint(XITheme.gold)
+            .tint(XITheme.maroon)
     }
 
     private var scroll: some View {
@@ -94,7 +94,7 @@ struct VersusGameView: View {
                 if store.notFound {
                     Text("Game not found.").font(.system(.body, design: .serif)).foregroundStyle(.red).padding(.top, 40)
                 } else if game == nil {
-                    ProgressView().tint(XITheme.gold).padding(.top, 40)
+                    ProgressView().tint(XITheme.maroon).padding(.top, 40)
                 } else {
                     header
                     board
@@ -121,7 +121,7 @@ struct VersusGameView: View {
                     .foregroundStyle(XITheme.ink)
             }
             if let g = game {
-                Text("round \(g.round + 1)").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
+                Text("round \(g.round + 1)").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
                 let cols = [GridItem(.adaptive(minimum: 84), spacing: 8)]
                 LazyVGrid(columns: cols, spacing: 8) {
                     ForEach(g.players) { p in
@@ -130,7 +130,7 @@ struct VersusGameView: View {
                             Text(p.name).font(.system(.caption, design: .serif)).lineLimit(1)
                                 .foregroundStyle(XITheme.ink)
                             if g.acted.contains(p.uid) {
-                                Image(systemName: "checkmark").font(.system(size: 8)).foregroundStyle(XITheme.gold)
+                                Image(systemName: "checkmark").font(.system(size: 8)).foregroundStyle(XITheme.maroon)
                             }
                         }
                         .padding(.vertical, 4).padding(.horizontal, 8)
@@ -166,10 +166,10 @@ struct VersusGameView: View {
         } else {
             let isLegal = legal.contains(key)
             RoundedRectangle(cornerRadius: 4)
-                .fill(isLegal ? XITheme.gold.opacity(0.18) : Color.black.opacity(0.025))
+                .fill(isLegal ? XITheme.maroon.opacity(0.18) : Color.black.opacity(0.025))
                 .aspectRatio(1, contentMode: .fit)
                 .overlay(RoundedRectangle(cornerRadius: 4)
-                    .stroke(isLegal ? XITheme.gold : .clear, lineWidth: isLegal ? 2 : 0))
+                    .stroke(isLegal ? XITheme.maroon : .clear, lineWidth: isLegal ? 2 : 0))
                 .onTapGesture { if isLegal { place(r, c) } }
         }
     }
@@ -235,7 +235,7 @@ struct VersusGameView: View {
     private var stories: some View {
         if !visibleStories.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("the stories so far").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
+                Text("the stories so far").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
                 ForEach(visibleStories) { s in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
@@ -334,7 +334,7 @@ struct VersusCardCell: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(RoundedRectangle(cornerRadius: 4)
-            .stroke(anchored ? XITheme.gold : (owner != nil ? Color(xiHex: owner) : XITheme.line),
+            .stroke(anchored ? XITheme.maroon : (owner != nil ? Color(xiHex: owner) : XITheme.line),
                     lineWidth: anchored ? 2.5 : (owner != nil ? 2 : 0.5)))
     }
 }
@@ -345,10 +345,10 @@ struct VersusButton: ButtonStyle {
         configuration.label
             .font(.system(.subheadline, design: .serif))
             .padding(.vertical, 9).padding(.horizontal, 16)
-            .background(filled ? XITheme.gold : XITheme.white)
-            .foregroundStyle(filled ? .white : XITheme.gold)
+            .background(filled ? XITheme.maroon : XITheme.white)
+            .foregroundStyle(filled ? .white : XITheme.maroon)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(filled ? 0 : 0.5), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.maroon.opacity(filled ? 0 : 0.5), lineWidth: 1))
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
@@ -396,16 +396,16 @@ struct StoryComposer: View {
             .background(XITheme.paper.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.tint(XITheme.gold)
+                    Button("cancel") { dismiss() }.tint(XITheme.maroon)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(busy ? "…" : "save") { save() }
-                        .tint(XITheme.gold)
+                        .tint(XITheme.maroon)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
                 }
             }
         }
-        .tint(XITheme.gold)
+        .tint(XITheme.maroon)
     }
 
     private func save() {
