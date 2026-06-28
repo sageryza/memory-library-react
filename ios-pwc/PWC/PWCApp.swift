@@ -16,17 +16,27 @@ struct PWCApp: App {
 }
 
 struct RootView: View {
+    @StateObject private var moderation = Moderation()
+
     var body: some View {
-        TabView {
-            NowView()
-                .tabItem { Label("Now", systemImage: "eye") }
-            EventsView()
-                .tabItem { Label("Events", systemImage: "calendar") }
-            ShopView()
-                .tabItem { Label("Shop", systemImage: "bag") }
-            ClubView()
-                .tabItem { Label("Club", systemImage: "person.crop.rectangle") }
+        EULAGate(
+            theme: .pwc,
+            appName: "People Watching Club",
+            eulaURL: URL(string: "https://incaseofamnesia.com/eula.html"),
+            privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html")
+        ) {
+            TabView {
+                NowView()
+                    .tabItem { Label("Now", systemImage: "eye") }
+                EventsView()
+                    .tabItem { Label("Events", systemImage: "calendar") }
+                ShopView()
+                    .tabItem { Label("Shop", systemImage: "bag") }
+                ClubView()
+                    .tabItem { Label("Club", systemImage: "person.crop.rectangle") }
+            }
+            .tint(PWC.accent)
         }
-        .tint(PWC.accent)
+        .environmentObject(moderation)
     }
 }
