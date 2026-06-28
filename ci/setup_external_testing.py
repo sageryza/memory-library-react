@@ -116,15 +116,18 @@ def main():
         "contactFirstName": first, "contactLastName": last,
         "contactEmail": email,
         "demoAccountRequired": bool(demo_user),
-        "demoAccountName": demo_user, "demoAccountPassword": demo_pass,
     }
     if phone:
         attrs["contactPhone"] = phone
+    if demo_user:
+        attrs["demoAccountName"] = demo_user
+        attrs["demoAccountPassword"] = demo_pass
     if st == 200 and d.get("data"):
         rid = d["data"]["id"]
         st2, d2 = api("PATCH", f"/betaAppReviewDetails/{rid}", tok,
                       {"data": {"type": "betaAppReviewDetails", "id": rid, "attributes": attrs}})
-        print(f"Beta App Review detail updated: HTTP {st2}")
+        print(f"Beta App Review detail updated: HTTP {st2}"
+              + ("" if st2 in (200, 201) else f"  resp={d2}"))
     else:
         print(f"::warning::could not read betaAppReviewDetail ({st}): {d}")
 
