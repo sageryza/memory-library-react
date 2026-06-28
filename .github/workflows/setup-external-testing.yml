@@ -1,0 +1,46 @@
+name: Set up external testing
+
+# Creates an external TestFlight group with a public link and submits the
+# latest build for Beta App Review. Reuses the account-wide ASC secrets.
+# The reviewer-contact phone comes from the ASC_CONTACT_PHONE secret so it is
+# never committed to this (public) repo.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: App bundle id
+        required: true
+        default: com.sageryza.xi
+      group_name:
+        description: External group name
+        required: true
+        default: Public Beta
+      beta_description:
+        description: "What to test (app-level blurb)"
+        required: false
+        default: ""
+      whats_new:
+        description: "Notes for this build"
+        required: false
+        default: ""
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APP_BUNDLE_ID: ${{ inputs.bundle_id }}
+      GROUP_NAME: ${{ inputs.group_name }}
+      BETA_DESCRIPTION: ${{ inputs.beta_description }}
+      WHATS_NEW: ${{ inputs.whats_new }}
+      CONTACT_FIRST: Sage
+      CONTACT_LAST: Ryza
+      CONTACT_EMAIL: sageryza@gmail.com
+      FEEDBACK_EMAIL: sageryza@gmail.com
+      CONTACT_PHONE: ${{ secrets.ASC_CONTACT_PHONE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up external testing
+        run: python3 ci/setup_external_testing.py
