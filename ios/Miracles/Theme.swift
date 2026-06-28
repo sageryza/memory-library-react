@@ -21,3 +21,18 @@ enum Theme {
     static let handwriting = "Caveat"        // dates + captions
     static let serif = "Cormorant Garamond"  // buttons + small UI
 }
+
+extension ComplianceTheme {
+    /// Miracles look — warm paper, gold, elegant serif (readable for consent).
+    static let miracles = ComplianceTheme(
+        background: Theme.paper,
+        card: Theme.card,
+        ink: Theme.ink,
+        subtleInk: Theme.dateInk,
+        accent: Theme.gold,
+        accentText: Theme.ink,
+        line: Theme.line,
+        titleFont: { Font.custom(Theme.serif, size: $0).weight(.semibold) },
+        bodyFont: { Font.custom(Theme.serif, size: $0) }
+    )
+}
