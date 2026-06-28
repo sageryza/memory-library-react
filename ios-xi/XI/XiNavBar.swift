@@ -33,7 +33,7 @@ struct XiNavBar: View {
         .background(
             XITheme.navBg
                 .overlay(Rectangle().fill(XITheme.navBorder).frame(height: 0.5), alignment: .top)
-                .ignoresSafeArea(edge: .bottom)
+                .ignoresSafeArea(.container, edges: .bottom)
         )
     }
 
