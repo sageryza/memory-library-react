@@ -81,16 +81,26 @@ def main():
     app_id = d["data"][0]["id"]
     print(f"App {bundle} -> {app_id}")
 
-    # latest build + processing state
+    # latest build + processing state. With WAIT_VALID set (used right after a
+    # CI upload), poll until the just-uploaded build finishes processing so we
+    # attach IT, not the previous build.
     build_id = build_state = build_ver = None
-    st, d = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=1", tok)
-    if st == 200 and d.get("data"):
-        b = d["data"][0]
-        build_id = b["id"]; build_state = b["attributes"].get("processingState")
-        build_ver = b["attributes"].get("version")
-        print(f"Latest build {build_ver} processingState={build_state} id={build_id}")
-    else:
-        print("::warning::no build found yet for this app.")
+    wait = os.environ.get("WAIT_VALID", "").lower() in ("1", "true", "yes")
+    deadline = time.time() + (14 * 60 if wait else 0)
+    while True:
+        st, d = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=1", tok)
+        if st == 200 and d.get("data"):
+            b = d["data"][0]
+            build_id = b["id"]; build_state = b["attributes"].get("processingState")
+            build_ver = b["attributes"].get("version")
+            print(f"Latest build {build_ver} processingState={build_state} id={build_id}")
+        else:
+            print("::warning::no build found yet for this app.")
+        if not wait or build_state == "VALID" or time.time() >= deadline:
+            break
+        print("  …still processing; re-checking in 30s")
+        time.sleep(30)
+        tok = token()  # JWT expires in 10 min — refresh while waiting
 
     # find or create an internal group
     st, d = api("GET", f"/apps/{app_id}/betaGroups?limit=200", tok)

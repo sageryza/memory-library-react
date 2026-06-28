@@ -52,3 +52,12 @@ jobs:
       - name: Build & upload to TestFlight
         working-directory: ios-xi
         run: fastlane beta
+
+      - name: Attach build to internal testers
+        if: success()
+        env:
+          APP_BUNDLE_ID: com.sageryza.xi
+          TESTER_EMAIL: sageryza@gmail.com
+          GROUP_NAME: Internal
+          WAIT_VALID: "1"
+        run: python3 ci/setup_internal_testing.py
