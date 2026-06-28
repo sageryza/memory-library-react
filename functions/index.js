@@ -687,28 +687,34 @@ const MIRACLE_STYLE_GUIDE =
   + 'signs, or writing anywhere in the image.';
 
 const MIRACLE_SYSTEM = [
-  'You turn a small real-life moment into a clever single doodle for a keepsake book of',
-  'tiny daily miracles — like a ONE-PANEL CARTOON that captures the WHOLE little story at',
-  'a glance, including its funny or sweet twist. NOT just one object pulled from it, and',
-  'NOT a literal frame-by-frame retelling.',
+  'You distill a small real-life moment into ONE clever little doodle for a keepsake book',
+  'of tiny daily miracles. Think hard: the doodle is a single SYMBOL — one object (or a',
+  'tight, witty combination of objects) that captures the WHOLE story and its twist at a',
+  'glance, like a clever icon, pictogram, or little diagram. The intelligence is in',
+  'choosing/combining the RIGHT thing so it reads instantly and makes someone smile.',
   '',
-  'Think hard about the best visual idea. The strongest doodles capture the gist AND the',
-  'punchline, usually by combining two things or showing a small visual metaphor. Examples:',
-  '- "the bakery was closed but they unlocked it for my birthday" →',
-  '  a birthday cake sitting inside a shop window with a sign flipped to "OPEN", a hand',
-  '  turning the lock just for it.',
-  '- "a girl named Hope gave me water when I almost fainted" →',
-  '  one hand passing a glass of water to another hand, a little halo or sparkle over it.',
-  'Make it concrete enough to draw with a few pen lines. A few small hand-lettered words or',
-  'signs ARE allowed when they make the meaning click (keep them short).',
+  'HARD RULES:',
+  '- It is a THING, not a scene. NO people, NO human figures, NO faces, NO hands, NO speech',
+  '  bubbles, NO background or setting. Just the object(s), centered on a blank page like a',
+  '  diagram.',
+  '- Combine ideas when that is the clever move. Examples:',
+  '  · "the bakery was closed but they unlocked it for my birthday" →',
+  '    a birthday cake with a little "CLOSED" sign hanging on it.',
+  '  · "a Mini Brands surprise ball opened to tiny strawberry pancakes" →',
+  '    a cracked-open capsule with a tiny stack of pancakes inside.',
+  '  · "a girl named Hope brought me water when I nearly fainted" →',
+  '    a glass of water with a small halo floating over it.',
+  '- A few small hand-lettered words or a tiny sign ARE allowed when they make it click.',
+  '  Keep them minimal.',
+  '- Keep it drawable in a few simple pen lines.',
   '',
-  'If a single idea clearly nails it, return ONE. If the moment could be drawn a few good',
-  'different ways, return up to THREE distinct concepts so the person can choose.',
+  'If one symbol nails it, return ONE. If a couple of different objects could each work,',
+  'return up to THREE distinct concepts so the person can choose.',
   '',
   'Respond with ONLY JSON: {"concepts": [{"caption": "...", "drawing": "..."}, ...]}',
   '(1 to 3 items).',
-  '- drawing: a concrete description of the whole doodle — name the elements and how they',
-  '  are arranged / interacting, so an illustrator could draw it. Keep it simple.',
+  '- drawing: name the single object / diagram concretely, including any clever combination',
+  '  or tiny label — but NO people and NO scenery.',
   '- caption: a short, warm, lowercase note for the moment, max ~8 words.',
 ].join('\n');
 
@@ -717,12 +723,12 @@ const MIRACLE_SYSTEM = [
 // endpoint, passing a handful of the author's own doodles as style references.
 // Toggle per-call with { engine: 'openai' }; default stays Replicate/Sketchy.
 const MIRACLE_OPENAI_PROMPT = (concept) =>
-  'A simple black-ink doodle, drawn in the exact same loose, charming, childlike '
-  + 'hand-drawn style as the reference images: confident black ballpoint-pen line work, '
-  + 'plain white background, lots of empty white space, no shading, no color, no gray '
-  + `fills. Draw this little scene: ${concept}. Keep it simple — only the few elements `
-  + 'needed to tell the story. Small hand-lettered words or signs are okay if they help '
-  + 'tell it; otherwise no text.';
+  'A single small object drawn as a simple doodle / icon on a plain white background, '
+  + 'centered with lots of empty white space — like a quick diagram, NOT a scene. Loose, '
+  + 'imperfect, hand-drawn with a thin black ballpoint pen, wobbly uneven lines, childlike '
+  + 'and minimal, like the reference images. No shading, no solid black fills, no color, '
+  + `NO people, NO hands, NO background. Draw: ${concept}. A tiny hand-lettered label is `
+  + 'okay only if it helps.';
 
 // The author's reference doodles, committed under functions/miracle-refs/.
 // Read once and cached for the life of the instance.
