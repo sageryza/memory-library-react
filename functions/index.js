@@ -545,8 +545,7 @@ async function renderStickerSheet(rawPrompt, qualityIn) {
     + 'fine black line art with soft flat muted color fills (dusty rose, sage, '
     + 'ochre, terracotta, lavender, pale blue). Do NOT copy their content. '
     + 'Make the stickers FREE-FORM, individually die-cut shapes that follow each '
-    + "illustration's outline — NOT circular badges or round coins. Each sticker "
-    + 'has a clean thick white kiss-cut border and a subtle drop shadow. '
+    + "illustration's outline — NOT circular badges or round coins. "
     + 'Compose about 6 large stickers plus a handful of small accent stickers '
     + '(sparkles, small flowers, little gems) — not crowded, with breathing room. '
     + 'Absolutely no text, words, letters or watermarks anywhere. '
