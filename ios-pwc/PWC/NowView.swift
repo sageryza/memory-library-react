@@ -58,18 +58,23 @@ struct NowView: View {
     }
 
     private var masthead: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 14) {
+            Image(systemName: "binoculars")
+                .font(.system(size: 32, weight: .thin))
+                .foregroundStyle(PWC.accent)
             Text("PEOPLE WATCHING CLUB")
-                .font(PWC.display(22, .heavy)).tracking(1)
-                .foregroundStyle(PWC.ink).multilineTextAlignment(.center)
-            HStack(spacing: 7) {
-                Circle().fill(PWC.accent).frame(width: 8, height: 8)
-                Text("\(watchingNow) members watching right now")
-                    .font(PWC.mono(12)).foregroundStyle(PWC.sage)
+                .font(PWC.display(25)).tracking(6).lineSpacing(3)
+                .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
+            Rectangle().fill(PWC.accent).frame(width: 46, height: 1)
+            HStack(spacing: 8) {
+                Circle().fill(PWC.accent).frame(width: 6, height: 6)
+                Text("\(watchingNow) WATCHING NOW")
+                    .font(PWC.mono(11)).tracking(2.5).foregroundStyle(PWC.sage)
             }
+            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 8).padding(.bottom, 2)
+        .padding(.top, 20).padding(.bottom, 14)
     }
 
     private var postButton: some View {
