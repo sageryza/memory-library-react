@@ -1,8 +1,10 @@
 import SwiftUI
+import CoreText
 
 @main
 struct PWCApp: App {
     init() {
+        Self.registerFonts()
         let ink = UIColor(PWC.ink)
         let navy = UIColor(PWC.paper)
 
@@ -31,6 +33,21 @@ struct PWCApp: App {
 
     var body: some Scene {
         WindowGroup { RootView() }
+    }
+
+    /// Register the bundled Cormorant Garamond faces so `Font.custom` can find
+    /// them by PostScript name (the generated Info.plist has no UIAppFonts).
+    static func registerFonts() {
+        let faces = [
+            "CormorantGaramond-Regular", "CormorantGaramond-Medium",
+            "CormorantGaramond-SemiBold", "CormorantGaramond-Bold",
+            "CormorantGaramond-Italic",
+        ]
+        for face in faces {
+            if let url = Bundle.main.url(forResource: face, withExtension: "ttf") {
+                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            }
+        }
     }
 }
 

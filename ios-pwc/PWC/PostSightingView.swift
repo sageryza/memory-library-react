@@ -23,11 +23,11 @@ struct PostSightingView: View {
                     ZStack(alignment: .topLeading) {
                         if note.isEmpty {
                             Text("by the window at La La Land, two men arguing about a croissant 🥐")
-                                .font(.system(.body, design: .serif)).foregroundStyle(PWC.dim)
+                                .font(PWC.display(17)).foregroundStyle(PWC.dim)
                                 .padding(.top, 10).padding(.leading, 6)
                         }
                         TextEditor(text: $note)
-                            .font(.system(.body, design: .serif)).foregroundStyle(PWC.ink)
+                            .font(PWC.display(17)).foregroundStyle(PWC.ink)
                             .scrollContentBackground(.hidden).frame(minHeight: 120)
                     }
                     .padding(8)
