@@ -22,6 +22,9 @@
 //   --concurrency <n>   How many files to process at once. Default: 4.
 //   --min-speech <sec>  Skip files with less than this many seconds of sound
 //                       (the empty/sleep recordings). Default: 2.
+//   --max-minutes <n>   Skip files longer than n minutes — set them aside under
+//                       "Too long — review manually" (kept in order, not
+//                       transcribed). Default: no cap. Try 30 or 60.
 //   --no-trim           Don't strip silence before transcribing. By default, when
 //                       ffmpeg is present, silence is trimmed so a 6-hour mostly-
 //                       empty file only costs the few seconds of real speech.
@@ -59,9 +62,11 @@ const CATEGORIES = [
   { key: 'note',    label: 'Notes',    desc: 'A factual note, piece of info, name, number, or reference.' },
   { key: 'other',   label: 'Other',    desc: 'Does not clearly fit any category above.' },
   { key: 'empty',   label: 'Empty / silent', desc: 'No real speech — silent or near-silent recording (e.g. left running by accident).' },
+  { key: 'toolong', label: 'Too long — review manually', desc: 'Longer than the --max-minutes cutoff; set aside (not transcribed) for you to review by hand.' },
 ];
-// The AI only ever picks from these (no "empty" — that's decided locally).
-const SORT_CATEGORIES = CATEGORIES.filter((c) => c.key !== 'empty');
+// The AI only ever picks from these ("empty"/"toolong" are decided locally).
+const LOCAL_ONLY = new Set(['empty', 'toolong']);
+const SORT_CATEGORIES = CATEGORIES.filter((c) => !LOCAL_ONLY.has(c.key));
 const SORT_KEYS = SORT_CATEGORIES.map((c) => c.key);
 
 const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.wav', '.aac', '.mp4', '.aiff', '.aif', '.caf', '.flac', '.ogg', '.opus', '.webm']);
@@ -78,6 +83,7 @@ function parseArgs(argv) {
     limit: Infinity,
     concurrency: 4,
     minSpeech: 2,
+    maxMinutes: Infinity,
     trim: true,
     hearSongs: true,
     transcribeModel: 'gpt-4o-transcribe',
@@ -96,6 +102,7 @@ function parseArgs(argv) {
       case '--limit': a.limit = parseInt(next(), 10); break;
       case '--concurrency': a.concurrency = Math.max(1, parseInt(next(), 10)); break;
       case '--min-speech': a.minSpeech = parseFloat(next()); break;
+      case '--max-minutes': a.maxMinutes = parseFloat(next()); break;
       case '--no-trim': a.trim = false; break;
       case '--hear-songs': a.hearSongs = true; break;
       case '--no-hear-songs': a.hearSongs = false; break;
@@ -467,7 +474,7 @@ async function main() {
   if (!ffmpegAvailable) console.log('Note: ffmpeg not found — empty-skip, silence-trim, and >25MB compression are disabled. Install with `brew install ffmpeg`.');
   const doTrim = args.trim && ffmpegAvailable;
 
-  let done = 0, skipped = 0;
+  let done = 0, skipped = 0, skippedLong = 0;
   const failures = [];
   await pool(todo, args.concurrency, async (w) => {
     const name = path.basename(w.file);
@@ -485,6 +492,17 @@ async function main() {
           await fsp.writeFile(cacheFile, JSON.stringify(cache, null, 2));
           skipped++;
           console.log(`  ○ skipped (empty): ${name} — ${fmtDur(analysis.duration)}, ${analysis.speechSec.toFixed(1)}s sound`);
+          return;
+        }
+        if (analysis.duration / 60 > args.maxMinutes) {
+          const result = {
+            file: w.file, recordedAt: w.recordedAt, transcript: '', analysis, skipped: 'toolong',
+            sort: { category: 'toolong', title: `(too long — ${fmtDur(analysis.duration)}, review by hand)`, summary: `Over the ${args.maxMinutes}-min cutoff (${fmtDur(analysis.duration)}); set aside for manual review.`, tags: [], confidence: 1, is_musical: false, needs_review: false },
+          };
+          cache[w.key] = result;
+          await fsp.writeFile(cacheFile, JSON.stringify(cache, null, 2));
+          skippedLong++;
+          console.log(`  ○ skipped (too long): ${name} — ${fmtDur(analysis.duration)}`);
           return;
         }
       }
@@ -529,7 +547,7 @@ async function main() {
   const allResults = Object.values(cache).sort((a, b) => (a.recordedAt || '').localeCompare(b.recordedAt || ''));
   await writeOutputs(outDir, allResults);
 
-  console.log(`\nDone. ${done} transcribed, ${skipped} skipped as empty, ${failures.length} failed.`);
+  console.log(`\nDone. ${done} transcribed, ${skipped} skipped as empty, ${skippedLong} skipped as too-long, ${failures.length} failed.`);
   if (failures.length) console.log('Failed files are not cached — re-run to retry them.');
   console.log(`Output written to: ${outDir}`);
   console.log(`  • index.md         — summary + counts`);
