@@ -433,11 +433,11 @@ const FORGE_STYLES = {
 
 // Render one gpt-image-2 image at the given quality; returns a temporary data
 // URL source buffer is persisted by the caller. Returns { rawBuffer }.
-async function generateOpenAIImage(key, prompt, quality = 'low') {
+async function generateOpenAIImage(key, prompt, quality = 'low', size = '1024x1024') {
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-2', prompt, n: 1, size: '1024x1024', quality, output_format: 'webp' }),
+    body: JSON.stringify({ model: 'gpt-image-2', prompt, n: 1, size, quality, output_format: 'webp' }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -450,6 +450,33 @@ async function generateOpenAIImage(key, prompt, quality = 'low') {
   const b64 = json?.data?.[0]?.b64_json;
   if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
   return Buffer.from(b64, 'base64');
+}
+
+// Coloring Page — a printable black-and-white line-art page from a prompt.
+// Clean bold outlines, no shading or fill, large simple shapes, portrait page.
+// quality defaults to "medium".
+async function renderColoringPage(rawPrompt, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the coloring page you want.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const body = raw.slice(0, 1000);
+  const prompt =
+    'A black-and-white coloring book page. Clean bold black outlines on a pure '
+    + 'white background, even line weight, NO shading, NO grey, NO color, NO solid '
+    + 'fills — just crisp outlines to color in. Large, simple, friendly shapes with '
+    + 'clear separated regions, suitable for a child to color. Fill the page as a '
+    + 'single charming scene. No text, words, letters or watermarks. The scene: '
+    + body;
+  const buffer = await generateOpenAIImage(key, prompt, quality, '1024x1536');
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(buffer, `forge-coloring/${stamp}.webp`);
+  return { url, quality, prompt: body };
 }
 
 exports.forgeTestImage = onCall(
@@ -468,6 +495,10 @@ exports.forgeTestImage = onCall(
     // "sticker-sheet" renders a full sheet (+ segmented boxes) via the helper.
     if (styleKey === 'sticker-sheet') {
       return renderStickerSheet(raw, request.data?.quality);
+    }
+    // "coloring-page" renders a printable black-and-white line-art page.
+    if (styleKey === 'coloring-page') {
+      return renderColoringPage(raw, request.data?.quality);
     }
     const style = FORGE_STYLES[styleKey];
     if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
