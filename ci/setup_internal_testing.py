@@ -86,6 +86,12 @@ def main():
     # attach IT, not the previous build.
     build_id = build_state = build_ver = None
     wait = os.environ.get("WAIT_VALID", "").lower() in ("1", "true", "yes")
+    if wait:
+        # The just-uploaded build can take a minute or two to register as the
+        # newest one; without this pause we'd race and attach the PREVIOUS build.
+        print("waiting 150s for the freshly-uploaded build to register…")
+        time.sleep(150)
+        tok = token()
     deadline = time.time() + (25 * 60 if wait else 0)
     while True:
         st, d = api("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=1", tok)
