@@ -45,7 +45,16 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import OpenAI from 'openai';
+
+// No npm dependencies — talks to OpenAI with Node's built-in fetch.
+const OPENAI_BASE = 'https://api.openai.com/v1';
+const authHeaders = (extra = {}) => ({ Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...extra });
+async function apiError(res) {
+  let body = ''; try { body = await res.text(); } catch { /* ignore */ }
+  let code; try { code = JSON.parse(body)?.error?.code; } catch { /* ignore */ }
+  const e = new Error(`HTTP ${res.status}: ${(body || '').slice(0, 200)}`);
+  e.status = res.status; e.code = code; return e;
+}
 
 // ---------------------------------------------------------------------------
 // Categories. Edit this list to taste — descriptions are sent to the sorter so
@@ -273,15 +282,18 @@ function ensureUnderLimit(file, sizeBytes, ffmpegAvailable) {
   return { path: tmp, temp: tmp };
 }
 
-async function transcribe(openai, model, filePath) {
-  const res = await withRetry(
-    () => openai.audio.transcriptions.create({
-      file: fs.createReadStream(filePath),
-      model,
-    }),
-    { label: 'transcribe' },
-  );
-  return (res.text || '').trim();
+async function transcribe(model, filePath) {
+  const buf = await fsp.readFile(filePath);
+  const name = path.basename(filePath);
+  const res = await withRetry(async () => {
+    const fd = new FormData();
+    fd.append('file', new Blob([buf]), name);
+    fd.append('model', model);
+    const r = await fetch(`${OPENAI_BASE}/audio/transcriptions`, { method: 'POST', headers: authHeaders(), body: fd });
+    if (!r.ok) throw await apiError(r);
+    return r;
+  }, { label: 'transcribe' });
+  return ((await res.json()).text || '').trim();
 }
 
 function buildSortSchema() {
@@ -308,46 +320,50 @@ function buildSortSchema() {
   };
 }
 
-async function sortTranscript(openai, model, transcript) {
+async function sortTranscript(model, transcript) {
   if (!transcript) {
     return { category: 'other', title: 'Empty / inaudible', summary: 'No speech detected.', tags: [], confidence: 0, is_musical: false, needs_review: true };
   }
   const catList = SORT_CATEGORIES.map((c) => `- ${c.key}: ${c.desc}`).join('\n');
-  const res = await withRetry(
-    () => openai.chat.completions.create({
-      model,
-      response_format: buildSortSchema(),
-      messages: [
-        { role: 'system', content: `You sort a person's voice-memo transcripts into one category. Categories:\n${catList}\n\nPick the single best category. Be honest with confidence — set needs_review=true when ambiguous, empty, or garbled.` },
-        { role: 'user', content: `Transcript:\n"""\n${transcript.slice(0, 6000)}\n"""` },
-      ],
-    }),
-    { label: 'sort' },
-  );
-  return JSON.parse(res.choices[0].message.content);
+  const payload = {
+    model,
+    response_format: buildSortSchema(),
+    messages: [
+      { role: 'system', content: `You sort a person's voice-memo transcripts into one category. Categories:\n${catList}\n\nPick the single best category. Be honest with confidence — set needs_review=true when ambiguous, empty, or garbled.` },
+      { role: 'user', content: `Transcript:\n"""\n${transcript.slice(0, 6000)}\n"""` },
+    ],
+  };
+  const res = await withRetry(async () => {
+    const r = await fetch(`${OPENAI_BASE}/chat/completions`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
+    if (!r.ok) throw await apiError(r);
+    return r;
+  }, { label: 'sort' });
+  return JSON.parse((await res.json()).choices[0].message.content);
 }
 
-async function hearMusic(openai, model, filePath, sizeBytes, ffmpegAvailable) {
+async function hearMusic(model, filePath, sizeBytes, ffmpegAvailable) {
   let useFile = filePath, temp = null;
   try {
     ({ path: useFile, temp } = ensureUnderLimit(filePath, sizeBytes, ffmpegAvailable));
     const b64 = (await fsp.readFile(useFile)).toString('base64');
     const fmt = path.extname(useFile).toLowerCase() === '.wav' ? 'wav' : 'mp3';
-    const res = await withRetry(
-      () => openai.chat.completions.create({
-        model,
-        modalities: ['text'],
-        messages: [
-          { role: 'system', content: 'You listen to a short musical voice memo and describe the MUSIC in 1-2 sentences: melody/mood/tempo, whether hummed or sung, and any catchable hook. Do not transcribe lyrics verbatim — describe the sound.' },
-          { role: 'user', content: [
-            { type: 'text', text: 'Describe the music in this memo.' },
-            { type: 'input_audio', input_audio: { data: b64, format: fmt } },
-          ] },
-        ],
-      }),
-      { label: 'hear-music', tries: 3 },
-    );
-    return (res.choices[0].message.content || '').trim();
+    const payload = {
+      model,
+      modalities: ['text'],
+      messages: [
+        { role: 'system', content: 'You listen to a short musical voice memo and describe the MUSIC in 1-2 sentences: melody/mood/tempo, whether hummed or sung, and any catchable hook. Do not transcribe lyrics verbatim — describe the sound.' },
+        { role: 'user', content: [
+          { type: 'text', text: 'Describe the music in this memo.' },
+          { type: 'input_audio', input_audio: { data: b64, format: fmt } },
+        ] },
+      ],
+    };
+    const res = await withRetry(async () => {
+      const r = await fetch(`${OPENAI_BASE}/chat/completions`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
+      if (!r.ok) throw await apiError(r);
+      return r;
+    }, { label: 'hear-music', tries: 3 });
+    return ((await res.json()).choices[0].message.content || '').trim();
   } finally {
     if (temp) { try { await fsp.unlink(temp); } catch { /* ignore */ } }
   }
@@ -489,8 +505,7 @@ async function main() {
     console.error('Error: OPENAI_API_KEY is not set in the environment.');
     process.exit(1);
   }
-  const openai = new OpenAI();
-  if (!ffmpegAvailable) console.log('Note: ffmpeg not found — empty-skip, silence-trim, and >25MB compression are disabled. Install with `brew install ffmpeg`.');
+  if (!ffmpegAvailable) console.log('Note: ffmpeg not found — empty-skip, silence-trim, --max-minutes, and >25MB compression are disabled. Install ffmpeg to enable them.');
   const doTrim = args.trim && ffmpegAvailable;
 
   let done = 0, skipped = 0, skippedLong = 0;
@@ -536,19 +551,19 @@ async function main() {
       // 3. Handle the 25MB cap (compress if needed), then transcribe.
       let transcript;
       const { path: upPath, temp: sizeTemp } = ensureUnderLimit(srcPath, fs.statSync(srcPath).size, ffmpegAvailable);
-      try { transcript = await transcribe(openai, args.transcribeModel, upPath); }
+      try { transcript = await transcribe(args.transcribeModel, upPath); }
       finally {
         if (sizeTemp) { try { await fsp.unlink(sizeTemp); } catch { /* ignore */ } }
         if (trimTemp) { try { await fsp.unlink(trimTemp); } catch { /* ignore */ } }
       }
 
       // 4. Sort.
-      const sort = await sortTranscript(openai, args.sortModel, transcript);
+      const sort = await sortTranscript(args.sortModel, transcript);
 
       // 5. Song "listen" pass (uses the original untrimmed file).
       let melodyNote = null;
       if (args.hearSongs && (sort.is_musical || sort.category === 'song')) {
-        try { melodyNote = await hearMusic(openai, args.audioModel, w.file, w.stat.size, ffmpegAvailable); }
+        try { melodyNote = await hearMusic(args.audioModel, w.file, w.stat.size, ffmpegAvailable); }
         catch (e) { console.warn(`  ⚠ music pass failed for ${name}: ${e.message}`); }
       }
 
