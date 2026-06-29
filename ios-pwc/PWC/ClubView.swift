@@ -8,7 +8,7 @@ struct ClubView: View {
                     membershipCard
                     stats
                     Text("“A society for the appreciation of strangers.”")
-                        .font(.system(.callout, design: .serif)).italic()
+                        .font(.custom("CormorantGaramond-Italic", size: 17))
                         .foregroundStyle(PWC.sage).multilineTextAlignment(.center)
                         .padding(.top, 4)
                 }

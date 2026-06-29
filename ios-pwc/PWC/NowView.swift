@@ -133,7 +133,7 @@ struct SightingCard: View {
                         .contentShape(Rectangle())
                 }
             }
-            Text(sighting.note).font(.system(.body, design: .serif)).foregroundStyle(PWC.ink)
+            Text(sighting.note).font(PWC.display(17)).foregroundStyle(PWC.ink)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
                 Label("\(sighting.place) · \(sighting.neighborhood)", systemImage: "mappin")
