@@ -1020,6 +1020,8 @@ async function generateMiracleOpenAIImage(key, subject) {
   form.append('prompt', MIRACLE_OPENAI_PROMPT(subject));
   form.append('size', '1024x1024');
   form.append('quality', 'medium');
+  // Preserve the reference doodles' hand-drawn line/look much more faithfully.
+  form.append('input_fidelity', 'high');
   form.append('n', '1');
   for (const r of refs) form.append('image[]', new Blob([r.buffer], { type: r.type }), r.name);
 
