@@ -507,6 +507,16 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'redo-sticker') {
       return redoSticker(String(request.data?.image || ''), String(request.data?.mimeType || 'image/png'), request.data?.prompt);
     }
+    // "save-sheet" persists an edited sticker sheet (flattened in the app) to
+    // the user's creations, so edits aren't lost. Takes an image, no prompt.
+    if (styleKey === 'save-sheet') {
+      const img = String(request.data?.image || '');
+      if (!img) throw new HttpsError('invalid-argument', 'No image to save.');
+      const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      const url = await persistBuffer(Buffer.from(img, 'base64'), `forge-stickers/edited-${stamp}.jpg`, 'image/jpeg');
+      await saveCreation(uid, 'sticker', { url, prompt: String(request.data?.prompt || 'edited sheet') });
+      return { url };
+    }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
 
