@@ -22,13 +22,11 @@ struct BoxView: View {
                     .fill(Color.white)
                     .overlay(Rectangle().stroke(Theme.line, lineWidth: 1))
 
-                if let urlString = box.url, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        ProgressView().tint(Theme.gold)
-                    }
-                    .padding(2)
+                if let urlString = box.url {
+                    // Disk-cached loader: shows instantly on relaunch, survives a
+                    // dead URL, and offers "tap to redraw" instead of an endless spinner.
+                    CachedDoodleImage(urlString: urlString, onRetry: draw)
+                        .padding(2)
                 }
 
                 if drawing { ProgressView().tint(Theme.gold) }

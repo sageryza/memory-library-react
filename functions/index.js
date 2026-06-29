@@ -219,7 +219,7 @@ async function replicateFetch(path, token, init = {}) {
 // returning a stable Firebase download URL (works regardless of bucket access
 // settings, no makePublic/signing needed). Falls back to the temporary
 // Replicate URL if the upload fails for any reason.
-async function persistImage(imageUrl, path, transform = null) {
+async function persistImage(imageUrl, path, transform = null, requireStorage = false) {
   try {
     const resp = await fetch(imageUrl);
     if (!resp.ok) throw new Error(`download ${resp.status}`);
@@ -239,6 +239,13 @@ async function persistImage(imageUrl, path, transform = null) {
     return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
       + `${encodeURIComponent(file.name)}?alt=media&token=${downloadToken}`;
   } catch (e) {
+    // For keepsake images (requireStorage) never hand back a temporary URL —
+    // those expire in ~an hour and leave the saved drawing permanently broken.
+    // Fail loudly so the client shows an error and the user can retry.
+    if (requireStorage) {
+      console.error('persistImage failed (requireStorage)', e);
+      throw new HttpsError('unavailable', 'Could not save the drawing. Please try again.');
+    }
     console.error('persistImage failed, falling back to temporary URL', e);
     return imageUrl;
   }
@@ -849,7 +856,7 @@ exports.illustrateMiracle = onCall(
         // Ease the LoRA strength a touch — at full scale it scrawls its trigger word.
         const prompt = `${MIRACLE_TRIGGER}, ${concept.drawing}, ${MIRACLE_STYLE_GUIDE}`;
         const { rawUrl } = await generateReplicateImage(repToken, prompt, MIRACLE_MODEL, 0.9);
-        return persistImage(rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`, trimToSubject);
+        return persistImage(rawUrl, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`, trimToSubject, true);
       };
     }
 
