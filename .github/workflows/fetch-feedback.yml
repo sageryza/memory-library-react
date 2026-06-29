@@ -1,0 +1,29 @@
+name: Fetch TestFlight feedback
+
+# Pulls recent TestFlight beta feedback (tester comments + screenshot URLs) for an
+# app from App Store Connect, so in-app feedback can be reviewed in a session.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: App bundle id
+        required: true
+        default: com.sageryza.xi
+      limit:
+        description: How many recent feedback items
+        required: false
+        default: "20"
+
+jobs:
+  feedback:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      FEEDBACK_BUNDLE: ${{ inputs.bundle_id }}
+      FEEDBACK_LIMIT: ${{ inputs.limit }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch feedback
+        run: python3 ci/fetch_testflight_feedback.py
