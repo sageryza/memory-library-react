@@ -80,7 +80,7 @@ struct NowView: View {
                 Spacer()
                 Text("👀").font(.system(size: 18))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(PWC.onAccent)
             .padding(.vertical, 14).padding(.horizontal, 18)
             .background(PWC.accent)
             .clipShape(RoundedRectangle(cornerRadius: 12))

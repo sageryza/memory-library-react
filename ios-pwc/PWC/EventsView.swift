@@ -44,7 +44,7 @@ struct EventCard: View {
                         .font(PWC.display(15, .semibold))
                         .padding(.vertical, 8).padding(.horizontal, 16)
                         .background(going ? PWC.sage : PWC.accent)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(PWC.onAccent)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
