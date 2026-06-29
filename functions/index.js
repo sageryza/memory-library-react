@@ -540,16 +540,19 @@ async function renderStickerSheet(rawPrompt, qualityIn) {
 
   const body = raw.slice(0, 1000);
   const prompt =
-    'A full-page sticker sheet on a plain white background. Use the attached '
-    + 'images ONLY as the art-style and palette reference — delicate hand-drawn '
-    + 'fine black line art with soft flat muted color fills (dusty rose, sage, '
-    + 'ochre, terracotta, lavender, pale blue). Do NOT copy their content. '
-    + 'Make the stickers FREE-FORM, individually die-cut shapes that follow each '
-    + "illustration's outline — NOT circular badges or round coins. "
-    + 'Compose about 6 large stickers plus a handful of small accent stickers '
-    + '(sparkles, small flowers, little gems) — not crowded, with breathing room. '
-    + 'Absolutely no text, words, letters or watermarks anywhere. '
-    + 'The stickers depict: ' + body;
+    'A sheet of individual illustrations on a plain white background. Use the '
+    + 'attached images ONLY as the art-style and palette reference — delicate '
+    + 'hand-drawn fine black line art with soft flat muted color fills (dusty '
+    + 'rose, sage, ochre, terracotta, lavender, pale blue). Do NOT copy their '
+    + 'content. Each illustration is free-form, following its own outline (not '
+    + 'inside a circle or badge). The illustrations sit directly on the white '
+    + 'page — NO white border, no outline, no halo and no drop shadow around '
+    + 'them, like art printed straight onto paper. Compose 6 to 8 normal-size '
+    + 'illustrations plus 6 to 8 smaller accent illustrations. The small accents '
+    + "must match the sheet's theme — little objects or details drawn from the "
+    + 'same subject — NOT generic sparkles or gems unless they fit the theme. '
+    + 'Spread everything out with breathing room, not crowded. Absolutely no '
+    + 'text, words, letters or watermarks anywhere. The illustrations depict: ' + body;
 
   const form = new FormData();
   form.append('model', 'gpt-image-2');
