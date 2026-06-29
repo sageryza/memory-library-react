@@ -1,16 +1,13 @@
 {
   "name": "voice-memo-sorter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Standalone tool: transcribe a folder of iPhone voice memos with OpenAI and auto-sort them into ideas / dreams / songs / etc. Output is kept fully separate from the memory library.",
+  "description": "Standalone tool: transcribe a folder of iPhone voice memos with OpenAI and auto-sort them into ideas / dreams / songs / etc. No npm dependencies — runs on Node 18+ alone. Output is kept fully separate from the memory library.",
   "bin": {
     "voice-memo-sorter": "transcribe-sort.mjs"
   },
   "scripts": {
     "start": "node transcribe-sort.mjs"
-  },
-  "dependencies": {
-    "openai": "^4.77.0"
   }
 }
