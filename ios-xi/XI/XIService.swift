@@ -128,6 +128,31 @@ final class XIService {
         )
     }
 
+    // MARK: Constellation connections (manual strings between cards)
+
+    /// Loads the user's hand-drawn connections from
+    /// `users/{uid}/xiBoard/connections` (stored as an array of {a,b} maps —
+    /// Firestore can't nest plain arrays).
+    func loadConnections() async -> [(String, String)] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("connections").getDocument()
+        let arr = (snap?.data()?["pairs"] as? [[String: String]]) ?? []
+        return arr.compactMap { d in
+            guard let a = d["a"], let b = d["b"] else { return nil }
+            return (a, b)
+        }
+    }
+
+    /// Persists the full set of hand-drawn connections (overwrites).
+    func saveConnections(_ pairs: [(String, String)]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let arr = pairs.map { ["a": $0.0, "b": $0.1] }
+        try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("connections")
+            .setData(["pairs": arr, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     private func slugTag(_ cap: String) -> String? {
         let slug = cap.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)

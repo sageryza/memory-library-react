@@ -1,17 +1,37 @@
 import SwiftUI
 import UIKit
 
+/// A hand-drawn string between two cards (unordered pair of memory ids).
+struct BoardConnection: Identifiable, Equatable {
+    let a: String
+    let b: String
+    var id: String { a < b ? a + "|" + b : b + "|" + a }
+    func matches(_ x: String, _ y: String) -> Bool {
+        (a == x && b == y) || (a == y && b == x)
+    }
+}
+
+/// A string being pulled from a card's pin toward the finger (in board space).
+struct WireDraft: Equatable {
+    let from: String
+    var point: CGPoint
+}
+
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
-/// pinned with crimson push-pins and joined by red string between cards that
-/// share a hashtag. Faithful to the web look (beige index cards #faf8e9, crimson
-/// pins #dc143c, straight red string). Drag a card to re-pin it, drag empty space
-/// to pan, pinch to zoom; tap a card to open it.
+/// pinned with crimson push-pins and joined by red string. Faithful to the web
+/// look (beige index cards #faf8e9, crimson pins #dc143c). Drag a card to re-pin
+/// it, drag empty space to pan, pinch to zoom, tap a card to open it. Long-press
+/// a card and drag onto another to draw a string between them (drag back onto a
+/// connected card to remove it). Hand-drawn strings persist; cards that merely
+/// share a hashtag show as faint dashed suggestions.
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
 
     @State private var detail: XIMemory?
     @State private var positions: [String: CGPoint]
+    @State private var connections: [BoardConnection] = []
+    @State private var wire: WireDraft?
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -36,8 +56,10 @@ struct ConstellationView: View {
         NavigationStack {
             ZoomableScrollView(contentSize: Self.canvasSize(memories),
                                positions: $positions,
+                               wire: $wire,
                                orderedIds: memories.map(\.id),
-                               cardSize: CGSize(width: Self.cardW, height: Self.cardH)) {
+                               cardSize: CGSize(width: Self.cardW, height: Self.cardH),
+                               onConnect: toggleConnection) {
                 board.frame(width: Self.canvasSize(memories).width,
                             height: Self.canvasSize(memories).height)
             }
@@ -55,17 +77,52 @@ struct ConstellationView: View {
             }
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
         }
+        .task {
+            let saved = await XIService.shared.loadConnections()
+            connections = saved.map { BoardConnection(a: $0.0, b: $0.1) }
+        }
+    }
+
+    /// Long-press from one card released on another: add the string, or remove
+    /// it if it already exists. Persists the new set.
+    private func toggleConnection(_ from: String, _ to: String) {
+        if let i = connections.firstIndex(where: { $0.matches(from, to) }) {
+            connections.remove(at: i)
+        } else {
+            connections.append(BoardConnection(a: from, b: to))
+        }
+        let pairs = connections.map { ($0.a, $0.b) }
+        Task { await XIService.shared.saveConnections(pairs) }
     }
 
     private var board: some View {
         ZStack {
             Color.white
             Canvas { ctx, _ in
+                // Hashtag matches → faint dashed "suggestions".
                 for (a, b) in stringPairs {
                     var path = Path()
                     path.move(to: a); path.addLine(to: b)
+                    ctx.stroke(path, with: .color(crimson.opacity(0.30)),
+                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                }
+                // Hand-drawn strings → solid crimson.
+                for c in connections {
+                    guard let pa = anchor(c.a), let pb = anchor(c.b) else { continue }
+                    var path = Path()
+                    path.move(to: pa); path.addLine(to: pb)
                     ctx.stroke(path, with: .color(crimson),
                                style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                }
+                // The string currently being pulled toward the finger.
+                if let w = wire, let pa = anchor(w.from) {
+                    var path = Path()
+                    path.move(to: pa); path.addLine(to: w.point)
+                    ctx.stroke(path, with: .color(crimson.opacity(0.85)),
+                               style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    ctx.fill(Path(ellipseIn: CGRect(x: w.point.x - 4, y: w.point.y - 4,
+                                                    width: 8, height: 8)),
+                             with: .color(crimson))
                 }
             }
             ForEach(memories) { m in
@@ -111,12 +168,14 @@ struct ConstellationView: View {
         return out
     }
 
+    /// The pin's anchor point on a card (top-right, where the push-pin sits).
+    private func anchor(_ id: String) -> CGPoint? {
+        guard let c = positions[id] else { return nil }
+        return CGPoint(x: c.x + Self.cardW / 2 - 10, y: c.y - Self.cardH / 2 + 9)
+    }
+
     /// Cards sharing a hashtag, chained — returns the two pin anchor points.
     private var stringPairs: [(CGPoint, CGPoint)] {
-        func anchor(_ id: String) -> CGPoint? {
-            guard let c = positions[id] else { return nil }
-            return CGPoint(x: c.x + Self.cardW / 2 - 10, y: c.y - Self.cardH / 2 + 9)
-        }
         var byTag: [String: [String]] = [:]
         for m in memories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
         var seen = Set<String>()
@@ -203,8 +262,10 @@ private struct Pushpin: View {
 private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let contentSize: CGSize
     @Binding var positions: [String: CGPoint]
+    @Binding var wire: WireDraft?
     let orderedIds: [String]
     let cardSize: CGSize
+    let onConnect: (String, String) -> Void
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -224,13 +285,23 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         scroll.addSubview(host.view)
         scroll.contentSize = contentSize
 
+        // Long-press a card to pull a string out toward another card.
+        let wirePress = UILongPressGestureRecognizer(target: context.coordinator,
+                                                     action: #selector(Coordinator.handleWirePress(_:)))
+        wirePress.minimumPressDuration = 0.45
+        wirePress.delegate = context.coordinator
+        host.view.addGestureRecognizer(wirePress)
+
         // Card drag wins over scroll pan only when it starts on a card.
         let cardPan = UIPanGestureRecognizer(target: context.coordinator,
                                              action: #selector(Coordinator.handleCardPan(_:)))
         cardPan.delegate = context.coordinator
         cardPan.maximumNumberOfTouches = 1
         host.view.addGestureRecognizer(cardPan)
+
+        // A held card draws string (wins); a moving card drags (wins over scroll).
         scroll.panGestureRecognizer.require(toFail: cardPan)
+        scroll.panGestureRecognizer.require(toFail: wirePress)
         return scroll
     }
 
@@ -248,6 +319,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         let host: UIHostingController<Content>
         private var dragId: String?
         private var dragStart: CGPoint = .zero
+        private var wireFrom: String?
 
         init(parent: ZoomableScrollView, host: UIHostingController<Content>) {
             self.parent = parent; self.host = host
@@ -272,6 +344,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         }
 
         @objc func handleCardPan(_ g: UIPanGestureRecognizer) {
+            if parent.wire != nil { return }   // a string is being drawn — don't drag
             switch g.state {
             case .began:
                 if let id = card(at: g.location(in: host.view)) {
@@ -283,6 +356,31 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 parent.positions[id] = CGPoint(x: dragStart.x + t.x, y: dragStart.y + t.y)
             default:
                 dragId = nil
+            }
+        }
+
+        /// Long-press begins a string from the held card; dragging moves its loose
+        /// end to the finger; lifting over another card connects (or disconnects).
+        @objc func handleWirePress(_ g: UILongPressGestureRecognizer) {
+            let p = g.location(in: host.view)
+            switch g.state {
+            case .began:
+                if let id = card(at: p) {
+                    wireFrom = id
+                    parent.wire = WireDraft(from: id, point: p)
+                }
+            case .changed:
+                guard let from = wireFrom else { return }
+                parent.wire = WireDraft(from: from, point: p)
+            case .ended:
+                if let from = wireFrom, let to = card(at: p), to != from {
+                    parent.onConnect(from, to)
+                }
+                wireFrom = nil
+                parent.wire = nil
+            default:
+                wireFrom = nil
+                parent.wire = nil
             }
         }
     }
