@@ -479,6 +479,34 @@ async function renderColoringPage(rawPrompt, qualityIn) {
   return { url, quality, prompt: body };
 }
 
+// Dream — illustrate a dream in a fixed moody diary-comic style (mirrors the
+// "Talking to Myself" zine look). The dream text becomes the scene; the image
+// itself carries NO text (the app shows the words as a caption).
+async function renderDream(rawPrompt, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Write down your dream first.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const body = raw.slice(0, 1200);
+  const prompt =
+    'Detailed pen-and-ink illustration with dense cross-hatching and fine line '
+    + 'work, softened by muted watercolor washes in a limited, dusty palette '
+    + '(sepia, faded indigo, ochre, sage, dusty rose). Aged cream paper texture. '
+    + 'A single framed panel with a hand-drawn border. Melancholic, surreal, '
+    + 'intimate diary mood, like an outsider-art comic. Simple composition, one '
+    + 'or two subjects. Absolutely no text, no words, no letters, no captions '
+    + 'anywhere in the image. The dream: ' + body;
+  const buffer = await generateOpenAIImage(key, prompt, quality, '1024x1024');
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(buffer, `forge-dreams/${stamp}.webp`);
+  return { url, quality, prompt: body };
+}
+
 // Save a finished creation to the owner's list so it survives a dropped
 // connection / backgrounded app and shows up in the in-app grid. Best-effort.
 async function saveCreation(uid, type, data) {
@@ -530,6 +558,12 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'coloring-page') {
       const out = await renderColoringPage(raw, request.data?.quality);
       await saveCreation(uid, 'coloring', out);
+      return out;
+    }
+    // "dream" illustrates a dream in the moody diary-comic style.
+    if (styleKey === 'dream') {
+      const out = await renderDream(raw, request.data?.quality);
+      await saveCreation(uid, 'dream', out);
       return out;
     }
     const style = FORGE_STYLES[styleKey];
