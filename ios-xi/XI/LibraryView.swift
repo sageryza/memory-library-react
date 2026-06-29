@@ -48,13 +48,10 @@ struct LibraryView: View {
             .navigationTitle("your memories")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { showConstellation = true } label: { Image(systemName: "sparkles") }
                         .tint(XITheme.maroon)
                         .disabled(memories.isEmpty)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.maroon)
                 }
             }
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }

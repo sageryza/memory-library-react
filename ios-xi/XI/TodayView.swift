@@ -74,9 +74,8 @@ struct TodayView: View {
     // MARK: header
 
     private var brand: some View {
-        Text("XI")
-            .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
-            .foregroundStyle(XITheme.ink)
+        XILogo(height: 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 14)
     }
 

@@ -12,7 +12,6 @@ enum VersusRecents {
 
 struct VersusLobbyView: View {
     @ObservedObject var auth: AuthState
-    @Environment(\.dismiss) private var dismiss
 
     @State private var joinCode = ""
     @State private var busy = false
@@ -79,11 +78,6 @@ struct VersusLobbyView: View {
             .background(XITheme.paper.ignoresSafeArea())
             .navigationDestination(for: String.self) { gameId in
                 VersusGameView(gameId: gameId, auth: auth)
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("‹ board") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.maroon)
-                }
             }
         }
         .tint(XITheme.maroon)
