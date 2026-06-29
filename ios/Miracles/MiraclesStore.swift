@@ -60,11 +60,18 @@ final class MiraclesStore: ObservableObject {
 
     /// Append a new drawing, discarding any redo-future.
     func pushDrawing(_ url: String, boxID: String) {
-        guard let b = boxIndex(boxID) else { return }
+        pushDrawings([url], boxID: boxID)
+    }
+
+    /// Append a batch of drawing options (one draw can return several concepts),
+    /// discarding any redo-future, and land on the FIRST of the new batch — the
+    /// other options are reachable with the › arrow so the user can pick.
+    func pushDrawings(_ urls: [String], boxID: String) {
+        guard !urls.isEmpty, let b = boxIndex(boxID) else { return }
         var box = pages[index].boxes[b]
         let keep = max(0, box.histIndex + 1)
-        box.history = Array(box.history.prefix(keep)) + [url]
-        box.histIndex = box.history.count - 1
+        box.history = Array(box.history.prefix(keep)) + urls
+        box.histIndex = keep // first of the newly added options
         pages[index].boxes[b] = box
         save()
     }

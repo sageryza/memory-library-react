@@ -147,10 +147,12 @@ struct BoxView: View {
         errorText = nil
         Task {
             do {
+                // One draw returns a few concept options; the ‹/› arrows let
+                // you pick among them.
                 let result = try await MiraclesService.shared.illustrate(
-                    text: text, boxID: box.id, distill: distill
+                    text: text, boxID: box.id, distill: distill, variants: 3
                 )
-                store.pushDrawing(result.url, boxID: box.id)
+                store.pushDrawings(result.urls, boxID: box.id)
             } catch {
                 errorText = error.localizedDescription
             }

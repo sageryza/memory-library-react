@@ -17,26 +17,36 @@ final class MiraclesService {
     }
 
     struct DrawResult {
-        let url: String
+        let urls: [String]   // one or more concept options to pick from
         let version: String?
     }
 
-    func illustrate(text: String, boxID: String, distill: Bool) async throws -> DrawResult {
+    func illustrate(text: String, boxID: String, distill: Bool, variants: Int = 3) async throws -> DrawResult {
         try await ensureSignedIn()
         let result = try await functions.httpsCallable("illustrateMiracle").call([
             "text": text,
             "id": boxID,
             "distill": distill,
+            "variants": variants,
         ])
-        guard
-            let data = result.data as? [String: Any],
-            let url = data["url"] as? String
-        else {
+        guard let data = result.data as? [String: Any] else {
             throw NSError(
                 domain: "Miracles", code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "No image was returned."]
             )
         }
-        return DrawResult(url: url, version: data["version"] as? String)
+        // Prefer the full concepts list; fall back to the single primary url.
+        var urls: [String] = []
+        if let concepts = data["concepts"] as? [[String: Any]] {
+            urls = concepts.compactMap { $0["url"] as? String }
+        }
+        if urls.isEmpty, let url = data["url"] as? String { urls = [url] }
+        guard !urls.isEmpty else {
+            throw NSError(
+                domain: "Miracles", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No image was returned."]
+            )
+        }
+        return DrawResult(urls: urls, version: data["version"] as? String)
     }
 }
