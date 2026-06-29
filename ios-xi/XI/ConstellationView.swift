@@ -1,122 +1,196 @@
 import SwiftUI
 
-/// A constellation of your memories — each memory is a star-pin, and maroon
-/// "string" threads link memories that share a hashtag. Tap a star to open it.
-/// First-pass iOS port of the web conspiracy/constellation board (the full
-/// draggable board with axes + editable connections can come later).
+/// The constellation / "conspiracy board" — a white corkboard of memory cards
+/// pinned with crimson push-pins and joined by red string between cards that
+/// share a hashtag. Faithful port of the web conspiracy board's look: beige
+/// index cards (#faf8e9), crimson pins (#dc143c), straight red string. Cards can
+/// be dragged to re-pin them; the board pans. Tap a card to open it.
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
 
     @State private var detail: XIMemory?
+    @State private var pos: [String: CGPoint] = [:]
+    @State private var dragStart: CGPoint?
 
-    private let step: CGFloat = 50
-    private let sky = Color(red: 0.10, green: 0.085, blue: 0.075)
-    private let starColor = Color(red: 0.95, green: 0.86, blue: 0.55)
+    // Web palette.
+    private let beige = Color(red: 0.980, green: 0.973, blue: 0.914)        // #faf8e9
+    private let beigeBorder = Color(red: 0.910, green: 0.902, blue: 0.835)  // #e8e6d5
+    private let crimson = Color(red: 0.862, green: 0.078, blue: 0.235)      // #dc143c
+    private let slate = Color(red: 0.184, green: 0.310, blue: 0.310)        // #2F4F4F
+    private let bodyGrey = Color(red: 0.40, green: 0.40, blue: 0.40)        // #666
+    private let maroon = Color(red: 0.502, green: 0.0, blue: 0.125)         // #800020
 
-    /// Deterministic phyllotaxis ("sunflower") scatter so the layout is stable.
-    private var placed: [(mem: XIMemory, p: CGPoint)] {
-        let golden: CGFloat = 2.399963229728653
-        let margin: CGFloat = 80
-        var maxR: CGFloat = 0
-        var raw: [(mem: XIMemory, p: CGPoint)] = []
-        for (i, m) in memories.enumerated() {
-            let r: CGFloat = step * sqrt(CGFloat(i))
-            let t: CGFloat = CGFloat(i) * golden
-            maxR = max(maxR, r)
-            let x: CGFloat = r * cos(t)
-            let y: CGFloat = r * sin(t)
-            raw.append((mem: m, p: CGPoint(x: x, y: y)))
+    private let cardW: CGFloat = 188
+    private let cardH: CGFloat = 128
+    private let colW: CGFloat = 250
+    private let rowH: CGFloat = 210
+    private let margin: CGFloat = 110
+    private var cols: Int { max(2, min(4, Int(ceil(sqrt(Double(max(1, memories.count))))))) }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                board
+                    .frame(width: canvasSize.width, height: canvasSize.height)
+            }
+            .background(Color.white.ignoresSafeArea())
+            .navigationTitle("constellation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("\(memories.count) memories")
+                        .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
+                }
+            }
+            .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
         }
-        let c: CGFloat = max(360, maxR * 2 + margin * 2) / 2
-        return raw.map { (mem: $0.mem, p: CGPoint(x: $0.p.x + c, y: $0.p.y + c)) }
+        .task { if pos.isEmpty { pos = initialLayout() } }
     }
 
-    private var canvasSize: CGFloat {
-        let margin: CGFloat = 80
-        let maxR: CGFloat = memories.isEmpty ? 0 : step * sqrt(CGFloat(memories.count - 1))
-        return max(360, maxR * 2 + margin * 2)
+    private var board: some View {
+        ZStack {
+            Color.white
+            Canvas { ctx, _ in
+                for (a, b) in stringPairs {
+                    guard let pa = pinAnchor(a), let pb = pinAnchor(b) else { continue }
+                    var path = Path()
+                    path.move(to: pa); path.addLine(to: pb)
+                    ctx.stroke(path, with: .color(crimson),
+                               style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                }
+            }
+            ForEach(memories) { m in
+                PinCard(memory: m, width: cardW, height: cardH,
+                        beige: beige, border: beigeBorder, crimson: crimson,
+                        slate: slate, bodyGrey: bodyGrey, maroon: maroon)
+                    .position(pos[m.id] ?? CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))
+                    .onTapGesture { detail = m }
+                    .highPriorityGesture(dragGesture(m.id))
+            }
+        }
     }
 
-    /// Threads between memories that share a hashtag (chained in layout order).
-    private var threads: [(CGPoint, CGPoint)] {
-        let pts = placed
-        let pos = Dictionary(pts.map { ($0.mem.id, $0.p) }, uniquingKeysWith: { a, _ in a })
+    private func dragGesture(_ id: String) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { v in
+                let start = dragStart ?? (pos[id] ?? .zero)
+                if dragStart == nil { dragStart = start }
+                pos[id] = CGPoint(x: start.x + v.translation.width, y: start.y + v.translation.height)
+            }
+            .onEnded { _ in dragStart = nil }
+    }
+
+    // MARK: layout
+
+    private var canvasSize: CGSize {
+        let rows = Int(ceil(Double(memories.count) / Double(cols)))
+        let w = margin * 2 + CGFloat(cols) * colW
+        let h = margin * 2 + CGFloat(max(1, rows)) * rowH
+        return CGSize(width: max(w, 360), height: max(h, 360))
+    }
+
+    /// Deterministic scattered grid — looks hand-pinned without overlapping much.
+    private func initialLayout() -> [String: CGPoint] {
+        var out: [String: CGPoint] = [:]
+        for (i, m) in memories.enumerated() {
+            let col = i % cols, row = i / cols
+            let jx = CGFloat((i &* 73) % 49) - 24
+            let jy = CGFloat((i &* 37) % 41) - 20
+            let x = margin + cardW / 2 + CGFloat(col) * colW + jx
+            let y = margin + cardH / 2 + CGFloat(row) * rowH + jy
+            out[m.id] = CGPoint(x: x, y: y)
+        }
+        return out
+    }
+
+    /// Top-right pin point of a card (where the string attaches).
+    private func pinAnchor(_ id: String) -> CGPoint? {
+        guard let c = pos[id] else { return nil }
+        return CGPoint(x: c.x + cardW / 2 - 10, y: c.y - cardH / 2 + 9)
+    }
+
+    /// Cards sharing a hashtag, chained in order (each pair once, capped).
+    private var stringPairs: [(String, String)] {
         var byTag: [String: [String]] = [:]
-        for (m, _) in pts { for tag in m.hashtags { byTag[tag, default: []].append(m.id) } }
-        var lines: [(CGPoint, CGPoint)] = []
+        for m in memories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
         var seen = Set<String>()
+        var out: [(String, String)] = []
         for ids in byTag.values where ids.count > 1 {
             for k in 1..<ids.count {
                 let a = ids[k - 1], b = ids[k]
                 let key = a < b ? a + "|" + b : b + "|" + a
                 if seen.contains(key) { continue }
                 seen.insert(key)
-                if let pa = pos[a], let pb = pos[b] { lines.append((pa, pb)) }
-                if lines.count > 240 { return lines }
+                out.append((a, b))
+                if out.count > 220 { return out }
             }
         }
-        return lines
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                ZStack {
-                    Canvas { ctx, _ in
-                        for (a, b) in threads {
-                            var path = Path()
-                            path.move(to: a); path.addLine(to: b)
-                            ctx.stroke(path, with: .color(XITheme.gold.opacity(0.55)), lineWidth: 0.8)
-                        }
-                    }
-                    .frame(width: canvasSize, height: canvasSize)
-
-                    ForEach(placed, id: \.mem.id) { item in
-                        StarPin(memory: item.mem, color: starColor) { detail = item.mem }
-                            .position(item.p)
-                    }
-                }
-                .frame(width: canvasSize, height: canvasSize)
-            }
-            .background(sky.ignoresSafeArea())
-            .navigationTitle("constellation")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("\(memories.count) memories")
-                        .font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
-                }
-            }
-            .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
-        }
+        return out
     }
 }
 
-private struct StarPin: View {
+/// One pinned memory — a beige index card with a crimson push-pin top-right.
+private struct PinCard: View {
     let memory: XIMemory
-    let color: Color
-    var onTap: () -> Void
+    let width: CGFloat
+    let height: CGFloat
+    let beige, border, crimson, slate, bodyGrey, maroon: Color
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 3) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 15)).foregroundStyle(color)
-                    .shadow(color: XITheme.gold.opacity(0.7), radius: 4)
-                Text(label)
-                    .font(.system(size: 9, design: .serif)).foregroundStyle(.white.opacity(0.82))
-                    .lineLimit(1).frame(maxWidth: 70)
+        VStack(alignment: .leading, spacing: 6) {
+            if !memory.title.isEmpty {
+                Text(memory.title)
+                    .font(.system(size: 14, design: .serif).weight(.medium))
+                    .foregroundStyle(slate).lineLimit(2)
+            }
+            if !memory.content.isEmpty {
+                Text(memory.content)
+                    .font(.system(size: 11, design: .serif)).foregroundStyle(bodyGrey)
+                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            if !memory.hashtags.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(memory.hashtags.prefix(2), id: \.self) { tag in
+                        Text(tag)
+                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(maroon)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(crimson.opacity(0.10)).clipShape(Capsule())
+                    }
+                }
             }
         }
-        .buttonStyle(.plain)
+        .padding(12)
+        .frame(width: width, height: height, alignment: .leading)
+        .background(beige)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.13), radius: 4, x: 0, y: 2)
+        .overlay(alignment: .topTrailing) { Pushpin(crimson: crimson).offset(x: -3, y: 1) }
     }
+}
 
-    private var label: String {
-        let t = memory.title.isEmpty ? memory.content : memory.title
-        return String(t.prefix(20))
+/// A crimson glossy push-pin head with a thin gray slanted tail.
+private struct Pushpin: View {
+    let crimson: Color
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Capsule().fill(Color(white: 0.6))
+                .frame(width: 2, height: 12)
+                .rotationEffect(.degrees(15), anchor: .top)
+                .offset(x: 11, y: 10)
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 1.0, green: 0.42, blue: 0.48), crimson],
+                    center: UnitPoint(x: 0.3, y: 0.3), startRadius: 0.5, endRadius: 8))
+                .frame(width: 12, height: 12)
+                .offset(x: 8, y: 2)
+                .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
+        }
+        .frame(width: 22, height: 22, alignment: .topLeading)
     }
 }
