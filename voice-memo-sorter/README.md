@@ -27,13 +27,22 @@ In your chosen `--out` folder:
 
 ## Step 1 — export your voice memos on the Mac
 
-Apple gives no bulk *transcript* export, but you can bulk-export the **audio**:
+The Mac Voice Memos app **doesn't support multi-select**, so you can't drag them
+all out at once. Instead use the included exporter, which reads the Voice Memos
+database (read-only), copies every downloaded recording into `~/VoiceMemos`
+**named `<date>_<your title>.m4a`**, and reports exactly which ones are still in
+iCloud so nothing goes missing:
 
-1. On your Mac, open the **Voice Memos** app (it syncs from your iPhone via iCloud).
-2. `Cmd+A` to select all recordings.
-3. Drag them into a Finder folder, e.g. `~/VoiceMemos`. (Or **File → Export**.)
+```bash
+bash export-voice-memos.sh ~/VoiceMemos
+```
 
-You now have a folder of `.m4a` files. That folder is the input.
+It writes `~/VoiceMemos/_manifest.csv` (every recording + status) and
+`~/VoiceMemos/_missing-in-icloud.txt` (any not downloaded yet). If some are
+still in iCloud, open the Voice Memos app, let them download (scroll through /
+play them), and re-run — already-exported files are kept.
+
+You now have a folder of named `.m4a` files. That folder is the input below.
 
 ## Step 2 — install
 
@@ -88,8 +97,12 @@ re-run anytime; it picks up where it left off.
 |---|---|---|
 | `--in <dir>` | _(required)_ | Folder of audio files (searched recursively). |
 | `--out <dir>` | `./output` | Where to write results. |
+| `--scan` | off | FREE pass (no API): report each file's length + seconds of real sound, list likely-empties, and estimate cost. Run this first. |
 | `--limit <n>` | all | Only process the first N new files. Great for testing. |
 | `--concurrency <n>` | `4` | How many files to process at once. |
+| `--min-speech <sec>` | `2` | Skip files with less than this much actual sound (the empty/sleep recordings). |
+| `--max-minutes <n>` | none | Skip files longer than n minutes — set aside under "Too long — review manually" (kept in order). Try 30 or 60. |
+| `--no-trim` | trim on | By default, silence is stripped before transcribing so long sparse files only cost their speech. This disables it. |
 | `--hear-songs` / `--no-hear-songs` | on | For musical memos, also run an audio pass (`gpt-4o-audio`) that describes the melody / humming / mood — not just the words. |
 | `--transcribe-model` | `gpt-4o-transcribe` | Transcription model (alt: `whisper-1`). |
 | `--sort-model` | `gpt-4o-mini` | The model that picks the category. |
