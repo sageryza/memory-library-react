@@ -47,7 +47,7 @@ struct XiNavBar: View {
                 .font(.system(size: 9.5, design: .serif))
                 .tracking(0.2)
         }
-        .foregroundStyle(on ? XITheme.maroon : XITheme.navInk)
+        .foregroundStyle(on ? XITheme.gold : XITheme.navInk)
     }
 }
 

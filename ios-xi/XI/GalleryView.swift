@@ -33,7 +33,7 @@ struct GalleryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.maroon)
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
         }

@@ -28,7 +28,7 @@ extension ComplianceTheme {
         card: XITheme.white,
         ink: XITheme.ink,
         subtleInk: XITheme.line,
-        accent: XITheme.maroon,
+        accent: XITheme.gold,
         accentText: .white,
         line: XITheme.line,
         titleFont: { .system(size: $0, design: .serif).weight(.semibold) },

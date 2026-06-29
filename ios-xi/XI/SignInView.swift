@@ -16,7 +16,7 @@ struct SignInView: View {
                 .font(.system(.largeTitle, design: .serif).weight(.semibold)).tracking(8)
                 .foregroundStyle(XITheme.ink)
             Text("Sign in to save to your library")
-                .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
+                .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
 
             VStack(spacing: 12) {
                 TextField("email", text: $email)
@@ -46,7 +46,7 @@ struct SignInView: View {
                     .font(.system(.body, design: .serif))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(XITheme.maroon).foregroundStyle(.white)
+                    .background(XITheme.gold).foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             .disabled(busy || email.isEmpty || password.isEmpty)

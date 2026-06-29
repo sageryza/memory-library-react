@@ -67,7 +67,7 @@ struct ConstellationView: View {
                         for (a, b) in threads {
                             var path = Path()
                             path.move(to: a); path.addLine(to: b)
-                            ctx.stroke(path, with: .color(XITheme.maroon.opacity(0.55)), lineWidth: 0.8)
+                            ctx.stroke(path, with: .color(XITheme.gold.opacity(0.55)), lineWidth: 0.8)
                         }
                     }
                     .frame(width: canvasSize, height: canvasSize)
@@ -88,7 +88,7 @@ struct ConstellationView: View {
                         .font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.maroon)
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
@@ -106,7 +106,7 @@ private struct StarPin: View {
             VStack(spacing: 3) {
                 Image(systemName: "sparkle")
                     .font(.system(size: 15)).foregroundStyle(color)
-                    .shadow(color: XITheme.maroon.opacity(0.7), radius: 4)
+                    .shadow(color: XITheme.gold.opacity(0.7), radius: 4)
                 Text(label)
                     .font(.system(size: 9, design: .serif)).foregroundStyle(.white.opacity(0.82))
                     .lineLimit(1).frame(maxWidth: 70)
