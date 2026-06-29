@@ -46,14 +46,12 @@ You now have a folder of named `.m4a` files. That folder is the input below.
 
 ## Step 2 — install
 
-Requires **Node 18+**. From this directory:
+Requires **Node 18+** and nothing else — the tool has **no npm dependencies**
+(it talks to OpenAI with Node's built-in `fetch`), so there's no `npm install`
+step.
 
-```bash
-npm install
-```
-
-Optional but recommended: **ffmpeg**, so memos over 25 MB get auto-compressed
-instead of skipped:
+Recommended: **ffmpeg**, which powers the free silence scan, empty-skip,
+silence-trim, and `--max-minutes`:
 
 ```bash
 brew install ffmpeg
