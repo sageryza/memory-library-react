@@ -86,12 +86,15 @@ struct ConstellationView: View {
 
     private static func cols(_ n: Int) -> Int { max(2, min(4, Int(ceil(sqrt(Double(max(1, n))))))) }
 
+    /// A big board so cards and string have room to roam — no "wall" at the edge.
+    /// The initial grid sits in the top-left; the rest is open space to drag into.
     static func canvasSize(_ mems: [XIMemory]) -> CGSize {
         let c = cols(mems.count)
         let rows = Int(ceil(Double(mems.count) / Double(c)))
-        let w = margin * 2 + CGFloat(c) * colW
-        let h = margin * 2 + CGFloat(max(1, rows)) * rowH
-        return CGSize(width: max(w, 360), height: max(h, 360))
+        let gridW = margin * 2 + CGFloat(c) * colW
+        let gridH = margin * 2 + CGFloat(max(1, rows)) * rowH
+        return CGSize(width: max(2200, gridW + 900),
+                      height: max(3200, gridH + 1600))
     }
 
     static func layout(_ mems: [XIMemory]) -> [String: CGPoint] {
@@ -217,6 +220,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         let host = context.coordinator.host
         host.view.frame = CGRect(origin: .zero, size: contentSize)
         host.view.backgroundColor = .clear
+        host.view.clipsToBounds = false
         scroll.addSubview(host.view)
         scroll.contentSize = contentSize
 
