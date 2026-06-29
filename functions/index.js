@@ -456,12 +456,16 @@ exports.forgeTestImage = onCall(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const styleKey = String(request.data?.style || 'gosh');
+    // Sticker Page rides on this (publicly-invokable) function. "redo-sticker"
+    // takes an image (no text prompt), so it's handled before the prompt check.
+    if (styleKey === 'redo-sticker') {
+      return redoSticker(String(request.data?.image || ''), String(request.data?.mimeType || 'image/png'));
+    }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
 
-    const styleKey = String(request.data?.style || 'gosh');
-    // Sticker Page rides on this (publicly-invokable) function: style
-    // "sticker-sheet" renders a full sheet via the shared helper below.
+    // "sticker-sheet" renders a full sheet (+ segmented boxes) via the helper.
     if (styleKey === 'sticker-sheet') {
       return renderStickerSheet(raw, request.data?.quality);
     }
@@ -581,8 +585,106 @@ async function renderStickerSheet(rawPrompt, qualityIn) {
   if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
 
   const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-  const url = await persistBuffer(Buffer.from(b64, 'base64'), `forge-stickers/${stamp}.webp`);
-  return { url, quality, prompt: body };
+  const outBuf = Buffer.from(b64, 'base64');
+  // Cut the sheet into individual sticker boxes so the app can offer tap-to-redo
+  // and (later) drag-to-rearrange. Boxes are fractions of the sheet, so the app
+  // lays them out at any display size. Best-effort: never fail the generation.
+  const stickers = await segmentStickerSheet(outBuf).catch((e) => {
+    console.warn('segmentStickerSheet failed', e.message); return [];
+  });
+  const url = await persistBuffer(outBuf, `forge-stickers/${stamp}.webp`);
+  return { url, quality, prompt: body, stickers };
+}
+
+// Find each sticker's bounding box on the plain white background: connected
+// components over a dilated "not near-white" mask, at a downscaled analysis
+// resolution. Returns boxes as fractions {xPct,yPct,wPct,hPct} of the full
+// sheet (largest first). Pure pixel analysis — no uploads, no network.
+async function segmentStickerSheet(buffer) {
+  const meta = await sharp(buffer).metadata();
+  const W0 = meta.width, H0 = meta.height;
+  const AW = 384, AH = Math.round((H0 / W0) * AW);
+  const { data, info } = await sharp(buffer).resize(AW, AH).greyscale()
+    .raw().toBuffer({ resolveWithObject: true });
+  const w = info.width, h = info.height, n = w * h;
+  const fg = new Uint8Array(n);
+  for (let i = 0; i < n; i++) fg[i] = data[i] < 238 ? 1 : 0;
+  // Dilate (separable max filter, radius r) to close line-art gaps + merge parts.
+  const r = 4, tmp = new Uint8Array(n), dil = new Uint8Array(n);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0; for (let dx = -r; dx <= r; dx++) { const xx = x + dx; if (xx < 0 || xx >= w) continue; if (fg[y*w+xx]) { m = 1; break; } } tmp[y*w+x] = m;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0; for (let dy = -r; dy <= r; dy++) { const yy = y + dy; if (yy < 0 || yy >= h) continue; if (tmp[yy*w+x]) { m = 1; break; } } dil[y*w+x] = m;
+  }
+  // Connected components (BFS, 8-connected).
+  const lab = new Int32Array(n), qx = new Int32Array(n), qy = new Int32Array(n);
+  let cur = 0; const comps = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = y*w+x; if (!dil[idx] || lab[idx]) continue;
+    cur++; let head = 0, tail = 0; qx[tail] = x; qy[tail] = y; tail++; lab[idx] = cur;
+    let minx = x, maxx = x, miny = y, maxy = y, area = 0;
+    while (head < tail) {
+      const cx = qx[head], cy = qy[head]; head++; area++;
+      if (cx < minx) minx = cx; if (cx > maxx) maxx = cx; if (cy < miny) miny = cy; if (cy > maxy) maxy = cy;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = cx+dx, ny = cy+dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const ni = ny*w+nx; if (dil[ni] && !lab[ni]) { lab[ni] = cur; qx[tail] = nx; qy[tail] = ny; tail++; }
+      }
+    }
+    comps.push({ minx, miny, maxx, maxy, area });
+  }
+  const padA = 6;
+  return comps
+    .filter((c) => c.area > n * 0.0008)            // drop speckle noise
+    .map((c) => {
+      const x0 = Math.max(0, c.minx - padA), y0 = Math.max(0, c.miny - padA);
+      const x1 = Math.min(w, c.maxx + padA), y1 = Math.min(h, c.maxy + padA);
+      return { xPct: x0 / w, yPct: y0 / h, wPct: (x1 - x0) / w, hPct: (y1 - y0) / h, area: c.area };
+    })
+    .sort((a, b) => b.area - a.area)
+    .map(({ area, ...box }) => box);
+}
+
+// Redo one sticker: take the cropped tile the user tapped and draw a fresh
+// variation of the same subject in the same house style, on a plain white
+// background. Returns a new image URL the app swaps into that slot.
+async function redoSticker(imageBase64, mimeType) {
+  if (!imageBase64) throw new HttpsError('invalid-argument', 'No sticker image to redo.');
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const buf = Buffer.from(imageBase64, 'base64');
+  const prompt =
+    'Redraw the single subject in the attached image as ONE fresh sticker '
+    + 'illustration — a new variation of the SAME thing (same kind of object), '
+    + 'keeping the delicate hand-drawn fine black line art and soft muted palette. '
+    + 'Center it on a plain white background. No white border, no outline, no '
+    + 'drop shadow, no text. Just the single illustration on white.';
+  const form = new FormData();
+  form.append('model', 'gpt-image-2');
+  form.append('prompt', prompt);
+  form.append('size', '1024x1024');
+  form.append('quality', 'medium');
+  form.append('output_format', 'webp');
+  form.append('image[]', new Blob([buf], { type: mimeType || 'image/png' }), 'tile.png');
+
+  const res = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const json = await res.json();
+  const b64 = json?.data?.[0]?.b64_json;
+  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(Buffer.from(b64, 'base64'), `forge-stickers/redo-${stamp}.webp`);
+  return { url };
 }
 
 // Image-reference test via OpenAI gpt-image-1. Takes an uploaded image + prompt
