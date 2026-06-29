@@ -453,6 +453,11 @@ exports.forgeTestImage = onCall(
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
 
     const styleKey = String(request.data?.style || 'gosh');
+    // Sticker Page rides on this (publicly-invokable) function: style
+    // "sticker-sheet" renders a full sheet via the shared helper.
+    if (styleKey === 'sticker-sheet') {
+      return renderStickerSheet(raw, request.data?.quality);
+    }
     const style = FORGE_STYLES[styleKey];
     if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
 
@@ -507,71 +512,81 @@ function loadStickerRefs() {
 
 const STICKER_QUALITIES = new Set(['low', 'medium', 'high']);
 
+// Core sticker-sheet render. Shared by the dedicated `forgeStickerSheet`
+// callable AND the `forgeTestImage` callable (style "sticker-sheet"), so the
+// app can reach it through whichever function is publicly invokable.
+async function renderStickerSheet(rawPrompt, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the stickers you want.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+
+  const refs = loadStickerRefs();
+  if (!refs.length) {
+    throw new HttpsError('internal', 'Sticker reference images are missing from the deploy.');
+  }
+
+  const body = raw.slice(0, 1000);
+  // Compose the sheet instruction. Match the references' art style/palette but
+  // not their content; free-form die-cut shapes, calmer count, no text.
+  const prompt =
+    'A full-page sticker sheet on a plain white background. Use the attached '
+    + 'images ONLY as the art-style and palette reference — delicate hand-drawn '
+    + 'fine black line art with soft flat muted color fills (dusty rose, sage, '
+    + 'ochre, terracotta, lavender, pale blue). Do NOT copy their content. '
+    + 'Make the stickers FREE-FORM, individually die-cut shapes that follow each '
+    + "illustration's outline — NOT circular badges or round coins. Each sticker "
+    + 'has a clean thick white kiss-cut border and a subtle drop shadow. '
+    + 'Compose about 6 large stickers plus a handful of small accent stickers '
+    + '(sparkles, small flowers, little gems) — not crowded, with breathing room. '
+    + 'Absolutely no text, words, letters or watermarks anywhere. '
+    + 'The stickers depict: ' + body;
+
+  const form = new FormData();
+  form.append('model', 'gpt-image-2');
+  form.append('prompt', prompt);
+  form.append('size', '1024x1536');
+  form.append('quality', quality);
+  form.append('output_format', 'webp');
+  refs.forEach((buf, i) => {
+    form.append('image[]', new Blob([buf], { type: 'image/jpeg' }), `ref${i + 1}.jpg`);
+  });
+
+  const res = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    if (res.status === 429) {
+      throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
+    }
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const json = await res.json();
+  const b64 = json?.data?.[0]?.b64_json;
+  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
+
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(Buffer.from(b64, 'base64'), `forge-stickers/${stamp}.webp`);
+  return { url, quality, prompt: body };
+}
+
+// Dedicated callable (needs its own public-invoker IAM binding to be reachable
+// from the client SDK). The app currently reaches sticker rendering through
+// forgeTestImage instead, which already has that binding.
 exports.forgeStickerSheet = onCall(
   { region: 'us-central1', timeoutSeconds: 180, memory: '1GiB' },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-    const raw = String(request.data?.prompt || '').trim();
-    if (!raw) throw new HttpsError('invalid-argument', 'Describe the stickers you want.');
-    let quality = String(request.data?.quality || 'medium');
-    if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
-
-    const key = await loadOpenAIKey();
-    if (!key) {
-      throw new HttpsError('failed-precondition',
-        'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
-    }
-
-    const refs = loadStickerRefs();
-    if (!refs.length) {
-      throw new HttpsError('internal', 'Sticker reference images are missing from the deploy.');
-    }
-
-    const body = raw.slice(0, 1000);
-    // Compose the sheet instruction. Match the references' art style/palette but
-    // not their content; free-form die-cut shapes, calmer count, no text.
-    const prompt =
-      'A full-page sticker sheet on a plain white background. Use the attached '
-      + 'images ONLY as the art-style and palette reference — delicate hand-drawn '
-      + 'fine black line art with soft flat muted color fills (dusty rose, sage, '
-      + 'ochre, terracotta, lavender, pale blue). Do NOT copy their content. '
-      + 'Make the stickers FREE-FORM, individually die-cut shapes that follow each '
-      + "illustration's outline — NOT circular badges or round coins. Each sticker "
-      + 'has a clean thick white kiss-cut border and a subtle drop shadow. '
-      + 'Compose about 6 large stickers plus a handful of small accent stickers '
-      + '(sparkles, small flowers, little gems) — not crowded, with breathing room. '
-      + 'Absolutely no text, words, letters or watermarks anywhere. '
-      + 'The stickers depict: ' + body;
-
-    const form = new FormData();
-    form.append('model', 'gpt-image-2');
-    form.append('prompt', prompt);
-    form.append('size', '1024x1536');
-    form.append('quality', quality);
-    form.append('output_format', 'webp');
-    refs.forEach((buf, i) => {
-      form.append('image[]', new Blob([buf], { type: 'image/jpeg' }), `ref${i + 1}.jpg`);
-    });
-
-    const res = await fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}` },
-      body: form,
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      if (res.status === 429) {
-        throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
-      }
-      throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
-    }
-    const json = await res.json();
-    const b64 = json?.data?.[0]?.b64_json;
-    if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
-
-    const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    const url = await persistBuffer(Buffer.from(b64, 'base64'), `forge-stickers/${stamp}.webp`);
-    return { url, quality, prompt: body };
+    return renderStickerSheet(request.data?.prompt, request.data?.quality);
   }
 );
 
