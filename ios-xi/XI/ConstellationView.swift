@@ -4,13 +4,19 @@ import UIKit
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
 /// pinned with crimson push-pins and joined by red string between cards that
 /// share a hashtag. Faithful to the web look (beige index cards #faf8e9, crimson
-/// pins #dc143c, straight red string). The board pinch-zooms and pans; tap a card
-/// to open it.
+/// pins #dc143c, straight red string). Drag a card to re-pin it, drag empty space
+/// to pan, pinch to zoom; tap a card to open it.
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
 
     @State private var detail: XIMemory?
+    @State private var positions: [String: CGPoint]
+
+    init(memories: [XIMemory]) {
+        self.memories = memories
+        _positions = State(initialValue: Self.layout(memories))
+    }
 
     // Web palette.
     private let beige = Color(red: 0.980, green: 0.973, blue: 0.914)        // #faf8e9
@@ -20,17 +26,20 @@ struct ConstellationView: View {
     private let bodyGrey = Color(red: 0.40, green: 0.40, blue: 0.40)        // #666
     private let maroon = Color(red: 0.502, green: 0.0, blue: 0.125)         // #800020
 
-    private let cardW: CGFloat = 188
-    private let cardH: CGFloat = 128
-    private let colW: CGFloat = 250
-    private let rowH: CGFloat = 210
-    private let margin: CGFloat = 110
-    private var cols: Int { max(2, min(4, Int(ceil(sqrt(Double(max(1, memories.count))))))) }
+    static let cardW: CGFloat = 188
+    static let cardH: CGFloat = 128
+    static let colW: CGFloat = 250
+    static let rowH: CGFloat = 210
+    static let margin: CGFloat = 110
 
     var body: some View {
         NavigationStack {
-            ZoomableScrollView(contentSize: canvasSize) {
-                board.frame(width: canvasSize.width, height: canvasSize.height)
+            ZoomableScrollView(contentSize: Self.canvasSize(memories),
+                               positions: $positions,
+                               orderedIds: memories.map(\.id),
+                               cardSize: CGSize(width: Self.cardW, height: Self.cardH)) {
+                board.frame(width: Self.canvasSize(memories).width,
+                            height: Self.canvasSize(memories).height)
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
@@ -60,7 +69,7 @@ struct ConstellationView: View {
                 }
             }
             ForEach(memories) { m in
-                PinCard(memory: m, width: cardW, height: cardH,
+                PinCard(memory: m, width: Self.cardW, height: Self.cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
                     .position(positions[m.id] ?? center)
@@ -69,21 +78,27 @@ struct ConstellationView: View {
         }
     }
 
-    // MARK: layout (deterministic — scattered grid, looks hand-pinned)
+    // MARK: layout (deterministic seed — scattered grid, looks hand-pinned)
 
-    private var center: CGPoint { CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2) }
+    private var center: CGPoint {
+        let s = Self.canvasSize(memories); return CGPoint(x: s.width / 2, y: s.height / 2)
+    }
 
-    private var canvasSize: CGSize {
-        let rows = Int(ceil(Double(memories.count) / Double(cols)))
-        let w = margin * 2 + CGFloat(cols) * colW
+    private static func cols(_ n: Int) -> Int { max(2, min(4, Int(ceil(sqrt(Double(max(1, n))))))) }
+
+    static func canvasSize(_ mems: [XIMemory]) -> CGSize {
+        let c = cols(mems.count)
+        let rows = Int(ceil(Double(mems.count) / Double(c)))
+        let w = margin * 2 + CGFloat(c) * colW
         let h = margin * 2 + CGFloat(max(1, rows)) * rowH
         return CGSize(width: max(w, 360), height: max(h, 360))
     }
 
-    private var positions: [String: CGPoint] {
+    static func layout(_ mems: [XIMemory]) -> [String: CGPoint] {
+        let c = cols(mems.count)
         var out: [String: CGPoint] = [:]
-        for (i, m) in memories.enumerated() {
-            let col = i % cols, row = i / cols
+        for (i, m) in mems.enumerated() {
+            let col = i % c, row = i / c
             let jx = CGFloat((i &* 73) % 49) - 24
             let jy = CGFloat((i &* 37) % 41) - 20
             let x = margin + cardW / 2 + CGFloat(col) * colW + jx
@@ -95,10 +110,9 @@ struct ConstellationView: View {
 
     /// Cards sharing a hashtag, chained — returns the two pin anchor points.
     private var stringPairs: [(CGPoint, CGPoint)] {
-        let pos = positions
         func anchor(_ id: String) -> CGPoint? {
-            guard let c = pos[id] else { return nil }
-            return CGPoint(x: c.x + cardW / 2 - 10, y: c.y - cardH / 2 + 9)
+            guard let c = positions[id] else { return nil }
+            return CGPoint(x: c.x + Self.cardW / 2 - 10, y: c.y - Self.cardH / 2 + 9)
         }
         var byTag: [String: [String]] = [:]
         for m in memories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
@@ -180,10 +194,14 @@ private struct Pushpin: View {
     }
 }
 
-/// A pinch-to-zoom + pan container backed by UIScrollView (SwiftUI's ScrollView
-/// can't zoom). Hosts the board and zooms it 0.4×–2.5×.
+/// UIScrollView-backed canvas: pinch-zoom (0.4×–2.5×) + pan, with a dedicated
+/// card-drag recognizer that wins over the scroll pan only when a card is grabbed
+/// (empty space pans, two fingers zoom). SwiftUI's ScrollView can do none of this.
 private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let contentSize: CGSize
+    @Binding var positions: [String: CGPoint]
+    let orderedIds: [String]
+    let cardSize: CGSize
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -201,20 +219,67 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         host.view.backgroundColor = .clear
         scroll.addSubview(host.view)
         scroll.contentSize = contentSize
+
+        // Card drag wins over scroll pan only when it starts on a card.
+        let cardPan = UIPanGestureRecognizer(target: context.coordinator,
+                                             action: #selector(Coordinator.handleCardPan(_:)))
+        cardPan.delegate = context.coordinator
+        cardPan.maximumNumberOfTouches = 1
+        host.view.addGestureRecognizer(cardPan)
+        scroll.panGestureRecognizer.require(toFail: cardPan)
         return scroll
     }
 
     func updateUIView(_ scroll: UIScrollView, context: Context) {
+        context.coordinator.parent = self
         context.coordinator.host.rootView = content()
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(host: UIHostingController(rootView: content()))
+        Coordinator(parent: self, host: UIHostingController(rootView: content()))
     }
 
-    final class Coordinator: NSObject, UIScrollViewDelegate {
+    final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+        var parent: ZoomableScrollView
         let host: UIHostingController<Content>
-        init(host: UIHostingController<Content>) { self.host = host }
+        private var dragId: String?
+        private var dragStart: CGPoint = .zero
+
+        init(parent: ZoomableScrollView, host: UIHostingController<Content>) {
+            self.parent = parent; self.host = host
+        }
+
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { host.view }
+
+        /// Topmost card whose frame contains a point in the (unscaled) board space.
+        private func card(at p: CGPoint) -> String? {
+            let s = parent.cardSize
+            for id in parent.orderedIds.reversed() {
+                guard let c = parent.positions[id] else { continue }
+                let r = CGRect(x: c.x - s.width / 2, y: c.y - s.height / 2, width: s.width, height: s.height)
+                if r.contains(p) { return id }
+            }
+            return nil
+        }
+
+        // Only let the card-pan engage when the touch lands on a card.
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            card(at: touch.location(in: host.view)) != nil
+        }
+
+        @objc func handleCardPan(_ g: UIPanGestureRecognizer) {
+            switch g.state {
+            case .began:
+                if let id = card(at: g.location(in: host.view)) {
+                    dragId = id; dragStart = parent.positions[id] ?? .zero
+                }
+            case .changed:
+                guard let id = dragId else { return }
+                let t = g.translation(in: host.view)
+                parent.positions[id] = CGPoint(x: dragStart.x + t.x, y: dragStart.y + t.y)
+            default:
+                dragId = nil
+            }
+        }
     }
 }
