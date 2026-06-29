@@ -25,13 +25,13 @@ struct VersusLobbyView: View {
                     .font(.system(.largeTitle, design: .serif).weight(.semibold)).tracking(4)
                     .foregroundStyle(XITheme.ink)
                 Text("a memory game with friends")
-                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
 
                 Button(action: start) {
                     Text(busy ? "…" : "start a new game")
                         .font(.system(.body, design: .serif))
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
-                        .background(XITheme.maroon).foregroundStyle(.white)
+                        .background(XITheme.gold).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .disabled(busy)
@@ -44,7 +44,7 @@ struct VersusLobbyView: View {
                         .background(XITheme.white)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
                     Button("join") { join(joinCode) }
-                        .font(.system(.body, design: .serif)).tint(XITheme.maroon)
+                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
                         .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty || busy)
                 }
 
@@ -52,7 +52,7 @@ struct VersusLobbyView: View {
 
                 if !VersusRecents.list().isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("your games").font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.maroon)
+                        Text("your games").font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
                         ForEach(VersusRecents.list(), id: \.self) { id in
                             Button { path.append(id) } label: {
                                 HStack {
@@ -80,7 +80,7 @@ struct VersusLobbyView: View {
                 VersusGameView(gameId: gameId, auth: auth)
             }
         }
-        .tint(XITheme.maroon)
+        .tint(XITheme.gold)
     }
 
     private func start() {

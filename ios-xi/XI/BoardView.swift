@@ -51,7 +51,7 @@ struct BoardView: View {
                         }
                         Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
                     } label: {
-                        Image(systemName: "person.circle").tint(XITheme.maroon)
+                        Image(systemName: "person.circle").tint(XITheme.gold)
                     }
                 }
             }
@@ -59,7 +59,7 @@ struct BoardView: View {
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
         }
-        .tint(XITheme.maroon)
+        .tint(XITheme.gold)
     }
 
     private var header: some View {
@@ -71,14 +71,14 @@ struct BoardView: View {
                     .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
                     .foregroundStyle(XITheme.ink)
                 Text(BoardEngine.dayLabel(viewDay, today: today))
-                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.maroon)
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
             }
             Spacer()
             Button { if viewDay < today { viewDay += 1; selected = nil } } label: { Image(systemName: "chevron.right") }
                 .disabled(viewDay >= today)
         }
         .font(.system(.title3, design: .serif))
-        .tint(XITheme.maroon)
+        .tint(XITheme.gold)
         .padding(.horizontal, 4)
     }
 
@@ -151,7 +151,7 @@ struct CardCell: View {
         .aspectRatio(1, contentMode: .fit)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(selected ? XITheme.maroon : XITheme.line, lineWidth: selected ? 2.5 : 0.5)
+                .stroke(selected ? XITheme.gold : XITheme.line, lineWidth: selected ? 2.5 : 0.5)
         )
     }
 }

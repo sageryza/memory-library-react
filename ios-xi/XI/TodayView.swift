@@ -21,6 +21,7 @@ struct TodayView: View {
     @State private var text = ""
     @State private var saving = false
     @State private var memories: [XIMemory] = []
+    @State private var totalCount = 0
     @State private var started = false
     @State private var showGallery = false
     @FocusState private var writing: Bool
@@ -63,11 +64,11 @@ struct TodayView: View {
                     .font(.system(.body, design: .serif)).tint(XITheme.navInk)
                 Spacer()
                 Button(saving ? "Saving…" : "Save memory") { Task { await save() } }
-                    .font(.system(.body, design: .serif).weight(.medium)).tint(XITheme.maroon)
+                    .font(.system(.body, design: .serif).weight(.medium)).tint(XITheme.gold)
                     .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .task { startIfNeeded() }
+        .task { startIfNeeded(); await loadTotal() }
         .task(id: pairKey) { await reload() }
     }
 
@@ -120,7 +121,7 @@ struct TodayView: View {
     // MARK: composer
 
     private var composer: some View {
-        VStack(alignment: .trailing, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text("A memory that's both of these…")
@@ -135,19 +136,27 @@ struct TodayView: View {
                     .padding(.horizontal, 9).padding(.vertical, 6)
             }
             .background(XITheme.white)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(writing ? XITheme.maroon : soft.opacity(0.7), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(writing ? XITheme.gold : soft.opacity(0.7), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
-            Button { Task { await save() } } label: {
-                Text(saving ? "Saving…" : "Save")
-                    .font(.system(size: 15, design: .serif)).tracking(0.5)
-                    .foregroundStyle(XITheme.ink)
-                    .padding(.vertical, 8).padding(.horizontal, 20)
-                    .background(XITheme.paper)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.ink, lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            HStack(alignment: .center, spacing: 10) {
+                if totalCount > 0 {
+                    Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
+                        .font(.system(size: 13, design: .serif).italic())
+                        .foregroundStyle(soft)
+                }
+                Spacer()
+                Button { Task { await save() } } label: {
+                    Text(saving ? "Saving…" : "Save")
+                        .font(.system(size: 15, design: .serif)).tracking(0.5)
+                        .foregroundStyle(XITheme.ink)
+                        .padding(.vertical, 8).padding(.horizontal, 20)
+                        .background(XITheme.paper)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.ink, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.top, 12)
     }
@@ -158,10 +167,6 @@ struct TodayView: View {
     private var collected: some View {
         if !memories.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("\(memories.count) \(memories.count == 1 ? "memory" : "memories") collected")
-                    .font(.system(size: 13, design: .serif).italic()).foregroundStyle(soft)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 18).padding(.bottom, 4)
                 ForEach(memories) { m in
                     Text(m.content)
                         .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
@@ -173,6 +178,7 @@ struct TodayView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
+            .padding(.top, 12)
             .padding(.bottom, 30)
         }
     }
@@ -212,6 +218,12 @@ struct TodayView: View {
         memories = await XIService.shared.memories(pairKey: pairKey)
     }
 
+    /// Running total of every memory collected — a sense of progress that holds
+    /// across cards, not just the current pairing.
+    private func loadTotal() async {
+        totalCount = await XIService.shared.allXiMemories().count
+    }
+
     private func save() async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -223,6 +235,7 @@ struct TodayView: View {
             text = ""
             writing = false
             await reload()
+            await loadTotal()
         } catch {
             // surfaced minimally for now; a memory failing to save is rare
         }
@@ -241,11 +254,11 @@ private struct TodayCard: View {
                 AsyncImage(url: url) { image in
                     image.resizable().scaledToFit().blendMode(.multiply)
                 } placeholder: { Color.clear }
-                .padding(6)
+                .padding(2)
             } else {
                 Text(card.cap)
                     .font(.system(size: 12, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(8)
+                    .foregroundStyle(XITheme.ink).padding(6)
             }
         }
         .aspectRatio(1, contentMode: .fit)

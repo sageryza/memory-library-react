@@ -35,7 +35,7 @@ struct CurateView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.system(size: 16, design: .serif)).tracking(0.8)
-                .foregroundStyle(XITheme.maroon)
+                .foregroundStyle(XITheme.gold)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 6)
                 .overlay(Rectangle().fill(XITheme.line).frame(height: 0.5), alignment: .bottom)
@@ -75,7 +75,7 @@ private struct CurCard: View {
                     Spacer()
                     toggle(system: off ? "plus" : "xmark",
                            fg: off ? Color(red: 0.992, green: 0.969, blue: 0.925) : XITheme.ink,
-                           bg: off ? XITheme.maroon : Color.white.opacity(0.92),
+                           bg: off ? XITheme.gold : Color.white.opacity(0.92),
                            action: onRemove)
                 }
                 Spacer()

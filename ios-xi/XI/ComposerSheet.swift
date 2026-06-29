@@ -19,11 +19,16 @@ struct ComposerSheet: View {
 
     var body: some View {
         VStack(spacing: 14) {
+            HStack(spacing: 10) {
+                cardImage(pairing.event, isEvent: true)
+                cardImage(pairing.twist, isEvent: false)
+            }
+            .padding(.top, 18)
+
             Text(prompt)
                 .font(.system(.title3, design: .serif))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(XITheme.ink)
-                .padding(.top, 22)
                 .padding(.horizontal, 8)
 
             TextEditor(text: $text)
@@ -40,7 +45,7 @@ struct ComposerSheet: View {
                 Text(saving ? "saving…" : "save")
                     .font(.system(.body, design: .serif))
                     .padding(.horizontal, 28).padding(.vertical, 10)
-                    .background(XITheme.maroon).foregroundStyle(.white)
+                    .background(XITheme.gold).foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving)
@@ -51,7 +56,7 @@ struct ComposerSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("the times before")
-                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.maroon)
+                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
                         ForEach(existing) { m in
                             Text(m.content)
                                 .font(.system(.callout, design: .serif))
@@ -68,6 +73,24 @@ struct ComposerSheet: View {
         .background(XITheme.paper)
         .presentationDetents([.medium, .large])
         .task { existing = await XIService.shared.memories(pairKey: pairKey) }
+    }
+
+    private func cardImage(_ card: XICard, isEvent: Bool) -> some View {
+        ZStack {
+            (isEvent ? XITheme.cream : XITheme.white)
+            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFit().blendMode(.multiply)
+                } placeholder: { Color.clear }
+                .padding(2)
+            } else {
+                Text(card.cap).font(.system(size: 11, design: .serif)).multilineTextAlignment(.center)
+                    .foregroundStyle(XITheme.ink).padding(4)
+            }
+        }
+        .frame(width: 116, height: 116)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }
 
     private func save() {

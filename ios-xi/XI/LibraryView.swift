@@ -50,7 +50,7 @@ struct LibraryView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showConstellation = true } label: { Image(systemName: "sparkles") }
-                        .tint(XITheme.maroon)
+                        .tint(XITheme.gold)
                         .disabled(memories.isEmpty)
                 }
             }
@@ -102,12 +102,12 @@ struct LibraryView: View {
                         }
                         .foregroundStyle(.white)
                         .padding(.vertical, 5).padding(.horizontal, 10)
-                        .background(XITheme.maroon)
+                        .background(XITheme.gold)
                         .clipShape(Capsule())
                     }
                 }
                 Button("clear") { activeTags.removeAll() }
-                    .font(.system(.caption, design: .serif)).tint(XITheme.maroon)
+                    .font(.system(.caption, design: .serif)).tint(XITheme.gold)
             }
             .padding(.horizontal, 14)
         }
@@ -119,7 +119,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var content: some View {
         if loading {
-            Spacer(); ProgressView().tint(XITheme.maroon); Spacer()
+            Spacer(); ProgressView().tint(XITheme.gold); Spacer()
         } else if memories.isEmpty {
             emptyState("No memories yet.", "Tap two touching cards on the board to write one.")
         } else if filtered.isEmpty {
@@ -201,9 +201,9 @@ private struct FlowTags: View {
                 Button { onTag(tag) } label: {
                     Text(tag)
                         .font(.system(size: 11, design: .serif))
-                        .foregroundStyle(XITheme.maroon)
+                        .foregroundStyle(XITheme.gold)
                         .padding(.vertical, 3).padding(.horizontal, 8)
-                        .background(XITheme.maroon.opacity(active.contains(tag) ? 0.22 : 0.08))
+                        .background(XITheme.gold.opacity(active.contains(tag) ? 0.22 : 0.08))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -234,9 +234,9 @@ struct MemoryDetailSheet: View {
                     if !memory.hashtags.isEmpty {
                         HStack {
                             ForEach(memory.hashtags, id: \.self) { tag in
-                                Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.maroon)
+                                Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
                                     .padding(.vertical, 3).padding(.horizontal, 8)
-                                    .background(XITheme.maroon.opacity(0.08)).clipShape(Capsule())
+                                    .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
                             }
                         }
                     }
@@ -251,7 +251,7 @@ struct MemoryDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.maroon)
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
         }
