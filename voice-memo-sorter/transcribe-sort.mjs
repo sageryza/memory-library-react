@@ -134,6 +134,24 @@ function printHelp() {
 // ---------------------------------------------------------------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Load a local .env file (this folder, or the current directory) so the API key
+// can live in one file instead of being exported every session. A real exported
+// env var still wins. The .env is gitignored — it never gets committed.
+function loadDotEnv() {
+  const here = path.dirname(new URL(import.meta.url).pathname);
+  for (const f of [path.join(here, '.env'), path.join(process.cwd(), '.env')]) {
+    let txt;
+    try { txt = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    for (const line of txt.split('\n')) {
+      const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+      if (!m) continue;
+      const key = m[1];
+      const val = m[2].replace(/^["']|["']$/g, '');
+      if (!(key in process.env)) process.env[key] = val;
+    }
+  }
+}
+
 function fmtDur(sec) {
   sec = Math.round(sec || 0);
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -414,6 +432,7 @@ async function writeScanReport(outDir, rows, costPerMin) {
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
+  loadDotEnv();
   const args = parseArgs(process.argv);
   if (!args.in) { console.error('Error: --in <folder> is required.\n'); printHelp(); process.exit(1); }
 
