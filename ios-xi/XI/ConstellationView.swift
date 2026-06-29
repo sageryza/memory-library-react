@@ -1,17 +1,16 @@
 import SwiftUI
+import UIKit
 
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
 /// pinned with crimson push-pins and joined by red string between cards that
-/// share a hashtag. Faithful port of the web conspiracy board's look: beige
-/// index cards (#faf8e9), crimson pins (#dc143c), straight red string. Cards can
-/// be dragged to re-pin them; the board pans. Tap a card to open it.
+/// share a hashtag. Faithful to the web look (beige index cards #faf8e9, crimson
+/// pins #dc143c, straight red string). The board pinch-zooms and pans; tap a card
+/// to open it.
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
 
     @State private var detail: XIMemory?
-    @State private var pos: [String: CGPoint] = [:]
-    @State private var dragStart: CGPoint?
 
     // Web palette.
     private let beige = Color(red: 0.980, green: 0.973, blue: 0.914)        // #faf8e9
@@ -30,9 +29,8 @@ struct ConstellationView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                board
-                    .frame(width: canvasSize.width, height: canvasSize.height)
+            ZoomableScrollView(contentSize: canvasSize) {
+                board.frame(width: canvasSize.width, height: canvasSize.height)
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
@@ -48,7 +46,6 @@ struct ConstellationView: View {
             }
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
         }
-        .task { if pos.isEmpty { pos = initialLayout() } }
     }
 
     private var board: some View {
@@ -56,9 +53,8 @@ struct ConstellationView: View {
             Color.white
             Canvas { ctx, _ in
                 for (a, b) in stringPairs {
-                    guard let pa = pinAnchor(a), let pb = pinAnchor(b) else { continue }
                     var path = Path()
-                    path.move(to: pa); path.addLine(to: pb)
+                    path.move(to: a); path.addLine(to: b)
                     ctx.stroke(path, with: .color(crimson),
                                style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 }
@@ -67,24 +63,15 @@ struct ConstellationView: View {
                 PinCard(memory: m, width: cardW, height: cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
-                    .position(pos[m.id] ?? CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))
+                    .position(positions[m.id] ?? center)
                     .onTapGesture { detail = m }
-                    .highPriorityGesture(dragGesture(m.id))
             }
         }
     }
 
-    private func dragGesture(_ id: String) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { v in
-                let start = dragStart ?? (pos[id] ?? .zero)
-                if dragStart == nil { dragStart = start }
-                pos[id] = CGPoint(x: start.x + v.translation.width, y: start.y + v.translation.height)
-            }
-            .onEnded { _ in dragStart = nil }
-    }
+    // MARK: layout (deterministic — scattered grid, looks hand-pinned)
 
-    // MARK: layout
+    private var center: CGPoint { CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2) }
 
     private var canvasSize: CGSize {
         let rows = Int(ceil(Double(memories.count) / Double(cols)))
@@ -93,8 +80,7 @@ struct ConstellationView: View {
         return CGSize(width: max(w, 360), height: max(h, 360))
     }
 
-    /// Deterministic scattered grid — looks hand-pinned without overlapping much.
-    private func initialLayout() -> [String: CGPoint] {
+    private var positions: [String: CGPoint] {
         var out: [String: CGPoint] = [:]
         for (i, m) in memories.enumerated() {
             let col = i % cols, row = i / cols
@@ -107,25 +93,24 @@ struct ConstellationView: View {
         return out
     }
 
-    /// Top-right pin point of a card (where the string attaches).
-    private func pinAnchor(_ id: String) -> CGPoint? {
-        guard let c = pos[id] else { return nil }
-        return CGPoint(x: c.x + cardW / 2 - 10, y: c.y - cardH / 2 + 9)
-    }
-
-    /// Cards sharing a hashtag, chained in order (each pair once, capped).
-    private var stringPairs: [(String, String)] {
+    /// Cards sharing a hashtag, chained — returns the two pin anchor points.
+    private var stringPairs: [(CGPoint, CGPoint)] {
+        let pos = positions
+        func anchor(_ id: String) -> CGPoint? {
+            guard let c = pos[id] else { return nil }
+            return CGPoint(x: c.x + cardW / 2 - 10, y: c.y - cardH / 2 + 9)
+        }
         var byTag: [String: [String]] = [:]
         for m in memories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
         var seen = Set<String>()
-        var out: [(String, String)] = []
+        var out: [(CGPoint, CGPoint)] = []
         for ids in byTag.values where ids.count > 1 {
             for k in 1..<ids.count {
                 let a = ids[k - 1], b = ids[k]
                 let key = a < b ? a + "|" + b : b + "|" + a
                 if seen.contains(key) { continue }
                 seen.insert(key)
-                out.append((a, b))
+                if let pa = anchor(a), let pb = anchor(b) { out.append((pa, pb)) }
                 if out.count > 220 { return out }
             }
         }
@@ -192,5 +177,44 @@ private struct Pushpin: View {
                 .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
         }
         .frame(width: 22, height: 22, alignment: .topLeading)
+    }
+}
+
+/// A pinch-to-zoom + pan container backed by UIScrollView (SwiftUI's ScrollView
+/// can't zoom). Hosts the board and zooms it 0.4×–2.5×.
+private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
+    let contentSize: CGSize
+    @ViewBuilder var content: () -> Content
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scroll = UIScrollView()
+        scroll.delegate = context.coordinator
+        scroll.minimumZoomScale = 0.4
+        scroll.maximumZoomScale = 2.5
+        scroll.bouncesZoom = true
+        scroll.showsVerticalScrollIndicator = false
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.backgroundColor = .white
+
+        let host = context.coordinator.host
+        host.view.frame = CGRect(origin: .zero, size: contentSize)
+        host.view.backgroundColor = .clear
+        scroll.addSubview(host.view)
+        scroll.contentSize = contentSize
+        return scroll
+    }
+
+    func updateUIView(_ scroll: UIScrollView, context: Context) {
+        context.coordinator.host.rootView = content()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(host: UIHostingController(rootView: content()))
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        let host: UIHostingController<Content>
+        init(host: UIHostingController<Content>) { self.host = host }
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { host.view }
     }
 }
