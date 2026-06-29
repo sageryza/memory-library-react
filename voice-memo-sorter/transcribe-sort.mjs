@@ -110,6 +110,11 @@ async function withRetry(fn, { tries = 4, base = 2000, label = 'op' } = {}) {
     catch (e) {
       lastErr = e;
       const status = e?.status || e?.response?.status;
+      const code = e?.code || e?.error?.code || e?.response?.data?.error?.code;
+      // Out of credits/quota is a 429 that retrying will never fix — fail fast.
+      if (code === 'insufficient_quota') {
+        throw new Error('OpenAI returned insufficient_quota — the account is out of credits or over its quota. Add credits / check billing at https://platform.openai.com/account/billing, then re-run.');
+      }
       // Don't retry obvious client errors except rate limits.
       if (status && status !== 429 && status >= 400 && status < 500) throw e;
       const wait = base * 2 ** i;
