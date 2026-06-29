@@ -987,12 +987,13 @@ const MIRACLE_SYSTEM = [
 // endpoint, passing a handful of the author's own doodles as style references.
 // Toggle per-call with { engine: 'openai' }; default stays Replicate/Sketchy.
 const MIRACLE_OPENAI_PROMPT = (concept) =>
-  'A single small object drawn as a simple doodle / icon on a plain white background, '
-  + 'centered with lots of empty white space — like a quick diagram, NOT a scene. Loose, '
-  + 'imperfect, hand-drawn with a thin black ballpoint pen, wobbly uneven lines, childlike '
-  + 'and minimal, like the reference images. No shading, no solid black fills, no color, '
-  + `NO people, NO hands, NO background. Draw: ${concept}. A tiny hand-lettered label is `
-  + 'okay only if it helps.';
+  'A single small object drawn as a simple doodle / icon, centered with lots of empty '
+  + 'space — like a quick diagram, NOT a scene, on a plain uncluttered background like the '
+  + 'reference paper. Loose, imperfect, hand-drawn with a thin black ballpoint pen, wobbly '
+  + 'uneven lines, childlike and minimal, like the reference images. No shading, no solid '
+  + `black fills, no color, NO people, NO hands. Draw: ${concept}. Do NOT write the object's `
+  + 'name or any caption/title anywhere. Only include words if they are literally part of '
+  + "the idea (e.g. a 'CLOSED' sign, a small 'x3'); otherwise no text at all.";
 
 // The author's reference doodles, committed under functions/miracle-refs/.
 // Read once and cached for the life of the instance.
@@ -1047,9 +1048,9 @@ exports.illustrateMiracle = onCall(
     const text = String(request.data?.text || '').trim();
     if (!text) throw new HttpsError('invalid-argument', 'Write a miracle first.');
     const id = String(request.data?.id || crypto.randomUUID());
-    // Which illustrator: 'openai' (gpt-image-1 + reference doodles) or the
-    // default 'replicate' (the Sketchy LoRA). Lets us compare them live.
-    const engine = String(request.data?.engine || 'replicate').toLowerCase();
+    // Which illustrator: 'openai' (gpt-image-1 + reference doodles, now the
+    // default look) or 'replicate' (the old Sketchy LoRA). Still switchable.
+    const engine = String(request.data?.engine || 'openai').toLowerCase();
 
     // Distill the moment into 1–3 whole-story doodle concepts (best-effort).
     // When distill is false, draw the user's text verbatim as a single concept.
