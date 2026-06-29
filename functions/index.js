@@ -507,6 +507,99 @@ async function renderDream(rawPrompt, qualityIn) {
   return { url, quality, prompt: body };
 }
 
+// ===========================================================================
+// Instagram post — a polished square (1:1) image from a prompt, optionally with
+// product reference images and optional caption text rendered cleanly ONTO the
+// image (for meme-style posts). The text is composited by us (sharp) rather than
+// drawn by the model, so it's always legible and correctly spelled.
+// ===========================================================================
+function escapeXml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
+async function overlayCaption(imgBuffer, text) {
+  const W = 1024, H = 1024;
+  const words = String(text).trim().split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > 24) { if (cur) lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur.trim());
+  const fontSize = 52, lineH = Math.round(fontSize * 1.25), pad = 44;
+  const blockH = lines.length * lineH + pad * 2;
+  const top = H - blockH;
+  const tspans = lines.map((l, i) =>
+    `<tspan x="${W / 2}" y="${top + pad + fontSize + i * lineH}">${escapeXml(l)}</tspan>`).join('');
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`
+    + `<rect x="0" y="${top}" width="${W}" height="${blockH}" fill="#000" fill-opacity="0.42"/>`
+    + `<text font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" fill="#ffffff" `
+    + `text-anchor="middle" font-weight="600">${tspans}</text></svg>`;
+  return sharp(imgBuffer).resize(W, H, { fit: 'cover' })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .webp().toBuffer();
+}
+
+async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the post first.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const body = raw.slice(0, 1000);
+  const refs = (Array.isArray(refsData) ? refsData : []).slice(0, 4).map((s) => {
+    const str = String(s || '');
+    const m = /^data:([^;]+);base64,(.*)$/.exec(str);
+    const b64 = m ? m[2] : str;
+    const mime = m ? m[1] : 'image/png';
+    try { return { buffer: Buffer.from(b64, 'base64'), mime }; } catch { return null; }
+  }).filter(Boolean);
+
+  const prompt =
+    'A polished, on-brand square Instagram post photo. Beautifully lit, tasteful '
+    + 'modern aesthetic, clean composition with nice negative space, cohesive '
+    + 'muted palette. ' + body
+    + (refs.length ? ' Use the attached image(s) as the product/subject reference — keep the product faithful.' : '')
+    + ' No text or watermarks in the image.';
+
+  let buffer;
+  if (refs.length) {
+    const form = new FormData();
+    form.append('model', 'gpt-image-2');
+    form.append('prompt', prompt);
+    form.append('size', '1024x1024');
+    form.append('quality', quality);
+    form.append('output_format', 'webp');
+    refs.forEach((r, i) => form.append('image[]', new Blob([r.buffer], { type: r.mime }), `ref${i + 1}.png`));
+    const res = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
+      throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
+    }
+    const b64 = (await res.json())?.data?.[0]?.b64_json;
+    if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
+    buffer = Buffer.from(b64, 'base64');
+  } else {
+    buffer = await generateOpenAIImage(key, prompt, quality, '1024x1024');
+  }
+
+  const caption = String(captionText || '').trim();
+  if (caption) buffer = await overlayCaption(buffer, caption);
+
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(buffer, `forge-instagram/${stamp}.webp`);
+  return { url, quality, prompt: body };
+}
+
 // Save a finished creation to the owner's list so it survives a dropped
 // connection / backgrounded app and shows up in the in-app grid. Best-effort.
 async function saveCreation(uid, type, data) {
@@ -564,6 +657,12 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'dream') {
       const out = await renderDream(raw, request.data?.quality);
       await saveCreation(uid, 'dream', out);
+      return out;
+    }
+    // "ig-post" makes a square Instagram post (optional product refs + caption).
+    if (styleKey === 'ig-post') {
+      const out = await renderIgPost(raw, request.data?.refs, request.data?.caption, request.data?.quality);
+      await saveCreation(uid, 'instagram', out);
       return out;
     }
     const style = FORGE_STYLES[styleKey];
