@@ -16,9 +16,8 @@ struct CurateView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("XI")
-                    .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
-                    .foregroundStyle(XITheme.ink).padding(.bottom, 6)
+                XILogo(height: 32)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 6)
                 Text("Heart the cards you love, remove the ones you don't. Removed cards stop showing up on Today.")
                     .font(.system(size: 13, design: .serif)).foregroundStyle(XITheme.line)
                     .padding(.bottom, 20)
