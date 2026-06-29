@@ -487,7 +487,7 @@ exports.forgeTestImage = onCall(
     // Sticker Page rides on this (publicly-invokable) function. "redo-sticker"
     // takes an image (no text prompt), so it's handled before the prompt check.
     if (styleKey === 'redo-sticker') {
-      return redoSticker(String(request.data?.image || ''), String(request.data?.mimeType || 'image/png'));
+      return redoSticker(String(request.data?.image || ''), String(request.data?.mimeType || 'image/png'), request.data?.prompt);
     }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
@@ -680,7 +680,7 @@ async function segmentStickerSheet(buffer) {
 // Redo one sticker: take the cropped tile the user tapped and draw a fresh
 // variation of the same subject in the same house style, on a plain white
 // background. Returns a new image URL the app swaps into that slot.
-async function redoSticker(imageBase64, mimeType) {
+async function redoSticker(imageBase64, mimeType, userPrompt) {
   if (!imageBase64) throw new HttpsError('invalid-argument', 'No sticker image to redo.');
   const key = await loadOpenAIKey();
   if (!key) {
@@ -688,17 +688,25 @@ async function redoSticker(imageBase64, mimeType) {
       'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
   }
   const buf = Buffer.from(imageBase64, 'base64');
-  const prompt =
-    'Redraw the single subject in the attached image as ONE fresh sticker '
-    + 'illustration — a new variation of the SAME thing (same kind of object), '
-    + 'keeping the delicate hand-drawn fine black line art and soft muted palette. '
-    + 'Center it on a plain white background. No white border, no outline, no '
-    + 'drop shadow, no text. Just the single illustration on white.';
+  const want = String(userPrompt || '').trim().slice(0, 300);
+  // With a user prompt: draw that NEW subject in the same style. Without one:
+  // a fresh variation of whatever the tile already shows.
+  const prompt = want
+    ? ('Use the attached image ONLY as the art-STYLE reference — match its '
+      + 'delicate hand-drawn fine black line art and soft muted palette. Draw ONE '
+      + 'new sticker of: ' + want + '. Center it on a plain white background. No '
+      + 'white border, no outline, no drop shadow, no text. Just the single '
+      + 'illustration on white.')
+    : ('Redraw the single subject in the attached image as ONE fresh sticker '
+      + 'illustration — a new variation of the SAME thing (same kind of object), '
+      + 'keeping the delicate hand-drawn fine black line art and soft muted palette. '
+      + 'Center it on a plain white background. No white border, no outline, no '
+      + 'drop shadow, no text. Just the single illustration on white.');
   const form = new FormData();
   form.append('model', 'gpt-image-2');
   form.append('prompt', prompt);
   form.append('size', '1024x1024');
-  form.append('quality', 'medium');
+  form.append('quality', 'low');   // one small sticker — favor speed
   form.append('output_format', 'webp');
   form.append('image[]', new Blob([buf], { type: mimeType || 'image/png' }), 'tile.png');
 
