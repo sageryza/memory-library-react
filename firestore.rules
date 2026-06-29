@@ -20,6 +20,14 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
+      // ImageForge creations (sticker sheets, coloring pages, …). Written only
+      // by the Cloud Function (admin SDK); the owner reads them so generations
+      // survive a dropped connection / app restart and appear in a grid.
+      match /creations/{creationId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
       // User's profile (readable by anyone for attribution, writable only by owner)
       match /profile/{profileId} {
         allow read: if true;  // Anyone can read profiles for attribution

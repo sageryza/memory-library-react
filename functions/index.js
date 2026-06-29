@@ -479,10 +479,28 @@ async function renderColoringPage(rawPrompt, qualityIn) {
   return { url, quality, prompt: body };
 }
 
+// Save a finished creation to the owner's list so it survives a dropped
+// connection / backgrounded app and shows up in the in-app grid. Best-effort.
+async function saveCreation(uid, type, data) {
+  if (!uid || !data?.url) return;
+  try {
+    await db.collection('users').doc(uid).collection('creations').add({
+      type,
+      url: data.url,
+      prompt: data.prompt || null,
+      stickers: data.stickers || null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('saveCreation failed', e.message);
+  }
+}
+
 exports.forgeTestImage = onCall(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const uid = request.auth.uid;
     const styleKey = String(request.data?.style || 'gosh');
     // Sticker Page rides on this (publicly-invokable) function. "redo-sticker"
     // takes an image (no text prompt), so it's handled before the prompt check.
@@ -494,11 +512,15 @@ exports.forgeTestImage = onCall(
 
     // "sticker-sheet" renders a full sheet (+ segmented boxes) via the helper.
     if (styleKey === 'sticker-sheet') {
-      return renderStickerSheet(raw, request.data?.quality);
+      const out = await renderStickerSheet(raw, request.data?.quality);
+      await saveCreation(uid, 'sticker', out);
+      return out;
     }
     // "coloring-page" renders a printable black-and-white line-art page.
     if (styleKey === 'coloring-page') {
-      return renderColoringPage(raw, request.data?.quality);
+      const out = await renderColoringPage(raw, request.data?.quality);
+      await saveCreation(uid, 'coloring', out);
+      return out;
     }
     const style = FORGE_STYLES[styleKey];
     if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
