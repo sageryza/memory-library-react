@@ -77,8 +77,8 @@ def main():
         for b in d.get("data", []):
             builds[b["id"]] = b["attributes"].get("version")
 
-    path = (f"/betaFeedbackScreenshotSubmissions?filter[app]={app_id}"
-            f"&sort=-createdDate&limit={limit}")
+    path = (f"/apps/{app_id}/betaFeedbackScreenshotSubmissions"
+            f"?sort=-createdDate&limit={limit}")
     st, d = api(path, tok)
     if st != 200:
         print(f"::error::could not read beta feedback ({st}): {d}"); return 1
