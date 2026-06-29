@@ -28,7 +28,7 @@ extension ComplianceTheme {
         ink: PWC.ink,
         subtleInk: PWC.dim,
         accent: PWC.accent,
-        accentText: .white,
+        accentText: PWC.onAccent,
         line: PWC.line,
         titleFont: { PWC.display($0, .semibold) },
         bodyFont: { .system(size: $0) }

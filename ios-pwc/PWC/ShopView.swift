@@ -54,7 +54,7 @@ struct ShopCard: View {
                 if item.freeGift {
                     Text("+ card").font(PWC.mono(9, .bold))
                         .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(PWC.accent).foregroundStyle(.white)
+                        .background(PWC.accent).foregroundStyle(PWC.onAccent)
                         .clipShape(Capsule()).padding(6)
                 }
             }

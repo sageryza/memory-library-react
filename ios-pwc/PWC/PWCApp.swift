@@ -4,10 +4,29 @@ import SwiftUI
 struct PWCApp: App {
     init() {
         let ink = UIColor(PWC.ink)
+        let navy = UIColor(PWC.paper)
+
+        // Solid navy nav bar with light serif-ish titles.
+        let nav = UINavigationBarAppearance()
+        nav.configureWithOpaqueBackground()
+        nav.backgroundColor = navy
+        nav.shadowColor = UIColor(PWC.line)
+        nav.largeTitleTextAttributes = [.foregroundColor: ink]
+        nav.titleTextAttributes = [.foregroundColor: ink]
+        UINavigationBar.appearance().standardAppearance = nav
+        UINavigationBar.appearance().scrollEdgeAppearance = nav
+        UINavigationBar.appearance().compactAppearance = nav
+        UINavigationBar.appearance().tintColor = UIColor(PWC.accent)
+
+        // Solid navy tab bar, gold selected / muted unselected.
+        let tab = UITabBarAppearance()
+        tab.configureWithOpaqueBackground()
+        tab.backgroundColor = navy
+        tab.shadowColor = UIColor(PWC.line)
+        UITabBar.appearance().standardAppearance = tab
+        UITabBar.appearance().scrollEdgeAppearance = tab
         UITabBar.appearance().tintColor = UIColor(PWC.accent)
         UITabBar.appearance().unselectedItemTintColor = UIColor(PWC.dim)
-        UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: ink]
-        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: ink]
     }
 
     var body: some Scene {
@@ -38,5 +57,6 @@ struct RootView: View {
             .tint(PWC.accent)
         }
         .environmentObject(moderation)
+        .preferredColorScheme(.dark)
     }
 }

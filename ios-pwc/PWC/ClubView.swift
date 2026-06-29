@@ -41,7 +41,7 @@ struct ClubView: View {
         .frame(height: 210)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [PWC.ink, Color(hex: 0x3A352D)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [Color(hex: 0x1B2747), Color(hex: 0x0C1120)], startPoint: .topLeading, endPoint: .bottomTrailing)
         )
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(PWC.accent, lineWidth: 2))
         .clipShape(RoundedRectangle(cornerRadius: 16))
