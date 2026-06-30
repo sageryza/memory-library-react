@@ -507,6 +507,60 @@ async function renderDream(rawPrompt, qualityIn) {
   return { url, quality, prompt: body };
 }
 
+// Storybook page — one picture-book page: an illustrated scene with the page's
+// caption set cleanly along the bottom (like a real children's book). The model
+// draws NO text; we composite the caption ourselves (sharp) so it's always
+// legible and correctly spelled. Pages flip in the app to build a whole book.
+async function captionStorybookPage(imgBuffer, text) {
+  const W = 1024, H = 1536;
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > 30) { if (cur) lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur.trim());
+  const fontSize = 46, lineH = Math.round(fontSize * 1.32), padY = 50;
+  const bandH = Math.max(160, lines.length * lineH + padY * 2);
+  const top = H - bandH;
+  const tspans = lines.map((l, i) =>
+    `<tspan x="${W / 2}" y="${top + padY + fontSize + i * lineH}">${escapeXml(l)}</tspan>`).join('');
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`
+    + `<rect x="0" y="${top}" width="${W}" height="${bandH}" fill="#fffdf6"/>`
+    + `<rect x="0" y="${top}" width="${W}" height="3" fill="#e7e0cf"/>`
+    + `<text font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" fill="#2c2622" `
+    + `text-anchor="middle" font-style="italic">${tspans}</text></svg>`;
+  return sharp(imgBuffer).resize(W, H, { fit: 'cover' })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .webp().toBuffer();
+}
+
+async function renderStorybookPage(rawPrompt, captionText, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the picture for this page.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const body = raw.slice(0, 1000);
+  const prompt =
+    'A warm, whimsical children\'s picture-book illustration. Soft hand-painted '
+    + 'storybook style, cozy inviting palette, expressive friendly characters, a '
+    + 'full-bleed scene that fills the frame. Keep the lower portion of the image '
+    + 'calmer and less busy (room for a caption). Absolutely no text, words, '
+    + 'letters, captions or watermarks anywhere in the image. The scene: ' + body;
+  const buffer = await generateOpenAIImage(key, prompt, quality, '1024x1536');
+  const caption = String(captionText || '').trim();
+  const finalBuffer = caption ? await captionStorybookPage(buffer, caption) : buffer;
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(finalBuffer, `forge-storybook/${stamp}.webp`);
+  return { url, quality, prompt: body, caption };
+}
+
 // ===========================================================================
 // Instagram post — a polished square (1:1) image from a prompt, optionally with
 // product reference images and optional caption text rendered cleanly ONTO the
@@ -710,6 +764,12 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'dream') {
       const out = await renderDream(raw, request.data?.quality);
       await saveCreation(uid, 'dream', out);
+      return out;
+    }
+    // "storybook-page" makes one picture-book page: illustrated scene + caption.
+    if (styleKey === 'storybook-page') {
+      const out = await renderStorybookPage(raw, request.data?.caption, request.data?.quality);
+      await saveCreation(uid, 'storybook', { url: out.url, prompt: out.caption || out.prompt });
       return out;
     }
     // "ig-post" makes a square Instagram post (optional product refs + caption).
