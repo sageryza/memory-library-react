@@ -1,6 +1,9 @@
 import Foundation
+import UIKit
+import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import GoogleSignIn
 
 /// A saved XI memory (mirrors the shared `users/{uid}/memories` schema).
 struct XIMemory: Identifiable {
@@ -54,6 +57,25 @@ final class XIService {
         if Auth.auth().currentUser == nil {
             try await Auth.auth().signInAnonymously()
         }
+    }
+
+    /// Sign in with Google (same provider as the web), then exchange the Google
+    /// credential for a Firebase session so the user's real memories/libraries
+    /// load. Must run on the main actor (presents UI).
+    func signInWithGoogle(presenting: UIViewController) async throws {
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            throw NSError(domain: "XI", code: -2,
+                          userInfo: [NSLocalizedDescriptionKey: "Missing Google client ID."])
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
+        guard let idToken = result.user.idToken?.tokenString else {
+            throw NSError(domain: "XI", code: -3,
+                          userInfo: [NSLocalizedDescriptionKey: "Google sign-in returned no ID token."])
+        }
+        let credential = GoogleAuthProvider.credential(
+            withIDToken: idToken, accessToken: result.user.accessToken.tokenString)
+        try await Auth.auth().signIn(with: credential)
     }
 
     func signOut() throws { try Auth.auth().signOut() }
