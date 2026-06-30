@@ -221,7 +221,7 @@ struct TodayView: View {
     /// Running total of every memory collected — a sense of progress that holds
     /// across cards, not just the current pairing.
     private func loadTotal() async {
-        totalCount = await XIService.shared.allXiMemories().count
+        totalCount = await XIService.shared.allMemories().count
     }
 
     private func save() async {

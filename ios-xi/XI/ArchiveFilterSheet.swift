@@ -49,6 +49,7 @@ struct ArchiveFilterSheet: View {
                 }
                 .padding(18)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(XITheme.paper.ignoresSafeArea())
             .navigationTitle("filter")
             .navigationBarTitleDisplayMode(.inline)
