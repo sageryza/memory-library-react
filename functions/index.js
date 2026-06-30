@@ -714,7 +714,7 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
 //   { igUserId: "<IG business account id>", accessToken: "<long-lived token>" }
 // (admin-only, same pattern as the other secrets). Two-step flow: create a media
 // container from the public image URL, wait for it to finish, then publish.
-async function publishToInstagram(imageUrl, caption) {
+async function publishToInstagram(imageUrl, caption, asStory) {
   if (!imageUrl) throw new HttpsError('invalid-argument', 'No image to post.');
   const snap = await db.doc('config/instagram').get();
   const cfg = snap.exists ? snap.data() : null;
@@ -726,9 +726,11 @@ async function publishToInstagram(imageUrl, caption) {
   }
   const base = 'https://graph.facebook.com/v21.0';
 
-  // 1) Create the media container.
+  // 1) Create the media container. Stories use media_type=STORIES and ignore
+  // captions; feed posts carry the optional caption.
   const createParams = new URLSearchParams({ image_url: imageUrl, access_token: token });
-  if (caption) createParams.set('caption', caption);
+  if (asStory) createParams.set('media_type', 'STORIES');
+  else if (caption) createParams.set('caption', caption);
   let res = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: createParams });
   let json = await res.json();
   if (!res.ok || !json.id) {
@@ -754,7 +756,7 @@ async function publishToInstagram(imageUrl, caption) {
   if (!res.ok || !json.id) {
     throw new HttpsError('internal', `Instagram publish failed: ${JSON.stringify(json.error || json).slice(0, 300)}`);
   }
-  return { id: json.id, posted: true };
+  return { id: json.id, posted: true, story: !!asStory };
 }
 
 // Save a finished creation to the owner's list so it survives a dropped
@@ -796,9 +798,12 @@ exports.forgeTestImage = onCall(
       return { url };
     }
     // "ig-publish" posts an existing image straight to Instagram via the Graph
-    // API (needs config/instagram set up). Takes imageUrl + caption, no prompt.
+    // API (needs config/instagram set up). Takes imageUrl + caption + asStory.
     if (styleKey === 'ig-publish') {
-      return publishToInstagram(String(request.data?.imageUrl || ''), String(request.data?.caption || ''));
+      return publishToInstagram(
+        String(request.data?.imageUrl || ''),
+        String(request.data?.caption || ''),
+        request.data?.asStory === true);
     }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
