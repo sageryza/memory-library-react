@@ -561,6 +561,59 @@ async function renderStorybookPage(rawPrompt, captionText, qualityIn) {
   return { url, quality, prompt: body, caption };
 }
 
+// Greeting Card — a card-front illustration with the greeting set as a clean
+// display headline along the bottom (composited by us so it's always legible
+// and correctly spelled). Portrait, like a folded card front.
+async function headlineGreetingCard(imgBuffer, text) {
+  const W = 1024, H = 1536;
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > 18) { if (cur) lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur.trim());
+  const fontSize = 70, lineH = Math.round(fontSize * 1.22), padY = 56;
+  const bandH = Math.max(190, lines.length * lineH + padY * 2);
+  const top = H - bandH;
+  const tspans = lines.map((l, i) =>
+    `<tspan x="${W / 2}" y="${top + padY + fontSize + i * lineH}">${escapeXml(l)}</tspan>`).join('');
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`
+    + `<rect x="0" y="${top}" width="${W}" height="${bandH}" fill="#fffaf0" fill-opacity="0.94"/>`
+    + `<rect x="0" y="${top}" width="${W}" height="3" fill="#e3d9c2"/>`
+    + `<text font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" fill="#3a2f2a" `
+    + `text-anchor="middle" font-weight="600">${tspans}</text></svg>`;
+  return sharp(imgBuffer).resize(W, H, { fit: 'cover' })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .webp().toBuffer();
+}
+
+async function renderGreetingCard(rawPrompt, messageText, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the card you want.');
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const body = raw.slice(0, 1000);
+  const prompt =
+    'A beautiful greeting-card front illustration. Charming, celebratory and '
+    + 'tasteful, with a cohesive palette and clear focal subject. Leave calmer '
+    + 'negative space along the bottom of the image for a short greeting. '
+    + 'Absolutely no text, words, letters or watermarks anywhere in the image. '
+    + 'The card: ' + body;
+  const buffer = await generateOpenAIImage(key, prompt, quality, '1024x1536');
+  const message = String(messageText || '').trim();
+  const finalBuffer = message ? await headlineGreetingCard(buffer, message) : buffer;
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const url = await persistBuffer(finalBuffer, `forge-cards/${stamp}.webp`);
+  return { url, quality, prompt: body, message };
+}
+
 // ===========================================================================
 // Instagram post — a polished square (1:1) image from a prompt, optionally with
 // product reference images and optional caption text rendered cleanly ONTO the
@@ -770,6 +823,12 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'storybook-page') {
       const out = await renderStorybookPage(raw, request.data?.caption, request.data?.quality);
       await saveCreation(uid, 'storybook', { url: out.url, prompt: out.caption || out.prompt });
+      return out;
+    }
+    // "greeting-card" makes a card-front illustration with a greeting headline.
+    if (styleKey === 'greeting-card') {
+      const out = await renderGreetingCard(raw, request.data?.message, request.data?.quality);
+      await saveCreation(uid, 'card', { url: out.url, prompt: out.message || out.prompt });
       return out;
     }
     // "ig-post" makes a square Instagram post (optional product refs + caption).
