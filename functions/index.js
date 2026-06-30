@@ -600,6 +600,54 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
   return { url, quality, prompt: body };
 }
 
+// Publish an already-generated image straight to Instagram via the Graph API.
+// Credentials live in a locked-down Firestore doc config/instagram:
+//   { igUserId: "<IG business account id>", accessToken: "<long-lived token>" }
+// (admin-only, same pattern as the other secrets). Two-step flow: create a media
+// container from the public image URL, wait for it to finish, then publish.
+async function publishToInstagram(imageUrl, caption) {
+  if (!imageUrl) throw new HttpsError('invalid-argument', 'No image to post.');
+  const snap = await db.doc('config/instagram').get();
+  const cfg = snap.exists ? snap.data() : null;
+  const token = cfg?.accessToken;
+  const igUser = cfg?.igUserId;
+  if (!token || !igUser) {
+    throw new HttpsError('failed-precondition',
+      'Instagram posting isn’t set up yet. Add config/instagram with igUserId + accessToken.');
+  }
+  const base = 'https://graph.facebook.com/v21.0';
+
+  // 1) Create the media container.
+  const createParams = new URLSearchParams({ image_url: imageUrl, access_token: token });
+  if (caption) createParams.set('caption', caption);
+  let res = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: createParams });
+  let json = await res.json();
+  if (!res.ok || !json.id) {
+    throw new HttpsError('internal', `Instagram create failed: ${JSON.stringify(json.error || json).slice(0, 300)}`);
+  }
+  const creationId = json.id;
+
+  // 2) Wait for the container to be ready (images are usually quick).
+  for (let i = 0; i < 12; i++) {
+    const s = await fetch(`${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`);
+    const sj = await s.json();
+    if (sj.status_code === 'FINISHED') break;
+    if (sj.status_code === 'ERROR') throw new HttpsError('internal', 'Instagram could not process the image.');
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  // 3) Publish it.
+  res = await fetch(`${base}/${igUser}/media_publish`, {
+    method: 'POST',
+    body: new URLSearchParams({ creation_id: creationId, access_token: token }),
+  });
+  json = await res.json();
+  if (!res.ok || !json.id) {
+    throw new HttpsError('internal', `Instagram publish failed: ${JSON.stringify(json.error || json).slice(0, 300)}`);
+  }
+  return { id: json.id, posted: true };
+}
+
 // Save a finished creation to the owner's list so it survives a dropped
 // connection / backgrounded app and shows up in the in-app grid. Best-effort.
 async function saveCreation(uid, type, data) {
@@ -637,6 +685,11 @@ exports.forgeTestImage = onCall(
       const url = await persistBuffer(Buffer.from(img, 'base64'), `forge-stickers/edited-${stamp}.jpg`, 'image/jpeg');
       await saveCreation(uid, 'sticker', { url, prompt: String(request.data?.prompt || 'edited sheet') });
       return { url };
+    }
+    // "ig-publish" posts an existing image straight to Instagram via the Graph
+    // API (needs config/instagram set up). Takes imageUrl + caption, no prompt.
+    if (styleKey === 'ig-publish') {
+      return publishToInstagram(String(request.data?.imageUrl || ''), String(request.data?.caption || ''));
     }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
