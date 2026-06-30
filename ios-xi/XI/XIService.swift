@@ -214,22 +214,44 @@ final class XIService {
         return (snap?.documents ?? []).compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
 
-    func allXiMemories() async -> [XIMemory] {
+    /// Every memory in the user's library (not just XI-game ones), minus trash —
+    /// mirrors the web archive, which shows all non-deleted memories regardless
+    /// of `source`. Web memories have no `source` field, so we must not filter by
+    /// it; soft-deleted memories carry a `deletedAt` and are excluded.
+    func allMemories() async -> [XIMemory] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let snap = try? await db.collection("users").document(uid).collection("memories")
-            .whereField("source", isEqualTo: "xi").getDocuments()
-        return (snap?.documents ?? []).compactMap(parse).sorted { $0.timestamp > $1.timestamp }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("memories").getDocuments()
+        let docs = (snap?.documents ?? []).filter { doc in
+            let dv = doc.data()["deletedAt"]
+            return dv == nil || dv is NSNull          // keep active (and restored) only
+        }
+        return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
+
+    private let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f
+    }()
+    private let shortDateFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateStyle = .short; f.timeStyle = .none; return f
+    }()
 
     private func parse(_ doc: QueryDocumentSnapshot) -> XIMemory? {
         let d = doc.data()
-        guard let content = d["content"] as? String else { return nil }
+        let content = d["content"] as? String ?? ""
+        let title = d["title"] as? String ?? ""
+        if content.isEmpty && title.isEmpty { return nil }   // skip empty shells
         let ev = d["event"] as? [String: Any]
         let tw = d["twist"] as? [String: Any]
+        // Web memories sort/date by createdAt; XI memories carry timestamp/dateTime.
+        let created = d["createdAt"] as? Timestamp
+        let ts = d["timestamp"] as? String ?? ""
+        let timestamp = !ts.isEmpty ? ts : (created.map { isoFormatter.string(from: $0.dateValue()) } ?? "")
+        let dt = d["dateTime"] as? String ?? (created.map { shortDateFormatter.string(from: $0.dateValue()) } ?? "")
         return XIMemory(
             id: doc.documentID,
             content: content,
-            title: d["title"] as? String ?? "",
+            title: title,
             pairKey: d["pairKey"] as? String ?? "",
             eventId: ev?["id"] as? String ?? "",
             twistId: tw?["id"] as? String ?? "",
@@ -237,8 +259,8 @@ final class XIService {
             twistCap: tw?["cap"] as? String ?? "",
             hashtags: (d["hashtags"] as? [String]) ?? [],
             mode: d["mode"] as? String ?? "board",
-            dateTime: d["dateTime"] as? String ?? "",
-            timestamp: d["timestamp"] as? String ?? ""
+            dateTime: dt,
+            timestamp: timestamp
         )
     }
 

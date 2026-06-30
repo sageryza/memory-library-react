@@ -55,7 +55,7 @@ final class ArchiveStore: ObservableObject {
     }
 
     func load() async {
-        async let mem = XIService.shared.allXiMemories()
+        async let mem = XIService.shared.allMemories()
         async let libs = XIService.shared.loadLibraries()
         memories = await mem
         libraries = await libs

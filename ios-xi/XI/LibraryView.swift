@@ -13,6 +13,7 @@ struct LibraryView: View {
     @State private var showLibraries = false
     @State private var showAddTag = false
     @State private var addTagText = ""
+    @FocusState private var searchFocused: Bool
 
     private let gridCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     private let simplifyCols = [GridItem(.flexible(), spacing: 10),
@@ -31,6 +32,13 @@ struct LibraryView: View {
             .navigationTitle(store.selectedLibrary?.name ?? "your memories")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { searchFocused = false }
+                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
             .sheet(isPresented: $showConstellation) { ConstellationView(memories: store.memories) }
             .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
@@ -92,6 +100,9 @@ struct LibraryView: View {
             TextField("search memories", text: $store.search)
                 .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                 .autocorrectionDisabled()
+                .focused($searchFocused)
+                .submitLabel(.search)
+                .onSubmit { searchFocused = false }
             if !store.search.isEmpty {
                 Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
             }
@@ -192,6 +203,7 @@ struct LibraryView: View {
                     ForEach(store.filtered) { m in simplifyCard(m) }
                 }.padding(14)
             }
+            .scrollDismissesKeyboard(.immediately)
         } else {
             ScrollView {
                 LazyVGrid(columns: gridCols, alignment: .leading, spacing: 12) {
@@ -205,6 +217,7 @@ struct LibraryView: View {
                     }
                 }.padding(14)
             }
+            .scrollDismissesKeyboard(.immediately)
         }
     }
 
