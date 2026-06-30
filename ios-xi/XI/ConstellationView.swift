@@ -21,6 +21,7 @@ struct WireDraft: Equatable {
 struct BoardSnapshot: Equatable {
     var positions: [String: CGPoint]
     var connections: [BoardConnection]
+    var placed: Set<String>
 }
 
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
@@ -35,16 +36,22 @@ struct ConstellationView: View {
     let memories: [XIMemory]
 
     @State private var detail: XIMemory?
-    @State private var positions: [String: CGPoint]
+    @State private var positions: [String: CGPoint] = [:]
+    @State private var placed: Set<String> = []
     @State private var connections: [BoardConnection] = []
     @State private var wire: WireDraft?
     @State private var undoStack: [BoardSnapshot] = []
     @State private var redoStack: [BoardSnapshot] = []
+    @State private var showAdd = false
+    @State private var loaded = false
 
     init(memories: [XIMemory]) {
         self.memories = memories
-        _positions = State(initialValue: Self.layout(memories))
     }
+
+    /// The memories actually pinned to the board (the curated subset).
+    private var boardMemories: [XIMemory] { memories.filter { placed.contains($0.id) } }
+    private var offBoard: [XIMemory] { memories.filter { !placed.contains($0.id) } }
 
     // Web palette.
     private let beige = Color(red: 0.980, green: 0.973, blue: 0.914)        // #faf8e9
@@ -62,16 +69,19 @@ struct ConstellationView: View {
 
     var body: some View {
         NavigationStack {
-            ZoomableScrollView(contentSize: Self.canvasSize(memories),
-                               positions: $positions,
-                               wire: $wire,
-                               orderedIds: memories.map(\.id),
-                               cardSize: CGSize(width: Self.cardW, height: Self.cardH),
-                               onConnect: toggleConnection,
-                               onCardMoveBegan: recordUndo,
-                               onCardMoved: savePositions) {
-                board.frame(width: Self.canvasSize(memories).width,
-                            height: Self.canvasSize(memories).height)
+            ZStack {
+                ZoomableScrollView(contentSize: Self.canvasSize(placed.count),
+                                   positions: $positions,
+                                   wire: $wire,
+                                   orderedIds: boardMemories.map(\.id),
+                                   cardSize: CGSize(width: Self.cardW, height: Self.cardH),
+                                   onConnect: toggleConnection,
+                                   onCardMoveBegan: recordUndo,
+                                   onCardMoved: savePositions) {
+                    board.frame(width: Self.canvasSize(placed.count).width,
+                                height: Self.canvasSize(placed.count).height)
+                }
+                if loaded && placed.isEmpty { emptyBoard }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
@@ -84,23 +94,58 @@ struct ConstellationView: View {
                         .disabled(redoStack.isEmpty).tint(crimson)
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(memories.count) memories")
+                    Text("\(placed.count) on board")
                         .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        Button { showAdd = true } label: { Label("Add memories", systemImage: "plus") }
+                        Button { scatterAll() } label: { Label("Scatter all", systemImage: "sparkles") }
+                            .disabled(offBoard.isEmpty)
+                        Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
+                            .disabled(placed.isEmpty)
+                    } label: { Image(systemName: "ellipsis.circle") }.tint(crimson)
                     Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
                 }
             }
-            .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
+            .sheet(item: $detail) { m in
+                MemoryDetailSheet(memory: m, onRemoveFromBoard: { removeFromBoard(m.id) })
+            }
+            .sheet(isPresented: $showAdd) {
+                BoardAddSheet(memories: offBoard) { ids in addToBoard(ids) }
+            }
         }
         .task {
+            guard !loaded else { return }
             async let conns = XIService.shared.loadConnections()
             async let pos = XIService.shared.loadBoardPositions()
+            async let placedIds = XIService.shared.loadPlacedIds()
             connections = await conns.map { BoardConnection(a: $0.0, b: $0.1) }
-            // Apply any saved positions over the deterministic starting layout.
-            let saved = await pos
-            for (id, pt) in saved where positions[id] != nil { positions[id] = pt }
+            positions = await pos
+            placed = Set(await placedIds)
+            // Any placed card lacking a saved position gets a tidy slot.
+            var i = 0
+            for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
+            loaded = true
         }
+    }
+
+    private var emptyBoard: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "pin").font(.system(size: 34, weight: .thin)).foregroundStyle(bodyGrey)
+            Text("Your board is empty")
+                .font(.system(.title3, design: .serif)).foregroundStyle(slate)
+            Text("Pin memories to the board to connect them with string.")
+                .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
+                .multilineTextAlignment(.center)
+            Button { showAdd = true } label: {
+                Label("Add memories", systemImage: "plus")
+                    .font(.system(.body, design: .serif).weight(.medium))
+                    .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
+                    .background(crimson).clipShape(RoundedRectangle(cornerRadius: 6))
+            }.padding(.top, 4)
+        }
+        .padding(28)
     }
 
     /// Persist the board arrangement after a card is dragged.
@@ -121,35 +166,70 @@ struct ConstellationView: View {
         Task { await XIService.shared.saveConnections(pairs) }
     }
 
-    // MARK: undo / redo (card moves + connection add/remove)
+    // MARK: board membership (add / remove / scatter / clear)
+
+    private func addToBoard(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        recordUndo()
+        var n = placed.count
+        for id in ids where !placed.contains(id) {
+            if positions[id] == nil { positions[id] = Self.slot(n) }
+            placed.insert(id); n += 1
+        }
+        persistAll()
+    }
+
+    private func removeFromBoard(_ id: String) {
+        guard placed.contains(id) else { return }
+        recordUndo()
+        placed.remove(id)
+        persistAll()
+    }
+
+    private func scatterAll() {
+        recordUndo()
+        for (i, m) in memories.enumerated() { positions[m.id] = Self.slot(i) }
+        placed = Set(memories.map(\.id))
+        persistAll()
+    }
+
+    private func clearBoard() {
+        recordUndo()
+        placed = []
+        persistAll()
+    }
+
+    // MARK: undo / redo (membership + card moves + connection add/remove)
 
     /// Snapshot the board before a change.
     private func recordUndo() {
-        undoStack.append(BoardSnapshot(positions: positions, connections: connections))
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
         if undoStack.count > 50 { undoStack.removeFirst() }
         redoStack.removeAll()
     }
 
     private func undo() {
         guard let prev = undoStack.popLast() else { return }
-        redoStack.append(BoardSnapshot(positions: positions, connections: connections))
-        positions = prev.positions
-        connections = prev.connections
+        redoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
+        positions = prev.positions; connections = prev.connections; placed = prev.placed
         persistAll()
     }
 
     private func redo() {
         guard let next = redoStack.popLast() else { return }
-        undoStack.append(BoardSnapshot(positions: positions, connections: connections))
-        positions = next.positions
-        connections = next.connections
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
+        positions = next.positions; connections = next.connections; placed = next.placed
         persistAll()
     }
 
     private func persistAll() {
         savePositions()
         let pairs = connections.map { ($0.a, $0.b) }
-        Task { await XIService.shared.saveConnections(pairs) }
+        let ids = Array(placed)
+        Task {
+            await XIService.shared.saveConnections(pairs)
+            await XIService.shared.savePlacedIds(ids)
+        }
     }
 
     private var board: some View {
@@ -163,8 +243,8 @@ struct ConstellationView: View {
                     ctx.stroke(path, with: .color(crimson.opacity(0.30)),
                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
                 }
-                // Hand-drawn strings → solid crimson.
-                for c in connections {
+                // Hand-drawn strings → solid crimson (only between placed cards).
+                for c in connections where placed.contains(c.a) && placed.contains(c.b) {
                     guard let pa = anchor(c.a), let pb = anchor(c.b) else { continue }
                     var path = Path()
                     path.move(to: pa); path.addLine(to: pb)
@@ -182,7 +262,7 @@ struct ConstellationView: View {
                              with: .color(crimson))
                 }
             }
-            ForEach(memories) { m in
+            ForEach(boardMemories) { m in
                 PinCard(memory: m, width: Self.cardW, height: Self.cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
@@ -192,37 +272,31 @@ struct ConstellationView: View {
         }
     }
 
-    // MARK: layout (deterministic seed — scattered grid, looks hand-pinned)
+    // MARK: layout (deterministic scattered grid — looks hand-pinned)
 
     private var center: CGPoint {
-        let s = Self.canvasSize(memories); return CGPoint(x: s.width / 2, y: s.height / 2)
+        let s = Self.canvasSize(placed.count); return CGPoint(x: s.width / 2, y: s.height / 2)
     }
 
-    private static func cols(_ n: Int) -> Int { max(2, min(4, Int(ceil(sqrt(Double(max(1, n))))))) }
+    static let placeCols = 4
+
+    /// A scattered grid slot for the i-th placed card (fixed columns so a card's
+    /// slot doesn't shift as more are added).
+    static func slot(_ i: Int) -> CGPoint {
+        let col = i % placeCols, row = i / placeCols
+        let jx = CGFloat((i &* 73) % 49) - 24
+        let jy = CGFloat((i &* 37) % 41) - 20
+        return CGPoint(x: margin + cardW / 2 + CGFloat(col) * colW + jx,
+                       y: margin + cardH / 2 + CGFloat(row) * rowH + jy)
+    }
 
     /// A big board so cards and string have room to roam — no "wall" at the edge.
-    /// The initial grid sits in the top-left; the rest is open space to drag into.
-    static func canvasSize(_ mems: [XIMemory]) -> CGSize {
-        let c = cols(mems.count)
-        let rows = Int(ceil(Double(mems.count) / Double(c)))
-        let gridW = margin * 2 + CGFloat(c) * colW
+    static func canvasSize(_ count: Int) -> CGSize {
+        let rows = Int(ceil(Double(max(1, count)) / Double(placeCols)))
+        let gridW = margin * 2 + CGFloat(placeCols) * colW
         let gridH = margin * 2 + CGFloat(max(1, rows)) * rowH
         return CGSize(width: max(2200, gridW + 900),
                       height: max(3200, gridH + 1600))
-    }
-
-    static func layout(_ mems: [XIMemory]) -> [String: CGPoint] {
-        let c = cols(mems.count)
-        var out: [String: CGPoint] = [:]
-        for (i, m) in mems.enumerated() {
-            let col = i % c, row = i / c
-            let jx = CGFloat((i &* 73) % 49) - 24
-            let jy = CGFloat((i &* 37) % 41) - 20
-            let x = margin + cardW / 2 + CGFloat(col) * colW + jx
-            let y = margin + cardH / 2 + CGFloat(row) * rowH + jy
-            out[m.id] = CGPoint(x: x, y: y)
-        }
-        return out
     }
 
     /// The pin's anchor point on a card (top-right, where the push-pin sits).
@@ -231,10 +305,10 @@ struct ConstellationView: View {
         return CGPoint(x: c.x + Self.cardW / 2 - 10, y: c.y - Self.cardH / 2 + 9)
     }
 
-    /// Cards sharing a hashtag, chained — returns the two pin anchor points.
+    /// Placed cards sharing a hashtag, chained — returns the two pin anchor points.
     private var stringPairs: [(CGPoint, CGPoint)] {
         var byTag: [String: [String]] = [:]
-        for m in memories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
+        for m in boardMemories { for t in m.hashtags { byTag[t, default: []].append(m.id) } }
         var seen = Set<String>()
         var out: [(CGPoint, CGPoint)] = []
         for ids in byTag.values where ids.count > 1 {
@@ -446,5 +520,91 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 parent.wire = nil
             }
         }
+    }
+}
+
+/// A searchable, multi-select list of memories not yet on the board. Tap to
+/// select, then "Add" pins them all to the canvas.
+private struct BoardAddSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let memories: [XIMemory]                 // off-board, available to add
+    var onAdd: ([String]) -> Void
+
+    @State private var search = ""
+    @State private var selected: Set<String> = []
+
+    private var filtered: [XIMemory] {
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return memories }
+        return memories.filter {
+            ($0.title + " " + $0.content + " " + $0.hashtags.joined(separator: " "))
+                .lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
+                    TextField("search memories", text: $search)
+                        .font(.system(.body, design: .serif)).autocorrectionDisabled()
+                }
+                .padding(10).background(XITheme.white)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 14).padding(.vertical, 10)
+
+                if memories.isEmpty {
+                    Spacer()
+                    Text("Every memory is already on the board.")
+                        .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.line)
+                        .multilineTextAlignment(.center).padding(24)
+                    Spacer()
+                } else {
+                    List(filtered) { m in
+                        Button { toggle(m.id) } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: selected.contains(m.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selected.contains(m.id) ? XITheme.gold : XITheme.line)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(m.title.isEmpty ? m.content : m.title)
+                                        .font(.system(.subheadline, design: .serif).weight(.medium))
+                                        .foregroundStyle(XITheme.archiveTitle).lineLimit(1)
+                                    if !m.hashtags.isEmpty {
+                                        Text(m.hashtags.prefix(3).joined(separator: " "))
+                                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(XITheme.gold).lineLimit(1)
+                                    }
+                                }
+                                Spacer()
+                            }
+                        }
+                        .listRowBackground(XITheme.paper)
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDismissesKeyboard(.immediately)
+                }
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("add to board")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Add\(selected.isEmpty ? "" : " (\(selected.count))")") {
+                        onAdd(Array(selected)); dismiss()
+                    }
+                    .font(.system(.body, design: .serif).weight(.semibold))
+                    .tint(XITheme.gold).disabled(selected.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func toggle(_ id: String) {
+        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
     }
 }

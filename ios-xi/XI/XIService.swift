@@ -374,6 +374,22 @@ final class XIService {
             .setData(["pins": pins, "updatedAt": FieldValue.serverTimestamp()])
     }
 
+    /// Which memories are currently *placed on* the board (the curated subset).
+    /// Empty for a fresh board — the user pulls memories in.
+    func loadPlacedIds() async -> [String] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("placed").getDocument()
+        return (snap?.data()?["ids"] as? [String]) ?? []
+    }
+
+    func savePlacedIds(_ ids: [String]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("placed")
+            .setData(["ids": ids, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     // MARK: Memory edits (used by archive bulk actions)
 
     func deleteMemory(_ id: String) async {

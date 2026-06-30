@@ -318,6 +318,8 @@ private struct FlowTags: View {
 struct MemoryDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let memory: XIMemory
+    /// When set (board context), shows a "Remove from board" action.
+    var onRemoveFromBoard: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -342,6 +344,16 @@ struct MemoryDetailSheet: View {
                     }
                     if !memory.dateTime.isEmpty {
                         Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
+                    }
+                    if let onRemoveFromBoard {
+                        Button(role: .destructive) {
+                            onRemoveFromBoard(); dismiss()
+                        } label: {
+                            Label("Remove from board", systemImage: "pin.slash")
+                                .font(.system(.body, design: .serif))
+                        }
+                        .tint(XITheme.maroon)
+                        .padding(.top, 6)
                     }
                     Spacer()
                 }
