@@ -59,9 +59,11 @@ final class XIService {
         }
     }
 
-    /// Sign in with Google (same provider as the web), then exchange the Google
-    /// credential for a Firebase session so the user's real memories/libraries
-    /// load. Must run on the main actor (presents UI).
+    /// Sign in with Google (same provider as the web). If the user was playing
+    /// anonymously, their in-app memories are carried over: we first try to
+    /// upgrade the anonymous account in place (same uid → everything preserved);
+    /// if the Google account already exists, we copy the anonymous data into it.
+    /// Must run on the main actor (presents UI).
     func signInWithGoogle(presenting: UIViewController) async throws {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             throw NSError(domain: "XI", code: -2,
@@ -75,7 +77,97 @@ final class XIService {
         }
         let credential = GoogleAuthProvider.credential(
             withIDToken: idToken, accessToken: result.user.accessToken.tokenString)
+
+        if let current = Auth.auth().currentUser, current.isAnonymous {
+            do {
+                // New account: upgrade the anon user in place — same uid, so all
+                // memories/libraries/board data carry over with no copying.
+                try await current.link(with: credential)
+                return
+            } catch let e as NSError where e.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
+                // The Google account already exists. Snapshot the anon data while
+                // we can still read it, switch to the real account, then merge in.
+                let export = await exportCurrentUserData()
+                let cred = (e.userInfo[AuthErrorUserInfoUpdatedCredentialKey] as? AuthCredential) ?? credential
+                try await Auth.auth().signIn(with: cred)
+                await importData(export)
+                return
+            }
+        }
         try await Auth.auth().signIn(with: credential)
+    }
+
+    // MARK: anonymous → account migration
+
+    /// A snapshot of one account's XI data, used to carry an anonymous user's
+    /// work into their real account on sign-in.
+    struct AccountExport {
+        var memories: [(String, [String: Any])] = []
+        var libraries: [(String, [String: Any])] = []
+        var connectionPairs: [[String: String]] = []
+        var positions: [String: [String: Double]] = [:]
+    }
+
+    /// Read everything under the currently-signed-in user (raw documents).
+    func exportCurrentUserData() async -> AccountExport {
+        guard let uid = Auth.auth().currentUser?.uid else { return AccountExport() }
+        let root = db.collection("users").document(uid)
+        var out = AccountExport()
+        if let snap = try? await root.collection("memories").getDocuments() {
+            out.memories = snap.documents.map { ($0.documentID, $0.data()) }
+        }
+        if let snap = try? await root.collection("libraries").getDocuments() {
+            out.libraries = snap.documents.map { ($0.documentID, $0.data()) }
+        }
+        if let c = try? await root.collection("xiBoard").document("connections").getDocument(),
+           let pairs = c.data()?["pairs"] as? [[String: String]] {
+            out.connectionPairs = pairs
+        }
+        if let p = try? await root.collection("xiBoard").document("positions").getDocument(),
+           let pins = p.data()?["pins"] as? [String: [String: Double]] {
+            out.positions = pins
+        }
+        return out
+    }
+
+    /// Merge an export into the currently-signed-in account. Memories and
+    /// libraries keep their original doc IDs (so connections/positions still
+    /// line up); board connections and positions are unioned with any the
+    /// account already has, never clobbered.
+    func importData(_ e: AccountExport) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let root = db.collection("users").document(uid)
+
+        for (id, data) in e.memories {
+            try? await root.collection("memories").document(id).setData(data, merge: true)
+        }
+        for (id, data) in e.libraries {
+            try? await root.collection("libraries").document(id).setData(data, merge: true)
+        }
+
+        if !e.connectionPairs.isEmpty {
+            let ref = root.collection("xiBoard").document("connections")
+            let snap = try? await ref.getDocument()
+            var pairs = (snap?.data()?["pairs"] as? [[String: String]]) ?? []
+            func key(_ d: [String: String]) -> String? {
+                guard let a = d["a"], let b = d["b"] else { return nil }
+                return a < b ? a + "|" + b : b + "|" + a
+            }
+            var seen = Set(pairs.compactMap(key))
+            for d in e.connectionPairs {
+                guard let k = key(d), !seen.contains(k) else { continue }
+                pairs.append(d); seen.insert(k)
+            }
+            try? await ref.setData(["pairs": pairs, "updatedAt": FieldValue.serverTimestamp()])
+        }
+
+        if !e.positions.isEmpty {
+            let ref = root.collection("xiBoard").document("positions")
+            let snap = try? await ref.getDocument()
+            var pins = (snap?.data()?["pins"] as? [String: [String: Double]]) ?? [:]
+            for (id, p) in e.positions where pins[id] == nil { pins[id] = p }
+            try? await ref.setData(["pins": pins, "updatedAt": FieldValue.serverTimestamp()])
+        }
     }
 
     func signOut() throws { try Auth.auth().signOut() }
