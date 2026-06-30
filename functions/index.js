@@ -18,6 +18,9 @@ const { getStorage } = require('firebase-admin/storage');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileP = promisify(execFile);
 const Anthropic = require('@anthropic-ai/sdk');
 const sharp = require('sharp');
 
@@ -934,6 +937,107 @@ async function publishCarouselToInstagram(imageUrls, caption) {
   return { id: j.id, posted: true, carousel: true };
 }
 
+// ===========================================================================
+// Reel — turn an aesthetic still into a short cinematic vertical (9:16) clip
+// with a slow Ken-Burns zoom (ffmpeg), then publish as an Instagram Reel. The
+// ffmpeg-static binary is copied to /tmp once per instance (node_modules is
+// read-only at runtime) and reused.
+// ===========================================================================
+let FFMPEG_BIN = null;
+async function ensureFfmpeg() {
+  if (FFMPEG_BIN) return FFMPEG_BIN;
+  const src = require('ffmpeg-static');
+  const dst = path.join('/tmp', 'ffmpeg-bin');
+  try {
+    await fs.promises.access(dst, fs.constants.X_OK);
+    FFMPEG_BIN = dst;
+    return dst;
+  } catch { /* not copied yet */ }
+  await fs.promises.copyFile(src, dst);
+  await fs.promises.chmod(dst, 0o755);
+  FFMPEG_BIN = dst;
+  return dst;
+}
+
+async function kenBurnsMp4(stillBuffer) {
+  const ff = await ensureFfmpeg();
+  const id = crypto.randomUUID().slice(0, 8);
+  const inP = path.join('/tmp', `reel-in-${id}.png`);
+  const outP = path.join('/tmp', `reel-out-${id}.mp4`);
+  await fs.promises.writeFile(inP, stillBuffer);
+  // Pre-upscale then zoompan for a smooth slow zoom; silent stereo AAC track so
+  // the Reel always has an audio stream (some IG validation expects one).
+  const vf = "scale=2160:3840,zoompan=z='min(zoom+0.0009,1.18)':d=180:"
+    + "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=30,format=yuv420p";
+  try {
+    await execFileP(ff, [
+      '-y', '-loop', '1', '-i', inP,
+      '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+      '-vf', vf, '-t', '6', '-r', '30',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'high',
+      '-c:a', 'aac', '-b:a', '96k', '-shortest', '-movflags', '+faststart', outP,
+    ], { maxBuffer: 1024 * 1024 * 64, timeout: 100000 });
+    const mp4 = await fs.promises.readFile(outP);
+    return mp4;
+  } finally {
+    fs.promises.unlink(inP).catch(() => {});
+    fs.promises.unlink(outP).catch(() => {});
+  }
+}
+
+async function renderReel(rawPrompt, aestheticIn, qualityIn) {
+  const raw = String(rawPrompt || '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Describe the reel first.');
+  const aesthetic = IG_AESTHETICS[String(aestheticIn)] ? String(aestheticIn) : 'dark';
+  let quality = String(qualityIn || 'medium');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key found in config/*.');
+  const prompt = IG_AESTHETICS[aesthetic] + raw.slice(0, 1000)
+    + ' Vertical composition. No text or watermarks in the image.';
+  const imgBuf = await generateOpenAIImage(key, prompt, quality, '1024x1536');
+  const still = await sharp(imgBuf).resize(1080, 1920, { fit: 'cover' }).png().toBuffer();
+  const mp4 = await kenBurnsMp4(still);
+  const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const videoUrl = await persistBuffer(mp4, `forge-instagram/reel-${stamp}.mp4`, 'video/mp4');
+  const posterUrl = await persistBuffer(await sharp(still).webp().toBuffer(), `forge-instagram/reel-${stamp}.webp`);
+  return { videoUrl, url: posterUrl, prompt: raw.slice(0, 1000), aesthetic };
+}
+
+// Publish a video URL as an Instagram Reel (videos take longer to process, so
+// poll a bit more patiently than the photo path).
+async function publishReelToInstagram(videoUrl, caption) {
+  if (!videoUrl) throw new HttpsError('invalid-argument', 'No video to post.');
+  const snap = await db.doc('config/instagram').get();
+  const cfg = snap.exists ? snap.data() : null;
+  const token = cfg?.accessToken, igUser = cfg?.igUserId;
+  if (!token || !igUser) {
+    throw new HttpsError('failed-precondition', 'Instagram posting isn’t set up yet.');
+  }
+  const base = 'https://graph.facebook.com/v21.0';
+  const p = new URLSearchParams({ media_type: 'REELS', video_url: videoUrl, access_token: token });
+  if (caption) p.set('caption', caption);
+  let r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: p });
+  let j = await r.json();
+  if (!r.ok || !j.id) throw new HttpsError('internal', `Reel create failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+  const creationId = j.id;
+  let finished = false;
+  for (let i = 0; i < 40; i++) {
+    const s = await fetch(`${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`);
+    const sj = await s.json();
+    if (sj.status_code === 'FINISHED') { finished = true; break; }
+    if (sj.status_code === 'ERROR') throw new HttpsError('internal', 'Instagram could not process the reel.');
+    await new Promise((x) => setTimeout(x, 2500));
+  }
+  if (!finished) throw new HttpsError('deadline-exceeded', 'Reel is still processing — try posting again in a minute.');
+  r = await fetch(`${base}/${igUser}/media_publish`, {
+    method: 'POST', body: new URLSearchParams({ creation_id: creationId, access_token: token }),
+  });
+  j = await r.json();
+  if (!r.ok || !j.id) throw new HttpsError('internal', `Reel publish failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+  return { id: j.id, posted: true, reel: true };
+}
+
 // Publish an already-generated image straight to Instagram via the Graph API.
 // Credentials live in a locked-down Firestore doc config/instagram:
 //   { igUserId: "<IG business account id>", accessToken: "<long-lived token>" }
@@ -1002,7 +1106,8 @@ async function saveCreation(uid, type, data) {
 }
 
 exports.forgeTestImage = onCall(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  // 1GiB + 180s headroom for the Reel path (ffmpeg encode in /tmp + IG video processing).
+  { region: 'us-central1', timeoutSeconds: 180, memory: '1GiB' },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
     const uid = request.auth.uid;
@@ -1033,6 +1138,10 @@ exports.forgeTestImage = onCall(
     // "ig-carousel-publish" posts a set of image URLs as one IG carousel.
     if (styleKey === 'ig-carousel-publish') {
       return publishCarouselToInstagram(request.data?.imageUrls, String(request.data?.caption || ''));
+    }
+    // "ig-reel-publish" posts a video URL as an Instagram Reel.
+    if (styleKey === 'ig-reel-publish') {
+      return publishReelToInstagram(String(request.data?.videoUrl || ''), String(request.data?.caption || ''));
     }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
@@ -1081,6 +1190,12 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'ig-carousel') {
       const out = await renderCarousel(raw, request.data?.aesthetic, request.data?.quality);
       await saveCreation(uid, 'carousel', { url: out.url, prompt: out.title });
+      return out;
+    }
+    // "ig-reel" renders a short cinematic vertical clip (still + Ken-Burns zoom).
+    if (styleKey === 'ig-reel') {
+      const out = await renderReel(raw, request.data?.aesthetic, request.data?.quality);
+      await saveCreation(uid, 'reel', { url: out.url, prompt: out.prompt });
       return out;
     }
     const style = FORGE_STYLES[styleKey];
