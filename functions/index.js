@@ -669,9 +669,11 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
   }).filter(Boolean);
 
   const prompt =
-    'A polished, on-brand square Instagram post photo. Beautifully lit, tasteful '
-    + 'modern aesthetic, clean composition with nice negative space, cohesive '
-    + 'muted palette. ' + body
+    'An atmospheric, witchy square Instagram photo with a moody, mystical feel. '
+    + 'Soft dramatic lighting — candlelight or moonlight — with a rich dark-romantic '
+    + 'palette of deep indigo, amethyst, dusty rose and antique gold, elegant '
+    + 'film-like texture and a subtle grain. Mysterious and tactile rather than '
+    + 'bright or generic, while keeping the subject clearly visible. ' + body
     + (refs.length ? ' Use the attached image(s) as the product/subject reference — keep the product faithful.' : '')
     + ' No text or watermarks in the image.';
 
