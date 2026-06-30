@@ -153,6 +153,83 @@ final class XIService {
             .setData(["pairs": arr, "updatedAt": FieldValue.serverTimestamp()])
     }
 
+    // MARK: Libraries (smart collections — shared with the web app)
+
+    func loadLibraries() async -> [XILibrary] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("libraries").getDocuments()
+        return (snap?.documents ?? []).map(parseLibrary)
+    }
+
+    private func parseLibrary(_ doc: QueryDocumentSnapshot) -> XILibrary {
+        let d = doc.data()
+        let ids: [String]
+        if let s = d["manualMemoryIds"] as? [String] { ids = s }
+        else if let a = d["manualMemoryIds"] as? [Any] { ids = a.map { String(describing: $0) } }
+        else { ids = [] }
+        return XILibrary(
+            id: doc.documentID,
+            name: d["name"] as? String ?? "Untitled",
+            description: d["description"] as? String ?? "",
+            colorHex: d["color"] as? String,
+            isCore: d["isCore"] as? Bool ?? false,
+            isLocked: d["isLocked"] as? Bool ?? false,
+            manualMemoryIds: ids,
+            searchLogic: XISearchLogic(d["searchLogic"] as? [String: Any])
+        )
+    }
+
+    @discardableResult
+    func createLibrary(name: String, searchLogic: XISearchLogic? = nil,
+                       manualMemoryIds: [String] = [], isLocked: Bool = false,
+                       colorHex: String? = nil) async -> String? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        let iso = ISO8601DateFormatter()
+        var doc: [String: Any] = [
+            "name": name,
+            "description": "",
+            "manualMemoryIds": manualMemoryIds,
+            "searchLogic": searchLogic.map { $0.dict } ?? NSNull(),
+            "isLocked": isLocked,
+            "isCore": false,
+            "color": colorHex ?? NSNull(),
+            "createdAt": iso.string(from: Date()),
+            "userId": uid,
+        ]
+        if colorHex == nil { doc["color"] = NSNull() }
+        let ref = try? await db.collection("users").document(uid)
+            .collection("libraries").addDocument(data: doc)
+        return ref?.documentID
+    }
+
+    func updateLibrary(_ id: String, _ fields: [String: Any]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("libraries").document(id).updateData(fields)
+    }
+
+    func deleteLibrary(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("libraries").document(id).delete()
+    }
+
+    // MARK: Memory edits (used by archive bulk actions)
+
+    func deleteMemory(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("memories").document(id).delete()
+    }
+
+    func updateMemoryHashtags(_ id: String, _ hashtags: [String]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("memories").document(id)
+            .updateData(["hashtags": hashtags, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     private func slugTag(_ cap: String) -> String? {
         let slug = cap.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
