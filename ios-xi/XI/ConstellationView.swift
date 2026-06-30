@@ -17,6 +17,12 @@ struct WireDraft: Equatable {
     var point: CGPoint
 }
 
+/// A point-in-time snapshot of the board, for undo / redo.
+struct BoardSnapshot: Equatable {
+    var positions: [String: CGPoint]
+    var connections: [BoardConnection]
+}
+
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
 /// pinned with crimson push-pins and joined by red string. Faithful to the web
 /// look (beige index cards #faf8e9, crimson pins #dc143c). Drag a card to re-pin
@@ -32,6 +38,8 @@ struct ConstellationView: View {
     @State private var positions: [String: CGPoint]
     @State private var connections: [BoardConnection] = []
     @State private var wire: WireDraft?
+    @State private var undoStack: [BoardSnapshot] = []
+    @State private var redoStack: [BoardSnapshot] = []
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -60,6 +68,7 @@ struct ConstellationView: View {
                                orderedIds: memories.map(\.id),
                                cardSize: CGSize(width: Self.cardW, height: Self.cardH),
                                onConnect: toggleConnection,
+                               onCardMoveBegan: recordUndo,
                                onCardMoved: savePositions) {
                 board.frame(width: Self.canvasSize(memories).width,
                             height: Self.canvasSize(memories).height)
@@ -68,7 +77,13 @@ struct ConstellationView: View {
             .navigationTitle("constellation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                        .disabled(undoStack.isEmpty).tint(crimson)
+                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
+                        .disabled(redoStack.isEmpty).tint(crimson)
+                }
+                ToolbarItem(placement: .principal) {
                     Text("\(memories.count) memories")
                         .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
                 }
@@ -96,11 +111,43 @@ struct ConstellationView: View {
     /// Long-press from one card released on another: add the string, or remove
     /// it if it already exists. Persists the new set.
     private func toggleConnection(_ from: String, _ to: String) {
+        recordUndo()
         if let i = connections.firstIndex(where: { $0.matches(from, to) }) {
             connections.remove(at: i)
         } else {
             connections.append(BoardConnection(a: from, b: to))
         }
+        let pairs = connections.map { ($0.a, $0.b) }
+        Task { await XIService.shared.saveConnections(pairs) }
+    }
+
+    // MARK: undo / redo (card moves + connection add/remove)
+
+    /// Snapshot the board before a change.
+    private func recordUndo() {
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections))
+        if undoStack.count > 50 { undoStack.removeFirst() }
+        redoStack.removeAll()
+    }
+
+    private func undo() {
+        guard let prev = undoStack.popLast() else { return }
+        redoStack.append(BoardSnapshot(positions: positions, connections: connections))
+        positions = prev.positions
+        connections = prev.connections
+        persistAll()
+    }
+
+    private func redo() {
+        guard let next = redoStack.popLast() else { return }
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections))
+        positions = next.positions
+        connections = next.connections
+        persistAll()
+    }
+
+    private func persistAll() {
+        savePositions()
         let pairs = connections.map { ($0.a, $0.b) }
         Task { await XIService.shared.saveConnections(pairs) }
     }
@@ -276,6 +323,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let orderedIds: [String]
     let cardSize: CGSize
     let onConnect: (String, String) -> Void
+    let onCardMoveBegan: () -> Void
     let onCardMoved: () -> Void
     @ViewBuilder var content: () -> Content
 
@@ -360,6 +408,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
             case .began:
                 if let id = card(at: g.location(in: host.view)) {
                     dragId = id; dragStart = parent.positions[id] ?? .zero
+                    parent.onCardMoveBegan()   // snapshot pre-drag state for undo
                 }
             case .changed:
                 guard let id = dragId else { return }
