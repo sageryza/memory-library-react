@@ -772,6 +772,168 @@ async function generateIgCaption(subject) {
   return { caption, hashtags };
 }
 
+// ===========================================================================
+// Carousel — a short educational multi-slide post (the highest-engagement IG
+// format). An LLM plans a cover title + 4 content slides; each slide is an
+// aesthetic 4:5 image with its text composited on a legibility scrim.
+// ===========================================================================
+function wrapLines(text, maxChars) {
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > maxChars) { if (cur) lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur.trim());
+  return lines;
+}
+
+const AESTHETIC_BG = { dark: '#2a2230', celestial: '#1c1b3a', earthy: '#3a3326' };
+
+async function solidBg(aesthetic) {
+  const c = AESTHETIC_BG[aesthetic] || '#2a2230';
+  return sharp({ create: { width: 1080, height: 1350, channels: 3, background: c } }).webp().toBuffer();
+}
+
+async function composeSlide(buffer, heading, body, isTitle) {
+  const W = 1080, H = 1350;
+  const scrim = '<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="#000" stop-opacity="0.18"/>'
+    + '<stop offset="0.55" stop-color="#000" stop-opacity="0.38"/>'
+    + '<stop offset="1" stop-color="#000" stop-opacity="0.80"/></linearGradient>';
+  let textSvg = '';
+  if (isTitle) {
+    const hLines = wrapLines(heading, 16);
+    const hSize = 92, hLineH = Math.round(hSize * 1.12);
+    const startY = H / 2 - (hLines.length * hLineH) / 2 + hSize;
+    const t = hLines.map((l, i) => `<tspan x="${W / 2}" y="${startY + i * hLineH}">${escapeXml(l)}</tspan>`).join('');
+    textSvg = `<text font-family="Georgia, 'Times New Roman', serif" font-size="${hSize}" fill="#ffffff" text-anchor="middle" font-weight="700">${t}</text>`;
+  } else {
+    const hLines = wrapLines(heading, 18);
+    const bLines = wrapLines(body, 34);
+    const hSize = 64, hLineH = Math.round(hSize * 1.12);
+    const bSize = 38, bLineH = Math.round(bSize * 1.32);
+    const bottomPad = 130;
+    const bStartY = H - bottomPad - (bLines.length * bLineH) + bSize;
+    const hStartY = H - bottomPad - (bLines.length * bLineH) - 30 - (hLines.length * hLineH) + hSize;
+    const hT = hLines.map((l, i) => `<tspan x="80" y="${hStartY + i * hLineH}">${escapeXml(l)}</tspan>`).join('');
+    const bT = bLines.map((l, i) => `<tspan x="80" y="${bStartY + i * bLineH}">${escapeXml(l)}</tspan>`).join('');
+    textSvg = `<text font-family="Georgia, serif" font-size="${hSize}" fill="#ffffff" text-anchor="start" font-weight="700">${hT}</text>`
+      + `<text font-family="Georgia, serif" font-size="${bSize}" fill="#f1ede7" text-anchor="start">${bT}</text>`;
+  }
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><defs>${scrim}</defs>`
+    + `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#g)"/>${textSvg}</svg>`;
+  return sharp(buffer).resize(W, H, { fit: 'cover' })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).webp().toBuffer();
+}
+
+async function renderCarousel(topic, aestheticIn, qualityIn) {
+  const t = String(topic || '').trim();
+  if (!t) throw new HttpsError('invalid-argument', 'Give the carousel a topic.');
+  const aesthetic = IG_AESTHETICS[String(aestheticIn)] ? String(aestheticIn) : 'dark';
+  let quality = String(qualityIn || 'low');
+  if (!STICKER_QUALITIES.has(quality)) quality = 'low';
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key found in config/*.');
+
+  // 1) Plan the carousel content.
+  const sys = 'You design short educational Instagram carousels for a witchy, '
+    + 'metaphysical apothecary brand (crystals, herbs, ritual goods). Return strict '
+    + 'JSON: {"title": string (punchy cover title, <=6 words), "slides": '
+    + '[{"heading": string (<=5 words), "body": string (one short sentence), '
+    + '"imagePrompt": string (a vivid visual scene illustrating this slide, no text)}] '
+    + '(exactly 4 slides), "caption": string (1-2 sentences), "hashtags": string[] '
+    + '(10-12 lowercase tags, no # sign)}.';
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: `Carousel topic: ${t}` }],
+      response_format: { type: 'json_object' }, temperature: 0.8,
+    }),
+  });
+  if (!res.ok) {
+    const x = await res.text().catch(() => '');
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${x.slice(0, 200)}`);
+  }
+  let plan = {};
+  try { plan = JSON.parse((await res.json())?.choices?.[0]?.message?.content || '{}'); } catch { plan = {}; }
+  const title = String(plan.title || t).slice(0, 80);
+  const slides = (Array.isArray(plan.slides) ? plan.slides : []).slice(0, 4);
+  if (!slides.length) throw new HttpsError('internal', 'Could not plan the carousel.');
+
+  // 2) Generate all slides in parallel (cover + content); fall back to a solid
+  // aesthetic background if any single image generation fails.
+  const genSlide = async (imgPrompt, heading, body, isTitle) => {
+    let bg;
+    try {
+      const raw = await generateOpenAIImage(key, IG_AESTHETICS[aesthetic] + imgPrompt + ' No text or watermarks in the image.', quality, '1024x1536');
+      bg = await cropTo45(raw);
+    } catch (e) {
+      bg = await solidBg(aesthetic);
+    }
+    return composeSlide(bg, heading, body, isTitle);
+  };
+  const jobs = [genSlide(t, title, '', true)];
+  for (const s of slides) {
+    jobs.push(genSlide(String(s.imagePrompt || s.heading || t), String(s.heading || ''), String(s.body || ''), false));
+  }
+  const buffers = await Promise.all(jobs);
+
+  // 3) Persist each slide.
+  const urls = [];
+  for (const buf of buffers) {
+    const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    urls.push(await persistBuffer(buf, `forge-instagram/carousel-${stamp}.webp`));
+  }
+  const hashtags = (Array.isArray(plan.hashtags) ? plan.hashtags : [])
+    .map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 12);
+  return { slides: urls, url: urls[0], title, caption: String(plan.caption || ''), hashtags };
+}
+
+// Publish a set of images as a single Instagram carousel: create a carousel-item
+// child container per image, then a CAROUSEL parent, wait, and publish.
+async function publishCarouselToInstagram(imageUrls, caption) {
+  const urls = (Array.isArray(imageUrls) ? imageUrls : []).filter(Boolean).slice(0, 10);
+  if (urls.length < 2) throw new HttpsError('invalid-argument', 'A carousel needs at least 2 images.');
+  const snap = await db.doc('config/instagram').get();
+  const cfg = snap.exists ? snap.data() : null;
+  const token = cfg?.accessToken, igUser = cfg?.igUserId;
+  if (!token || !igUser) {
+    throw new HttpsError('failed-precondition', 'Instagram posting isn’t set up yet.');
+  }
+  const base = 'https://graph.facebook.com/v21.0';
+  const childIds = [];
+  for (const u of urls) {
+    const p = new URLSearchParams({ image_url: u, is_carousel_item: 'true', access_token: token });
+    const r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: p });
+    const j = await r.json();
+    if (!r.ok || !j.id) throw new HttpsError('internal', `Carousel item failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+    childIds.push(j.id);
+  }
+  const cp = new URLSearchParams({ media_type: 'CAROUSEL', children: childIds.join(','), access_token: token });
+  if (caption) cp.set('caption', caption);
+  let r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: cp });
+  let j = await r.json();
+  if (!r.ok || !j.id) throw new HttpsError('internal', `Carousel create failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+  const creationId = j.id;
+  for (let i = 0; i < 15; i++) {
+    const s = await fetch(`${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`);
+    const sj = await s.json();
+    if (sj.status_code === 'FINISHED') break;
+    if (sj.status_code === 'ERROR') throw new HttpsError('internal', 'Instagram could not process the carousel.');
+    await new Promise((x) => setTimeout(x, 2000));
+  }
+  r = await fetch(`${base}/${igUser}/media_publish`, {
+    method: 'POST', body: new URLSearchParams({ creation_id: creationId, access_token: token }),
+  });
+  j = await r.json();
+  if (!r.ok || !j.id) throw new HttpsError('internal', `Carousel publish failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+  return { id: j.id, posted: true, carousel: true };
+}
+
 // Publish an already-generated image straight to Instagram via the Graph API.
 // Credentials live in a locked-down Firestore doc config/instagram:
 //   { igUserId: "<IG business account id>", accessToken: "<long-lived token>" }
@@ -868,6 +1030,10 @@ exports.forgeTestImage = onCall(
         String(request.data?.caption || ''),
         request.data?.asStory === true);
     }
+    // "ig-carousel-publish" posts a set of image URLs as one IG carousel.
+    if (styleKey === 'ig-carousel-publish') {
+      return publishCarouselToInstagram(request.data?.imageUrls, String(request.data?.caption || ''));
+    }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
 
@@ -910,6 +1076,12 @@ exports.forgeTestImage = onCall(
     // "ig-caption" returns an on-brand caption + hashtags for a post subject (text only).
     if (styleKey === 'ig-caption') {
       return generateIgCaption(raw);
+    }
+    // "ig-carousel" plans + renders a 5-slide educational carousel (cover + 4).
+    if (styleKey === 'ig-carousel') {
+      const out = await renderCarousel(raw, request.data?.aesthetic, request.data?.quality);
+      await saveCreation(uid, 'carousel', { url: out.url, prompt: out.title });
+      return out;
     }
     const style = FORGE_STYLES[styleKey];
     if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
