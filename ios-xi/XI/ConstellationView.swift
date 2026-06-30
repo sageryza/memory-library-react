@@ -59,7 +59,8 @@ struct ConstellationView: View {
                                wire: $wire,
                                orderedIds: memories.map(\.id),
                                cardSize: CGSize(width: Self.cardW, height: Self.cardH),
-                               onConnect: toggleConnection) {
+                               onConnect: toggleConnection,
+                               onCardMoved: savePositions) {
                 board.frame(width: Self.canvasSize(memories).width,
                             height: Self.canvasSize(memories).height)
             }
@@ -78,9 +79,18 @@ struct ConstellationView: View {
             .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
         }
         .task {
-            let saved = await XIService.shared.loadConnections()
-            connections = saved.map { BoardConnection(a: $0.0, b: $0.1) }
+            async let conns = XIService.shared.loadConnections()
+            async let pos = XIService.shared.loadBoardPositions()
+            connections = await conns.map { BoardConnection(a: $0.0, b: $0.1) }
+            // Apply any saved positions over the deterministic starting layout.
+            let saved = await pos
+            for (id, pt) in saved where positions[id] != nil { positions[id] = pt }
         }
+    }
+
+    /// Persist the board arrangement after a card is dragged.
+    private func savePositions() {
+        Task { await XIService.shared.saveBoardPositions(positions) }
     }
 
     /// Long-press from one card released on another: add the string, or remove
@@ -266,6 +276,7 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let orderedIds: [String]
     let cardSize: CGSize
     let onConnect: (String, String) -> Void
+    let onCardMoved: () -> Void
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -354,6 +365,9 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 guard let id = dragId else { return }
                 let t = g.translation(in: host.view)
                 parent.positions[id] = CGPoint(x: dragStart.x + t.x, y: dragStart.y + t.y)
+            case .ended, .cancelled:
+                if dragId != nil { parent.onCardMoved() }   // persist the new arrangement
+                dragId = nil
             default:
                 dragId = nil
             }

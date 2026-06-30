@@ -237,6 +237,29 @@ final class XIService {
             .collection("libraries").document(id).delete()
     }
 
+    // MARK: Constellation card positions (persist the board arrangement)
+
+    func loadBoardPositions() async -> [String: CGPoint] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [:] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("positions").getDocument()
+        let raw = (snap?.data()?["pins"] as? [String: [String: Double]]) ?? [:]
+        var out: [String: CGPoint] = [:]
+        for (id, p) in raw {
+            if let x = p["x"], let y = p["y"] { out[id] = CGPoint(x: x, y: y) }
+        }
+        return out
+    }
+
+    func saveBoardPositions(_ positions: [String: CGPoint]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        var pins: [String: [String: Double]] = [:]
+        for (id, p) in positions { pins[id] = ["x": Double(p.x), "y": Double(p.y)] }
+        try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("positions")
+            .setData(["pins": pins, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     // MARK: Memory edits (used by archive bulk actions)
 
     func deleteMemory(_ id: String) async {
