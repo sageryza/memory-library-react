@@ -626,7 +626,7 @@ function escapeXml(s) {
 }
 
 async function overlayCaption(imgBuffer, text) {
-  const W = 1024, H = 1024;
+  const W = 1080, H = 1350;
   const words = String(text).trim().split(/\s+/);
   const lines = [];
   let cur = '';
@@ -635,7 +635,7 @@ async function overlayCaption(imgBuffer, text) {
     else cur = (cur + ' ' + w).trim();
   }
   if (cur) lines.push(cur.trim());
-  const fontSize = 52, lineH = Math.round(fontSize * 1.25), pad = 44;
+  const fontSize = 56, lineH = Math.round(fontSize * 1.25), pad = 50;
   const blockH = lines.length * lineH + pad * 2;
   const top = H - blockH;
   const tspans = lines.map((l, i) =>
@@ -649,11 +649,42 @@ async function overlayCaption(imgBuffer, text) {
     .webp().toBuffer();
 }
 
-async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
+// Instagram feed posts upload at 4:5 (1080x1350) and the profile grid crops to
+// ~3:4, so we generate tall then center-crop to 4:5 — keeping the subject centered
+// (center-safe) so nothing important is lost in the grid thumbnail.
+async function cropTo45(buffer) {
+  const meta = await sharp(buffer).metadata();
+  const w = meta.width || 1024, h = meta.height || 1536;
+  let cw = w, ch = Math.round(w * 1.25); // 4:5 -> height = width * 5/4
+  if (ch > h) { ch = h; cw = Math.round(h * 0.8); }
+  const left = Math.round((w - cw) / 2), top = Math.round((h - ch) / 2);
+  return sharp(buffer).extract({ left, top, width: cw, height: ch })
+    .resize(1080, 1350, { fit: 'fill' }).webp().toBuffer();
+}
+
+// Aesthetic presets — a brand picks its lane once; each is a baked prompt wrapper.
+const IG_AESTHETICS = {
+  dark: 'An atmospheric, witchy Instagram photo with a moody, mystical feel. '
+    + 'Soft dramatic lighting — candlelight or moonlight — with a rich dark-romantic '
+    + 'palette of deep indigo, amethyst, dusty rose and antique gold, elegant '
+    + 'film-like texture and a subtle grain. Mysterious and tactile rather than '
+    + 'bright or generic, while keeping the subject clearly visible. ',
+  celestial: 'A dreamy, celestial Instagram photo with a soft cosmic mood — moons, '
+    + 'stars and night-sky tones. Gentle gradients of midnight blue, lavender and '
+    + 'silver with a faint ethereal glow and fine grain. Serene and otherworldly, '
+    + 'while keeping the subject clearly visible. ',
+  earthy: 'An earthy, herbal-witch Instagram photo with a natural-daylight, '
+    + 'cottagecore-apothecary mood. Warm woods, dried botanicals, linen and stone in '
+    + 'a muted palette of sage, ochre, terracotta and cream. Tactile and grounded, '
+    + 'while keeping the subject clearly visible. ',
+};
+
+async function renderIgPost(rawPrompt, refsData, captionText, qualityIn, aestheticIn) {
   const raw = String(rawPrompt || '').trim();
   if (!raw) throw new HttpsError('invalid-argument', 'Describe the post first.');
   let quality = String(qualityIn || 'medium');
   if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  const aesthetic = IG_AESTHETICS[String(aestheticIn)] ? String(aestheticIn) : 'dark';
   const key = await loadOpenAIKey();
   if (!key) {
     throw new HttpsError('failed-precondition',
@@ -668,12 +699,7 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
     try { return { buffer: Buffer.from(b64, 'base64'), mime }; } catch { return null; }
   }).filter(Boolean);
 
-  const prompt =
-    'An atmospheric, witchy square Instagram photo with a moody, mystical feel. '
-    + 'Soft dramatic lighting — candlelight or moonlight — with a rich dark-romantic '
-    + 'palette of deep indigo, amethyst, dusty rose and antique gold, elegant '
-    + 'film-like texture and a subtle grain. Mysterious and tactile rather than '
-    + 'bright or generic, while keeping the subject clearly visible. ' + body
+  const prompt = IG_AESTHETICS[aesthetic] + body
     + (refs.length ? ' Use the attached image(s) as the product/subject reference — keep the product faithful.' : '')
     + ' No text or watermarks in the image.';
 
@@ -682,7 +708,7 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
     const form = new FormData();
     form.append('model', 'gpt-image-2');
     form.append('prompt', prompt);
-    form.append('size', '1024x1024');
+    form.append('size', '1024x1536');
     form.append('quality', quality);
     form.append('output_format', 'webp');
     refs.forEach((r, i) => form.append('image[]', new Blob([r.buffer], { type: r.mime }), `ref${i + 1}.png`));
@@ -698,15 +724,52 @@ async function renderIgPost(rawPrompt, refsData, captionText, qualityIn) {
     if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
     buffer = Buffer.from(b64, 'base64');
   } else {
-    buffer = await generateOpenAIImage(key, prompt, quality, '1024x1024');
+    buffer = await generateOpenAIImage(key, prompt, quality, '1024x1536');
   }
 
+  buffer = await cropTo45(buffer); // 4:5, center-safe for the grid crop
   const caption = String(captionText || '').trim();
   if (caption) buffer = await overlayCaption(buffer, caption);
 
   const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const url = await persistBuffer(buffer, `forge-instagram/${stamp}.webp`);
-  return { url, quality, prompt: body };
+  return { url, quality, prompt: body, aesthetic };
+}
+
+// Caption + hashtag helper — an on-brand caption and hashtag set for a post
+// subject, in the witchy-but-authoritative voice. Text only (no image).
+async function generateIgCaption(subject) {
+  const subj = String(subject || '').trim();
+  if (!subj) throw new HttpsError('invalid-argument', 'Describe the post to caption.');
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key found in config/*.');
+  const sys = 'You write Instagram captions for a witchy, metaphysical apothecary '
+    + 'brand (crystals, herbs, ritual goods, candles). Voice: whimsical yet '
+    + 'authoritative, a little mystical and lyrical, warm, never cheesy or salesy. '
+    + 'Return strict JSON: {"caption": string (1-3 short sentences, optionally one '
+    + 'tasteful emoji), "hashtags": string[] (10-14 lowercase tags WITHOUT the # sign, '
+    + 'mixing broad tags like witchesofinstagram with niche ones relevant to the subject)}.';
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: `Post subject: ${subj}` }],
+      response_format: { type: 'json_object' },
+      temperature: 0.8,
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait and retry.');
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${t.slice(0, 300)}`);
+  }
+  let parsed = {};
+  try { parsed = JSON.parse((await res.json())?.choices?.[0]?.message?.content || '{}'); } catch { parsed = {}; }
+  const caption = String(parsed.caption || '').trim();
+  const hashtags = (Array.isArray(parsed.hashtags) ? parsed.hashtags : [])
+    .map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 14);
+  return { caption, hashtags };
 }
 
 // Publish an already-generated image straight to Instagram via the Graph API.
@@ -840,9 +903,13 @@ exports.forgeTestImage = onCall(
     }
     // "ig-post" makes a square Instagram post (optional product refs + caption).
     if (styleKey === 'ig-post') {
-      const out = await renderIgPost(raw, request.data?.refs, request.data?.caption, request.data?.quality);
+      const out = await renderIgPost(raw, request.data?.refs, request.data?.caption, request.data?.quality, request.data?.aesthetic);
       await saveCreation(uid, 'instagram', out);
       return out;
+    }
+    // "ig-caption" returns an on-brand caption + hashtags for a post subject (text only).
+    if (styleKey === 'ig-caption') {
+      return generateIgCaption(raw);
     }
     const style = FORGE_STYLES[styleKey];
     if (!style) throw new HttpsError('invalid-argument', `Unknown style "${styleKey}".`);
