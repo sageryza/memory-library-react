@@ -7,6 +7,43 @@ struct Pairing: Identifiable {
     var id: String { "\(event.id)__\(twist.id)" }
 }
 
+/// TEMPORARY: the board shapes we're auditioning for readability. `.full` is the
+/// real shared daily crossword; the rest are small previews (normalised to a
+/// top-left origin) so we can see how much bigger the cards get. Remove with the
+/// size-test switcher once we've picked one.
+enum BoardLayout: CaseIterable {
+    case full, cross, three, two
+
+    var label: String {
+        switch self {
+        case .full: return "full"
+        case .cross: return "cross (5)"
+        case .three: return "three"
+        case .two: return "two"
+        }
+    }
+
+    var next: BoardLayout {
+        let all = BoardLayout.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
+    }
+
+    /// Cell coordinates for the preview shapes; nil means the real daily board.
+    private var cells: [(Int, Int)]? {
+        switch self {
+        case .full:  return nil
+        case .cross: return [(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)]  // plus / cross
+        case .three: return [(0, 0), (0, 1), (1, 1)]                  // an L of three
+        case .two:   return [(0, 0), (0, 1)]                          // a single pair
+        }
+    }
+
+    func board(_ day: Int) -> [Placed] {
+        if let cells { return BoardEngine.layoutBoard(day, cells: cells) }
+        return BoardEngine.dailyBoard(day)
+    }
+}
+
 /// Collects the bounds of the framed board cells so we can draw ONE merged
 /// rectangle around the chosen pair (matching the web's `xiv-pairframe`), rather
 /// than a separate square per card.
@@ -25,16 +62,15 @@ struct BoardView: View {
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
-    @State private var fourCard = false   // experimental big-card 2×2 board
+    @State private var layout: BoardLayout = .full   // temporary size-test switcher
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
-    private var dim: Int { fourCard ? 2 : 5 }
-    private var placed: [Placed] {
-        fourCard ? BoardEngine.fourCardBoard(viewDay) : BoardEngine.dailyBoard(viewDay)
-    }
+    private var placed: [Placed] { layout.board(viewDay) }
+    private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
+    private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
     private var byCell: [String: Placed] {
         Dictionary(uniqueKeysWithValues: placed.map { ("\($0.r),\($0.c)", $0) })
     }
@@ -44,7 +80,7 @@ struct BoardView: View {
             VStack(spacing: 16) {
                 header
                 board
-                    .frame(maxWidth: fourCard ? 300 : .infinity)
+                    .frame(maxWidth: min(520, CGFloat(cols) * 130))
                 sizeToggle
                 if !isToday {
                     Text("Past board — view only. Tap › to come back to today.")
@@ -109,12 +145,15 @@ struct BoardView: View {
         .padding(.horizontal, 4)
     }
 
-    /// A quiet toggle to preview the bigger four-card board (per brother's note
-    /// that the cards were too small to see).
+    /// TEMPORARY size-test switcher: cycles full → cross → three → two so we can
+    /// eyeball how bigger cards read. Remove once we've settled on a layout.
     private var sizeToggle: some View {
-        Button { withAnimation(.easeInOut(duration: 0.2)) { selected = nil; composedCells = []; fourCard.toggle() } } label: {
-            Label(fourCard ? "full board" : "four-card board",
-                  systemImage: fourCard ? "square.grid.3x3" : "square.grid.2x2")
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selected = nil; composedCells = []; layout = layout.next
+            }
+        } label: {
+            Label("layout: \(layout.label) · tap to switch", systemImage: "arrow.triangle.2.circlepath")
                 .font(.system(.caption, design: .serif))
                 .foregroundStyle(XITheme.gold)
         }
@@ -123,9 +162,9 @@ struct BoardView: View {
 
     private var board: some View {
         VStack(spacing: 5) {
-            ForEach(0..<dim, id: \.self) { r in
+            ForEach(0..<rows, id: \.self) { r in
                 HStack(spacing: 5) {
-                    ForEach(0..<dim, id: \.self) { c in
+                    ForEach(0..<cols, id: \.self) { c in
                         cell(r, c)
                     }
                 }
