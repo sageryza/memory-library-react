@@ -33,11 +33,13 @@ struct BookView: View {
         }
     }
 
-    // A single page: white sheet with a faint edge and soft shadow.
+    // A single page: a square-cornered white sheet (like a real book page) with
+    // a faint edge and soft shadow. Square so stacked pages read as clean page
+    // edges rather than rounded blobs.
     private var pageSheet: some View {
-        RoundedRectangle(cornerRadius: 5)
+        Rectangle()
             .fill(Color.white)
-            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.line.opacity(0.6), lineWidth: 1))
+            .overlay(Rectangle().stroke(Theme.line.opacity(0.6), lineWidth: 1))
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 
