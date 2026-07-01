@@ -75,6 +75,7 @@ struct ConstellationView: View {
                                    wire: $wire,
                                    orderedIds: boardMemories.map(\.id),
                                    cardSize: CGSize(width: Self.cardW, height: Self.cardH),
+                                   initialCenter: Self.boardCenter,
                                    onConnect: toggleConnection,
                                    onCardMoveBegan: recordUndo,
                                    onCardMoved: savePositions) {
@@ -279,15 +280,21 @@ struct ConstellationView: View {
     }
 
     static let placeCols = 4
+    /// The middle of the (floor-size) canvas — new cards cluster here and the
+    /// board opens scrolled to this point.
+    static let boardCenter = CGPoint(x: 1100, y: 1600)
 
-    /// A scattered grid slot for the i-th placed card (fixed columns so a card's
-    /// slot doesn't shift as more are added).
+    /// A scattered grid slot for the i-th placed card, centered on the board so
+    /// added cards land in the middle (fixed columns so a slot doesn't shift as
+    /// more are added).
     static func slot(_ i: Int) -> CGPoint {
         let col = i % placeCols, row = i / placeCols
+        let originX = boardCenter.x - CGFloat(placeCols - 1) * colW / 2
+        let originY = boardCenter.y - rowH / 2
         let jx = CGFloat((i &* 73) % 49) - 24
         let jy = CGFloat((i &* 37) % 41) - 20
-        return CGPoint(x: margin + cardW / 2 + CGFloat(col) * colW + jx,
-                       y: margin + cardH / 2 + CGFloat(row) * rowH + jy)
+        return CGPoint(x: originX + CGFloat(col) * colW + jx,
+                       y: originY + CGFloat(row) * rowH + jy)
     }
 
     /// A big board so cards and string have room to roam — no "wall" at the edge.
@@ -387,6 +394,24 @@ private struct Pushpin: View {
     }
 }
 
+/// A scroll view that, on its first real layout, jumps its content offset so a
+/// target content point sits in the middle of the viewport (so the board opens
+/// centered rather than at the top-left).
+private final class CenteringScrollView: UIScrollView {
+    var centerTarget: CGPoint?
+    private var didCenter = false
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard !didCenter, bounds.width > 0, contentSize.width > 0 else { return }
+        let t = centerTarget ?? CGPoint(x: contentSize.width / 2, y: contentSize.height / 2)
+        let x = max(0, min(t.x - bounds.width / 2, contentSize.width - bounds.width))
+        let y = max(0, min(t.y - bounds.height / 2, contentSize.height - bounds.height))
+        setContentOffset(CGPoint(x: x, y: y), animated: false)
+        didCenter = true
+    }
+}
+
 /// UIScrollView-backed canvas: pinch-zoom (0.4×–2.5×) + pan, with a dedicated
 /// card-drag recognizer that wins over the scroll pan only when a card is grabbed
 /// (empty space pans, two fingers zoom). SwiftUI's ScrollView can do none of this.
@@ -396,13 +421,15 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     @Binding var wire: WireDraft?
     let orderedIds: [String]
     let cardSize: CGSize
+    let initialCenter: CGPoint
     let onConnect: (String, String) -> Void
     let onCardMoveBegan: () -> Void
     let onCardMoved: () -> Void
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
-        let scroll = UIScrollView()
+        let scroll = CenteringScrollView()
+        scroll.centerTarget = initialCenter
         scroll.delegate = context.coordinator
         scroll.minimumZoomScale = 0.4
         scroll.maximumZoomScale = 2.5
@@ -562,27 +589,14 @@ private struct BoardAddSheet: View {
                         .multilineTextAlignment(.center).padding(24)
                     Spacer()
                 } else {
-                    List(filtered) { m in
-                        Button { toggle(m.id) } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: selected.contains(m.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selected.contains(m.id) ? XITheme.gold : XITheme.line)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(m.title.isEmpty ? m.content : m.title)
-                                        .font(.system(.subheadline, design: .serif).weight(.medium))
-                                        .foregroundStyle(XITheme.archiveTitle).lineLimit(1)
-                                    if !m.hashtags.isEmpty {
-                                        Text(m.hashtags.prefix(3).joined(separator: " "))
-                                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(XITheme.gold).lineLimit(1)
-                                    }
-                                }
-                                Spacer()
-                            }
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
+                                            GridItem(.flexible(), spacing: 12)],
+                                  alignment: .leading, spacing: 12) {
+                            ForEach(filtered) { m in card(m) }
                         }
-                        .listRowBackground(XITheme.paper)
+                        .padding(14)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                     .scrollDismissesKeyboard(.immediately)
                 }
             }
@@ -602,6 +616,44 @@ private struct BoardAddSheet: View {
                 }
             }
         }
+    }
+
+    /// One selectable memory card — matches the archive card look.
+    private func card(_ m: XIMemory) -> some View {
+        let on = selected.contains(m.id)
+        return VStack(alignment: .leading, spacing: 8) {
+            if !m.title.isEmpty {
+                Text(m.title)
+                    .font(.system(.subheadline, design: .serif).weight(.medium))
+                    .foregroundStyle(XITheme.archiveTitle).lineLimit(3)
+            }
+            if !m.content.isEmpty {
+                Text(m.content)
+                    .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveBody)
+                    .lineLimit(6).fixedSize(horizontal: false, vertical: true)
+            }
+            if !m.hashtags.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(m.hashtags.prefix(3), id: \.self) { tag in
+                        Text(tag).font(.system(size: 11, design: .serif)).foregroundStyle(XITheme.gold)
+                            .padding(.vertical, 3).padding(.horizontal, 8)
+                            .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .background(on ? XITheme.gold.opacity(0.10) : XITheme.archiveCard)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? XITheme.gold : XITheme.archiveBorder, lineWidth: on ? 2 : 1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(on ? XITheme.gold : XITheme.line)
+                .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { toggle(m.id) }
     }
 
     private func toggle(_ id: String) {
