@@ -7,6 +7,16 @@ struct Pairing: Identifiable {
     var id: String { "\(event.id)__\(twist.id)" }
 }
 
+/// Collects the bounds of the framed board cells so we can draw ONE merged
+/// rectangle around the chosen pair (matching the web's `xiv-pairframe`), rather
+/// than a separate square per card.
+private struct FrameAnchorKey: PreferenceKey {
+    static var defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
 struct BoardView: View {
     @ObservedObject var auth: AuthState
 
@@ -14,12 +24,17 @@ struct BoardView: View {
     @State private var selected: Cell?
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
+    @State private var showHelp = false
+    @State private var fourCard = false   // experimental big-card 2×2 board
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
-    private var placed: [Placed] { BoardEngine.dailyBoard(viewDay) }
+    private var dim: Int { fourCard ? 2 : 5 }
+    private var placed: [Placed] {
+        fourCard ? BoardEngine.fourCardBoard(viewDay) : BoardEngine.dailyBoard(viewDay)
+    }
     private var byCell: [String: Placed] {
         Dictionary(uniqueKeysWithValues: placed.map { ("\($0.r),\($0.c)", $0) })
     }
@@ -29,13 +44,15 @@ struct BoardView: View {
             VStack(spacing: 16) {
                 header
                 board
-                Text(isToday
-                     ? "Tap two touching cards to tell that story."
-                     : "Past board — view only. Tap › to come back to today.")
-                    .font(.system(.footnote, design: .serif))
-                    .foregroundStyle(XITheme.line)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
+                    .frame(maxWidth: fourCard ? 300 : .infinity)
+                sizeToggle
+                if !isToday {
+                    Text("Past board — view only. Tap › to come back to today.")
+                        .font(.system(.footnote, design: .serif))
+                        .foregroundStyle(XITheme.line)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
+                }
                 Spacer()
             }
             .padding(16)
@@ -43,6 +60,11 @@ struct BoardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showHelp = true } label: {
+                        Image(systemName: "info.circle").tint(XITheme.gold)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         if let email = auth.email {
@@ -59,6 +81,7 @@ struct BoardView: View {
             .sheet(item: $composing) { pair in
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
+            .sheet(isPresented: $showHelp) { BoardHelpSheet() }
             .onChange(of: composing?.id) { newID in
                 if newID == nil { composedCells = [] }   // composer closed → clear the pair
             }
@@ -86,13 +109,41 @@ struct BoardView: View {
         .padding(.horizontal, 4)
     }
 
+    /// A quiet toggle to preview the bigger four-card board (per brother's note
+    /// that the cards were too small to see).
+    private var sizeToggle: some View {
+        Button { withAnimation(.easeInOut(duration: 0.2)) { selected = nil; composedCells = []; fourCard.toggle() } } label: {
+            Label(fourCard ? "full board" : "four-card board",
+                  systemImage: fourCard ? "square.grid.3x3" : "square.grid.2x2")
+                .font(.system(.caption, design: .serif))
+                .foregroundStyle(XITheme.gold)
+        }
+        .buttonStyle(.plain)
+    }
+
     private var board: some View {
         VStack(spacing: 5) {
-            ForEach(0..<5, id: \.self) { r in
+            ForEach(0..<dim, id: \.self) { r in
                 HStack(spacing: 5) {
-                    ForEach(0..<5, id: \.self) { c in
+                    ForEach(0..<dim, id: \.self) { c in
                         cell(r, c)
                     }
+                }
+            }
+        }
+        // One merged gold rectangle around the chosen card(s): a single cell after
+        // the first tap, growing into a rectangle spanning the pair after the
+        // second — mirrors the web's `xiv-pairframe`.
+        .overlayPreferenceValue(FrameAnchorKey.self) { anchors in
+            GeometryReader { proxy in
+                if !anchors.isEmpty {
+                    let rects = anchors.map { proxy[$0] }
+                    let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(XITheme.gold, lineWidth: 2.5)
+                        .frame(width: union.width + 4, height: union.height + 4)
+                        .position(x: union.midX, y: union.midY)
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -100,12 +151,15 @@ struct BoardView: View {
 
     @ViewBuilder
     private func cell(_ r: Int, _ c: Int) -> some View {
+        let cell = Cell(r: r, c: c)
         if let p = byCell["\(r),\(c)"] {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
-            let cell = Cell(r: r, c: c)
-            CardCell(card: card, isEvent: isEvent,
-                     selected: selected == cell || composedCells.contains(cell))
+            let framed = selected == cell || composedCells.contains(cell)
+            CardCell(card: card, isEvent: isEvent)
+                .anchorPreference(key: FrameAnchorKey.self, value: .bounds) {
+                    framed ? [$0] : []
+                }
                 .onTapGesture { tap(r, c, card: card, isEvent: isEvent) }
         } else {
             RoundedRectangle(cornerRadius: 4)
@@ -135,7 +189,6 @@ struct BoardView: View {
 struct CardCell: View {
     let card: XICard
     let isEvent: Bool
-    let selected: Bool
 
     var body: some View {
         ZStack {
@@ -158,7 +211,45 @@ struct CardCell: View {
         .aspectRatio(1, contentMode: .fit)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(selected ? XITheme.gold : XITheme.line, lineWidth: selected ? 2.5 : 0.5)
+                .stroke(XITheme.line, lineWidth: 0.5)
         )
+    }
+}
+
+/// The tap-to-open "how to play" panel for Board of the Day, matching the web's
+/// `XiInfo` popover — instructions live behind the ⓘ instead of always on screen.
+private struct BoardHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    help("Each day everyone gets the **same** board — a little crossword of memory cards.")
+                    help("Tap **two touching cards** to write a memory that's both of them (\u{201C}times i\u{2026}\u{201D}). Every neighbouring pair makes a prompt.")
+                    help("You can write as many memories on a pairing as you like — they're saved to your library.")
+                    help("Use the **\u{2039} \u{203A}** arrows up top to revisit past days' boards.")
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("How to play")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }.tint(XITheme.gold)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .tint(XITheme.gold)
+    }
+
+    private func help(_ markdown: String) -> some View {
+        Text((try? AttributedString(markdown: markdown)) ?? AttributedString(markdown))
+            .font(.system(.callout, design: .serif))
+            .foregroundStyle(XITheme.ink)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
