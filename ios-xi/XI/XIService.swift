@@ -255,6 +255,26 @@ final class XIService {
                          "updatedAt": FieldValue.serverTimestamp()])
     }
 
+    /// The trashed (soft-deleted) memories — those carrying a `deletedAt`.
+    func trashedMemories() async -> [XIMemory] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("memories").getDocuments()
+        let docs = (snap?.documents ?? []).filter { doc in
+            let dv = doc.data()["deletedAt"]
+            return dv != nil && !(dv is NSNull)
+        }
+        return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// Restore a trashed memory (clears `deletedAt`).
+    func restoreMemory(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid).collection("memories").document(id)
+            .updateData(["deletedAt": FieldValue.delete(),
+                         "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     // MARK: Read
 
     func memories(pairKey: String) async -> [XIMemory] {
