@@ -755,11 +755,14 @@ private struct BoardAddSheet: View {
                         .multilineTextAlignment(.center).padding(24)
                     Spacer()
                 } else {
+                    let cols = masonryColumns(filtered)
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
-                                            GridItem(.flexible(), spacing: 12)],
-                                  alignment: .leading, spacing: 12) {
-                            ForEach(filtered) { m in card(m) }
+                        HStack(alignment: .top, spacing: 12) {
+                            ForEach(Array(cols.enumerated()), id: \.offset) { _, column in
+                                LazyVStack(spacing: 12) {
+                                    ForEach(column) { m in card(m) }
+                                }
+                            }
                         }
                         .padding(14)
                     }
@@ -824,6 +827,29 @@ private struct BoardAddSheet: View {
 
     private func toggle(_ id: String) {
         if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+
+    // MARK: masonry (pack cards into the shortest column so there are no gaps —
+    // same approach as the main library grid).
+
+    private func masonryColumns(_ items: [XIMemory], count: Int = 2) -> [[XIMemory]] {
+        var cols = Array(repeating: [XIMemory](), count: count)
+        var heights = Array(repeating: CGFloat(0), count: count)
+        for m in items {
+            let i = heights.enumerated().min { $0.element < $1.element }?.offset ?? 0
+            cols[i].append(m)
+            heights[i] += estimatedHeight(m)
+        }
+        return cols
+    }
+
+    /// Rough height of a card, to balance the masonry columns without measuring.
+    private func estimatedHeight(_ m: XIMemory) -> CGFloat {
+        var h: CGFloat = 40   // padding + spacing
+        if !m.title.isEmpty { h += min(3, ceil(CGFloat(m.title.count) / 20)) * 22 }
+        if !m.content.isEmpty { h += min(6, ceil(CGFloat(m.content.count) / 26)) * 16 }
+        if !m.hashtags.isEmpty { h += CGFloat(min(3, m.hashtags.count)) * 24 }
+        return max(h, 108)   // cards have a 96pt min height + selection dot
     }
 }
 
