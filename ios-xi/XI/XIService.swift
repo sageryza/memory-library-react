@@ -19,6 +19,7 @@ struct XIMemory: Identifiable {
     let mode: String          // "board" or "versus"
     let dateTime: String      // short display date, e.g. "6/28/26"
     let timestamp: String     // ISO8601, used for sorting
+    var additionalContext: String = ""
 }
 
 /// Publishes the current Firebase auth user so the UI can gate sign-in.
@@ -205,6 +206,55 @@ final class XIService {
             .collection("memories").addDocument(data: doc)
     }
 
+    /// Create a memory written directly (not from the XI card game): the same
+    /// fields the web's Add Memory modal uses — title, content, hashtags, and an
+    /// optional bit of extra context.
+    @discardableResult
+    func addMemory(title: String, content: String, hashtags: [String],
+                   additionalContext: String = "") async -> String? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        let now = Date()
+        let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let df = DateFormatter(); df.dateStyle = .short; df.timeStyle = .none
+        let doc: [String: Any] = [
+            "content": content.trimmingCharacters(in: .whitespacesAndNewlines),
+            "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
+            "hashtags": hashtags,
+            "additionalContext": additionalContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            "source": "manual",
+            "mode": "board",
+            "timestamp": iso.string(from: now),
+            "dateTime": df.string(from: now),
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+        let ref = try? await db.collection("users").document(uid)
+            .collection("memories").addDocument(data: doc)
+        return ref?.documentID
+    }
+
+    /// Edit an existing memory's user-facing fields.
+    func updateMemory(_ id: String, title: String, content: String,
+                      hashtags: [String], additionalContext: String = "") async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid).collection("memories").document(id)
+            .updateData([
+                "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
+                "content": content.trimmingCharacters(in: .whitespacesAndNewlines),
+                "hashtags": hashtags,
+                "additionalContext": additionalContext.trimmingCharacters(in: .whitespacesAndNewlines),
+                "updatedAt": FieldValue.serverTimestamp(),
+            ])
+    }
+
+    /// Soft-delete a memory (moves it to trash — matches the web's `deletedAt`).
+    func trashMemory(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid).collection("memories").document(id)
+            .updateData(["deletedAt": FieldValue.serverTimestamp(),
+                         "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     // MARK: Read
 
     func memories(pairKey: String) async -> [XIMemory] {
@@ -260,7 +310,8 @@ final class XIService {
             hashtags: (d["hashtags"] as? [String]) ?? [],
             mode: d["mode"] as? String ?? "board",
             dateTime: dt,
-            timestamp: timestamp
+            timestamp: timestamp,
+            additionalContext: d["additionalContext"] as? String ?? ""
         )
     }
 

@@ -3,11 +3,23 @@ import SwiftUI
 /// The XI archive — every memory you've written, mirroring the web Archive:
 /// text search, boolean hashtag filtering, advanced AND/OR/NOT search, smart &
 /// manual Libraries (incl. locked), simplify view, sort, and bulk select-edit.
+/// Which memory sheet the archive is showing.
+enum MemSheet: Identifiable {
+    case add, view(XIMemory), edit(XIMemory)
+    var id: String {
+        switch self {
+        case .add: return "add"
+        case .view(let m): return "view-\(m.id)"
+        case .edit(let m): return "edit-\(m.id)"
+        }
+    }
+}
+
 struct LibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var store = ArchiveStore()
 
-    @State private var detail: XIMemory?
+    @State private var memSheet: MemSheet?
     @State private var showConstellation = false
     @State private var showFilter = false
     @State private var showLibraries = false
@@ -39,7 +51,22 @@ struct LibraryView: View {
                         .font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
-            .sheet(item: $detail) { m in MemoryDetailSheet(memory: m) }
+            .sheet(item: $memSheet) { s in
+                switch s {
+                case .add:
+                    MemoryEditorSheet(existing: nil) { t, c, h, x in
+                        Task { await store.addMemory(title: t, content: c, hashtagsText: h, context: x) }
+                    }
+                case .edit(let m):
+                    MemoryEditorSheet(existing: m) { t, c, h, x in
+                        Task { await store.editMemory(m.id, title: t, content: c, hashtagsText: h, context: x) }
+                    }
+                case .view(let m):
+                    MemoryDetailSheet(memory: m,
+                                      onEdit: { memSheet = .edit(m) },
+                                      onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
+                }
+            }
             .sheet(isPresented: $showConstellation) { ConstellationView(memories: store.memories) }
             .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
@@ -79,6 +106,7 @@ struct LibraryView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button { memSheet = .add } label: { Label("New memory", systemImage: "square.and.pencil") }
                 Button { store.simplify.toggle() } label: {
                     Label(store.simplify ? "Detailed view" : "Simplify view",
                           systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
@@ -194,7 +222,7 @@ struct LibraryView: View {
         if store.loading {
             Spacer(); ProgressView().tint(XITheme.gold); Spacer()
         } else if store.memories.isEmpty {
-            emptyState("No memories yet.", "Tap two touching cards on the board to write one.")
+            emptyState("No memories yet.", "Tap ⋯ → New memory to write one, or make one on the board.")
         } else if store.filtered.isEmpty {
             emptyState("No matches.", "Try a different search or clear your filters.")
         } else if store.simplify {
@@ -235,7 +263,7 @@ struct LibraryView: View {
     }
 
     private func open(_ m: XIMemory) {
-        if store.selectMode { store.toggleSelected(m.id) } else { detail = m }
+        if store.selectMode { store.toggleSelected(m.id) } else { memSheet = .view(m) }
     }
 
     private func emptyState(_ title: String, _ subtitle: String) -> some View {
@@ -320,6 +348,9 @@ struct MemoryDetailSheet: View {
     let memory: XIMemory
     /// When set (board context), shows a "Remove from board" action.
     var onRemoveFromBoard: (() -> Void)? = nil
+    /// When set (archive context), shows Edit / Delete actions.
+    var onEdit: (() -> Void)? = nil
+    var onTrash: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -355,6 +386,14 @@ struct MemoryDetailSheet: View {
                         .tint(XITheme.maroon)
                         .padding(.top, 6)
                     }
+                    if let onTrash {
+                        Button(role: .destructive) { onTrash() } label: {
+                            Label("Delete memory", systemImage: "trash")
+                                .font(.system(.body, design: .serif))
+                        }
+                        .tint(XITheme.maroon)
+                        .padding(.top, 6)
+                    }
                     Spacer()
                 }
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -362,10 +401,98 @@ struct MemoryDetailSheet: View {
             .background(XITheme.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let onEdit {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("edit") { onEdit() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
+        }
+    }
+}
+
+/// Add or edit a memory directly — the same fields as the web's Add Memory
+/// modal (title, the memory text, hashtags, and optional extra context).
+struct MemoryEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let existing: XIMemory?
+    var onSave: (_ title: String, _ content: String, _ hashtags: String, _ context: String) -> Void
+
+    @State private var title = ""
+    @State private var content = ""
+    @State private var hashtags = ""
+    @State private var context = ""
+    @FocusState private var focused: Bool
+
+    private var canSave: Bool {
+        !(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+          && content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    field("TITLE") {
+                        TextField("a short title (optional)", text: $title)
+                            .font(.system(.body, design: .serif)).focused($focused)
+                    }
+                    field("MEMORY") {
+                        TextEditor(text: $content)
+                            .font(.system(.body, design: .serif)).frame(minHeight: 140)
+                            .scrollContentBackground(.hidden).focused($focused)
+                    }
+                    field("HASHTAGS") {
+                        TextField("family, beach, summer", text: $hashtags)
+                            .font(.system(.body, design: .serif)).autocorrectionDisabled()
+                            .textInputAutocapitalization(.never).focused($focused)
+                    }
+                    field("MORE CONTEXT (optional)") {
+                        TextEditor(text: $context)
+                            .font(.system(.body, design: .serif)).frame(minHeight: 80)
+                            .scrollContentBackground(.hidden).focused($focused)
+                    }
+                }
+                .padding(18)
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle(existing == nil ? "new memory" : "edit memory")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("save") { onSave(title, content, hashtags, context); dismiss() }
+                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                        .disabled(!canSave)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                }
+            }
+            .onAppear {
+                if let m = existing {
+                    title = m.title; content = m.content
+                    hashtags = m.hashtags.joined(separator: " ")
+                    context = m.additionalContext
+                }
+            }
+        }
+    }
+
+    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .tracking(1).foregroundStyle(XITheme.navInk)
+            content()
+                .foregroundStyle(XITheme.ink)
+                .padding(10).background(XITheme.white)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }

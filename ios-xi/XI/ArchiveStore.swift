@@ -63,6 +63,38 @@ final class ArchiveStore: ObservableObject {
     }
 
     func reloadLibraries() async { libraries = await XIService.shared.loadLibraries() }
+    func reloadMemories() async { memories = await XIService.shared.allMemories() }
+
+    // MARK: memory create / edit / delete
+
+    /// Parse a free-form hashtag field ("family, #beach trip") into normalized tags.
+    static func parseHashtags(_ s: String) -> [String] {
+        let parts = s.split(whereSeparator: { $0 == "," || $0 == " " || $0 == "\n" || $0 == "\t" })
+        var out: [String] = []
+        for p in parts {
+            let t = xiNormTag(String(p))
+            if !t.isEmpty && !out.contains(t) { out.append(t) }
+        }
+        return out
+    }
+
+    func addMemory(title: String, content: String, hashtagsText: String, context: String) async {
+        await XIService.shared.addMemory(title: title, content: content,
+                                         hashtags: Self.parseHashtags(hashtagsText), additionalContext: context)
+        await reloadMemories()
+    }
+
+    func editMemory(_ id: String, title: String, content: String, hashtagsText: String, context: String) async {
+        await XIService.shared.updateMemory(id, title: title, content: content,
+                                            hashtags: Self.parseHashtags(hashtagsText), additionalContext: context)
+        await reloadMemories()
+    }
+
+    /// Move a single memory to trash (soft delete).
+    func trash(_ id: String) async {
+        await XIService.shared.trashMemory(id)
+        memories.removeAll { $0.id == id }
+    }
 
     // MARK: filtering
 
@@ -219,7 +251,7 @@ final class ArchiveStore: ObservableObject {
 
     func bulkDelete() async {
         let ids = selectedIds
-        for id in ids { await XIService.shared.deleteMemory(id) }
+        for id in ids { await XIService.shared.trashMemory(id) }   // soft delete → trash
         memories.removeAll { ids.contains($0.id) }
         exitSelectMode()
     }
