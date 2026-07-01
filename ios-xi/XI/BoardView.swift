@@ -12,6 +12,7 @@ struct BoardView: View {
 
     @State private var viewDay = BoardEngine.dayNumber()
     @State private var selected: Cell?
+    @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
 
     private struct Cell: Equatable { let r: Int; let c: Int }
@@ -58,13 +59,16 @@ struct BoardView: View {
             .sheet(item: $composing) { pair in
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
+            .onChange(of: composing?.id) { newID in
+                if newID == nil { composedCells = [] }   // composer closed → clear the pair
+            }
         }
         .tint(XITheme.gold)
     }
 
     private var header: some View {
         HStack {
-            Button { viewDay -= 1; selected = nil } label: { Image(systemName: "chevron.left") }
+            Button { viewDay -= 1; selected = nil; composedCells = [] } label: { Image(systemName: "chevron.left") }
             Spacer()
             VStack(spacing: 2) {
                 Text("XI")
@@ -74,7 +78,7 @@ struct BoardView: View {
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
             }
             Spacer()
-            Button { if viewDay < today { viewDay += 1; selected = nil } } label: { Image(systemName: "chevron.right") }
+            Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: { Image(systemName: "chevron.right") }
                 .disabled(viewDay >= today)
         }
         .font(.system(.title3, design: .serif))
@@ -99,7 +103,9 @@ struct BoardView: View {
         if let p = byCell["\(r),\(c)"] {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
-            CardCell(card: card, isEvent: isEvent, selected: selected == Cell(r: r, c: c))
+            let cell = Cell(r: r, c: c)
+            CardCell(card: card, isEvent: isEvent,
+                     selected: selected == cell || composedCells.contains(cell))
                 .onTapGesture { tap(r, c, card: card, isEvent: isEvent) }
         } else {
             RoundedRectangle(cornerRadius: 4)
@@ -120,6 +126,7 @@ struct BoardView: View {
         let otherIsEvent = other.d == "be"
         let otherCard = otherIsEvent ? XIDeck.events[other.i] : XIDeck.twists[other.i]
         let (ev, tw) = otherIsEvent ? (otherCard, card) : (card, otherCard)
+        composedCells = [sel, here]     // keep both cards highlighted while composing
         composing = Pairing(event: ev, twist: tw)
         selected = nil
     }
