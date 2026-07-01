@@ -14,18 +14,10 @@ platform :ios do
       is_key_content_base64: true
     )
 
-    # Create the App Store Connect record on first run (idempotent — it no-ops
-    # once the app exists). Uses the same ASC API key, so there's no manual
-    # "create the app" step. The App Store name must be globally unique, so the
-    # listing is "JournalReader" even though the in-app display name is "Journal".
-    create_app_online(
-      api_key: api_key,
-      app_identifier: "com.sageryza.journal",
-      app_name: "JournalReader",
-      language: "English",
-      sku: "com.sageryza.journal",
-      platforms: ["ios"]
-    )
+    # NOTE: the App Store Connect *app record* (name "JournalReader", bundle
+    # com.sageryza.journal) must be created once by hand — Apple's API key can't
+    # create a new app (only an Apple ID session can), so this is a one-time
+    # manual step, same as the other apps. Everything below runs on the API key.
 
     team_id = ENV["APPLE_TEAM_ID"]
     build_number = ENV.fetch("GITHUB_RUN_NUMBER", "1")
