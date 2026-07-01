@@ -31,7 +31,6 @@ struct LibraryView: View {
     @State private var showTrash = false
     @FocusState private var searchFocused: Bool
 
-    private let gridCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     private let simplifyCols = [GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10)]
@@ -255,17 +254,23 @@ struct LibraryView: View {
             }
             .scrollDismissesKeyboard(.immediately)
         } else {
+            let cols = masonryColumns(store.filtered)
             ScrollView {
-                LazyVGrid(columns: gridCols, alignment: .leading, spacing: 12) {
-                    ForEach(store.filtered) { m in
-                        MemoryCard(memory: m,
-                                   selectMode: store.selectMode,
-                                   selected: store.selectedIds.contains(m.id),
-                                   activeTags: Set(store.tagFilters.map(\.tag)),
-                                   onOpen: { open(m) },
-                                   onTag: { store.toggleTag($0) })
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(Array(cols.enumerated()), id: \.offset) { _, column in
+                        LazyVStack(spacing: 12) {
+                            ForEach(column) { m in
+                                MemoryCard(memory: m,
+                                           selectMode: store.selectMode,
+                                           selected: store.selectedIds.contains(m.id),
+                                           activeTags: Set(store.tagFilters.map(\.tag)),
+                                           onOpen: { open(m) },
+                                           onTag: { store.toggleTag($0) })
+                            }
+                        }
                     }
-                }.padding(14)
+                }
+                .padding(14)
             }
             .scrollDismissesKeyboard(.immediately)
         }
@@ -286,6 +291,28 @@ struct LibraryView: View {
 
     private func open(_ m: XIMemory) {
         if store.selectMode { store.toggleSelected(m.id) } else { memSheet = .view(m) }
+    }
+
+    // MARK: masonry (pack cards into the shortest column so there are no gaps)
+
+    private func masonryColumns(_ items: [XIMemory], count: Int = 2) -> [[XIMemory]] {
+        var cols = Array(repeating: [XIMemory](), count: count)
+        var heights = Array(repeating: CGFloat(0), count: count)
+        for m in items {
+            let i = heights.enumerated().min { $0.element < $1.element }?.offset ?? 0
+            cols[i].append(m)
+            heights[i] += estimatedHeight(m)
+        }
+        return cols
+    }
+
+    /// Rough height of a card, to balance the masonry columns without measuring.
+    private func estimatedHeight(_ m: XIMemory) -> CGFloat {
+        var h: CGFloat = 40   // padding + spacing
+        if !m.title.isEmpty { h += min(3, ceil(CGFloat(m.title.count) / 20)) * 22 }
+        if !m.content.isEmpty { h += min(9, ceil(CGFloat(m.content.count) / 26)) * 16 }
+        if !m.hashtags.isEmpty { h += CGFloat(min(3, m.hashtags.count)) * 20 }
+        return h
     }
 
     private func emptyState(_ title: String, _ subtitle: String) -> some View {
