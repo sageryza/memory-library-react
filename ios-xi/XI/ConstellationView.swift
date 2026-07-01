@@ -407,15 +407,10 @@ struct ConstellationView: View {
         }
     }
 
-    /// A glowing ring around the item chosen to connect from.
+    /// A pulsing glow around the item chosen to connect from ("emanating light").
     @ViewBuilder
     private func connectGlow(_ id: String) -> some View {
-        if connectFrom == id {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(crimson, lineWidth: 2.5)
-                .shadow(color: crimson.opacity(0.85), radius: 9)
-                .padding(-3)
-        }
+        if connectFrom == id { ConnectGlow(color: crimson) }
     }
 
     /// Is this id currently on the board (a placed memory or a concept pin)?
@@ -956,6 +951,21 @@ private struct BoardShareSheet: View {
                 }
             }
         }
+    }
+}
+
+/// A pulsing ring shown around the item you've tapped to connect from.
+private struct ConnectGlow: View {
+    let color: Color
+    @State private var pulse = false
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .stroke(color, lineWidth: 2.5)
+            .shadow(color: color.opacity(pulse ? 0.95 : 0.35), radius: pulse ? 15 : 5)
+            .padding(-3)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
+            }
     }
 }
 
