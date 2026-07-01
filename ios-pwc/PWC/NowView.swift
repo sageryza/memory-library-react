@@ -7,8 +7,6 @@ struct NowView: View {
     @State private var reporting: Sighting?
     @State private var reported = false
 
-    private var watchingNow: Int { sightings.filter { $0.minutesAgo <= 10 }.reduce(0) { $0 + $1.watchingHere } }
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -65,13 +63,6 @@ struct NowView: View {
             Text("PEOPLE WATCHING CLUB")
                 .font(PWC.display(25)).tracking(6).lineSpacing(3)
                 .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
-            Rectangle().fill(PWC.accent).frame(width: 46, height: 1)
-            HStack(spacing: 8) {
-                Circle().fill(PWC.accent).frame(width: 6, height: 6)
-                Text("\(watchingNow) WATCHING NOW")
-                    .font(PWC.mono(11)).tracking(2.5).foregroundStyle(PWC.sage)
-            }
-            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 20).padding(.bottom, 14)
@@ -79,16 +70,13 @@ struct NowView: View {
 
     private var postButton: some View {
         Button { composing = true } label: {
-            HStack {
-                Image(systemName: "eye.fill")
-                Text("Post a sighting").font(PWC.display(17, .semibold))
-                Spacer()
-                Text("👀").font(.system(size: 18))
-            }
-            .foregroundStyle(PWC.onAccent)
-            .padding(.vertical, 14).padding(.horizontal, 18)
-            .background(PWC.accent)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            Text("Post a sighting")
+                .font(PWC.display(17, .semibold))
+                .foregroundStyle(PWC.onAccent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14).padding(.horizontal, 18)
+                .background(PWC.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 
@@ -97,20 +85,20 @@ struct NowView: View {
             VStack(spacing: 0) {
                 Text(e.day.uppercased()).font(PWC.mono(11, .bold)).foregroundStyle(PWC.accent)
                 Text(e.date.split(separator: "·").first.map(String.init)?.replacingOccurrences(of: "Jun ", with: "") ?? "")
-                    .font(PWC.display(20, .bold)).foregroundStyle(PWC.ink)
+                    .font(PWC.display(20, .bold)).foregroundStyle(PWC.cardInk)
             }
             .frame(width: 46)
             VStack(alignment: .leading, spacing: 2) {
-                Text("NEXT MEETUP").font(PWC.mono(10, .semibold)).tracking(1.5).foregroundStyle(PWC.dim)
-                Text(e.title).font(PWC.display(16, .semibold)).foregroundStyle(PWC.ink)
-                Text("\(e.place) · \(e.going) going").font(PWC.mono(12)).foregroundStyle(PWC.sage)
+                Text("NEXT MEETUP").font(PWC.mono(10, .semibold)).tracking(1.5).foregroundStyle(PWC.accent)
+                Text(e.title).font(PWC.display(16, .semibold)).foregroundStyle(PWC.cardInk)
+                Text("\(e.place) · \(e.going) going").font(PWC.mono(12)).foregroundStyle(PWC.cardSub)
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(PWC.dim).font(.footnote)
+            Image(systemName: "chevron.right").foregroundStyle(PWC.cardSub).font(.footnote)
         }
         .padding(12)
-        .background(PWC.card)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
+        .background(PWC.cardBg)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.cardLine, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -121,11 +109,11 @@ struct SightingCard: View {
     var onBlock: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Text(sighting.handle).font(PWC.mono(11, .semibold)).tracking(0.5).foregroundStyle(PWC.accent)
+                Text(sighting.handle).font(PWC.mono(11, .semibold)).tracking(0.5).foregroundStyle(PWC.cardInk)
                 Spacer()
-                Text(sighting.ago).font(PWC.mono(11)).foregroundStyle(PWC.dim)
+                Text(sighting.ago).font(PWC.mono(11)).foregroundStyle(PWC.cardSub)
                 Menu {
                     Button { onReport() } label: { Label("Report post", systemImage: "flag") }
                     Button(role: .destructive) { onBlock() } label: {
@@ -133,34 +121,33 @@ struct SightingCard: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(PWC.mono(13)).foregroundStyle(PWC.dim)
+                        .font(PWC.mono(13)).foregroundStyle(PWC.cardSub)
                         .frame(width: 30, height: 22, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
             }
-            Text(sighting.note).font(PWC.display(18, .regular)).foregroundStyle(PWC.ink)
+            Text(sighting.note).font(PWC.display(18, .regular)).foregroundStyle(PWC.cardInk)
                 .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-            Rectangle().fill(PWC.line).frame(height: 1)
             HStack(spacing: 10) {
                 Label("\(sighting.place) · \(sighting.neighborhood)", systemImage: "mappin")
-                    .font(PWC.mono(10)).tracking(0.5).foregroundStyle(PWC.sage).lineLimit(1)
+                    .font(PWC.mono(10)).tracking(0.5).foregroundStyle(PWC.cardSub).lineLimit(1)
                 Spacer()
                 if sighting.watchingHere > 1 {
-                    Text("\(sighting.watchingHere) here").font(PWC.mono(10)).foregroundStyle(PWC.dim)
+                    Text("\(sighting.watchingHere) here").font(PWC.mono(10)).foregroundStyle(PWC.cardSub)
                 }
                 Button { sighting.nods += 1 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "hand.thumbsup")
-                        Text("\(sighting.nods)").font(PWC.mono(12, .semibold))
+                    HStack(spacing: 3) {
+                        Image(systemName: "hand.thumbsup.fill").font(.system(size: 11))
+                        Text("\(sighting.nods)").font(PWC.mono(11, .semibold))
                     }
-                    .foregroundStyle(PWC.accent)
+                    .foregroundStyle(PWC.cardSub)
                 }
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PWC.card)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
+        .background(PWC.cardBg)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.cardLine, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

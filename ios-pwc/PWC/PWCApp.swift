@@ -63,7 +63,7 @@ struct RootView: View {
         ) {
             TabView {
                 NowView()
-                    .tabItem { Label("Now", systemImage: "eye") }
+                    .tabItem { Label("Now", systemImage: "dot.radiowaves.left.and.right") }
                 EventsView()
                     .tabItem { Label("Events", systemImage: "calendar") }
                 ShopView()
