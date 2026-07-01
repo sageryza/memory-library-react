@@ -36,6 +36,29 @@ enum PWC {
     }
 }
 
+/// The elegant page masthead used across screens — serif wordmark, a thin gold
+/// hairline, and an optional wide-tracked subtitle. Matches the website's hero.
+struct PWCMasthead: View {
+    let title: String
+    var subtitle: String? = nil
+
+    var body: some View {
+        VStack(spacing: 11) {
+            Text(title.uppercased())
+                .font(PWC.display(24)).tracking(5)
+                .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
+            Rectangle().fill(PWC.accent).frame(width: 40, height: 1)
+            if let subtitle {
+                Text(subtitle.uppercased())
+                    .font(PWC.mono(10)).tracking(2).foregroundStyle(PWC.sage)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20).padding(.bottom, 10)
+    }
+}
+
 extension Color {
     init(hex: UInt) {
         self.init(

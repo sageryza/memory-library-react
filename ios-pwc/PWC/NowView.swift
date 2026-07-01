@@ -121,11 +121,11 @@ struct SightingCard: View {
     var onBlock: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 6) {
-                Text(sighting.handle).font(PWC.mono(12, .semibold)).foregroundStyle(PWC.ink)
+                Text(sighting.handle).font(PWC.mono(11, .semibold)).tracking(0.5).foregroundStyle(PWC.accent)
                 Spacer()
-                Text(sighting.ago).font(PWC.mono(12)).foregroundStyle(PWC.dim)
+                Text(sighting.ago).font(PWC.mono(11)).foregroundStyle(PWC.dim)
                 Menu {
                     Button { onReport() } label: { Label("Report post", systemImage: "flag") }
                     Button(role: .destructive) { onBlock() } label: {
@@ -138,11 +138,12 @@ struct SightingCard: View {
                         .contentShape(Rectangle())
                 }
             }
-            Text(sighting.note).font(PWC.display(17)).foregroundStyle(PWC.ink)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(sighting.note).font(PWC.display(18, .regular)).foregroundStyle(PWC.ink)
+                .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            Rectangle().fill(PWC.line).frame(height: 1)
             HStack(spacing: 10) {
                 Label("\(sighting.place) · \(sighting.neighborhood)", systemImage: "mappin")
-                    .font(PWC.mono(11)).foregroundStyle(PWC.sage).lineLimit(1)
+                    .font(PWC.mono(10)).tracking(0.5).foregroundStyle(PWC.sage).lineLimit(1)
                 Spacer()
                 if sighting.watchingHere > 1 {
                     Text("\(sighting.watchingHere) here").font(PWC.mono(10)).foregroundStyle(PWC.dim)

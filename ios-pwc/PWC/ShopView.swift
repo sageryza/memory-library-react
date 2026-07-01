@@ -6,7 +6,8 @@ struct ShopView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
+                    PWCMasthead(title: "Shop", subtitle: "Wear the eye")
                     giftBanner
                     LazyVGrid(columns: cols, spacing: 14) {
                         ForEach(Mock.shop) { item in ShopCard(item: item) }
@@ -17,25 +18,26 @@ struct ShopView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(PWC.paper.ignoresSafeArea())
-            .navigationTitle("Shop")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
     private var giftBanner: some View {
-        HStack(spacing: 12) {
-            Text("🪪").font(.system(size: 30))
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 14) {
+            Text("🪪").font(.system(size: 28))
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Every order ships with a Membership Card")
-                    .font(PWC.display(15, .semibold)).foregroundStyle(PWC.ink)
-                Text("Officially one of us. Or grab the card on its own.")
-                    .font(PWC.mono(11)).foregroundStyle(PWC.sage)
+                    .font(PWC.display(16, .medium)).foregroundStyle(PWC.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("OFFICIALLY ONE OF US")
+                    .font(PWC.mono(9)).tracking(1.5).foregroundStyle(PWC.accent)
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PWC.accent.opacity(0.10))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.accent.opacity(0.35), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.accent.opacity(0.5), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -44,29 +46,33 @@ struct ShopCard: View {
     let item: ShopItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(PWC.paper)
                 Text(item.emoji).font(.system(size: 46))
             }
             .frame(height: 120)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(PWC.line, lineWidth: 0.5))
             .overlay(alignment: .topTrailing) {
                 if item.freeGift {
-                    Text("+ card").font(PWC.mono(9, .bold))
+                    Text("+ CARD").font(PWC.mono(8, .bold)).tracking(0.5)
                         .padding(.horizontal, 6).padding(.vertical, 3)
                         .background(PWC.accent).foregroundStyle(PWC.onAccent)
-                        .clipShape(Capsule()).padding(6)
+                        .clipShape(RoundedRectangle(cornerRadius: 4)).padding(6)
                 }
             }
-            Text(item.name).font(PWC.display(16, .semibold)).foregroundStyle(PWC.ink)
+            Text(item.name).font(PWC.display(17, .medium)).foregroundStyle(PWC.ink)
             Text(item.blurb).font(PWC.mono(10)).foregroundStyle(PWC.sage).lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Rectangle().fill(PWC.line).frame(height: 1).padding(.vertical, 1)
             HStack {
-                Text(item.price).font(PWC.display(16, .bold)).foregroundStyle(PWC.ink)
+                Text(item.price).font(PWC.display(17, .semibold)).foregroundStyle(PWC.accent)
                 Spacer()
                 Image(systemName: "bag.badge.plus").foregroundStyle(PWC.accent)
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(PWC.card)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
