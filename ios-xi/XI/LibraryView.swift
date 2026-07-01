@@ -28,6 +28,7 @@ struct LibraryView: View {
     @State private var showImport = false
     @State private var importText = ""
     @State private var importMsg: String?
+    @State private var showTrash = false
     @FocusState private var searchFocused: Bool
 
     private let gridCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -71,6 +72,7 @@ struct LibraryView: View {
                 }
             }
             .sheet(isPresented: $showConstellation) { ConstellationView(memories: store.memories) }
+            .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
             .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
             .alert("Add hashtag", isPresented: $showAddTag) {
@@ -126,6 +128,7 @@ struct LibraryView: View {
             Menu {
                 Button { memSheet = .add } label: { Label("New memory", systemImage: "square.and.pencil") }
                 Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
+                Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
                 Button { store.simplify.toggle() } label: {
                     Label(store.simplify ? "Detailed view" : "Simplify view",
                           systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
@@ -512,6 +515,62 @@ struct MemoryEditorSheet: View {
                 .padding(10).background(XITheme.white)
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+}
+
+/// Recently deleted memories — restore them or delete forever.
+struct TrashSheet: View {
+    @ObservedObject var store: ArchiveStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var loading = true
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if loading {
+                    ProgressView().tint(XITheme.gold).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.trashed.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "trash").font(.system(size: 30)).foregroundStyle(XITheme.line)
+                        Text("Trash is empty.").font(.system(.body, design: .serif)).foregroundStyle(XITheme.line)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(store.trashed) { m in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(m.title.isEmpty ? m.content : m.title)
+                                    .font(.system(.subheadline, design: .serif).weight(.medium))
+                                    .foregroundStyle(XITheme.archiveTitle).lineLimit(1)
+                                if !m.content.isEmpty && !m.title.isEmpty {
+                                    Text(m.content).font(.system(.footnote, design: .serif))
+                                        .foregroundStyle(XITheme.archiveBody).lineLimit(1)
+                                }
+                            }
+                            .listRowBackground(XITheme.paper)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { Task { await store.deleteForever(m.id) } } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Button { Task { await store.restore(m.id) } } label: {
+                                    Label("Restore", systemImage: "arrow.uturn.backward")
+                                }.tint(XITheme.gold)
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("recently deleted")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
+            .task { await store.loadTrashed(); loading = false }
         }
     }
 }

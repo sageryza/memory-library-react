@@ -96,6 +96,23 @@ final class ArchiveStore: ObservableObject {
         memories.removeAll { $0.id == id }
     }
 
+    // MARK: trash
+
+    @Published var trashed: [XIMemory] = []
+
+    func loadTrashed() async { trashed = await XIService.shared.trashedMemories() }
+
+    func restore(_ id: String) async {
+        await XIService.shared.restoreMemory(id)
+        trashed.removeAll { $0.id == id }
+        await reloadMemories()
+    }
+
+    func deleteForever(_ id: String) async {
+        await XIService.shared.deleteMemory(id)
+        trashed.removeAll { $0.id == id }
+    }
+
     /// Import a shared board (link or bare code) — copies its memories into the
     /// library. Returns how many were imported.
     func importShared(_ raw: String) async -> Int {
