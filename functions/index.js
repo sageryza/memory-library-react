@@ -11,6 +11,7 @@
 
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -1038,6 +1039,54 @@ async function publishReelToInstagram(videoUrl, caption) {
   return { id: j.id, posted: true, reel: true };
 }
 
+// ===========================================================================
+// Scheduling — save a finished post + a time to `scheduledPosts`; a cron
+// (publishDuePosts) publishes it when due. Works for feed, story, carousel,
+// and reel. The doc is deleted once processed so the collection stays small and
+// the cron query needs only a single-field (postAt) index.
+// ===========================================================================
+async function scheduleInstagramPost(uid, data) {
+  const type = String(data?.type || 'feed');
+  const postAt = Number(data?.postAt || 0);
+  if (!postAt || postAt < Date.now()) {
+    throw new HttpsError('invalid-argument', 'Pick a time in the future.');
+  }
+  const doc = {
+    uid: uid || null,
+    type,                                   // feed | story | carousel | reel
+    status: 'pending',
+    postAt,                                 // ms since epoch
+    caption: String(data?.caption || ''),
+    imageUrl: data?.imageUrl ? String(data.imageUrl) : null,
+    imageUrls: Array.isArray(data?.imageUrls) ? data.imageUrls.map(String) : null,
+    videoUrl: data?.videoUrl ? String(data.videoUrl) : null,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+  const ref = await db.collection('scheduledPosts').add(doc);
+  return { id: ref.id, scheduled: true, postAt };
+}
+
+exports.publishDuePosts = onSchedule(
+  { schedule: 'every 5 minutes', region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' },
+  async () => {
+    const now = Date.now();
+    const snap = await db.collection('scheduledPosts')
+      .where('postAt', '<=', now).orderBy('postAt').limit(20).get();
+    for (const d of snap.docs) {
+      const p = d.data();
+      try {
+        if (p.type === 'carousel') await publishCarouselToInstagram(p.imageUrls, p.caption);
+        else if (p.type === 'reel') await publishReelToInstagram(p.videoUrl, p.caption);
+        else await publishToInstagram(p.imageUrl, p.caption, p.type === 'story');
+        console.log('scheduled post published', d.id, p.type);
+      } catch (e) {
+        console.warn('scheduled post failed', d.id, p.type, e.message);
+      }
+      // Fire once — remove the doc whether it posted or failed (no retry storms).
+      await d.ref.delete().catch(() => {});
+    }
+  });
+
 // Publish an already-generated image straight to Instagram via the Graph API.
 // Credentials live in a locked-down Firestore doc config/instagram:
 //   { igUserId: "<IG business account id>", accessToken: "<long-lived token>" }
@@ -1142,6 +1191,10 @@ exports.forgeTestImage = onCall(
     // "ig-reel-publish" posts a video URL as an Instagram Reel.
     if (styleKey === 'ig-reel-publish') {
       return publishReelToInstagram(String(request.data?.videoUrl || ''), String(request.data?.caption || ''));
+    }
+    // "ig-schedule" saves a finished post + a time; publishDuePosts posts it later.
+    if (styleKey === 'ig-schedule') {
+      return scheduleInstagramPost(uid, request.data);
     }
     const raw = String(request.data?.prompt || '').trim();
     if (!raw) throw new HttpsError('invalid-argument', 'Enter a prompt.');
