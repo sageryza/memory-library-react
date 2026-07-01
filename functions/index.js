@@ -10,7 +10,7 @@
 // already in `notified`, so no further sends and no write — no loop.
 
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -1937,3 +1937,164 @@ exports.illustrateMiracle = onCall(
     };
   }
 );
+
+// ============================================================================
+// Ads — Meta Marketing API, wrapped so the app never touches Ads Manager.
+//
+// Setup (one-time, admin): a locked-down Firestore doc `config/metaAds` holds
+//   { appId: "<Meta app id>", appSecret: "<Meta app secret>" }
+// (the app secret is NOT in git — same pattern as config/instagram).
+// After a user taps Connect and authorizes, we store their long-lived token +
+// discovered ad account/pixel at `adsConnections/{uid}`.
+// ============================================================================
+
+const META_GRAPH = 'https://graph.facebook.com/v21.0';
+const ADS_SCOPES = 'ads_management,ads_read,business_management,pages_show_list,pages_read_engagement';
+const ADS_REDIRECT = 'https://us-central1-membry-df528.cloudfunctions.net/adsAuthCallback';
+const APP_RETURN = 'imageforge://ads-connected';
+
+async function loadMetaApp() {
+  const snap = await db.doc('config/metaAds').get();
+  const cfg = snap.exists ? snap.data() : null;
+  if (!cfg?.appId || !cfg?.appSecret) {
+    throw new HttpsError('failed-precondition',
+      'Ads aren’t set up yet. Add config/metaAds with { appId, appSecret }.');
+  }
+  return cfg;
+}
+
+async function loadAdsConnection(uid) {
+  const snap = await db.doc(`adsConnections/${uid}`).get();
+  return snap.exists ? snap.data() : null;
+}
+
+// Kick off Facebook Login: bounce the user to Meta's OAuth dialog. `state` is
+// the caller's uid so the callback can store the token against them.
+exports.adsAuthStart = onRequest({ region: 'us-central1' }, async (req, res) => {
+  try {
+    const { appId } = await loadMetaApp();
+    const state = String(req.query.state || '');
+    const url = `${META_GRAPH}/dialog/oauth?` + new URLSearchParams({
+      client_id: appId,
+      redirect_uri: ADS_REDIRECT,
+      state,
+      scope: ADS_SCOPES,
+      response_type: 'code',
+    }).toString();
+    res.redirect(302, url.replace('graph.facebook.com', 'www.facebook.com'));
+  } catch (e) {
+    res.status(500).send(String(e.message || e));
+  }
+});
+
+// Meta redirects here with ?code&state. Exchange for a long-lived token, find
+// the ad account + pixel, store it, then hand control back to the app.
+exports.adsAuthCallback = onRequest({ region: 'us-central1' }, async (req, res) => {
+  try {
+    const code = String(req.query.code || '');
+    const uid = String(req.query.state || '');
+    if (!code || !uid) throw new Error('Missing code/state.');
+    const { appId, appSecret } = await loadMetaApp();
+
+    const tokRes = await fetch(`${META_GRAPH}/oauth/access_token?` + new URLSearchParams({
+      client_id: appId, client_secret: appSecret, redirect_uri: ADS_REDIRECT, code,
+    }));
+    const tok = await tokRes.json();
+    if (!tok.access_token) throw new Error(tok.error?.message || 'Token exchange failed.');
+
+    const llRes = await fetch(`${META_GRAPH}/oauth/access_token?` + new URLSearchParams({
+      grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret,
+      fb_exchange_token: tok.access_token,
+    }));
+    const ll = await llRes.json();
+    const token = ll.access_token || tok.access_token;
+
+    const discovered = await discoverAdAccount(token);
+    await db.doc(`adsConnections/${uid}`).set({
+      accessToken: token,
+      ...discovered,
+      connectedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    res.redirect(302, APP_RETURN);
+  } catch (e) {
+    res.redirect(302, `${APP_RETURN}?error=${encodeURIComponent(String(e.message || e))}`);
+  }
+});
+
+async function discoverAdAccount(token) {
+  const acctRes = await fetch(`${META_GRAPH}/me/adaccounts?` + new URLSearchParams({
+    fields: 'account_id,name,currency', access_token: token,
+  }));
+  const acct = await acctRes.json();
+  const first = acct.data?.[0];
+  if (!first) return {};
+  const adAccountId = `act_${first.account_id}`;
+  let pixelId = null;
+  try {
+    const pxRes = await fetch(`${META_GRAPH}/${adAccountId}/adspixels?` + new URLSearchParams({
+      fields: 'id,name', access_token: token,
+    }));
+    const px = await pxRes.json();
+    pixelId = px.data?.[0]?.id || null;
+  } catch { /* pixel optional */ }
+  return { adAccountId, accountName: first.name, currency: first.currency, pixelId };
+}
+
+exports.adsSummary = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const conn = await loadAdsConnection(uid);
+  if (!conn?.accessToken) return { connected: false };
+  return {
+    connected: true,
+    accountName: conn.accountName || null,
+    currency: conn.currency || null,
+    pixelId: conn.pixelId || null,
+  };
+});
+
+exports.adsCreateCampaign = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const conn = await loadAdsConnection(uid);
+  if (!conn?.accessToken || !conn?.adAccountId) {
+    throw new HttpsError('failed-precondition', 'Connect your Meta account first.');
+  }
+  const promoting = String(request.data?.promoting || '').trim().slice(0, 120) || 'My shop';
+  const token = conn.accessToken;
+
+  const params = new URLSearchParams({
+    name: `Ads — ${promoting}`,
+    objective: 'OUTCOME_SALES',
+    status: 'PAUSED',
+    smart_promotion_type: 'AUTOMATED_SHOPPING_ADS',
+    special_ad_categories: JSON.stringify([]),
+    access_token: token,
+  });
+  const res = await fetch(`${META_GRAPH}/${conn.adAccountId}/campaigns`, {
+    method: 'POST', body: params,
+  });
+  const json = await res.json();
+  if (!json.id) {
+    throw new HttpsError('internal', json.error?.message || 'Meta rejected the campaign.');
+  }
+  return { id: json.id, name: `Ads — ${promoting}`, status: 'PAUSED' };
+});
+
+exports.adsSetStatus = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const conn = await loadAdsConnection(uid);
+  if (!conn?.accessToken) throw new HttpsError('failed-precondition', 'Connect your Meta account first.');
+  const id = String(request.data?.id || '');
+  const status = request.data?.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
+  if (!id) throw new HttpsError('invalid-argument', 'Missing campaign id.');
+  const res = await fetch(`${META_GRAPH}/${id}`, {
+    method: 'POST',
+    body: new URLSearchParams({ status, access_token: conn.accessToken }),
+  });
+  const json = await res.json();
+  if (json.error) throw new HttpsError('internal', json.error.message || 'Couldn’t update the campaign.');
+  return { id, status };
+});
