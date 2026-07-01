@@ -32,14 +32,20 @@ struct BoxView: View {
 
                 if drawing { ProgressView().tint(Theme.gold) }
 
-                // Edit controls hide once you've locked in a drawing.
+                // Controls hide once you've locked in a drawing (tap to bring back).
                 if !box.selected {
+                    // Keep ✓ — top-right, only once there's a drawing to keep.
+                    if box.url != nil {
+                        VStack {
+                            HStack { Spacer(); keepButton }
+                            Spacer()
+                        }
+                        .padding(5)
+                    }
+                    // Draw / redraw + pick arrows — bottom-right.
                     VStack {
                         Spacer()
-                        HStack {
-                            Spacer()
-                            controls
-                        }
+                        HStack { Spacer(); controls }
                     }
                     .padding(5)
                 }
@@ -108,48 +114,56 @@ struct BoxView: View {
         .frame(height: lineHeight * 3)
     }
 
+    // Show the draw button only once there's something to draw — text typed,
+    // or an existing drawing to redraw.
+    private var canDraw: Bool {
+        box.url != nil || !box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var controls: some View {
         HStack(spacing: 4) {
             if box.canUndo {
                 arrow("arrowtriangle.backward.fill") { store.step(-1, boxID: box.id) }
             }
 
-            Button(action: draw) {
-                HStack(spacing: 4) {
-                    Text(box.url == nil ? "draw" : "redraw")
-                    Image(systemName: "sparkles")
+            if canDraw {
+                Button(action: draw) {
+                    HStack(spacing: 4) {
+                        Text(box.url == nil ? "draw" : "redraw")
+                        Image(systemName: "sparkles")
+                    }
+                    .lineLimit(1)
+                    .fixedSize()                    // never wrap "redraw" to letters
+                    .font(.custom(Theme.serif, size: 15))
+                    .foregroundStyle(Theme.serifInk)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(.white.opacity(0.85))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .font(.custom(Theme.serif, size: 15))
-                .foregroundStyle(Theme.serifInk)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 3)
-                .background(.white.opacity(0.85))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .buttonStyle(.plain)
+                .disabled(drawing)
             }
-            .buttonStyle(.plain)
-            .disabled(box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing)
-            .opacity(box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
 
             if box.canRedo {
                 arrow("arrowtriangle.forward.fill") { store.step(1, boxID: box.id) }
             }
-
-            // Keep this one: locks the drawing in and hides these controls.
-            if box.url != nil {
-                Button { store.setSelected(true, boxID: box.id) } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Theme.gold)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(.white.opacity(0.85))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-            }
         }
+    }
+
+    // Keep the shown drawing: locks it in and hides the edit controls.
+    private var keepButton: some View {
+        Button { store.setSelected(true, boxID: box.id) } label: {
+            Image(systemName: "checkmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.gold)
+                .frame(width: 24, height: 24)
+                .background(.white.opacity(0.85))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
     }
 
     // Small filled arrow — no circle, deliberately unobtrusive.
