@@ -47,6 +47,8 @@ struct ConstellationView: View {
     @State private var showAdd = false
     @State private var loaded = false
     @State private var editingConn: BoardConnection?
+    @State private var share: ShareInfo?
+    @State private var sharing = false
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -104,6 +106,9 @@ struct ConstellationView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
                         Button { showAdd = true } label: { Label("Add memories", systemImage: "plus") }
+                        Button { Task { await shareBoardAction() } } label: {
+                            Label(sharing ? "Sharing…" : "Share board", systemImage: "square.and.arrow.up")
+                        }.disabled(placed.isEmpty || sharing)
                         Button { scatterAll() } label: { Label("Scatter all", systemImage: "sparkles") }
                             .disabled(offBoard.isEmpty)
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
@@ -123,6 +128,7 @@ struct ConstellationView: View {
                     titleA: memoryTitle(c.a), titleB: memoryTitle(c.b), insight: c.insight,
                     onSave: { setInsight(c, $0) }, onDelete: { deleteConnection(c) })
             }
+            .sheet(item: $share) { s in BoardShareSheet(url: s.url) }
         }
         .task {
             guard !loaded else { return }
@@ -206,6 +212,20 @@ struct ConstellationView: View {
         recordUndo()
         placed = []
         persistAll()
+    }
+
+    /// Publish the board and hand back a shareable web link.
+    private func shareBoardAction() async {
+        guard !placed.isEmpty else { return }
+        sharing = true
+        let conns = connections.map { ($0.a, $0.b, $0.insight) }
+        let id = await XIService.shared.shareBoard(
+            name: "My board", memories: memories, placedIds: Array(placed),
+            positions: positions, connections: conns)
+        sharing = false
+        if let id, let url = URL(string: "https://incaseofamnesia.com/share/\(id)") {
+            share = ShareInfo(url: url)
+        }
     }
 
     // MARK: undo / redo (membership + card moves + connection add/remove)
@@ -793,5 +813,67 @@ private struct ConnectionInsightSheet: View {
             .background(XITheme.archiveCard)
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.archiveBorder))
             .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+/// Wraps a shareable board link so it can drive an item-sheet.
+struct ShareInfo: Identifiable { let id = UUID(); let url: URL }
+
+/// Confirmation sheet after publishing a board — shows the link, a system share
+/// button, and copy. Anyone with the link can open the board on the web.
+private struct BoardShareSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let url: URL
+    @State private var copied = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "link.circle.fill")
+                    .font(.system(size: 46)).foregroundStyle(XITheme.gold)
+                Text("Your board is shared")
+                    .font(.system(.title3, design: .serif).weight(.semibold)).foregroundStyle(XITheme.ink)
+                Text("Anyone with this link can open your board on the web.")
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.line)
+                    .multilineTextAlignment(.center)
+
+                Text(url.absoluteString)
+                    .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.ink)
+                    .lineLimit(2).truncationMode(.middle)
+                    .padding(12).frame(maxWidth: .infinity)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                HStack(spacing: 12) {
+                    Button {
+                        UIPasteboard.general.string = url.absoluteString
+                        copied = true
+                    } label: {
+                        Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                            .font(.system(.body, design: .serif)).frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold, lineWidth: 1))
+                    }.tint(XITheme.gold)
+
+                    ShareLink(item: url) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                            .font(.system(.body, design: .serif).weight(.semibold))
+                            .foregroundStyle(.white).frame(maxWidth: .infinity)
+                            .padding(.vertical, 11).background(XITheme.gold)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+                Spacer()
+            }
+            .padding(24)
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
+        }
     }
 }

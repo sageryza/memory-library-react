@@ -25,6 +25,9 @@ struct LibraryView: View {
     @State private var showLibraries = false
     @State private var showAddTag = false
     @State private var addTagText = ""
+    @State private var showImport = false
+    @State private var importText = ""
+    @State private var importMsg: String?
     @FocusState private var searchFocused: Bool
 
     private let gridCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -78,6 +81,21 @@ struct LibraryView: View {
                     Task { await store.bulkAddTag(t) }
                 }
             } message: { Text("Adds to the \(store.selectedIds.count) selected memories.") }
+            .alert("Import shared board", isPresented: $showImport) {
+                TextField("paste share link", text: $importText)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button("Cancel", role: .cancel) {}
+                Button("Import") {
+                    let raw = importText; importText = ""
+                    Task {
+                        let n = await store.importShared(raw)
+                        importMsg = n > 0 ? "Imported \(n) \(n == 1 ? "memory" : "memories")." : "Couldn't find that board."
+                    }
+                }
+            } message: { Text("Paste a board share link to add its memories to your library.") }
+            .alert("Import", isPresented: Binding(get: { importMsg != nil }, set: { if !$0 { importMsg = nil } })) {
+                Button("OK", role: .cancel) { importMsg = nil }
+            } message: { Text(importMsg ?? "") }
         }
         .task { await store.load() }
     }
@@ -107,6 +125,7 @@ struct LibraryView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button { memSheet = .add } label: { Label("New memory", systemImage: "square.and.pencil") }
+                Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
                 Button { store.simplify.toggle() } label: {
                     Label(store.simplify ? "Detailed view" : "Simplify view",
                           systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
