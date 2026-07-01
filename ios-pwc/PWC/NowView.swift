@@ -63,6 +63,7 @@ struct NowView: View {
             Text("PEOPLE WATCHING CLUB")
                 .font(PWC.display(25)).tracking(6).lineSpacing(3)
                 .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
+            Rectangle().fill(PWC.accent).frame(width: 46, height: 1)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 20).padding(.bottom, 14)
