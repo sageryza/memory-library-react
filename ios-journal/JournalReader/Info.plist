@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Partial plist merged into the generated Info.plist (GENERATE_INFOPLIST_FILE).
+	     The app records audio and runs on-device speech recognition, so iOS
+	     requires these two usage strings or it terminates on first record. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Journal uses the microphone so you can dictate the transcription of a page.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Journal transcribes your speech on this device to fill in a page's text.</string>
+	<!-- Let the Files app browse the app's Documents so you can drop journal PDFs in. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+</dict>
+</plist>
