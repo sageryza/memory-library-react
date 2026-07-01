@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The five XI destinations, matching the web `XiNavBar`.
 enum XiTab: String, CaseIterable, Identifiable {
-    case today, curate, daily, versus, library
+    case today, curate, daily, versus, board, library
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -10,6 +10,7 @@ enum XiTab: String, CaseIterable, Identifiable {
         case .curate: return "Curate"
         case .daily: return "Daily"
         case .versus: return "Versus"
+        case .board: return "Board"
         case .library: return "Library"
         }
     }
@@ -20,6 +21,7 @@ enum XiTab: String, CaseIterable, Identifiable {
         case .curate: return "heart"
         case .daily: return "square.grid.3x3"
         case .versus: return "person.2"
+        case .board: return "sparkles"
         case .library: return "books.vertical"
         }
     }
@@ -55,7 +57,7 @@ struct XiNavBar: View {
                 .frame(height: 23)
             Text(tab.label.lowercased())
                 .font(.system(size: 9.5, design: .serif))
-                .tracking(0.2)
+                .tracking(0.2).lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(on ? XITheme.gold : XITheme.navInk)
     }

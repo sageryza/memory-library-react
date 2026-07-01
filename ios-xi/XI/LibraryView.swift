@@ -20,7 +20,6 @@ struct LibraryView: View {
     @StateObject private var store = ArchiveStore()
 
     @State private var memSheet: MemSheet?
-    @State private var showConstellation = false
     @State private var showFilter = false
     @State private var showLibraries = false
     @State private var showAddTag = false
@@ -70,7 +69,6 @@ struct LibraryView: View {
                                       onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
                 }
             }
-            .sheet(isPresented: $showConstellation) { ConstellationView(memories: store.memories) }
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
             .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
@@ -135,8 +133,6 @@ struct LibraryView: View {
                 Button { store.toggleSelectMode() } label: {
                     Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
                 }
-                Button { showConstellation = true } label: { Label("Constellation", systemImage: "sparkles") }
-                    .disabled(store.memories.isEmpty)
             } label: { Image(systemName: "ellipsis.circle") }.tint(XITheme.gold)
         }
     }
