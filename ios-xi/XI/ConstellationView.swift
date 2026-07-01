@@ -13,12 +13,6 @@ struct BoardConnection: Identifiable, Equatable {
     }
 }
 
-/// A string being pulled from a card's pin toward the finger (in board space).
-struct WireDraft: Equatable {
-    let from: String
-    var point: CGPoint
-}
-
 /// A standalone concept pin — a pin on the board that isn't a memory, that you
 /// cluster memories around (e.g. a theme). Its position lives in `positions`.
 struct BoardPin: Identifiable, Equatable {
@@ -36,11 +30,11 @@ struct BoardSnapshot: Equatable {
 
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
 /// pinned with crimson push-pins and joined by red string. Faithful to the web
-/// look (beige index cards #faf8e9, crimson pins #dc143c). Drag a card to re-pin
-/// it, drag empty space to pan, pinch to zoom, tap a card to open it. Long-press
-/// a card and drag onto another to draw a string between them (drag back onto a
-/// connected card to remove it). Hand-drawn strings persist; cards that merely
-/// share a hashtag show as faint dashed suggestions.
+/// look (beige index cards #faf8e9, crimson pins #dc143c). Drag a card to move
+/// it, drag empty space to pan, pinch to zoom. Tap a card or concept pin to
+/// start a string (it glows); tap another to connect, or the same one / empty
+/// space to cancel. Long-press for a menu (open / remove / delete). Strings
+/// persist; cards sharing a hashtag show as faint dashed suggestions.
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
@@ -49,7 +43,7 @@ struct ConstellationView: View {
     @State private var positions: [String: CGPoint] = [:]
     @State private var placed: Set<String> = []
     @State private var connections: [BoardConnection] = []
-    @State private var wire: WireDraft?
+    @State private var connectFrom: String?      // tap-to-connect: the chosen source
     @State private var undoStack: [BoardSnapshot] = []
     @State private var redoStack: [BoardSnapshot] = []
     @State private var showAdd = false
@@ -90,11 +84,9 @@ struct ConstellationView: View {
             ZStack {
                 ZoomableScrollView(contentSize: Self.canvasSize(placed.count),
                                    positions: $positions,
-                                   wire: $wire,
                                    orderedIds: boardMemories.map(\.id) + pins.map(\.id),
                                    cardSize: CGSize(width: Self.cardW, height: Self.cardH),
                                    initialCenter: Self.boardCenter,
-                                   onConnect: toggleConnection,
                                    onCardMoveBegan: recordUndo,
                                    onCardMoved: savePositions) {
                     board.frame(width: Self.canvasSize(placed.count).width,
@@ -366,29 +358,34 @@ struct ConstellationView: View {
                     ctx.stroke(path, with: .color(crimson),
                                style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 }
-                // The string currently being pulled toward the finger.
-                if let w = wire, let pa = anchor(w.from) {
-                    var path = Path()
-                    path.move(to: pa); path.addLine(to: w.point)
-                    ctx.stroke(path, with: .color(crimson.opacity(0.85)),
-                               style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    ctx.fill(Path(ellipseIn: CGRect(x: w.point.x - 4, y: w.point.y - 4,
-                                                    width: 8, height: 8)),
-                             with: .color(crimson))
-                }
             }
+            .onTapGesture { connectFrom = nil }   // tap empty space cancels connecting
             ForEach(boardMemories) { m in
                 PinCard(memory: m, width: Self.cardW, height: Self.cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
+                    .overlay(connectGlow(m.id))
                     .position(positions[m.id] ?? center)
-                    .onTapGesture { detail = m }
+                    .onTapGesture { tapItem(m.id) }
+                    .contextMenu {
+                        Button { detail = m } label: { Label("Open", systemImage: "eye") }
+                        Button { connectFrom = m.id } label: { Label("Connect from here", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
+                        Button(role: .destructive) { removeFromBoard(m.id) } label: {
+                            Label("Remove from board", systemImage: "pin.slash")
+                        }
+                    }
             }
             // Standalone concept pins.
             ForEach(pins) { p in
                 PinMarker(text: p.text, crimson: crimson, slate: slate, beige: beige, border: beigeBorder)
+                    .overlay(connectGlow(p.id))
                     .position(positions[p.id] ?? center)
-                    .onTapGesture { editingPin = p }
+                    .onTapGesture { tapItem(p.id) }
+                    .contextMenu {
+                        Button { editingPin = p } label: { Label("Edit label", systemImage: "pencil") }
+                        Button { connectFrom = p.id } label: { Label("Connect from here", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
+                        Button(role: .destructive) { deletePin(p) } label: { Label("Delete pin", systemImage: "trash") }
+                    }
             }
             // Tappable insight markers at each string's midpoint.
             ForEach(placedConnections) { c in
@@ -396,6 +393,28 @@ struct ConstellationView: View {
                     connectionTag(c).position(mid).onTapGesture { editingConn = c }
                 }
             }
+        }
+    }
+
+    /// Tap-to-connect: first tap picks the source (it glows); second tap on
+    /// another item draws/removes the string; tapping the source again cancels.
+    private func tapItem(_ id: String) {
+        if let from = connectFrom {
+            if from != id { toggleConnection(from, id) }
+            connectFrom = nil
+        } else {
+            connectFrom = id
+        }
+    }
+
+    /// A glowing ring around the item chosen to connect from.
+    @ViewBuilder
+    private func connectGlow(_ id: String) -> some View {
+        if connectFrom == id {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(crimson, lineWidth: 2.5)
+                .shadow(color: crimson.opacity(0.85), radius: 9)
+                .padding(-3)
         }
     }
 
@@ -602,11 +621,9 @@ private final class CenteringScrollView: UIScrollView {
 private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let contentSize: CGSize
     @Binding var positions: [String: CGPoint]
-    @Binding var wire: WireDraft?
     let orderedIds: [String]
     let cardSize: CGSize
     let initialCenter: CGPoint
-    let onConnect: (String, String) -> Void
     let onCardMoveBegan: () -> Void
     let onCardMoved: () -> Void
     @ViewBuilder var content: () -> Content
@@ -629,23 +646,15 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         scroll.addSubview(host.view)
         scroll.contentSize = contentSize
 
-        // Long-press a card to pull a string out toward another card.
-        let wirePress = UILongPressGestureRecognizer(target: context.coordinator,
-                                                     action: #selector(Coordinator.handleWirePress(_:)))
-        wirePress.minimumPressDuration = 0.45
-        wirePress.delegate = context.coordinator
-        host.view.addGestureRecognizer(wirePress)
-
-        // Card drag wins over scroll pan only when it starts on a card.
+        // Dragging a card moves it; it wins over the scroll pan only when the
+        // touch starts on a card (empty space pans, two fingers zoom). Taps and
+        // long-presses are handled by SwiftUI on the cards themselves.
         let cardPan = UIPanGestureRecognizer(target: context.coordinator,
                                              action: #selector(Coordinator.handleCardPan(_:)))
         cardPan.delegate = context.coordinator
         cardPan.maximumNumberOfTouches = 1
         host.view.addGestureRecognizer(cardPan)
-
-        // A held card draws string (wins); a moving card drags (wins over scroll).
         scroll.panGestureRecognizer.require(toFail: cardPan)
-        scroll.panGestureRecognizer.require(toFail: wirePress)
         return scroll
     }
 
@@ -663,7 +672,6 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         let host: UIHostingController<Content>
         private var dragId: String?
         private var dragStart: CGPoint = .zero
-        private var wireFrom: String?
 
         init(parent: ZoomableScrollView, host: UIHostingController<Content>) {
             self.parent = parent; self.host = host
@@ -688,7 +696,6 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         }
 
         @objc func handleCardPan(_ g: UIPanGestureRecognizer) {
-            if parent.wire != nil { return }   // a string is being drawn — don't drag
             switch g.state {
             case .began:
                 if let id = card(at: g.location(in: host.view)) {
@@ -704,31 +711,6 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 dragId = nil
             default:
                 dragId = nil
-            }
-        }
-
-        /// Long-press begins a string from the held card; dragging moves its loose
-        /// end to the finger; lifting over another card connects (or disconnects).
-        @objc func handleWirePress(_ g: UILongPressGestureRecognizer) {
-            let p = g.location(in: host.view)
-            switch g.state {
-            case .began:
-                if let id = card(at: p) {
-                    wireFrom = id
-                    parent.wire = WireDraft(from: id, point: p)
-                }
-            case .changed:
-                guard let from = wireFrom else { return }
-                parent.wire = WireDraft(from: from, point: p)
-            case .ended:
-                if let from = wireFrom, let to = card(at: p), to != from {
-                    parent.onConnect(from, to)
-                }
-                wireFrom = nil
-                parent.wire = nil
-            default:
-                wireFrom = nil
-                parent.wire = nil
             }
         }
     }
