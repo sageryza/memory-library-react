@@ -27,10 +27,18 @@ final class MiraclesStore: ObservableObject {
             pages = [MiraclePage()]
         }
         updatedAt = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: updatedKey))
-        index = pages.count - 1
+        // Land on the last page that has content, not a trailing blank page the
+        // user may have turned to — so reopening the book shows your work.
+        index = pages.lastIndex(where: { $0.hasContent }) ?? (pages.count - 1)
     }
 
     var page: MiraclePage { pages[index] }
+
+    /// Last page with any content (falls back to the last page). Used on launch/
+    /// sync so we open to your drawings, not a blank page you'd turned to.
+    private var lastContentIndex: Int {
+        pages.lastIndex(where: { $0.hasContent }) ?? (pages.count - 1)
+    }
 
     /// True when the book is just the empty starter page (safe to overwrite from cloud).
     private var isEmptyBook: Bool { pages.count == 1 && !pages[0].hasContent }
@@ -72,7 +80,16 @@ final class MiraclesStore: ObservableObject {
         let keep = max(0, box.histIndex + 1)
         box.history = Array(box.history.prefix(keep)) + urls
         box.histIndex = keep // first of the newly added options
+        box.selected = false // a fresh set is unlocked so you can pick again
         pages[index].boxes[b] = box
+        save()
+    }
+
+    /// Lock in the currently-shown drawing (hides the edit controls), or unlock
+    /// it again so the arrows / redraw come back.
+    func setSelected(_ selected: Bool, boxID: String) {
+        guard let b = boxIndex(boxID) else { return }
+        pages[index].boxes[b].selected = selected
         save()
     }
 
@@ -139,7 +156,7 @@ final class MiraclesStore: ObservableObject {
             let remoteUpdated = (snap.get("updatedAt") as? Double) ?? 0
             if isEmptyBook || remoteUpdated > updatedAt.timeIntervalSince1970 {
                 pages = remote
-                index = pages.count - 1
+                index = lastContentIndex
                 updatedAt = Date(timeIntervalSince1970: remoteUpdated)
                 UserDefaults.standard.set(remoteUpdated, forKey: updatedKey)
                 writeLocal()
