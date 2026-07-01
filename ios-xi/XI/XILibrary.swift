@@ -103,7 +103,8 @@ extension XIMemory {
     func withHashtags(_ tags: [String]) -> XIMemory {
         XIMemory(id: id, content: content, title: title, pairKey: pairKey,
                  eventId: eventId, twistId: twistId, eventCap: eventCap, twistCap: twistCap,
-                 hashtags: tags, mode: mode, dateTime: dateTime, timestamp: timestamp)
+                 hashtags: tags, mode: mode, dateTime: dateTime, timestamp: timestamp,
+                 additionalContext: additionalContext)
     }
 }
 
