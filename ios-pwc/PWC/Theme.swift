@@ -49,10 +49,11 @@ struct PWCMasthead: View {
     var subtitle: String? = nil
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Text(title.uppercased())
                 .font(PWC.display(24)).tracking(5)
                 .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
+            Rectangle().fill(PWC.accent).frame(width: 40, height: 1)
             if let subtitle {
                 Text(subtitle.uppercased())
                     .font(PWC.mono(10)).tracking(2).foregroundStyle(PWC.sage)
