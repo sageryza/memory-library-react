@@ -269,21 +269,22 @@ final class XIService {
     /// Loads the user's hand-drawn connections from
     /// `users/{uid}/xiBoard/connections` (stored as an array of {a,b} maps —
     /// Firestore can't nest plain arrays).
-    func loadConnections() async -> [(String, String)] {
+    func loadConnections() async -> [(String, String, String)] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
         let snap = try? await db.collection("users").document(uid)
             .collection("xiBoard").document("connections").getDocument()
         let arr = (snap?.data()?["pairs"] as? [[String: String]]) ?? []
         return arr.compactMap { d in
             guard let a = d["a"], let b = d["b"] else { return nil }
-            return (a, b)
+            return (a, b, d["insight"] ?? "")
         }
     }
 
-    /// Persists the full set of hand-drawn connections (overwrites).
-    func saveConnections(_ pairs: [(String, String)]) async {
+    /// Persists the full set of hand-drawn connections (overwrites). Each is an
+    /// {a, b, insight} map.
+    func saveConnections(_ conns: [(String, String, String)]) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let arr = pairs.map { ["a": $0.0, "b": $0.1] }
+        let arr = conns.map { ["a": $0.0, "b": $0.1, "insight": $0.2] }
         try? await db.collection("users").document(uid)
             .collection("xiBoard").document("connections")
             .setData(["pairs": arr, "updatedAt": FieldValue.serverTimestamp()])

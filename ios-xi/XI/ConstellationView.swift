@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// A hand-drawn string between two cards (unordered pair of memory ids).
+/// A hand-drawn string between two cards (unordered pair of memory ids), with an
+/// optional insight noting what connects them.
 struct BoardConnection: Identifiable, Equatable {
     let a: String
     let b: String
+    var insight: String = ""
     var id: String { a < b ? a + "|" + b : b + "|" + a }
     func matches(_ x: String, _ y: String) -> Bool {
         (a == x && b == y) || (a == y && b == x)
@@ -44,6 +46,7 @@ struct ConstellationView: View {
     @State private var redoStack: [BoardSnapshot] = []
     @State private var showAdd = false
     @State private var loaded = false
+    @State private var editingConn: BoardConnection?
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -115,13 +118,18 @@ struct ConstellationView: View {
             .sheet(isPresented: $showAdd) {
                 BoardAddSheet(memories: offBoard) { ids in addToBoard(ids) }
             }
+            .sheet(item: $editingConn) { c in
+                ConnectionInsightSheet(
+                    titleA: memoryTitle(c.a), titleB: memoryTitle(c.b), insight: c.insight,
+                    onSave: { setInsight(c, $0) }, onDelete: { deleteConnection(c) })
+            }
         }
         .task {
             guard !loaded else { return }
             async let conns = XIService.shared.loadConnections()
             async let pos = XIService.shared.loadBoardPositions()
             async let placedIds = XIService.shared.loadPlacedIds()
-            connections = await conns.map { BoardConnection(a: $0.0, b: $0.1) }
+            connections = await conns.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
             positions = await pos
             placed = Set(await placedIds)
             // Any placed card lacking a saved position gets a tidy slot.
@@ -163,7 +171,7 @@ struct ConstellationView: View {
         } else {
             connections.append(BoardConnection(a: from, b: to))
         }
-        let pairs = connections.map { ($0.a, $0.b) }
+        let pairs = connections.map { ($0.a, $0.b, $0.insight) }
         Task { await XIService.shared.saveConnections(pairs) }
     }
 
@@ -225,7 +233,7 @@ struct ConstellationView: View {
 
     private func persistAll() {
         savePositions()
-        let pairs = connections.map { ($0.a, $0.b) }
+        let pairs = connections.map { ($0.a, $0.b, $0.insight) }
         let ids = Array(placed)
         Task {
             await XIService.shared.saveConnections(pairs)
@@ -270,7 +278,64 @@ struct ConstellationView: View {
                     .position(positions[m.id] ?? center)
                     .onTapGesture { detail = m }
             }
+            // Tappable insight markers at each string's midpoint.
+            ForEach(placedConnections) { c in
+                if let mid = midpoint(c) {
+                    connectionTag(c).position(mid).onTapGesture { editingConn = c }
+                }
+            }
         }
+    }
+
+    /// Connections whose both endpoints are currently on the board.
+    private var placedConnections: [BoardConnection] {
+        connections.filter { placed.contains($0.a) && placed.contains($0.b) }
+    }
+
+    private func midpoint(_ c: BoardConnection) -> CGPoint? {
+        guard let pa = anchor(c.a), let pb = anchor(c.b) else { return nil }
+        return CGPoint(x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2)
+    }
+
+    /// The small dot (and note, if any) shown on a string; tap to edit.
+    @ViewBuilder
+    private func connectionTag(_ c: BoardConnection) -> some View {
+        VStack(spacing: 3) {
+            Circle().fill(crimson).frame(width: 11, height: 11)
+                .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                .shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
+            if !c.insight.isEmpty {
+                Text(c.insight)
+                    .font(.system(size: 10, design: .serif)).foregroundStyle(maroon)
+                    .lineLimit(2).multilineTextAlignment(.center)
+                    .padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(beige).clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(beigeBorder, lineWidth: 0.75))
+                    .frame(maxWidth: 120)
+            }
+        }
+        .frame(width: 130, height: 44)          // generous tap target
+        .contentShape(Rectangle())
+    }
+
+    private func memoryTitle(_ id: String) -> String {
+        let m = memories.first { $0.id == id }
+        let t = m?.title.isEmpty == false ? m!.title : (m?.content ?? "")
+        return t.isEmpty ? "(untitled)" : t
+    }
+
+    private func setInsight(_ c: BoardConnection, _ text: String) {
+        guard let i = connections.firstIndex(where: { $0.id == c.id }) else { return }
+        recordUndo()
+        connections[i].insight = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        persistAll()
+    }
+
+    private func deleteConnection(_ c: BoardConnection) {
+        guard let i = connections.firstIndex(where: { $0.id == c.id }) else { return }
+        recordUndo()
+        connections.remove(at: i)
+        persistAll()
     }
 
     // MARK: layout (deterministic scattered grid — looks hand-pinned)
@@ -658,5 +723,75 @@ private struct BoardAddSheet: View {
 
     private func toggle(_ id: String) {
         if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+}
+
+/// Editor for a string's insight — the two connected memories, a note field for
+/// "what connects them", and a remove-connection action.
+private struct ConnectionInsightSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let titleA: String
+    let titleB: String
+    let insight: String
+    var onSave: (String) -> Void
+    var onDelete: () -> Void
+
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .center, spacing: 10) {
+                        pill(titleA)
+                        Image(systemName: "link").foregroundStyle(XITheme.maroon)
+                        pill(titleB)
+                    }
+                    Text("What connects them?")
+                        .font(.system(.subheadline, design: .serif).weight(.medium))
+                        .foregroundStyle(XITheme.ink)
+                    TextEditor(text: $text)
+                        .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                        .frame(minHeight: 120)
+                        .scrollContentBackground(.hidden)
+                        .padding(8).background(XITheme.white)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .focused($focused)
+                    Button(role: .destructive) { onDelete(); dismiss() } label: {
+                        Label("Remove connection", systemImage: "scissors")
+                            .font(.system(.body, design: .serif))
+                    }.tint(XITheme.maroon)
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("connection")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("save") { onSave(text); dismiss() }
+                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                }
+            }
+            .onAppear { text = insight }
+        }
+    }
+
+    private func pill(_ s: String) -> some View {
+        Text(s)
+            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveTitle)
+            .lineLimit(3).padding(10).frame(maxWidth: .infinity)
+            .background(XITheme.archiveCard)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.archiveBorder))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
