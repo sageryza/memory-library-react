@@ -19,11 +19,19 @@ struct WireDraft: Equatable {
     var point: CGPoint
 }
 
+/// A standalone concept pin — a pin on the board that isn't a memory, that you
+/// cluster memories around (e.g. a theme). Its position lives in `positions`.
+struct BoardPin: Identifiable, Equatable {
+    let id: String
+    var text: String
+}
+
 /// A point-in-time snapshot of the board, for undo / redo.
 struct BoardSnapshot: Equatable {
     var positions: [String: CGPoint]
     var connections: [BoardConnection]
     var placed: Set<String>
+    var pins: [BoardPin]
 }
 
 /// The constellation / "conspiracy board" — a white corkboard of memory cards
@@ -49,6 +57,8 @@ struct ConstellationView: View {
     @State private var editingConn: BoardConnection?
     @State private var share: ShareInfo?
     @State private var sharing = false
+    @State private var pins: [BoardPin] = []
+    @State private var editingPin: BoardPin?
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -78,7 +88,7 @@ struct ConstellationView: View {
                 ZoomableScrollView(contentSize: Self.canvasSize(placed.count),
                                    positions: $positions,
                                    wire: $wire,
-                                   orderedIds: boardMemories.map(\.id),
+                                   orderedIds: boardMemories.map(\.id) + pins.map(\.id),
                                    cardSize: CGSize(width: Self.cardW, height: Self.cardH),
                                    initialCenter: Self.boardCenter,
                                    onConnect: toggleConnection,
@@ -87,7 +97,7 @@ struct ConstellationView: View {
                     board.frame(width: Self.canvasSize(placed.count).width,
                                 height: Self.canvasSize(placed.count).height)
                 }
-                if loaded && placed.isEmpty { emptyBoard }
+                if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
@@ -106,6 +116,7 @@ struct ConstellationView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
                         Button { showAdd = true } label: { Label("Add memories", systemImage: "plus") }
+                        Button { addPin() } label: { Label("Add concept pin", systemImage: "mappin.circle") }
                         Button { Task { await shareBoardAction() } } label: {
                             Label(sharing ? "Sharing…" : "Share board", systemImage: "square.and.arrow.up")
                         }.disabled(placed.isEmpty || sharing)
@@ -129,18 +140,24 @@ struct ConstellationView: View {
                     onSave: { setInsight(c, $0) }, onDelete: { deleteConnection(c) })
             }
             .sheet(item: $share) { s in BoardShareSheet(url: s.url) }
+            .sheet(item: $editingPin) { p in
+                PinEditorSheet(text: p.text, onSave: { setPinText(p, $0) }, onDelete: { deletePin(p) })
+            }
         }
         .task {
             guard !loaded else { return }
             async let conns = XIService.shared.loadConnections()
             async let pos = XIService.shared.loadBoardPositions()
             async let placedIds = XIService.shared.loadPlacedIds()
+            async let pinData = XIService.shared.loadPins()
             connections = await conns.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
             positions = await pos
             placed = Set(await placedIds)
+            pins = (await pinData).map { BoardPin(id: $0.id, text: $0.text) }
             // Any placed card lacking a saved position gets a tidy slot.
             var i = 0
             for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
+            for p in pins where positions[p.id] == nil { positions[p.id] = Self.boardCenter }
             loaded = true
         }
     }
@@ -214,6 +231,33 @@ struct ConstellationView: View {
         persistAll()
     }
 
+    // MARK: concept pins
+
+    private func addPin() {
+        recordUndo()
+        let id = "pin_" + XIService.randomShareId()
+        positions[id] = CGPoint(x: Self.boardCenter.x, y: Self.boardCenter.y - 30)
+        let pin = BoardPin(id: id, text: "")
+        pins.append(pin)
+        persistAll()
+        editingPin = pin
+    }
+
+    private func setPinText(_ p: BoardPin, _ text: String) {
+        guard let i = pins.firstIndex(where: { $0.id == p.id }) else { return }
+        recordUndo()
+        pins[i].text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        persistAll()
+    }
+
+    private func deletePin(_ p: BoardPin) {
+        recordUndo()
+        pins.removeAll { $0.id == p.id }
+        positions[p.id] = nil
+        connections.removeAll { $0.a == p.id || $0.b == p.id }   // drop its strings
+        persistAll()
+    }
+
     /// Publish the board and hand back a shareable web link.
     private func shareBoardAction() async {
         guard !placed.isEmpty else { return }
@@ -232,22 +276,22 @@ struct ConstellationView: View {
 
     /// Snapshot the board before a change.
     private func recordUndo() {
-        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed, pins: pins))
         if undoStack.count > 50 { undoStack.removeFirst() }
         redoStack.removeAll()
     }
 
     private func undo() {
         guard let prev = undoStack.popLast() else { return }
-        redoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
-        positions = prev.positions; connections = prev.connections; placed = prev.placed
+        redoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed, pins: pins))
+        positions = prev.positions; connections = prev.connections; placed = prev.placed; pins = prev.pins
         persistAll()
     }
 
     private func redo() {
         guard let next = redoStack.popLast() else { return }
-        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed))
-        positions = next.positions; connections = next.connections; placed = next.placed
+        undoStack.append(BoardSnapshot(positions: positions, connections: connections, placed: placed, pins: pins))
+        positions = next.positions; connections = next.connections; placed = next.placed; pins = next.pins
         persistAll()
     }
 
@@ -255,9 +299,11 @@ struct ConstellationView: View {
         savePositions()
         let pairs = connections.map { ($0.a, $0.b, $0.insight) }
         let ids = Array(placed)
+        let pinData = pins.map { (id: $0.id, text: $0.text) }
         Task {
             await XIService.shared.saveConnections(pairs)
             await XIService.shared.savePlacedIds(ids)
+            await XIService.shared.savePins(pinData)
         }
     }
 
@@ -272,8 +318,8 @@ struct ConstellationView: View {
                     ctx.stroke(path, with: .color(crimson.opacity(0.30)),
                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
                 }
-                // Hand-drawn strings → solid crimson (only between placed cards).
-                for c in connections where placed.contains(c.a) && placed.contains(c.b) {
+                // Hand-drawn strings → solid crimson (only between on-board items).
+                for c in connections where isOnBoard(c.a) && isOnBoard(c.b) {
                     guard let pa = anchor(c.a), let pb = anchor(c.b) else { continue }
                     var path = Path()
                     path.move(to: pa); path.addLine(to: pb)
@@ -298,6 +344,12 @@ struct ConstellationView: View {
                     .position(positions[m.id] ?? center)
                     .onTapGesture { detail = m }
             }
+            // Standalone concept pins.
+            ForEach(pins) { p in
+                PinMarker(text: p.text, crimson: crimson, slate: slate, beige: beige, border: beigeBorder)
+                    .position(positions[p.id] ?? center)
+                    .onTapGesture { editingPin = p }
+            }
             // Tappable insight markers at each string's midpoint.
             ForEach(placedConnections) { c in
                 if let mid = midpoint(c) {
@@ -307,9 +359,14 @@ struct ConstellationView: View {
         }
     }
 
+    /// Is this id currently on the board (a placed memory or a concept pin)?
+    private func isOnBoard(_ id: String) -> Bool {
+        placed.contains(id) || pins.contains { $0.id == id }
+    }
+
     /// Connections whose both endpoints are currently on the board.
     private var placedConnections: [BoardConnection] {
-        connections.filter { placed.contains($0.a) && placed.contains($0.b) }
+        connections.filter { isOnBoard($0.a) && isOnBoard($0.b) }
     }
 
     private func midpoint(_ c: BoardConnection) -> CGPoint? {
@@ -391,9 +448,11 @@ struct ConstellationView: View {
                       height: max(3200, gridH + 1600))
     }
 
-    /// The pin's anchor point on a card (top-right, where the push-pin sits).
+    /// Where a string attaches to an item: a card's push-pin (top-right) or a
+    /// concept pin's head (its center).
     private func anchor(_ id: String) -> CGPoint? {
         guard let c = positions[id] else { return nil }
+        if pins.contains(where: { $0.id == id }) { return c }
         return CGPoint(x: c.x + Self.cardW / 2 - 10, y: c.y - Self.cardH / 2 + 9)
     }
 
@@ -874,6 +933,82 @@ private struct BoardShareSheet: View {
                     Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
+        }
+    }
+}
+
+/// A standalone concept pin on the board — a bold crimson pin head with an
+/// optional label beneath. Draggable and connectable like a card.
+private struct PinMarker: View {
+    let text: String
+    let crimson, slate, beige, border: Color
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 1.0, green: 0.42, blue: 0.48), crimson],
+                    center: UnitPoint(x: 0.3, y: 0.3), startRadius: 0.5, endRadius: 11))
+                .frame(width: 20, height: 20)
+                .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
+            if text.isEmpty {
+                Text("concept")
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(slate.opacity(0.5))
+            } else {
+                Text(text)
+                    .font(.system(size: 12, design: .serif).weight(.medium))
+                    .foregroundStyle(slate).multilineTextAlignment(.center).lineLimit(2)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(beige)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(maxWidth: 150)
+            }
+        }
+        .frame(width: 160, height: 62)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Editor for a concept pin's label, with a delete action.
+private struct PinEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let text: String
+    var onSave: (String) -> Void
+    var onDelete: () -> Void
+
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("What do the memories around this pin share?")
+                    .font(.system(.subheadline, design: .serif).weight(.medium)).foregroundStyle(XITheme.ink)
+                TextField("a theme or idea", text: $draft)
+                    .font(.system(.body, design: .serif)).focused($focused)
+                    .padding(10).background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Button(role: .destructive) { onDelete(); dismiss() } label: {
+                    Label("Delete pin", systemImage: "trash").font(.system(.body, design: .serif))
+                }.tint(XITheme.maroon)
+                Spacer()
+            }
+            .padding(20)
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("concept pin")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("save") { onSave(draft); dismiss() }
+                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                }
+            }
+            .onAppear { draft = text }
         }
     }
 }

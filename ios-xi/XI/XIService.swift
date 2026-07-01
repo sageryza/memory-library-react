@@ -462,6 +462,27 @@ final class XIService {
             .setData(["ids": ids, "updatedAt": FieldValue.serverTimestamp()])
     }
 
+    /// Standalone concept pins (id + label). Their positions live in the shared
+    /// positions doc, so only the metadata is stored here.
+    func loadPins() async -> [(id: String, text: String)] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("pins").getDocument()
+        let arr = (snap?.data()?["pins"] as? [[String: Any]]) ?? []
+        return arr.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            return (id, d["text"] as? String ?? "")
+        }
+    }
+
+    func savePins(_ pins: [(id: String, text: String)]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let arr = pins.map { ["id": $0.id, "text": $0.text] }
+        try? await db.collection("users").document(uid)
+            .collection("xiBoard").document("pins")
+            .setData(["pins": arr, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
     // MARK: Shared boards (link-based, cross-compatible with the web)
 
     /// Publish the current board as a `sharedBoards/{shareId}` snapshot that the
