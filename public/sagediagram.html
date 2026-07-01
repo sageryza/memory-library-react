@@ -1,0 +1,129 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAGEDIAGRAM — shared drawing set</title><style>
+:root{--bg:#f4efe6;--ink:#2e2a24;--line:#d8cfbf}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 18px;z-index:5}
+h1{margin:0 0 8px;font-size:18px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:13px}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.controls button,.controls label.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px}
+.controls button.primary,.controls label.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.status{margin-left:auto;font-size:12px;opacity:.75}
+#drop{margin:16px;border:2px dashed var(--line);border-radius:10px;padding:34px;text-align:center;color:#8a8171;background:#fffdf8}
+#drop.hot{background:#efe7d6;border-color:#b9a77a}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.card img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;cursor:zoom-in}
+.card input{border:0;border-top:1px solid var(--line);padding:8px;font-size:13px;width:100%;font-family:inherit;background:#fff}
+.card input:focus{outline:2px solid #cdbb8a;outline-offset:-2px}
+.card.pending{opacity:.55}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20;cursor:zoom-out}
+#lb img{max-width:92vw;max-height:88vh;background:#fff;border-radius:8px}
+.hint{font-size:12px;opacity:.65;margin-top:6px}
+</style></head><body>
+<header><h1>SAGEDIAGRAM — shared drawing set</h1>
+<div class="tabs" id="tabs"></div>
+<div class="controls">
+<label class="btn primary">➕ Add images<input id="file" type="file" accept="image/*" multiple hidden></label>
+<button id="refresh">↻ Refresh</button>
+<span class="status" id="status">connecting…</span>
+</div>
+<div class="hint">One shared pool (Firebase). Drag images in — they upload for everyone. Months come from filenames (<code>april_…</code>, <code>october_…</code>). Captions save live. Same set the JournalReader Set Builder tab can read.</div>
+</header>
+<div id="drop">Drop drawings here to add them to the shared set</div>
+<div class="grid" id="g"></div>
+<div id="lb"><img></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCA04ReaTAoNDUgUCuBS-ti0Jkfl-16h_s",
+  authDomain: "membry-df528.firebaseapp.com", projectId: "membry-df528",
+  storageBucket: "membry-df528.firebasestorage.app",
+  messagingSenderId: "513384339473", appId: "1:513384339473:web:8f46c5915a949c93a8b9b0",
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const fns = getFunctions(app, "us-central1");
+const call = httpsCallable(fns, "sagediagram");
+
+const ORDER = ['February','March','April','Summer','September','October','Composite','Oldest','Unsorted'];
+const monthOf = f => { const s = f.toLowerCase();
+  if(s.includes('february'))return 'February';
+  if(s.includes('end-of-march')||s.includes('march'))return 'March';
+  if(s.includes('april'))return 'April';
+  if(s.includes('summer'))return 'Summer';
+  if(s.includes('september'))return 'September';
+  if(s.includes('october'))return 'October';
+  if(s.includes('composite'))return 'Composite';
+  if(s.includes('oldest'))return 'Oldest';
+  return 'Unsorted'; };
+
+let items = [], filt = 'all';
+const g = document.getElementById('g'), tabs = document.getElementById('tabs'),
+      statusEl = document.getElementById('status'), drop = document.getElementById('drop');
+const setStatus = t => statusEl.textContent = t;
+
+function renderTabs(){
+  const present = ORDER.filter(m => items.some(i => i.month === m));
+  tabs.innerHTML = '<button data-m="all">All '+items.length+'</button>' +
+    present.map(m => '<button data-m="'+m+'">'+m+' '+items.filter(i=>i.month===m).length+'</button>').join('');
+  [...tabs.children].forEach(b => { b.classList.toggle('on', b.dataset.m===filt);
+    b.onclick = () => { filt = b.dataset.m; renderTabs(); render(); }; });
+}
+function render(){
+  g.innerHTML=''; drop.style.display = items.length ? 'none' : 'block';
+  for(const it of items){ if(filt!=='all' && it.month!==filt) continue;
+    const d=document.createElement('div'); d.className='card'+(it.pending?' pending':'');
+    const img=document.createElement('img'); img.loading='lazy'; img.src=it.url;
+    img.onclick=()=>{ const lb=document.getElementById('lb'); lb.querySelector('img').src=it.url; lb.style.display='flex'; };
+    const inp=document.createElement('input'); inp.value=it.caption||''; inp.placeholder='';
+    let t; inp.oninput=()=>{ it.caption=inp.value; clearTimeout(t);
+      t=setTimeout(async()=>{ setStatus('saving…'); try{ await call({mode:'caption',id:it.id,caption:inp.value}); setStatus('saved'); }catch(e){ setStatus('save failed'); } }, 600); };
+    d.appendChild(img); d.appendChild(inp); g.appendChild(d);
+  }
+}
+function sortItems(){ items.sort((a,b)=>ORDER.indexOf(a.month)-ORDER.indexOf(b.month)||(a.name||'').localeCompare(b.name||'')); }
+
+async function load(){
+  setStatus('loading…');
+  try{ const r = await call({ mode:'list' }); items = r.data.items || []; sortItems(); renderTabs(); render(); setStatus(items.length+' in shared set'); }
+  catch(e){ setStatus('load failed: '+(e.message||e)); }
+}
+
+// Downscale to a <=1024 webp and return base64 (no data: prefix).
+function toWebp(file){ return new Promise((res,rej)=>{ const img=new Image(); const u=URL.createObjectURL(file);
+  img.onload=()=>{ URL.revokeObjectURL(u); const m=1024; let {width:w,height:h}=img;
+    const s=Math.min(1,m/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
+    const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+    c.toBlob(async b=>{ const buf=new Uint8Array(await b.arrayBuffer()); let s=''; for(const x of buf) s+=String.fromCharCode(x); res(btoa(s)); }, 'image/webp', 0.9);
+  }; img.onerror=rej; img.src=u; }); }
+
+async function addFiles(list){
+  const files=[...list].filter(f=>f.type.startsWith('image/'));
+  let done=0;
+  for(const file of files){ setStatus('uploading '+(++done)+'/'+files.length+'…');
+    try{ const imageBase64=await toWebp(file);
+      const r=await call({ mode:'add', name:file.name, month:monthOf(file.name), imageBase64, contentType:'image/webp' });
+      const it=r.data; const k=items.findIndex(i=>i.id===it.id); if(k>=0) items[k]={...items[k],...it}; else items.push(it);
+      sortItems(); renderTabs(); render();
+    }catch(e){ setStatus('upload failed: '+(e.message||e)); }
+  }
+  setStatus(items.length+' in shared set');
+}
+
+document.getElementById('file').onchange=e=>addFiles(e.target.files);
+document.getElementById('refresh').onclick=load;
+['dragover','dragenter'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+document.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+document.getElementById('lb').onclick=()=>document.getElementById('lb').style.display='none';
+
+onAuthStateChanged(auth, u => { if(u) load(); });
+signInAnonymously(auth).catch(e=>setStatus('auth failed: '+(e.message||e)));
+</script></body></html>
