@@ -14,7 +14,7 @@ enum PWC {
     static let onAccent = Color(hex: 0x0F1528)  // dark text to sit on the gold accent
 
     // Cream content cards (stand apart from the navy field), with dark ink.
-    static let cardBg  = Color(hex: 0xF2EAD6)   // parchment card surface
+    static let cardBg  = Color(hex: 0xEADFC2)   // parchment card surface (a touch darker)
     static let cardInk = Color(hex: 0x1E2436)   // primary dark text on cream
     static let cardSub = Color(hex: 0x7C7360)   // muted secondary on cream
     static let cardLine = Color(hex: 0xE3D9C0)  // subtle warm border

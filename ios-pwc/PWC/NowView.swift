@@ -12,13 +12,13 @@ struct NowView: View {
             ScrollView {
                 LazyVStack(spacing: 14) {
                     masthead
-                    postButton
                     if let next = Mock.events.first { eventPeek(next) }
                     HStack {
-                        Text("THE FEED").font(PWC.mono(12, .semibold)).tracking(2).foregroundStyle(PWC.dim)
+                        Text("FIELD NOTES").font(PWC.mono(12, .semibold)).tracking(2).foregroundStyle(PWC.sage)
                         Spacer()
                     }
                     .padding(.top, 4)
+                    postButton
                     ForEach($sightings) { $s in
                         if !moderation.isBlocked(s.handle) {
                             SightingCard(
@@ -76,7 +76,7 @@ struct NowView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14).padding(.horizontal, 18)
                 .background(PWC.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 
@@ -111,9 +111,8 @@ struct SightingCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Text(sighting.handle).font(PWC.mono(11, .semibold)).tracking(0.5).foregroundStyle(PWC.cardInk)
-                Spacer()
                 Text(sighting.ago).font(PWC.mono(11)).foregroundStyle(PWC.cardSub)
+                Spacer()
                 Menu {
                     Button { onReport() } label: { Label("Report post", systemImage: "flag") }
                     Button(role: .destructive) { onBlock() } label: {
@@ -129,12 +128,9 @@ struct SightingCard: View {
             Text(sighting.note).font(PWC.display(18, .regular)).foregroundStyle(PWC.cardInk)
                 .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
-                Label("\(sighting.place) · \(sighting.neighborhood)", systemImage: "mappin")
+                Label(sighting.place, systemImage: "mappin")
                     .font(PWC.mono(10)).tracking(0.5).foregroundStyle(PWC.cardSub).lineLimit(1)
                 Spacer()
-                if sighting.watchingHere > 1 {
-                    Text("\(sighting.watchingHere) here").font(PWC.mono(10)).foregroundStyle(PWC.cardSub)
-                }
                 Button { sighting.nods += 1 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "hand.thumbsup.fill").font(.system(size: 11))
