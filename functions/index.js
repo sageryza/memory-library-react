@@ -1832,8 +1832,11 @@ exports.illustrateMiracle = onCall(
       version = 'v7-concepts';
       renderOne = async (concept) => {
         const buffer = await generateMiracleOpenAIImage(openaiKey, concept.drawing);
-        const filled = await trimToSubject(buffer); // fill the frame, same as Sketchy
-        return persistBuffer(filled, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`);
+        // The OpenAI image already fills its square (paper background + doodle),
+        // so persist it as-is. trimToSubject is for the LoRA's small-doodle-on-
+        // white output; on a paper background it can't find white to trim and
+        // instead recenters onto a white canvas, adding margins.
+        return persistBuffer(buffer, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`);
       };
     } else {
       const repToken = await loadReplicateToken();
