@@ -442,6 +442,97 @@ final class XIService {
             .setData(["ids": ids, "updatedAt": FieldValue.serverTimestamp()])
     }
 
+    // MARK: Shared boards (link-based, cross-compatible with the web)
+
+    /// Publish the current board as a `sharedBoards/{shareId}` snapshot that the
+    /// web viewer at /share/{id} can open. Returns the share id.
+    func shareBoard(name: String, memories: [XIMemory], placedIds: [String],
+                    positions: [String: CGPoint],
+                    connections: [(String, String, String)]) async -> String? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        let firstName = await sharerFirstName(uid: uid)
+        let byId = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let placedSet = Set(placedIds)
+
+        var dropped: [[String: Any]] = []
+        for id in placedIds {
+            guard let m = byId[id] else { continue }
+            let p = positions[id] ?? .zero
+            dropped.append([
+                "id": id, "x": Double(p.x), "y": Double(p.y),
+                "title": m.title, "description": m.content,
+                "tags": m.hashtags, "createdAt": m.timestamp,
+            ])
+        }
+        let conns: [[String: Any]] = connections
+            .filter { placedSet.contains($0.0) && placedSet.contains($0.1) }
+            .map { ["id": "conn-\($0.0)-\($0.1)", "from": $0.0, "to": $0.1, "insight": $0.2] }
+
+        let shareId = Self.randomShareId()
+        let doc: [String: Any] = [
+            "name": name.isEmpty ? "My board" : name,
+            "sharedBy": ["userId": uid, "firstName": firstName],
+            "sharedWith": ["name": "you"],
+            "memoryCount": dropped.count,
+            "droppedMemories": dropped,
+            "connections": conns,
+            "standalonePins": [],
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+        do {
+            try await db.collection("sharedBoards").document(shareId).setData(doc)
+            return shareId
+        } catch { return nil }
+    }
+
+    /// Import a shared board's memories into the current account (non-destructive
+    /// — they land in the library, tagged with `importedFrom`). Returns the count.
+    @discardableResult
+    func importSharedBoard(_ shareId: String) async -> Int {
+        guard let uid = Auth.auth().currentUser?.uid else { return 0 }
+        guard let snap = try? await db.collection("sharedBoards").document(shareId).getDocument(),
+              let data = snap.data() else { return 0 }
+        let dropped = (data["droppedMemories"] as? [[String: Any]]) ?? []
+        let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let df = DateFormatter(); df.dateStyle = .short; df.timeStyle = .none
+        var count = 0
+        for m in dropped {
+            let title = m["title"] as? String ?? ""
+            let content = (m["description"] as? String) ?? (m["content"] as? String) ?? ""
+            let tags = (m["tags"] as? [String]) ?? (m["hashtags"] as? [String]) ?? []
+            if title.isEmpty && content.isEmpty { continue }
+            let now = Date()
+            let doc: [String: Any] = [
+                "title": title, "content": content, "hashtags": tags,
+                "source": "shared", "importedFrom": shareId, "mode": "board",
+                "timestamp": iso.string(from: now), "dateTime": df.string(from: now),
+                "createdAt": FieldValue.serverTimestamp(),
+                "updatedAt": FieldValue.serverTimestamp(),
+            ]
+            _ = try? await db.collection("users").document(uid)
+                .collection("memories").addDocument(data: doc)
+            count += 1
+        }
+        return count
+    }
+
+    private func sharerFirstName(uid: String) async -> String {
+        if let snap = try? await db.collection("users").document(uid)
+            .collection("profile").document("current").getDocument(),
+           let fn = snap.data()?["firstName"] as? String, !fn.isEmpty { return fn }
+        if let dn = Auth.auth().currentUser?.displayName,
+           let first = dn.split(separator: " ").first { return String(first) }
+        if let email = Auth.auth().currentUser?.email,
+           let prefix = email.split(separator: "@").first { return String(prefix).capitalized }
+        return "Someone"
+    }
+
+    static func randomShareId() -> String {
+        let chars = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        return String((0..<12).map { _ in chars.randomElement()! })
+    }
+
     // MARK: Memory edits (used by archive bulk actions)
 
     func deleteMemory(_ id: String) async {

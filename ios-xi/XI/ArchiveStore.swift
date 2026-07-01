@@ -96,6 +96,18 @@ final class ArchiveStore: ObservableObject {
         memories.removeAll { $0.id == id }
     }
 
+    /// Import a shared board (link or bare code) — copies its memories into the
+    /// library. Returns how many were imported.
+    func importShared(_ raw: String) async -> Int {
+        var id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return 0 }
+        if let last = id.split(separator: "/").last { id = String(last) }
+        if let q = id.split(separator: "?").first { id = String(q) }
+        let n = await XIService.shared.importSharedBoard(id)
+        if n > 0 { await reloadMemories() }
+        return n
+    }
+
     // MARK: filtering
 
     /// Memory ids hidden because they live in a locked library (and we're not
