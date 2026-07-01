@@ -48,11 +48,11 @@ struct ShopCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(PWC.paper)
+                RoundedRectangle(cornerRadius: 10).fill(Color(hex: 0xFCF8EE))
                 Text(item.emoji).font(.system(size: 46))
             }
             .frame(height: 120)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(PWC.line, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(PWC.cardLine, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 if item.freeGift {
                     Text("+ CARD").font(PWC.mono(8, .bold)).tracking(0.5)
@@ -61,20 +61,20 @@ struct ShopCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4)).padding(6)
                 }
             }
-            Text(item.name).font(PWC.display(17, .medium)).foregroundStyle(PWC.ink)
-            Text(item.blurb).font(PWC.mono(10)).foregroundStyle(PWC.sage).lineLimit(2)
+            Text(item.name).font(PWC.display(17, .medium)).foregroundStyle(PWC.cardInk)
+            Text(item.blurb).font(PWC.mono(10)).foregroundStyle(PWC.cardSub).lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            Rectangle().fill(PWC.line).frame(height: 1).padding(.vertical, 1)
             HStack {
                 Text(item.price).font(PWC.display(17, .semibold)).foregroundStyle(PWC.accent)
                 Spacer()
                 Image(systemName: "bag.badge.plus").foregroundStyle(PWC.accent)
             }
+            .padding(.top, 2)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PWC.card)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
+        .background(PWC.cardBg)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.cardLine, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

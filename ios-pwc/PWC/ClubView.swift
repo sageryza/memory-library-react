@@ -60,19 +60,19 @@ struct ClubView: View {
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
-        .background(PWC.card)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
+        .background(PWC.cardBg)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.cardLine, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var hairline: some View {
-        Rectangle().fill(PWC.accent.opacity(0.4)).frame(width: 1, height: 34)
+        Rectangle().fill(PWC.cardLine).frame(width: 1, height: 34)
     }
 
     private func stat(_ n: String, _ label: String) -> some View {
         VStack(spacing: 5) {
             Text(n).font(PWC.display(26, .medium)).foregroundStyle(PWC.accent)
-            Text(label.uppercased()).font(PWC.mono(9)).tracking(1.5).foregroundStyle(PWC.sage)
+            Text(label.uppercased()).font(PWC.mono(9)).tracking(1.5).foregroundStyle(PWC.cardSub)
         }
         .frame(maxWidth: .infinity)
     }

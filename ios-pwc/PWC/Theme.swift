@@ -13,6 +13,12 @@ enum PWC {
     static let dim     = Color(hex: 0x7A7668)   // --text-dim      tertiary
     static let onAccent = Color(hex: 0x0F1528)  // dark text to sit on the gold accent
 
+    // Cream content cards (stand apart from the navy field), with dark ink.
+    static let cardBg  = Color(hex: 0xF2EAD6)   // parchment card surface
+    static let cardInk = Color(hex: 0x1E2436)   // primary dark text on cream
+    static let cardSub = Color(hex: 0x7C7360)   // muted secondary on cream
+    static let cardLine = Color(hex: 0xE3D9C0)  // subtle warm border
+
     /// Brand wordmark / display — Cormorant Garamond, the website's serif.
     /// (Registered at launch in PWCApp; falls back to system serif if missing.)
     static func display(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
@@ -43,11 +49,10 @@ struct PWCMasthead: View {
     var subtitle: String? = nil
 
     var body: some View {
-        VStack(spacing: 11) {
+        VStack(spacing: 8) {
             Text(title.uppercased())
                 .font(PWC.display(24)).tracking(5)
                 .foregroundStyle(PWC.accent).multilineTextAlignment(.center)
-            Rectangle().fill(PWC.accent).frame(width: 40, height: 1)
             if let subtitle {
                 Text(subtitle.uppercased())
                     .font(PWC.mono(10)).tracking(2).foregroundStyle(PWC.sage)

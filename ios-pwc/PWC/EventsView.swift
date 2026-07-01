@@ -41,18 +41,17 @@ struct EventCard: View {
                 dateBlock
                 VStack(alignment: .leading, spacing: 6) {
                     Text(event.title)
-                        .font(PWC.display(21, .medium)).foregroundStyle(PWC.ink)
+                        .font(PWC.display(21, .medium)).foregroundStyle(PWC.cardInk)
                         .fixedSize(horizontal: false, vertical: true)
                     Label("\(event.place) · \(event.neighborhood)", systemImage: "mappin")
-                        .font(PWC.mono(11)).foregroundStyle(PWC.sage)
-                    Text(parts.time).font(PWC.mono(11)).tracking(1).foregroundStyle(PWC.dim)
+                        .font(PWC.mono(11)).foregroundStyle(PWC.cardSub)
+                    Text(parts.time).font(PWC.mono(11)).tracking(1).foregroundStyle(PWC.cardSub)
                 }
                 Spacer(minLength: 0)
             }
-            Rectangle().fill(PWC.line).frame(height: 1)
             HStack {
                 Text("\(event.going + (going ? 1 : 0)) WATCHING")
-                    .font(PWC.mono(10)).tracking(1.5).foregroundStyle(PWC.sage)
+                    .font(PWC.mono(10)).tracking(1.5).foregroundStyle(PWC.cardSub)
                 Spacer()
                 Button { going.toggle() } label: {
                     Text(going ? "Going ✓" : "I'll watch")
@@ -67,16 +66,16 @@ struct EventCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PWC.card)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.line, lineWidth: 1))
+        .background(PWC.cardBg)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(PWC.cardLine, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var dateBlock: some View {
         VStack(spacing: 1) {
             Text(event.day.uppercased()).font(PWC.mono(10, .semibold)).tracking(1).foregroundStyle(PWC.accent)
-            Text(parts.num).font(PWC.display(28, .medium)).foregroundStyle(PWC.ink)
-            Text(parts.month.uppercased()).font(PWC.mono(9)).tracking(1).foregroundStyle(PWC.dim)
+            Text(parts.num).font(PWC.display(28, .medium)).foregroundStyle(PWC.cardInk)
+            Text(parts.month.uppercased()).font(PWC.mono(9)).tracking(1).foregroundStyle(PWC.cardSub)
         }
         .frame(width: 46)
         .padding(.top, 2)
