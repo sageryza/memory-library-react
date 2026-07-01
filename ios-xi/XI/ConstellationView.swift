@@ -59,6 +59,9 @@ struct ConstellationView: View {
     @State private var sharing = false
     @State private var pins: [BoardPin] = []
     @State private var editingPin: BoardPin?
+    @State private var showConstellations = false
+    @State private var showSaveConstellation = false
+    @State private var constellationName = ""
 
     init(memories: [XIMemory]) {
         self.memories = memories
@@ -120,6 +123,10 @@ struct ConstellationView: View {
                         Button { Task { await shareBoardAction() } } label: {
                             Label(sharing ? "Sharing…" : "Share board", systemImage: "square.and.arrow.up")
                         }.disabled(placed.isEmpty || sharing)
+                        Button { constellationName = ""; showSaveConstellation = true } label: {
+                            Label("Save as constellation", systemImage: "bookmark")
+                        }.disabled(placed.isEmpty && pins.isEmpty)
+                        Button { showConstellations = true } label: { Label("My constellations", systemImage: "square.stack") }
                         Button { scatterAll() } label: { Label("Scatter all", systemImage: "sparkles") }
                             .disabled(offBoard.isEmpty)
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
@@ -143,6 +150,18 @@ struct ConstellationView: View {
             .sheet(item: $editingPin) { p in
                 PinEditorSheet(text: p.text, onSave: { setPinText(p, $0) }, onDelete: { deletePin(p) })
             }
+            .sheet(isPresented: $showConstellations) {
+                ConstellationsSheet(onLoad: { applyConstellation($0) })
+            }
+            .alert("Save constellation", isPresented: $showSaveConstellation) {
+                TextField("name", text: $constellationName)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") {
+                    let n = constellationName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !n.isEmpty else { return }
+                    Task { await saveConstellationAction(n) }
+                }
+            } message: { Text("Save this board arrangement to reload later.") }
         }
         .task {
             guard !loaded else { return }
@@ -255,6 +274,27 @@ struct ConstellationView: View {
         pins.removeAll { $0.id == p.id }
         positions[p.id] = nil
         connections.removeAll { $0.a == p.id || $0.b == p.id }   // drop its strings
+        persistAll()
+    }
+
+    // MARK: saved constellations
+
+    private func saveConstellationAction(_ name: String) async {
+        let conns = connections.map { ($0.a, $0.b, $0.insight) }
+        let pinData = pins.map { (id: $0.id, text: $0.text) }
+        await XIService.shared.saveConstellation(
+            name: name, placed: Array(placed), positions: positions,
+            connections: conns, pins: pinData)
+    }
+
+    /// Reload a saved constellation onto the board (replaces the current one).
+    private func applyConstellation(_ c: XIConstellation) {
+        recordUndo()
+        placed = Set(c.placed)
+        for (id, p) in c.positions { positions[id] = p }
+        connections = c.connections.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
+        pins = c.pins.map { BoardPin(id: $0.id, text: $0.text) }
+        for p in c.pins { positions[p.id] = CGPoint(x: p.x, y: p.y) }
         persistAll()
     }
 
@@ -1009,6 +1049,68 @@ private struct PinEditorSheet: View {
                 }
             }
             .onAppear { draft = text }
+        }
+    }
+}
+
+/// Saved constellations — tap to reload one onto the board, swipe to delete.
+private struct ConstellationsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var onLoad: (XIConstellation) -> Void
+
+    @State private var items: [XIConstellation] = []
+    @State private var loading = true
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if loading {
+                    ProgressView().tint(XITheme.gold).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if items.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "square.stack").font(.system(size: 30)).foregroundStyle(XITheme.line)
+                        Text("No saved constellations yet.").font(.system(.body, design: .serif)).foregroundStyle(XITheme.line)
+                        Text("Save a board arrangement from the ⋯ menu to reload it later.")
+                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
+                            .multilineTextAlignment(.center)
+                    }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(items) { c in
+                            Button { onLoad(c); dismiss() } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(c.name).font(.system(.body, design: .serif).weight(.medium))
+                                            .foregroundStyle(XITheme.ink)
+                                        Text("\(c.placed.count) memories · \(c.connections.count) strings"
+                                             + (c.pins.isEmpty ? "" : " · \(c.pins.count) pins"))
+                                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(XITheme.line)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.up.forward.circle").foregroundStyle(XITheme.gold)
+                                }
+                            }
+                            .tint(.primary)
+                            .listRowBackground(XITheme.paper)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    Task { await XIService.shared.deleteConstellation(c.id); items.removeAll { $0.id == c.id } }
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                        }
+                    }
+                    .listStyle(.plain).scrollContentBackground(.hidden)
+                }
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("constellations")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
+            .task { items = await XIService.shared.loadConstellations(); loading = false }
         }
     }
 }

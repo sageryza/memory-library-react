@@ -22,6 +22,17 @@ struct XIMemory: Identifiable {
     var additionalContext: String = ""
 }
 
+/// A saved board arrangement — the placed memories, their positions, the
+/// hand-drawn connections, and concept pins — that can be reloaded onto the board.
+struct XIConstellation: Identifiable {
+    let id: String
+    var name: String
+    var placed: [String]
+    var positions: [String: CGPoint]
+    var connections: [(String, String, String)]
+    var pins: [(id: String, text: String, x: Double, y: Double)]
+}
+
 /// Publishes the current Firebase auth user so the UI can gate sign-in.
 @MainActor
 final class AuthState: ObservableObject {
@@ -481,6 +492,62 @@ final class XIService {
         try? await db.collection("users").document(uid)
             .collection("xiBoard").document("pins")
             .setData(["pins": arr, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
+    // MARK: Saved constellations (named board arrangements you can reload)
+
+    func saveConstellation(name: String, placed: [String], positions: [String: CGPoint],
+                           connections: [(String, String, String)],
+                           pins: [(id: String, text: String)]) async -> String? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        let onBoard = Set(placed).union(pins.map { $0.id })
+        var pos: [String: [String: Double]] = [:]
+        for (id, p) in positions where onBoard.contains(id) {
+            pos[id] = ["x": Double(p.x), "y": Double(p.y)]
+        }
+        let conns = connections.map { ["a": $0.0, "b": $0.1, "insight": $0.2] }
+        let pinArr: [[String: Any]] = pins.map { p in
+            let pt = positions[p.id] ?? .zero
+            return ["id": p.id, "text": p.text, "x": Double(pt.x), "y": Double(pt.y)]
+        }
+        let doc: [String: Any] = [
+            "name": name.isEmpty ? "Untitled" : name,
+            "placed": placed, "positions": pos, "connections": conns, "pins": pinArr,
+            "createdAt": FieldValue.serverTimestamp(),
+        ]
+        let ref = try? await db.collection("users").document(uid)
+            .collection("constellations").addDocument(data: doc)
+        return ref?.documentID
+    }
+
+    func loadConstellations() async -> [XIConstellation] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("constellations").getDocuments()
+        return (snap?.documents ?? []).map { doc in
+            let d = doc.data()
+            var pos: [String: CGPoint] = [:]
+            for (id, xy) in (d["positions"] as? [String: [String: Double]]) ?? [:] {
+                if let x = xy["x"], let y = xy["y"] { pos[id] = CGPoint(x: x, y: y) }
+            }
+            let conns = ((d["connections"] as? [[String: String]]) ?? []).compactMap { c -> (String, String, String)? in
+                guard let a = c["a"], let b = c["b"] else { return nil }
+                return (a, b, c["insight"] ?? "")
+            }
+            let pinArr = ((d["pins"] as? [[String: Any]]) ?? []).compactMap { p -> (id: String, text: String, x: Double, y: Double)? in
+                guard let id = p["id"] as? String else { return nil }
+                return (id, p["text"] as? String ?? "", p["x"] as? Double ?? 0, p["y"] as? Double ?? 0)
+            }
+            return XIConstellation(id: doc.documentID, name: d["name"] as? String ?? "Untitled",
+                                   placed: (d["placed"] as? [String]) ?? [], positions: pos,
+                                   connections: conns, pins: pinArr)
+        }
+    }
+
+    func deleteConstellation(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("constellations").document(id).delete()
     }
 
     // MARK: Shared boards (link-based, cross-compatible with the web)
