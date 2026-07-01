@@ -207,6 +207,22 @@ enum BoardEngine {
         }
     }
 
+    /// An experimental 2×2 "four-card" board — bigger cards for readability.
+    /// Events sit on the diagonal, twists on the off-diagonal, so all four
+    /// neighbouring pairs are a valid event+twist story. Deterministic per day.
+    static func fourCardBoard(_ dayNum: Int) -> [Placed] {
+        let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
+        var rng = Mulberry32(seed: seed)
+        let evs = xiShuffle(Array(0..<XIDeck.eventCaps.count), &rng)
+        let tws = xiShuffle(Array(0..<XIDeck.twistCaps.count), &rng)
+        return [
+            Placed(r: 0, c: 0, d: "be", i: evs[0]),
+            Placed(r: 0, c: 1, d: "bw", i: tws[0]),
+            Placed(r: 1, c: 0, d: "bw", i: tws[1]),
+            Placed(r: 1, c: 1, d: "be", i: evs[1]),
+        ]
+    }
+
     /// The deterministic board for a given day: 13 placed cards as a connected blob.
     static func dailyBoard(_ dayNum: Int, targetCards: Int = 13) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)

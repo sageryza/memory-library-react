@@ -111,32 +111,26 @@ struct VersusGameView: View {
         }
     }
 
-    // MARK: header — code + players + round
+    // MARK: header — just the players (code lives behind the share button, no
+    // rounds). Kept deliberately spare per feedback: the board is the focus.
 
+    @ViewBuilder
     private var header: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Text("code").font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
-                Text(gameId).font(.system(.title3, design: .serif, weight: .semibold)).tracking(2)
-                    .foregroundStyle(XITheme.ink)
-            }
-            if let g = game {
-                Text("round \(g.round + 1)").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
-                let cols = [GridItem(.adaptive(minimum: 84), spacing: 8)]
-                LazyVGrid(columns: cols, spacing: 8) {
-                    ForEach(g.players) { p in
-                        HStack(spacing: 5) {
-                            Circle().fill(Color(xiHex: p.color)).frame(width: 9, height: 9)
-                            Text(p.name).font(.system(.caption, design: .serif)).lineLimit(1)
-                                .foregroundStyle(XITheme.ink)
-                            if g.acted.contains(p.uid) {
-                                Image(systemName: "checkmark").font(.system(size: 8)).foregroundStyle(XITheme.gold)
-                            }
+        if let g = game {
+            let cols = [GridItem(.adaptive(minimum: 84), spacing: 8)]
+            LazyVGrid(columns: cols, spacing: 8) {
+                ForEach(g.players) { p in
+                    HStack(spacing: 5) {
+                        Circle().fill(Color(xiHex: p.color)).frame(width: 9, height: 9)
+                        Text(p.name).font(.system(.caption, design: .serif)).lineLimit(1)
+                            .foregroundStyle(XITheme.ink)
+                        if g.acted.contains(p.uid) {
+                            Image(systemName: "checkmark").font(.system(size: 8)).foregroundStyle(XITheme.gold)
                         }
-                        .padding(.vertical, 4).padding(.horizontal, 8)
-                        .background(XITheme.white)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
                     }
+                    .padding(.vertical, 4).padding(.horizontal, 8)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
                 }
             }
         }
@@ -221,9 +215,16 @@ struct VersusGameView: View {
                 Button("undo placement") { run { try await VersusService.shared.undoLastMove(gameId) } }
                     .buttonStyle(VersusButton(filled: false))
             }
+            // Skip is a quiet escape hatch, not a call to action — just a line of
+            // faint italic text in the same spot.
             if !iActed && !iPlaced {
-                Button("skip turn") { run { try await VersusService.shared.skipTurn(gameId) } }
-                    .buttonStyle(VersusButton(filled: false))
+                Button { run { try await VersusService.shared.skipTurn(gameId) } } label: {
+                    Text("skip turn")
+                        .font(.system(.footnote, design: .serif).italic())
+                        .foregroundStyle(XITheme.line)
+                        .underline()
+                }
+                .buttonStyle(.plain)
             }
         }
         .disabled(busy)
