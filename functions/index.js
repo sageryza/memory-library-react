@@ -1769,6 +1769,75 @@ async function generateMiracleOpenAIImage(key, subject) {
   return Buffer.from(b64, 'base64');
 }
 
+// ── SAGEDIAGRAM: shared drawing/caption pool ────────────────────────────────
+// One online set that the web captioner (public/sagediagram.html), this
+// pipeline, and JournalReader's Set Builder / Stickers tabs can all read and
+// write. All writes go through this callable (Admin SDK), so no open Storage or
+// Firestore client rules are required. Anonymous auth is required.
+const SAGEDIAGRAM_COLLECTION = 'sagediagram';
+function sagediagramId(name) {
+  const slug = String(name || '').replace(/\.[a-z0-9]+$/i, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase().slice(0, 120);
+  return slug || crypto.randomUUID();
+}
+exports.sagediagram = onCall(
+  { region: 'us-central1', cors: true, timeoutSeconds: 120, memory: '512MiB' },
+  async (req) => {
+    if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const uid = req.auth.uid;
+    const data = req.data || {};
+    const mode = data.mode || 'list';
+
+    if (mode === 'list') {
+      const snap = await db.collection(SAGEDIAGRAM_COLLECTION).get();
+      const items = snap.docs.map((d) => {
+        const v = d.data();
+        return {
+          id: d.id, name: v.name, month: v.month || 'Unsorted',
+          caption: v.caption || '', url: v.url, addedBy: v.addedBy,
+          createdAt: v.createdAt?.toMillis?.() || null,
+        };
+      });
+      return { items };
+    }
+
+    if (mode === 'add') {
+      const name = String(data.name || '').trim();
+      if (!name) throw new HttpsError('invalid-argument', 'name required');
+      if (!data.imageBase64) throw new HttpsError('invalid-argument', 'imageBase64 required');
+      const id = sagediagramId(name);
+      const buffer = Buffer.from(String(data.imageBase64), 'base64');
+      const url = await persistBuffer(buffer, `${SAGEDIAGRAM_COLLECTION}/${id}.webp`, data.contentType || 'image/webp');
+      const doc = {
+        name, month: String(data.month || 'Unsorted'), caption: String(data.caption || ''),
+        url, storagePath: `${SAGEDIAGRAM_COLLECTION}/${id}.webp`,
+        addedBy: uid, createdAt: FieldValue.serverTimestamp(),
+      };
+      await db.collection(SAGEDIAGRAM_COLLECTION).doc(id).set(doc, { merge: true });
+      return { id, name: doc.name, month: doc.month, caption: doc.caption, url };
+    }
+
+    if (mode === 'caption') {
+      const id = String(data.id || '').trim();
+      if (!id) throw new HttpsError('invalid-argument', 'id required');
+      await db.collection(SAGEDIAGRAM_COLLECTION).doc(id).set(
+        { caption: String(data.caption || ''), captionedBy: uid, captionAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      return { ok: true };
+    }
+
+    if (mode === 'delete') {
+      const id = String(data.id || '').trim();
+      if (!id) throw new HttpsError('invalid-argument', 'id required');
+      await db.collection(SAGEDIAGRAM_COLLECTION).doc(id).delete();
+      try { await getStorage().bucket(STORAGE_BUCKET).file(`${SAGEDIAGRAM_COLLECTION}/${id}.webp`).delete(); } catch { /* already gone */ }
+      return { ok: true };
+    }
+
+    throw new HttpsError('invalid-argument', `unknown mode: ${mode}`);
+  },
+);
+
 exports.illustrateMiracle = onCall(
   { region: 'us-central1', timeoutSeconds: 300, memory: '2GiB' },
   async (request) => {
