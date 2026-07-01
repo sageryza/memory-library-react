@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// The five bottom-nav destinations. `.record` is the emphasized center button
-/// (a raised pink +); `.more` is a reserved slot we haven't decided on yet.
+/// (a raised pink +); `.setBuilder` is the SET-game-style "make a set of three"
+/// tool (ported from ImageForge's /set).
 enum JournalTab: Int, CaseIterable, Identifiable {
-    case dreams, journal, record, stickers, more
+    case dreams, journal, record, stickers, setBuilder
     var id: Int { rawValue }
 }
 
@@ -20,8 +21,8 @@ struct JournalNavBar: View {
             item(.dreams,   symbol: "cloud",           filled: "cloud.fill",           label: "Dreams")
             item(.journal,  symbol: "book.closed",     filled: "book.closed.fill",     label: "Journal")
             recordButton
-            item(.stickers, symbol: "square.grid.2x2", filled: "square.grid.2x2.fill", label: "Stickers")
-            placeholder
+            item(.stickers,   symbol: "square.grid.2x2",  filled: "square.grid.2x2.fill",  label: "Stickers")
+            item(.setBuilder, symbol: "rectangle.3.group", filled: "rectangle.3.group.fill", label: "Set")
         }
         .padding(.top, 8)
         .padding(.horizontal, 4)
@@ -66,21 +67,5 @@ struct JournalNavBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Record a note")
-    }
-
-    /// Reserved fifth slot — dimmed until we decide what goes here.
-    private var placeholder: some View {
-        Button { selection = .more } label: {
-            VStack(spacing: 3) {
-                Image(systemName: "circle.dashed")
-                    .font(.system(size: 20))
-                    .frame(height: 24)
-                Text("Soon")
-                    .font(.system(size: 10)).tracking(0.2)
-            }
-            .foregroundStyle(inactive.opacity(0.55))
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
     }
 }

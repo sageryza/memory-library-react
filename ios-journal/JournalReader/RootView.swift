@@ -14,8 +14,8 @@ struct RootView: View {
             screen(.dreams)   { DreamsPlaceholder() }
             screen(.journal)  { ContentView() }
             screen(.record)   { RecordPlaceholder() }
-            screen(.stickers) { StickersPlaceholder() }
-            screen(.more)     { MorePlaceholder() }
+            screen(.stickers)   { StickersPlaceholder() }
+            screen(.setBuilder) { SetBuilderPlaceholder() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.ignoresSafeArea())
@@ -92,6 +92,6 @@ private struct RecordPlaceholder: View {
 private struct StickersPlaceholder: View {
     var body: some View { ComingSoon(title: "Stickers", symbol: "square.grid.2x2", subtitle: "generate sticker sheets — wiring this up to ImageForge next.") }
 }
-private struct MorePlaceholder: View {
-    var body: some View { ComingSoon(title: "", symbol: "circle.dashed", subtitle: "something's coming here.") }
+private struct SetBuilderPlaceholder: View {
+    var body: some View { ComingSoon(title: "Set", symbol: "rectangle.3.group", subtitle: "make a set of three — porting your ImageForge set builder here.") }
 }
