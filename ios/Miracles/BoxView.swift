@@ -10,6 +10,7 @@ struct BoxView: View {
     @State private var drawing = false
     @State private var errorText: String?
     @State private var showConsent = false
+    @FocusState private var captionFocused: Bool
     // 5.1.2(i): one-time consent before any text is sent to third-party AI.
     @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
@@ -31,17 +32,25 @@ struct BoxView: View {
 
                 if drawing { ProgressView().tint(Theme.gold) }
 
-                VStack {
-                    Spacer()
-                    HStack {
+                // Edit controls hide once you've locked in a drawing.
+                if !box.selected {
+                    VStack {
                         Spacer()
-                        controls
+                        HStack {
+                            Spacer()
+                            controls
+                        }
                     }
+                    .padding(5)
                 }
-                .padding(5)
             }
             .aspectRatio(1, contentMode: .fit)
             .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Tap a locked-in drawing to bring the edit controls back.
+                if box.selected { store.setSelected(false, boxID: box.id) }
+            }
 
             caption
 
@@ -79,6 +88,7 @@ struct BoxView: View {
                 text: Binding(get: { box.text }, set: { store.setText($0, boxID: box.id) }),
                 axis: .vertical
             )
+            .focused($captionFocused)
             .lineLimit(3, reservesSpace: true)
             .lineSpacing(9)
             .font(.custom(Theme.handwriting, size: 20))
@@ -86,6 +96,14 @@ struct BoxView: View {
             .tint(Theme.gold)
             .padding(.horizontal, 2)
             .offset(y: 1)
+            // The caption is multi-line, so Return makes a new line rather than
+            // dismissing — give an explicit way to put the keyboard away.
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { captionFocused = false }
+                }
+            }
         }
         .frame(height: lineHeight * 3)
     }
@@ -93,7 +111,7 @@ struct BoxView: View {
     private var controls: some View {
         HStack(spacing: 4) {
             if box.canUndo {
-                arrow("chevron.left") { store.step(-1, boxID: box.id) }
+                arrow("arrowtriangle.backward.fill") { store.step(-1, boxID: box.id) }
             }
 
             Button(action: draw) {
@@ -114,20 +132,34 @@ struct BoxView: View {
             .opacity(box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
 
             if box.canRedo {
-                arrow("chevron.right") { store.step(1, boxID: box.id) }
+                arrow("arrowtriangle.forward.fill") { store.step(1, boxID: box.id) }
+            }
+
+            // Keep this one: locks the drawing in and hides these controls.
+            if box.url != nil {
+                Button { store.setSelected(true, boxID: box.id) } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Theme.gold)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(.white.opacity(0.85))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
             }
         }
     }
 
+    // Small filled arrow — no circle, deliberately unobtrusive.
     private func arrow(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.gold)
-                .frame(width: 22, height: 22)
-                .background(.white.opacity(0.85))
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Theme.gold.opacity(0.6)))
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.muted)
+                .frame(width: 20, height: 24)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
