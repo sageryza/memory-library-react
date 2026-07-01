@@ -38,6 +38,8 @@ struct BoardSnapshot: Equatable {
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
+    /// True when shown as its own tab (no "done" button to dismiss).
+    var embedded = false
 
     @State private var detail: XIMemory?
     @State private var positions: [String: CGPoint] = [:]
@@ -57,8 +59,9 @@ struct ConstellationView: View {
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
-    init(memories: [XIMemory]) {
+    init(memories: [XIMemory], embedded: Bool = false) {
         self.memories = memories
+        self.embedded = embedded
     }
 
     /// The memories actually pinned to the board (the curated subset).
@@ -124,7 +127,9 @@ struct ConstellationView: View {
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
                             .disabled(placed.isEmpty)
                     } label: { Image(systemName: "ellipsis.circle") }.tint(crimson)
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
+                    if !embedded {
+                        Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
+                    }
                 }
             }
             .sheet(item: $detail) { m in

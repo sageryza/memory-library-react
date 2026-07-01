@@ -46,7 +46,33 @@ struct XIShell: View {
         case .curate: CurateView()
         case .daily: BoardView(auth: auth)
         case .versus: VersusLobbyView(auth: auth)
+        case .board: ConstellationTab()
         case .library: LibraryView()
+        }
+    }
+}
+
+/// Hosts the constellation as a full-screen destination (its own bottom-nav
+/// tab) — loads the memories and shows the board. Because it's a tab, not a
+/// sheet, it can't be swiped away mid-edit.
+struct ConstellationTab: View {
+    @State private var memories: [XIMemory] = []
+    @State private var loaded = false
+
+    var body: some View {
+        Group {
+            if loaded {
+                ConstellationView(memories: memories, embedded: true)
+            } else {
+                ProgressView().tint(XITheme.gold)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(XITheme.paper.ignoresSafeArea())
+            }
+        }
+        .task {
+            guard !loaded else { return }
+            memories = await XIService.shared.allMemories()
+            loaded = true
         }
     }
 }
