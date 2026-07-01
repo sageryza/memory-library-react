@@ -61,5 +61,8 @@ struct RootView: View {
                 SignInView()
             }
         }
+        // XI is a light, parchment theme — never render system controls (lists,
+        // text fields, alerts) in the device's dark mode, or text goes invisible.
+        .preferredColorScheme(.light)
     }
 }
