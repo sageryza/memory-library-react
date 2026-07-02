@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CryptoKit
 
 /// Loads a drawing URL and caches the bytes on disk, so a drawing shows
 /// instantly on later launches, works offline, and survives even if the remote
@@ -20,12 +21,14 @@ final class DoodleImageLoader: ObservableObject {
     }()
 
     private func fileURL(for key: String) -> URL {
-        // Stable, filesystem-safe name per URL (each redraw has a unique URL,
-        // so the cache never goes stale).
-        let safe = Data(key.utf8).base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "+", with: "-")
-        return Self.dir.appendingPathComponent(safe)
+        // Name the cache file by a short SHA-256 hash of the URL. (Base64 of the
+        // full Firebase URL blew past the filesystem's 255-char filename limit,
+        // so every write silently failed and nothing ever cached.) A fixed
+        // 64-char hex name is stable per URL and always well under the limit —
+        // and since each redraw has a unique URL, the cache never goes stale.
+        let digest = SHA256.hash(data: Data(key.utf8))
+        let name = digest.map { String(format: "%02x", $0) }.joined()
+        return Self.dir.appendingPathComponent(name)
     }
 
     func load(_ urlString: String) async {

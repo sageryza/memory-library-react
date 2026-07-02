@@ -15,7 +15,7 @@ struct RootView: View {
             screen(.journal)  { ContentView() }
             screen(.record)   { RecordPlaceholder() }
             screen(.stickers)   { StickersPlaceholder() }
-            screen(.setBuilder) { SetBuilderPlaceholder() }
+            screen(.setBuilder) { SetBuilderView() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.ignoresSafeArea())

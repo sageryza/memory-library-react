@@ -102,14 +102,8 @@ struct BoxView: View {
             .tint(Theme.gold)
             .padding(.horizontal, 2)
             .offset(y: 1)
-            // The caption is multi-line, so Return makes a new line rather than
-            // dismissing — give an explicit way to put the keyboard away.
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { captionFocused = false }
-                }
-            }
+            // Keyboard "Done" is declared once at the BookView level, so there's
+            // a single button rather than one per box.
         }
         .frame(height: lineHeight * 3)
     }

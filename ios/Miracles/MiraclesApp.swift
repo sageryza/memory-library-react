@@ -60,7 +60,10 @@ struct RootView: View {
         ZStack {
             Theme.paper.ignoresSafeArea()
             if opened {
-                BookView(store: store).transition(.opacity)
+                BookView(store: store) {
+                    withAnimation(.easeInOut(duration: 0.6)) { opened = false }
+                }
+                .transition(.opacity)
             } else {
                 CoverView {
                     withAnimation(.easeInOut(duration: 0.6)) { opened = true }
