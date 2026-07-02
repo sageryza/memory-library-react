@@ -24,6 +24,7 @@ struct ClosetView: View {
                                             ForEach(items) { item in
                                                 ClosetThumb(item: item)
                                                     .contextMenu {
+                                                        Button("Redraw as illustration") { store.draw(item.id) }
                                                         Button("Delete", role: .destructive) { store.remove(item) }
                                                     }
                                             }
@@ -49,13 +50,25 @@ struct ClosetView: View {
 }
 
 struct ClosetThumb: View {
+    @EnvironmentObject var store: ClosetStore
     let item: ClothingItem
     var body: some View {
-        Group {
+        ZStack {
+            Color(.secondarySystemBackground)
             if let img = item.image {
-                Image(uiImage: img).resizable().scaledToFill()
-            } else {
-                Color(.secondarySystemBackground)
+                if item.isDrawn {
+                    // Illustrations are transparent PNGs — show the whole item.
+                    Image(uiImage: img).resizable().scaledToFit().padding(6)
+                } else {
+                    Image(uiImage: img).resizable().scaledToFill()
+                }
+            }
+            if store.drawing.contains(item.id) {
+                Rectangle().fill(.ultraThinMaterial)
+                VStack(spacing: 6) {
+                    ProgressView()
+                    Text("drawing…").font(.caption2).foregroundStyle(.secondary)
+                }
             }
         }
         .frame(width: 100, height: 130)
@@ -70,6 +83,7 @@ struct AddItemSheet: View {
     @State private var pick: PhotosPickerItem?
     @State private var image: UIImage?
     @State private var category: Category = .top
+    @State private var drawIt = true
 
     var body: some View {
         NavigationStack {
@@ -90,6 +104,11 @@ struct AddItemSheet: View {
                     }
                     .pickerStyle(.inline).labelsHidden()
                 }
+                Section {
+                    Toggle("Redraw as illustration", isOn: $drawIt)
+                } footer: {
+                    Text("Turns your photo into a cute drawn version of the item with the background removed. Takes ~20 seconds — the photo shows until the drawing is ready.")
+                }
             }
             .navigationTitle("Add Item")
             .navigationBarTitleDisplayMode(.inline)
@@ -97,7 +116,7 @@ struct AddItemSheet: View {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
-                        if let image { store.add(image, category: category) }
+                        if let image { store.add(image, category: category, draw: drawIt) }
                         dismiss()
                     }.disabled(image == nil).bold()
                 }

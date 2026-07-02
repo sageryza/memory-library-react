@@ -32,7 +32,14 @@ struct ClothingItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var category: Category
     var imageData: Data
+    /// The original photo, kept so the item can be redrawn again. Optional for
+    /// backward-compatible decoding of pre-illustration closets.
+    var sourceImageData: Data?
+    /// True once imageData is the AI illustration (transparent PNG) rather
+    /// than the raw photo.
+    var drawn: Bool?
     var image: UIImage? { UIImage(data: imageData) }
+    var isDrawn: Bool { drawn == true }
 }
 
 /// Your customizable mannequin for trying on outfits.
