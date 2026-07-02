@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// One miracle: a square drawing frame with the draw / undo / redo controls in
 /// its bottom-right corner, and a handwritten caption on ruled lines beneath.
@@ -14,7 +15,19 @@ struct BoxView: View {
     // 5.1.2(i): one-time consent before any text is sent to third-party AI.
     @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
-    private let lineHeight: CGFloat = 28
+    // Caption metrics derived from the REAL font so the ruled lines match the
+    // text exactly. (A hardcoded 28pt pitch clipped the third line: Caveat at
+    // 20pt + 9pt line spacing is ~34pt per line, so three lines overflowed the
+    // 84pt frame and line three rendered out of view — "blank".)
+    private static let captionFontSize: CGFloat = 20
+    private static let captionLineSpacing: CGFloat = 9
+    private static let linePitch: CGFloat = {
+        let font = UIFont(name: "Caveat-Regular", size: captionFontSize)
+            ?? UIFont(name: "Caveat", size: captionFontSize)
+            ?? UIFont.systemFont(ofSize: captionFontSize)
+        return ceil(font.lineHeight) + captionLineSpacing
+    }()
+    private var lineHeight: CGFloat { Self.linePitch }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -96,8 +109,8 @@ struct BoxView: View {
             )
             .focused($captionFocused)
             .lineLimit(3, reservesSpace: true)
-            .lineSpacing(9)
-            .font(.custom(Theme.handwriting, size: 20))
+            .lineSpacing(Self.captionLineSpacing)
+            .font(.custom(Theme.handwriting, size: Self.captionFontSize))
             .foregroundStyle(Theme.captionInk)
             .tint(Theme.gold)
             .padding(.horizontal, 2)

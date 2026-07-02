@@ -1,0 +1,79 @@
+name: Miracles Simulator Screens
+
+# Runs the Miracles UI tests in an iOS simulator and uploads the screenshots
+# they take as an artifact — a self-QA loop: layout/caching bugs get seen in
+# CI screenshots instead of on a real phone. Dispatchable on any branch.
+on:
+  workflow_dispatch:
+
+jobs:
+  uitest:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "180"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd ios && xcodegen
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          phones = [d for rt, devs in sorted(data.items(), reverse=True) for d in devs
+                    if d.get('isAvailable') and 'iPhone' in d['name'] and 'SE' not in d['name']]
+          print(phones[0]['udid'])")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep -i iphone | head -5
+
+      - name: Run UI tests (simulator)
+        run: |
+          cd ios
+          xcodebuild test \
+            -project Miracles.xcodeproj \
+            -scheme Miracles \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath ../TestResults.xcresult \
+            -only-testing:MiraclesUITests \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export screenshots from the result bundle
+        if: always()
+        run: |
+          mkdir -p screens
+          xcrun xcresulttool export attachments --path TestResults.xcresult --output-path screens || true
+          # Rename exported files to their attachment names when a manifest exists.
+          python3 - <<'EOF' || true
+          import json, os, shutil
+          m = 'screens/manifest.json'
+          if os.path.exists(m):
+              for item in json.load(open(m)):
+                  for att in item.get('attachments', []):
+                      src = os.path.join('screens', att.get('exportedFileName', ''))
+                      name = att.get('suggestedHumanReadableName') or att.get('name') or ''
+                      if src and os.path.exists(src) and name:
+                          dst = os.path.join('screens', name if name.endswith('.png') else name + '.png')
+                          shutil.move(src, dst)
+          EOF
+          ls -la screens || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: miracles-screens
+          path: screens
+          if-no-files-found: warn

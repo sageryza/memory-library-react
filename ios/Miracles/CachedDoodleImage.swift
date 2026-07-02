@@ -11,6 +11,10 @@ final class DoodleImageLoader: ObservableObject {
     enum LoadState { case loading, image(UIImage), failed }
     @Published var state: LoadState = .loading
 
+    // In-memory cache so re-created views (page turns, list recycling) show
+    // the drawing on the very first frame without touching disk.
+    private static let memory = NSCache<NSString, UIImage>()
+
     // Persistent (not the eviction-prone Caches dir) so cached doodles outlive
     // any remote URL expiry — that's the whole point of caching here.
     private static let dir: URL = {
@@ -32,8 +36,13 @@ final class DoodleImageLoader: ObservableObject {
     }
 
     func load(_ urlString: String) async {
+        if let img = Self.memory.object(forKey: urlString as NSString) {
+            state = .image(img)
+            return
+        }
         let cacheFile = fileURL(for: urlString)
         if let data = try? Data(contentsOf: cacheFile), let img = UIImage(data: data) {
+            Self.memory.setObject(img, forKey: urlString as NSString)
             state = .image(img)
             return
         }
@@ -47,8 +56,13 @@ final class DoodleImageLoader: ObservableObject {
                 return
             }
             try? data.write(to: cacheFile, options: .atomic)
+            Self.memory.setObject(img, forKey: urlString as NSString)
             state = .image(img)
         } catch {
+            // A cancelled task (view scrolled away mid-download) isn't a dead
+            // URL — leave the spinner so the next appearance retries, instead
+            // of flashing "tap to redraw".
+            if error is CancellationError { return }
             state = .failed
         }
     }
