@@ -34,12 +34,18 @@ final class MiraclesUITests: XCTestCase {
             ? app.textViews.firstMatch : app.textFields.firstMatch
         if caption.exists {
             caption.tap()
-            sleep(1)
+            // The software keyboard can be slow (or need a second tap) on a
+            // freshly booted simulator — wait, retry once, then assert.
+            let done = app.buttons["Done"].firstMatch
+            if !done.waitForExistence(timeout: 5) {
+                caption.tap()
+                _ = done.waitForExistence(timeout: 5)
+            }
             shot(app, "03-keyboard-up")
             // Exactly ONE Done button on the keyboard toolbar.
             let doneCount = app.buttons.matching(NSPredicate(format: "label == 'Done'")).count
             XCTAssertEqual(doneCount, 1, "expected exactly one keyboard Done button, got \(doneCount)")
-            if doneCount > 0 { app.buttons["Done"].firstMatch.tap() }
+            if doneCount > 0 { done.tap() }
             sleep(1)
             shot(app, "04-after-done")
         } else {

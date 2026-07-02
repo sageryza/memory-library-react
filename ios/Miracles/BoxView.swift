@@ -14,8 +14,11 @@ struct BoxView: View {
     // 5.1.2(i): one-time consent before any text is sent to third-party AI.
     @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
+    // No extra lineSpacing: SwiftUI's 3-line reserved height does NOT include
+    // added line spacing, so any extra pushed the third line out of the box
+    // (and the h/3 rules through the text). With the font's natural line
+    // height, text and rules agree by construction.
     private static let captionFontSize: CGFloat = 20
-    private static let captionLineSpacing: CGFloat = 9
 
     var body: some View {
         VStack(spacing: 6) {
@@ -102,7 +105,6 @@ struct BoxView: View {
         )
         .focused($captionFocused)
         .lineLimit(3, reservesSpace: true)
-        .lineSpacing(Self.captionLineSpacing)
         .font(.custom(Theme.handwriting, size: Self.captionFontSize))
         .foregroundStyle(Theme.captionInk)
         .tint(Theme.gold)
