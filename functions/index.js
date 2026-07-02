@@ -1964,6 +1964,20 @@ async function loadMetaApp() {
 }
 
 async function loadAdsConnection(uid) {
+  // Prefer a shared System User token stored in config/metaAds (no per-user
+  // OAuth needed — single-owner setup). Fall back to a per-user OAuth
+  // connection at adsConnections/{uid} if that's ever used.
+  const cfgSnap = await db.doc('config/metaAds').get();
+  const cfg = cfgSnap.exists ? cfgSnap.data() : {};
+  if (cfg.systemToken) {
+    return {
+      accessToken: cfg.systemToken,
+      adAccountId: cfg.adAccountId || null,
+      accountName: cfg.accountName || null,
+      currency: cfg.currency || null,
+      pixelId: cfg.pixelId || null,
+    };
+  }
   const snap = await db.doc(`adsConnections/${uid}`).get();
   return snap.exists ? snap.data() : null;
 }
