@@ -5,6 +5,10 @@ options:
     # iOS 17 minimum: the app uses the two-parameter onChange(of:) { old, new }
     # form, which is iOS 17+.
     iOS: "17.0"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: "11.0.0"
 targets:
   JournalReader:
     type: application
@@ -13,6 +17,13 @@ targets:
       - path: JournalReader
         excludes:
           - Info.plist
+    dependencies:
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFunctions
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.journal
