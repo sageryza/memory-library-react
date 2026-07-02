@@ -194,6 +194,34 @@ service cloud.firestore {
       }
     }
 
+    // Side Quest — the Hall of Absurdity, a public feed of completed quests.
+    // Posts are created by (anonymous) signed-in users; photos travel inline
+    // as a compressed JPEG blob, capped so docs stay well under the 1MB limit.
+    match /sidequestPosts/{postId} {
+      allow read: if true;
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.byUid == request.auth.uid
+                    && request.resource.data.story is string
+                    && request.resource.data.story.size() <= 2000
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() <= 24
+                    && request.resource.data.questTitle is string
+                    && request.resource.data.questTitle.size() <= 100
+                    && (!('image' in request.resource.data)
+                        || (request.resource.data.image is bytes
+                            && request.resource.data.image.size() <= 400000));
+
+      // Anyone signed in can react, but ONLY the reactions map may change.
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['reactions']);
+
+      // The author can take their post down.
+      allow delete: if isAuthenticated()
+                    && resource.data.byUid == request.auth.uid;
+    }
+
     // Group dream journals — membership-scoped collaborative journals.
     // A group is a bounded set of members who share dream entries with each other.
     match /groups/{groupId} {

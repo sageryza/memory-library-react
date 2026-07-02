@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuestView: View {
     @EnvironmentObject var game: GameState
+    @EnvironmentObject var feed: FeedService
     @State private var submitting = false
     @State private var success: Int?      // xp gained, drives success sheet
 
@@ -39,6 +40,8 @@ struct QuestView: View {
             if let q = activeQuest {
                 SubmissionView(quest: q) { story, image in
                     game.complete(q, story: story, image: image)
+                    feed.post(quest: q, story: story, image: image,
+                              username: game.username, avatar: game.avatar)
                     success = q.xp
                 }
             }
