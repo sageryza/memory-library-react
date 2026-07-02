@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// One miracle: a square drawing frame with the draw / undo / redo controls in
 /// its bottom-right corner, and a handwritten caption on ruled lines beneath.
@@ -15,19 +14,11 @@ struct BoxView: View {
     // 5.1.2(i): one-time consent before any text is sent to third-party AI.
     @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
-    // Caption metrics derived from the REAL font so the ruled lines match the
-    // text exactly. (A hardcoded 28pt pitch clipped the third line: Caveat at
-    // 20pt + 9pt line spacing is ~34pt per line, so three lines overflowed the
-    // 84pt frame and line three rendered out of view — "blank".)
+    // No extra lineSpacing: SwiftUI's 3-line reserved height does NOT include
+    // added line spacing, so any extra pushed the third line out of the box
+    // (and the h/3 rules through the text). With the font's natural line
+    // height, text and rules agree by construction.
     private static let captionFontSize: CGFloat = 20
-    private static let captionLineSpacing: CGFloat = 9
-    private static let linePitch: CGFloat = {
-        let font = UIFont(name: "Caveat-Regular", size: captionFontSize)
-            ?? UIFont(name: "Caveat", size: captionFontSize)
-            ?? UIFont.systemFont(ofSize: captionFontSize)
-        return ceil(font.lineHeight) + captionLineSpacing
-    }()
-    private var lineHeight: CGFloat { Self.linePitch }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -45,8 +36,10 @@ struct BoxView: View {
 
                 if drawing { ProgressView().tint(Theme.gold) }
 
-                // Controls hide once you've locked in a drawing (tap to bring back).
-                if !box.selected {
+                // Controls stay tucked away; tapping the drawing surfaces them
+                // (and tapping anywhere else puts them back — see BookView).
+                // A box with text but no drawing yet always shows "draw".
+                if showsControls {
                     // Keep ✓ — top-right, only once there's a drawing to keep.
                     if box.url != nil {
                         VStack {
@@ -67,8 +60,9 @@ struct BoxView: View {
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture {
-                // Tap a locked-in drawing to bring the edit controls back.
-                if box.selected { store.setSelected(false, boxID: box.id) }
+                // Tap the drawing to toggle its edit controls.
+                guard box.url != nil else { return }
+                store.activeBoxID = (store.activeBoxID == box.id) ? nil : box.id
             }
 
             caption
@@ -100,31 +94,39 @@ struct BoxView: View {
     }
 
     private var caption: some View {
-        ZStack(alignment: .topLeading) {
-            RuledLines(spacing: lineHeight)
-            TextField(
-                "",
-                text: Binding(get: { box.text }, set: { store.setText($0, boxID: box.id) }),
-                axis: .vertical
-            )
-            .focused($captionFocused)
-            .lineLimit(3, reservesSpace: true)
-            .lineSpacing(Self.captionLineSpacing)
-            .font(.custom(Theme.handwriting, size: Self.captionFontSize))
-            .foregroundStyle(Theme.captionInk)
-            .tint(Theme.gold)
-            .padding(.horizontal, 2)
-            .offset(y: 1)
-            // Keyboard "Done" is declared once at the BookView level, so there's
-            // a single button rather than one per box.
+        // The field's own 3-line reservation defines the height, and the ruled
+        // lines are drawn at thirds of that REAL height — so text and rules can
+        // never drift apart (a fixed 28pt/34pt guess clipped the third line).
+        // Keyboard "Done" is declared once at the BookView level.
+        TextField(
+            "",
+            text: Binding(get: { box.text }, set: { store.setText($0, boxID: box.id) }),
+            axis: .vertical
+        )
+        .focused($captionFocused)
+        .lineLimit(3, reservesSpace: true)
+        .font(.custom(Theme.handwriting, size: Self.captionFontSize))
+        .foregroundStyle(Theme.captionInk)
+        .tint(Theme.gold)
+        .padding(.horizontal, 2)
+        .background {
+            GeometryReader { geo in
+                RuledLines(spacing: geo.size.height / 3)
+            }
         }
-        .frame(height: lineHeight * 3)
     }
 
     // Show the draw button only once there's something to draw — text typed,
     // or an existing drawing to redraw.
     private var canDraw: Bool {
         box.url != nil || !box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // No drawing yet → "draw" shows as soon as there's text (there's no picture
+    // to tap). Once a drawing exists, controls appear only while this box is
+    // the active one (tapped).
+    private var showsControls: Bool {
+        box.url == nil ? canDraw : store.activeBoxID == box.id
     }
 
     private var controls: some View {
@@ -159,9 +161,12 @@ struct BoxView: View {
         }
     }
 
-    // Keep the shown drawing: locks it in and hides the edit controls.
+    // Keep the shown drawing: locks it in and tucks the edit controls away.
     private var keepButton: some View {
-        Button { store.setSelected(true, boxID: box.id) } label: {
+        Button {
+            store.setSelected(true, boxID: box.id)
+            store.activeBoxID = nil
+        } label: {
             Image(systemName: "checkmark")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Theme.gold)

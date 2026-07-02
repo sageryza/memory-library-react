@@ -38,6 +38,17 @@ jobs:
           print(phones[0]['udid'])")
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | grep -i iphone | head -5
+          # Detach the hardware keyboard so the software keyboard reliably
+          # appears when a field is focused (otherwise keyboard tests flake).
+          PLIST=~/Library/Preferences/com.apple.iphonesimulator.plist
+          /usr/libexec/PlistBuddy -c "Add :DevicePreferences dict" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :DevicePreferences:$UDID dict" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :DevicePreferences:$UDID:ConnectHardwareKeyboard bool false" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :DevicePreferences:$UDID:ConnectHardwareKeyboard false" "$PLIST" || true
+          # Pre-boot the simulator so the app launch inside the tests doesn't
+          # eat the cold-boot time (Xcode's launch timeout flakes otherwise).
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
 
       - name: Run UI tests (simulator)
         run: |
