@@ -30,6 +30,8 @@ final class GameState: ObservableObject {
     @Published var avatar: String = GameState.avatars.randomElement()!
     // postId → reaction key ("laugh"/"mind"/"clap") — one reaction per post.
     @Published var reacted: [String: String] = [:]
+    // Matchmaking city (from the location popup or typed by hand).
+    @Published var city: String = ""
 
     var level: Int { xp / 1000 + 1 }
     var xpIntoLevel: Int { xp % 1000 }
@@ -51,6 +53,17 @@ final class GameState: ObservableObject {
 
     func setReaction(postId: String, to key: String?) {
         reacted[postId] = key
+        save()
+    }
+
+    func setCity(_ name: String) {
+        city = name
+        save()
+    }
+
+    /// XP for party quests — no streak/daily bookkeeping, just the points.
+    func award(xp amount: Int) {
+        xp += amount
         save()
     }
 
@@ -78,11 +91,12 @@ final class GameState: ObservableObject {
         var xp: Int; var streak: Int; var activeQuestId: Int?; var acceptedAt: Date?
         var lastCompletedDay: Int?; var mySubmissions: [Submission]
         var username: String?; var avatar: String?; var reacted: [String: String]?
+        var city: String?
     }
     private func save() {
         let s = Snapshot(xp: xp, streak: streak, activeQuestId: activeQuestId, acceptedAt: acceptedAt,
                          lastCompletedDay: lastCompletedDay, mySubmissions: mySubmissions,
-                         username: username, avatar: avatar, reacted: reacted)
+                         username: username, avatar: avatar, reacted: reacted, city: city)
         if let d = try? JSONEncoder().encode(s) { UserDefaults.standard.set(d, forKey: key) }
     }
     private func load() {
@@ -96,5 +110,6 @@ final class GameState: ObservableObject {
         if let u = s.username { username = u }
         if let a = s.avatar { avatar = a }
         reacted = s.reacted ?? [:]
+        city = s.city ?? ""
     }
 }

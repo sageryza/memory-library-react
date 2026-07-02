@@ -6,6 +6,7 @@ import FirebaseCore
 struct SideQuestApp: App {
     @StateObject private var game = GameState()
     @StateObject private var feed = FeedService()
+    @StateObject private var party = PartyService()
 
     init() {
         Self.registerFonts()
@@ -17,7 +18,8 @@ struct SideQuestApp: App {
             RootView()
                 .environmentObject(game)
                 .environmentObject(feed)
-                .onAppear { feed.start() }
+                .environmentObject(party)
+                .onAppear { feed.start(); party.restore() }
         }
     }
 
@@ -84,8 +86,10 @@ struct MainTabs: View {
                 .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
             QuestView()
                 .tabItem { Label("Quest", systemImage: "flag.checkered") }.tag(1)
+            PartyView()
+                .tabItem { Label("Party", systemImage: "person.2.fill") }.tag(2)
             GalleryView()
-                .tabItem { Label("Hall", systemImage: "trophy.fill") }.tag(2)
+                .tabItem { Label("Hall", systemImage: "trophy.fill") }.tag(3)
         }
         .tint(SQ.gold)
     }

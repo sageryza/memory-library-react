@@ -62,4 +62,37 @@ enum Quests {
         let day = Int(date.timeIntervalSince1970 / 86_400)
         return all[((day % all.count) + all.count) % all.count]
     }
+
+    /// Co-op quests for matched parties (ids 100+ so they never clash with the
+    /// solo pool). One is picked at random when a party forms.
+    static let partyPool: [Quest] = [
+        .init(id: 100, title: "Mirror Strangers",
+              description: "Walk side by side mirroring each other's movements EXACTLY for one full block. Renegotiate at crosswalks.",
+              difficulty: .moderate, timeLimit: 3600, timeLimitDisplay: "1 hour", xp: 300),
+        .init(id: 101, title: "The Handoff",
+              description: "Pass a mysterious package between you in the most conspicuous spy fashion possible. Repeat until someone notices.",
+              difficulty: .absurd, timeLimit: 3600, timeLimitDisplay: "1 hour", xp: 350),
+        .init(id: 102, title: "Two-Headed Tourist",
+              description: "Be tourists who believe every mundane object is a famous landmark. Photograph each other admiring a parking meter.",
+              difficulty: .moderate, timeLimit: 5400, timeLimitDisplay: "90 min", xp: 300),
+        .init(id: 103, title: "The Longest Introduction",
+              description: "Take turns introducing each other to strangers with increasingly elaborate fake backstories. Never break.",
+              difficulty: .legendary, timeLimit: 3600, timeLimitDisplay: "1 hour", xp: 500),
+        .init(id: 104, title: "Statue Buddies",
+              description: "Freeze as a two-person statue in a public place. Switch poses only when nobody's looking.",
+              difficulty: .absurd, timeLimit: 1800, timeLimitDisplay: "30 min", xp: 350),
+        .init(id: 105, title: "Parade of Two",
+              description: "Hold a parade. There are two of you. Commit completely — wave at your public.",
+              difficulty: .legendary, timeLimit: 3600, timeLimitDisplay: "1 hour", xp: 450),
+        .init(id: 106, title: "Duel of Compliments",
+              description: "Compliment-battle each other in public, escalating in volume and sincerity, until a stranger reacts.",
+              difficulty: .moderate, timeLimit: 1800, timeLimitDisplay: "30 min", xp: 300),
+        .init(id: 107, title: "Synchronized Bench",
+              description: "Sit on a bench in perfect synchronization — cross legs, sigh, check invisible watches. One block of choreography.",
+              difficulty: .trivial, timeLimit: 1800, timeLimitDisplay: "30 min", xp: 200),
+    ]
+
+    static func partyQuest(_ id: Int) -> Quest {
+        partyPool.first { $0.id == id } ?? partyPool[0]
+    }
 }
