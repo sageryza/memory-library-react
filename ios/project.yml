@@ -38,3 +38,29 @@ targets:
         product: FirebaseFunctions
       - package: Firebase
         product: FirebaseFirestore
+  MiraclesUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - MiraclesUITests
+    dependencies:
+      - target: Miracles
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.miracles.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+schemes:
+  Miracles:
+    build:
+      targets:
+        Miracles: all
+        MiraclesUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MiraclesUITests
+    archive:
+      config: Release

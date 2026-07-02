@@ -54,7 +54,9 @@ struct MiraclesApp: App {
 
 struct RootView: View {
     @StateObject private var store = MiraclesStore()
-    @State private var opened = false
+    // UI tests jump straight into the book with a deterministic fixture page.
+    private static var isUITest: Bool { ProcessInfo.processInfo.arguments.contains("-uitestSeed") }
+    @State private var opened = RootView.isUITest
 
     var body: some View {
         ZStack {
@@ -71,6 +73,12 @@ struct RootView: View {
             }
         }
         .task {
+            if Self.isUITest {
+                // Deterministic fixture; no auth or cloud sync so the test
+                // can't be perturbed by (or write to) real data.
+                if store.pages.first?.hasContent != true { store.seedForUITests() }
+                return
+            }
             try? await MiraclesService.shared.ensureSignedIn()
             await store.startSync()
         }

@@ -15,15 +15,18 @@ struct BookView: View {
         ZStack {
             Theme.paper.ignoresSafeArea() // cream all around
 
-            // The current page — with ONE neighbor page bleeding off the screen
-            // edge, so it reads like a real book (two pages, not three).
-            pageContent
-                .frame(maxWidth: 560, maxHeight: .infinity)
-                .background { pageSheet }
-                .background { neighborSheet }
-                .padding(.horizontal, pageMargin)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            // The page sheet hugs its content (a real page, not a full-screen
+            // panel). It sits centered; the scroll view exists so that when the
+            // keyboard is up, the focused caption can scroll into view — with a
+            // short page there's nothing to scroll and it just stays centered.
+            GeometryReader { geo in
+                ScrollView {
+                    pageBody
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: geo.size.height, alignment: .center)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
 
             // Faint turn arrows on either side (replaces the old nav row).
             HStack {
@@ -63,21 +66,25 @@ struct BookView: View {
         }
     }
 
-    private var pageContent: some View {
-        // Scrollable so a focused caption scrolls above the keyboard instead of
-        // being hidden by it.
-        ScrollView {
-            VStack(spacing: 16) {
-                if store.page.hasContent { dateRow }
+    // The white sheet + its content, sized to the content — with ONE neighbor
+    // page bleeding off the screen edge so it reads like a real book
+    // (two pages, never three).
+    private var pageBody: some View {
+        VStack(spacing: 16) {
+            if store.page.hasContent { dateRow }
 
-                LazyVGrid(columns: columns, spacing: 18) {
-                    ForEach(store.page.boxes) { box in
-                        BoxView(store: store, box: box, distill: $distill)
-                    }
+            LazyVGrid(columns: columns, spacing: 18) {
+                ForEach(store.page.boxes) { box in
+                    BoxView(store: store, box: box, distill: $distill)
                 }
             }
-            .padding(20)
         }
+        .padding(20)
+        .frame(maxWidth: 560)
+        .background { pageSheet }
+        .background { neighborSheet }
+        .padding(.horizontal, pageMargin)
+        .padding(.vertical, 24)
     }
 
     // Date — right-aligned, printed "DATE:" label then the handwritten date.

@@ -121,6 +121,28 @@ final class MiraclesStore: ObservableObject {
         save()
     }
 
+    /// UI-test fixture: one page with four real (permanent) drawings and long
+    /// captions, written to the normal local file so a relaunch exercises the
+    /// same load path as a real session. Deterministic — no cloud, no cover.
+    func seedForUITests() {
+        let urls = [
+            "https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o/sagediagram%2Fapril_special_stickers_004.webp?alt=media&token=c8a53079-c8bd-4e86-8cbc-af43a314e90e",
+            "https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o/sagediagram%2Fapril_special_stickers_006.webp?alt=media&token=2f04ac71-a4cf-455f-a972-2ac7f6c91f8f",
+            "https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o/sagediagram%2Fapril_special_stickers_007.webp?alt=media&token=e1aa98fc-74d0-40f5-9f49-51aeb1596778",
+            "https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o/sagediagram%2Fapril_special_stickers_008.webp?alt=media&token=b5244104-dfda-440a-bba7-e691be77734f",
+        ]
+        var page = MiraclePage()
+        page.boxes = urls.enumerated().map { i, u in
+            var box = MiracleBox(text: "this really pretty girl was waiting on the sidewalk and gave me flowers (\(i + 1))")
+            box.history = [u]
+            box.histIndex = 0
+            return box
+        }
+        pages = [page]
+        index = 0
+        writeLocal()
+    }
+
     func loadSamples() {
         let samples = [
             "It was my birthday and we went to get cake but the shop was closed — we told them and they let us in anyway",
