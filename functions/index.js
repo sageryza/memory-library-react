@@ -2068,32 +2068,90 @@ exports.adsSummary = onCall({ region: 'us-central1' }, async (request) => {
   };
 });
 
-exports.adsCreateCampaign = onCall({ region: 'us-central1' }, async (request) => {
+// Build a COMPLETE, launchable ad — campaign + ad set (pixel-optimized, Advantage+
+// audience) + creative (page image ad) + ad — all PAUSED. Nothing spends until
+// adsSetStatus flips it ACTIVE. Takes the creative image (base64), primary text,
+// budget, and where it links.
+exports.adsCreateCampaign = onCall({ region: 'us-central1', memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const conn = await loadAdsConnection(uid);
-  if (!conn?.accessToken || !conn?.adAccountId) {
-    throw new HttpsError('failed-precondition', 'Connect your Meta account first.');
-  }
-  const promoting = String(request.data?.promoting || '').trim().slice(0, 120) || 'My shop';
-  const token = conn.accessToken;
+  const cfg = (await db.doc('config/metaAds').get()).data() || {};
+  const token = cfg.systemToken;
+  const act = cfg.adAccountId;
+  const pixel = cfg.pixelId;
+  const page = cfg.pageId;
+  if (!token || !act) throw new HttpsError('failed-precondition', 'Connect your Meta account first.');
+  if (!page) throw new HttpsError('failed-precondition', 'No Facebook Page configured for ads.');
 
-  const params = new URLSearchParams({
-    name: `Ads — ${promoting}`,
-    objective: 'OUTCOME_SALES',
-    status: 'PAUSED',
-    smart_promotion_type: 'AUTOMATED_SHOPPING_ADS',
+  const d = request.data || {};
+  const promoting = String(d.promoting || '').trim().slice(0, 200);
+  const linkUrl = /^https?:\/\//i.test(promoting) ? promoting : (cfg.shopUrl || 'https://secretlyawitch.com');
+  const budgetCents = Math.max(500, Math.round(Number(d.dailyBudgetCents) || 1500)); // >= $5/day
+  const primaryText = String(d.primaryText || 'A little magic for your everyday. ✨').slice(0, 500);
+  const headline = String(d.headline || cfg.pageName || 'Shop the collection').slice(0, 60);
+  const event = ['PURCHASE', 'ADD_TO_CART', 'INITIATE_CHECKOUT', 'VIEW_CONTENT'].includes(d.optimizationEvent)
+    ? d.optimizationEvent : 'ADD_TO_CART';
+  const imageB64 = String(d.image || '');
+  if (!imageB64) throw new HttpsError('invalid-argument', 'Add an image for the ad.');
+
+  const post = async (path, body) => {
+    const r = await fetch(`${META_GRAPH}/${path}`, { method: 'POST', body: new URLSearchParams({ ...body, access_token: token }) });
+    return r.json();
+  };
+  const del = (id) => fetch(`${META_GRAPH}/${id}?access_token=${encodeURIComponent(token)}`, { method: 'DELETE' }).catch(() => {});
+  const fail = async (msg, cleanup) => { for (const id of cleanup) if (id) await del(id); throw new HttpsError('internal', msg); };
+
+  // 1) Campaign — Sales objective, PAUSED, ad-set-level budget.
+  const camp = await post(`${act}/campaigns`, {
+    name: `Ads — ${promoting || 'shop'}`.slice(0, 100),
+    objective: 'OUTCOME_SALES', status: 'PAUSED',
+    is_adset_budget_sharing_enabled: 'false',
     special_ad_categories: JSON.stringify([]),
-    access_token: token,
   });
-  const res = await fetch(`${META_GRAPH}/${conn.adAccountId}/campaigns`, {
-    method: 'POST', body: params,
+  if (!camp.id) throw new HttpsError('internal', camp.error?.message || 'Campaign failed.');
+
+  // 2) Ad set — daily budget, optimize toward the pixel event, Advantage+ audience.
+  const promoted = pixel ? { pixel_id: pixel, custom_event_type: event } : undefined;
+  const adset = await post(`${act}/adsets`, {
+    name: `${headline}`.slice(0, 100), campaign_id: camp.id, status: 'PAUSED',
+    daily_budget: String(budgetCents), billing_event: 'IMPRESSIONS',
+    optimization_goal: pixel ? 'OFFSITE_CONVERSIONS' : 'LINK_CLICKS',
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    ...(promoted ? { promoted_object: JSON.stringify(promoted) } : {}),
+    targeting: JSON.stringify({ geo_locations: { countries: ['US'] }, targeting_automation: { advantage_audience: 1 } }),
   });
-  const json = await res.json();
-  if (!json.id) {
-    throw new HttpsError('internal', json.error?.message || 'Meta rejected the campaign.');
-  }
-  return { id: json.id, name: `Ads — ${promoting}`, status: 'PAUSED' };
+  if (!adset.id) await fail(adset.error?.message || 'Ad set failed.', [camp.id]);
+
+  // 3) Upload the creative image → image_hash.
+  const buf = Buffer.from(imageB64, 'base64');
+  const fd = new FormData();
+  fd.append('access_token', token);
+  fd.append('file', new Blob([buf], { type: 'image/jpeg' }), 'creative.jpg');
+  const imgRes = await (await fetch(`${META_GRAPH}/${act}/adimages`, { method: 'POST', body: fd })).json();
+  const hash = imgRes.images && Object.values(imgRes.images)[0]?.hash;
+  if (!hash) await fail(imgRes.error?.message || 'Image upload failed.', [adset.id, camp.id]);
+
+  // 4) Ad creative — single-image link ad off the Page.
+  const creative = await post(`${act}/adcreatives`, {
+    name: `${headline}`.slice(0, 100),
+    object_story_spec: JSON.stringify({
+      page_id: page,
+      link_data: {
+        message: primaryText, link: linkUrl, name: headline, image_hash: hash,
+        call_to_action: { type: 'SHOP_NOW', value: { link: linkUrl } },
+      },
+    }),
+  });
+  if (!creative.id) await fail(creative.error?.message || 'Creative failed.', [adset.id, camp.id]);
+
+  // 5) Ad — ties ad set + creative, PAUSED.
+  const ad = await post(`${act}/ads`, {
+    name: `${headline}`.slice(0, 100), adset_id: adset.id, status: 'PAUSED',
+    creative: JSON.stringify({ creative_id: creative.id }),
+  });
+  if (!ad.id) await fail(ad.error?.message || 'Ad failed.', [creative.id, adset.id, camp.id]);
+
+  return { id: camp.id, adId: ad.id, name: `Ads — ${promoting || 'shop'}`, status: 'PAUSED' };
 });
 
 exports.adsSetStatus = onCall({ region: 'us-central1' }, async (request) => {
