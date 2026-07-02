@@ -6,6 +6,9 @@ struct BoxView: View {
     @ObservedObject var store: MiraclesStore
     let box: MiracleBox
     @Binding var distill: Bool
+    /// Called when this box's caption gains focus, so the page can scroll it
+    /// above the keyboard.
+    var onCaptionFocus: (String) -> Void = { _ in }
 
     @State private var drawing = false
     @State private var errorText: String?
@@ -113,6 +116,10 @@ struct BoxView: View {
             GeometryReader { geo in
                 RuledLines(spacing: geo.size.height / 3)
             }
+        }
+        .id("caption-\(box.id)")
+        .onChange(of: captionFocused) { focused in
+            if focused { onCaptionFocus(box.id) }
         }
     }
 

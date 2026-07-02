@@ -66,8 +66,19 @@ final class MiraclesStore: ObservableObject {
 
     func setText(_ text: String, boxID: String) {
         guard let b = boxIndex(boxID) else { return }
+        let hadContent = pages[index].hasContent
         pages[index].boxes[b].text = text
+        stampDateIfFirstContent(hadContent)
         save()
+    }
+
+    /// The page's date is the day you first WROTE on it, not the day you first
+    /// turned to it (a blank page can sit for days). Stamped once, still
+    /// editable by tapping the date.
+    private func stampDateIfFirstContent(_ hadContent: Bool) {
+        if !hadContent && pages[index].hasContent {
+            pages[index].date = Date()
+        }
     }
 
     /// Edit the current page's date (shown only once the page has content).
@@ -86,12 +97,14 @@ final class MiraclesStore: ObservableObject {
     /// other options are reachable with the › arrow so the user can pick.
     func pushDrawings(_ urls: [String], boxID: String) {
         guard !urls.isEmpty, let b = boxIndex(boxID) else { return }
+        let hadContent = pages[index].hasContent
         var box = pages[index].boxes[b]
         let keep = max(0, box.histIndex + 1)
         box.history = Array(box.history.prefix(keep)) + urls
         box.histIndex = keep // first of the newly added options
         box.selected = false // a fresh set is unlocked so you can pick again
         pages[index].boxes[b] = box
+        stampDateIfFirstContent(hadContent)
         save()
     }
 

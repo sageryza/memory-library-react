@@ -20,12 +20,14 @@ struct BookView: View {
             // keyboard is up, the focused caption can scroll into view — with a
             // short page there's nothing to scroll and it just stays centered.
             GeometryReader { geo in
-                ScrollView {
-                    pageBody
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: geo.size.height, alignment: .center)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        pageBody(proxy)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geo.size.height, alignment: .center)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
                 }
-                .scrollDismissesKeyboard(.interactively)
             }
             // Tapping anywhere that isn't a control puts the redraw controls
             // away (drawings and buttons consume their own taps first).
@@ -60,26 +62,39 @@ struct BookView: View {
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 
-    // Only ONE neighbor shows at a time: the next page if there is one, else the
-    // previous page on the last page — so you never see three pages at once.
+    // Still only ONE neighbor at a time — but it alternates sides with every
+    // turn, like a real book: even pages read as right-hand pages (the rest of
+    // the book peeks on the right), odd pages as left-hand pages (the page you
+    // just turned peeks on the left). At either end, fall back to whichever
+    // side actually has pages.
     @ViewBuilder private var neighborSheet: some View {
-        if store.canTurnForward {
-            pageSheet.offset(x: neighborShift)
-        } else if store.index > 0 {
-            pageSheet.offset(x: -neighborShift)
+        if store.index % 2 == 1 {
+            if store.index > 0 { pageSheet.offset(x: -neighborShift) }
+            else if store.canTurnForward { pageSheet.offset(x: neighborShift) }
+        } else {
+            if store.canTurnForward { pageSheet.offset(x: neighborShift) }
+            else if store.index > 0 { pageSheet.offset(x: -neighborShift) }
         }
     }
 
     // The white sheet + its content, sized to the content — with ONE neighbor
     // page bleeding off the screen edge so it reads like a real book
     // (two pages, never three).
-    private var pageBody: some View {
+    private func pageBody(_ proxy: ScrollViewProxy) -> some View {
         VStack(spacing: 16) {
             if store.page.hasContent { dateRow }
 
             LazyVGrid(columns: columns, spacing: 18) {
                 ForEach(store.page.boxes) { box in
-                    BoxView(store: store, box: box, distill: $distill)
+                    BoxView(store: store, box: box, distill: $distill) { focusedID in
+                        // Bring the focused caption above the keyboard. Small
+                        // delay so the keyboard's safe-area change lands first.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo("caption-\(focusedID)", anchor: .center)
+                            }
+                        }
+                    }
                 }
             }
         }
