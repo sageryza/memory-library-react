@@ -34,7 +34,9 @@ targets:
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
-        INFOPLIST_KEY_CFBundleDisplayName: "Journal"
+        # "Journal" is reserved by Apple's own app, so uploading with that
+        # display name is rejected (ITMS-90129). Use a unique name.
+        INFOPLIST_KEY_CFBundleDisplayName: "JournalReader"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
