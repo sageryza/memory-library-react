@@ -60,13 +60,18 @@ struct BookView: View {
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 
-    // Only ONE neighbor shows at a time: the next page if there is one, else the
-    // previous page on the last page — so you never see three pages at once.
+    // Still only ONE neighbor at a time — but it alternates sides with every
+    // turn, like a real book: even pages read as right-hand pages (the rest of
+    // the book peeks on the right), odd pages as left-hand pages (the page you
+    // just turned peeks on the left). At either end, fall back to whichever
+    // side actually has pages.
     @ViewBuilder private var neighborSheet: some View {
-        if store.canTurnForward {
-            pageSheet.offset(x: neighborShift)
-        } else if store.index > 0 {
-            pageSheet.offset(x: -neighborShift)
+        if store.index % 2 == 1 {
+            if store.index > 0 { pageSheet.offset(x: -neighborShift) }
+            else if store.canTurnForward { pageSheet.offset(x: neighborShift) }
+        } else {
+            if store.canTurnForward { pageSheet.offset(x: neighborShift) }
+            else if store.index > 0 { pageSheet.offset(x: -neighborShift) }
         }
     }
 
