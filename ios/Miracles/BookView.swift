@@ -3,6 +3,7 @@ import UIKit
 
 struct BookView: View {
     @ObservedObject var store: MiraclesStore
+    var onBackToCover: () -> Void = {}
     @State private var distill = true
     @State private var editingDate = false
 
@@ -26,7 +27,9 @@ struct BookView: View {
 
             // Faint turn arrows on either side (replaces the old nav row).
             HStack {
-                turnArrow("arrowtriangle.backward.fill", enabled: store.index > 0) { store.turnBack() }
+                turnArrow("arrowtriangle.backward.fill", enabled: true) {
+                    if store.index > 0 { store.turnBack() } else { onBackToCover() }
+                }
                 Spacer()
                 turnArrow("arrowtriangle.forward.fill", enabled: store.canTurnForward) { store.turnForward() }
             }
