@@ -1514,7 +1514,9 @@ async function drawClosetItem(imageBase64, mimeType, category) {
     + 'on a fully TRANSPARENT background. Keep its real colors, pattern and details '
     + 'recognizable. No person, no mannequin, no hanger, no shadow, no text, no border.';
   const form = new FormData();
-  form.append('model', 'gpt-image-2');
+  // gpt-image-1, not -2: the edits endpoint rejects background:transparent on
+  // gpt-image-2 ("Transparent background is not supported for this model").
+  form.append('model', 'gpt-image-1');
   form.append('prompt', prompt);
   form.append('size', '1024x1024');
   form.append('quality', 'low');            // a closet fills up fast — favor speed + cost
@@ -1533,8 +1535,8 @@ async function drawClosetItem(imageBase64, mimeType, category) {
   }
   const json = await res.json();
   const b64 = json?.data?.[0]?.b64_json;
-  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
-  return { b64, model: 'gpt-image-2' };
+  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-1.');
+  return { b64, model: 'gpt-image-1' };
 }
 
 // Image-reference test via OpenAI gpt-image-1. Takes an uploaded image + prompt
