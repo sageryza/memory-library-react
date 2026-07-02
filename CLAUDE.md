@@ -24,6 +24,9 @@
   summer / PST in winter), not UTC. e.g. CI timestamps in UTC → convert to PT.
 
 ## Working style
+- **Claude may merge its own PRs.** Standing permission (July 2026): when a PR
+  is ready, merge it without asking — then watch the post-merge workflows
+  (deploys, TestFlight) and fix anything that breaks.
 - When blocked on a decision but other work can proceed, surface the decision
   and **keep building** in the meantime — don't stop and wait unless the decision
   affects everything. Prefer plain prose for those questions over the in-app

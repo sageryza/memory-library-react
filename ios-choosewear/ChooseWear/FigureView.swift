@@ -1,34 +1,77 @@
 import SwiftUI
 
-/// A plain placeholder mannequin built from basic shapes. Owner will restyle /
-/// replace with real figure art; this just resembles the model (skin + hair).
+/// The paper-doll base figure — sticker-book style art (white cami or ribbed
+/// tank + lace-hem bloomers) that outfits get placed onto. Two bases for now:
+/// girl and boy, committed in Assets.xcassets.
 struct FigureView: View {
     let figure: Figure
     var scale: CGFloat = 1
 
-    private var skin: Color { ClosetStore.skinTones[min(figure.skin, ClosetStore.skinTones.count - 1)] }
-    private var hairColor: Color { ClosetStore.hairColors[min(figure.hairColor, ClosetStore.hairColors.count - 1)] }
-    private var style: String { ClosetStore.hairStyles[min(figure.hair, ClosetStore.hairStyles.count - 1)] }
+    var body: some View {
+        Image(figure.isBoy ? "doll-boy" : "doll-girl")
+            .resizable()
+            .scaledToFit()
+            .frame(height: 220 * scale)
+    }
+}
+
+/// The doll actually WEARING an outfit — garments layered over the base art at
+/// per-doll body anchors (fractions of the doll's displayed size), like
+/// stickers placed on the figure in a sticker book. Draw order: dress, bottom,
+/// top, jacket, accessory.
+struct DressedFigureView: View {
+    @EnvironmentObject var store: ClosetStore
+    let figure: Figure
+    var top: UUID?
+    var bottom: UUID?
+    var full: UUID?
+    var jacket: UUID?
+    var accessory: UUID?
+    var scale: CGFloat = 1
+
+    /// A garment's placement: width as a fraction of doll width, top edge as a
+    /// fraction of doll height, horizontal center as a fraction of doll width.
+    private struct Zone { var w: CGFloat; var y: CGFloat; var x: CGFloat = 0.5 }
+
+    // Tuned against the committed doll art; the boy is broader-shouldered so
+    // his garments render larger. Accessories float by the shoulder.
+    private var zones: [Category.Slot: Zone] {
+        figure.isBoy
+            ? [.upper: Zone(w: 0.80, y: 0.195), .lower: Zone(w: 0.68, y: 0.43),
+               .full: Zone(w: 0.84, y: 0.19), .layer: Zone(w: 0.92, y: 0.18),
+               .extra: Zone(w: 0.36, y: 0.04, x: 0.88)]
+            : [.upper: Zone(w: 0.68, y: 0.21), .lower: Zone(w: 0.58, y: 0.435),
+               .full: Zone(w: 0.74, y: 0.20), .layer: Zone(w: 0.82, y: 0.19),
+               .extra: Zone(w: 0.34, y: 0.04, x: 0.88)]
+    }
+
+    /// Pixel aspect of the committed doll assets (width / height).
+    private var aspect: CGFloat { figure.isBoy ? 382.0 / 900.0 : 409.0 / 900.0 }
 
     var body: some View {
-        VStack(spacing: 2 * scale) {
-            ZStack {
-                if style == "Long" {
-                    Capsule().fill(hairColor).frame(width: 56 * scale, height: 70 * scale).offset(y: 16 * scale)
-                }
-                Circle().fill(skin).frame(width: 46 * scale, height: 46 * scale)
-                switch style {
-                case "Short": Capsule().fill(hairColor).frame(width: 50 * scale, height: 26 * scale).offset(y: -16 * scale)
-                case "Long": Capsule().fill(hairColor).frame(width: 50 * scale, height: 28 * scale).offset(y: -15 * scale)
-                case "Bun": Circle().fill(hairColor).frame(width: 22 * scale, height: 22 * scale).offset(y: -30 * scale)
-                default: EmptyView()
-                }
-            }
-            Capsule().fill(skin).frame(width: 56 * scale, height: 74 * scale)
-            HStack(spacing: 8 * scale) {
-                Capsule().fill(skin).frame(width: 18 * scale, height: 64 * scale)
-                Capsule().fill(skin).frame(width: 18 * scale, height: 64 * scale)
-            }
+        let h = 220 * scale
+        let w = h * aspect
+        ZStack(alignment: .topLeading) {
+            Image(figure.isBoy ? "doll-boy" : "doll-girl")
+                .resizable()
+                .scaledToFit()
+            garment(full, .full, w, h)
+            garment(bottom, .lower, w, h)
+            garment(top, .upper, w, h)
+            garment(jacket, .layer, w, h)
+            garment(accessory, .extra, w, h)
+        }
+        .frame(width: w, height: h)
+    }
+
+    @ViewBuilder
+    private func garment(_ id: UUID?, _ slot: Category.Slot, _ w: CGFloat, _ h: CGFloat) -> some View {
+        if let id, let img = store.item(id)?.image, let z = zones[slot] {
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFit()
+                .frame(width: z.w * w)
+                .offset(x: (z.x - z.w / 2) * w, y: z.y * h)
         }
     }
 }

@@ -17,8 +17,9 @@ struct BuilderView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     HStack(alignment: .top, spacing: 16) {
-                        FigureView(figure: store.figure, scale: 1.1)
-                            .frame(width: 110)
+                        DressedFigureView(figure: store.figure, top: top, bottom: bottom,
+                                          full: full, jacket: jacket, accessory: accessory,
+                                          scale: 1.15)
                             .padding(.top, 8)
                         VStack(spacing: 10) {
                             slot("Top", item: full ?? top,

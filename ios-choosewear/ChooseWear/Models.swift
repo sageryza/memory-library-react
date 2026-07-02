@@ -32,14 +32,24 @@ struct ClothingItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var category: Category
     var imageData: Data
+    /// The original photo, kept so the item can be redrawn again. Optional for
+    /// backward-compatible decoding of pre-illustration closets.
+    var sourceImageData: Data?
+    /// True once imageData is the AI illustration (transparent PNG) rather
+    /// than the raw photo.
+    var drawn: Bool?
     var image: UIImage? { UIImage(data: imageData) }
+    var isDrawn: Bool { drawn == true }
 }
 
-/// Your customizable mannequin for trying on outfits.
+/// Your paper-doll base figure for trying on outfits.
 struct Figure: Codable, Equatable {
-    var skin = 1          // index into ClosetStore.skinTones
-    var hair = 0          // index into ClosetStore.hairStyles
-    var hairColor = 0     // index into ClosetStore.hairColors
+    var skin = 1          // legacy (old shape-mannequin) — kept so older saves decode
+    var hair = 0          // legacy
+    var hairColor = 0     // legacy
+    /// "girl" or "boy" — which paper-doll base art to show.
+    var doll: String?
+    var isBoy: Bool { doll == "boy" }
 }
 
 /// A saved outfit ("look") — references closet items by id, per slot.

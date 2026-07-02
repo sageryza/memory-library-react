@@ -1166,6 +1166,15 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'redo-sticker') {
       return redoSticker(String(request.data?.image || ''), String(request.data?.mimeType || 'image/png'), request.data?.prompt);
     }
+    // "closet-draw" (Choose What I Wear) redraws a photo of a clothing item as
+    // a hand-drawn illustration on a transparent background. Image in, image
+    // out — no text prompt.
+    if (styleKey === 'closet-draw') {
+      return drawClosetItem(
+        String(request.data?.image || ''),
+        String(request.data?.mimeType || 'image/jpeg'),
+        String(request.data?.category || ''));
+    }
     // "save-sheet" persists an edited sticker sheet (flattened in the app) to
     // the user's creations, so edits aren't lost. Takes an image, no prompt.
     if (styleKey === 'save-sheet') {
@@ -1475,6 +1484,57 @@ async function redoSticker(imageBase64, mimeType, userPrompt) {
   const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const url = await persistBuffer(Buffer.from(b64, 'base64'), `forge-stickers/redo-${stamp}.webp`);
   return { url };
+}
+
+// ===========================================================================
+// Choose What I Wear — closet item redraw. Takes a photo of a garment and
+// returns the SAME item as a hand-drawn illustration on a TRANSPARENT
+// background, so the closet reads as a consistent drawn wardrobe instead of
+// raw photo rectangles. The b64 PNG goes straight back to the app (the closet
+// lives on-device; nothing is persisted here). Rides on forgeTestImage (style
+// "closet-draw") for the public invoker binding, like redo-sticker above.
+// ===========================================================================
+async function drawClosetItem(imageBase64, mimeType, category) {
+  if (!imageBase64) throw new HttpsError('invalid-argument', 'No photo to draw.');
+  const key = await loadOpenAIKey();
+  if (!key) {
+    throw new HttpsError('failed-precondition',
+      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+  }
+  const labels = {
+    top: 'top', bottom: 'bottom (pants or a skirt)', dress: 'dress',
+    jumpsuit: 'jumpsuit', jacket: 'jacket', accessory: 'accessory',
+  };
+  const label = labels[category] || 'clothing item';
+  const prompt =
+    `Redraw the ${label} in this photo as ONE cute hand-drawn illustration: `
+    + 'soft gouache texture with clean, even outlines and gentle colors. Show ONLY '
+    + 'the item itself, drawn flat and front-facing in the proportions of clothing '
+    + 'for a paper doll, filling most of the frame, '
+    + 'on a fully TRANSPARENT background. Keep its real colors, pattern and details '
+    + 'recognizable. No person, no mannequin, no hanger, no shadow, no text, no border.';
+  const form = new FormData();
+  form.append('model', 'gpt-image-2');
+  form.append('prompt', prompt);
+  form.append('size', '1024x1024');
+  form.append('quality', 'low');            // a closet fills up fast — favor speed + cost
+  form.append('background', 'transparent');
+  form.append('output_format', 'png');      // PNG keeps alpha; the app downscales locally
+  form.append('image[]',
+    new Blob([Buffer.from(imageBase64, 'base64')], { type: mimeType || 'image/jpeg' }), 'item.jpg');
+
+  const res = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and try again.');
+    throw new HttpsError('internal', `OpenAI ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const json = await res.json();
+  const b64 = json?.data?.[0]?.b64_json;
+  if (!b64) throw new HttpsError('internal', 'No image returned from gpt-image-2.');
+  return { b64, model: 'gpt-image-2' };
 }
 
 // Image-reference test via OpenAI gpt-image-1. Takes an uploaded image + prompt

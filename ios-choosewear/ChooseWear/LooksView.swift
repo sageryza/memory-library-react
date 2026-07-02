@@ -35,8 +35,9 @@ private struct LookRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            FigureView(figure: store.figure, scale: 0.6)
-                .frame(width: 58)
+            DressedFigureView(figure: store.figure, top: look.top, bottom: look.bottom,
+                              full: look.full, jacket: look.jacket, accessory: look.accessory,
+                              scale: 0.6)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(look.itemIDs, id: \.self) { id in
