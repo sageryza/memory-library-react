@@ -66,10 +66,12 @@ platform :ios do
        "#{auth} -allowProvisioningUpdates")
 
     ipa = Dir["#{export_path}/*.ipa"].first
+    # Wait for Apple to finish processing so any invalid-binary reason surfaces
+    # here in the CI log (instead of the build silently never appearing).
     upload_to_testflight(
       api_key: api_key,
       ipa: ipa,
-      skip_waiting_for_build_processing: true,
+      skip_waiting_for_build_processing: false,
       skip_submission: true
     )
   end
