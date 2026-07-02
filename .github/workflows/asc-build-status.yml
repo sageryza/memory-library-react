@@ -131,26 +131,46 @@ jobs:
           else:
               print("latest build already has the same groups as the previous one")
 
-          # ── Account-wide: turn on "all builds automatically" for every app's
-          # internal group(s), so uploads never sit unassigned again.
+          # ── Account-wide: make every app auto-distribute internal builds.
+          # hasAccessToAllBuilds is CREATE-ONLY (Apple rejects it on update),
+          # so where no auto group exists we create an internal group
+          # "Everything" with the flag set, and copy the internal testers in.
           print("\n=== account-wide internal-group auto-distribution ===")
+          AUTO_NAME = "Everything"
           apps_all = requests.get(f"{API}/apps", headers=H,
                                   params={"limit": "200", "fields[apps]": "name,bundleId"}).json()
           for appx in apps_all.get("data", []):
               name = appx["attributes"]["name"]
               groups = requests.get(f"{API}/apps/{appx['id']}/betaGroups", headers=H,
                                     params={"fields[betaGroups]": "name,isInternalGroup,hasAccessToAllBuilds"}).json()
-              for g in groups.get("data", []):
-                  ga = g["attributes"]
-                  if not ga["isInternalGroup"]:
-                      continue
-                  if ga.get("hasAccessToAllBuilds"):
-                      print(f"{name} / '{ga['name']}': already automatic")
-                      continue
-                  r = requests.patch(f"{API}/betaGroups/{g['id']}",
-                                     headers={**H, "Content-Type": "application/json"},
-                                     json={"data": {"id": g["id"], "type": "betaGroups",
-                                                    "attributes": {"hasAccessToAllBuilds": True}}})
-                  print(f"{name} / '{ga['name']}': enabled automatic distribution → HTTP {r.status_code}"
-                        + ("" if r.status_code < 400 else f" {r.text[:300]}"))
+              internal = [g for g in groups.get("data", []) if g["attributes"]["isInternalGroup"]]
+              if any(g["attributes"].get("hasAccessToAllBuilds") for g in internal):
+                  print(f"{name}: already has an automatic internal group")
+                  continue
+              if not internal:
+                  print(f"{name}: no internal groups (skipping)")
+                  continue
+              # Gather this app's internal testers (from its existing groups).
+              tester_ids = set()
+              for g in internal:
+                  t = requests.get(f"{API}/betaGroups/{g['id']}/betaTesters", headers=H,
+                                   params={"limit": "50"}).json()
+                  tester_ids |= {x["id"] for x in t.get("data", [])}
+              made = requests.post(f"{API}/betaGroups",
+                                   headers={**H, "Content-Type": "application/json"},
+                                   json={"data": {"type": "betaGroups",
+                                                  "attributes": {"name": AUTO_NAME, "isInternalGroup": True,
+                                                                 "hasAccessToAllBuilds": True},
+                                                  "relationships": {"app": {"data": {"type": "apps", "id": appx["id"]}}}}})
+              if made.status_code >= 400:
+                  print(f"{name}: create '{AUTO_NAME}' failed HTTP {made.status_code} {made.text[:300]}")
+                  continue
+              gid = made.json()["data"]["id"]
+              added = "no testers found"
+              if tester_ids:
+                  r = requests.post(f"{API}/betaGroups/{gid}/relationships/betaTesters",
+                                    headers={**H, "Content-Type": "application/json"},
+                                    json={"data": [{"type": "betaTesters", "id": t} for t in sorted(tester_ids)]})
+                  added = f"testers added: HTTP {r.status_code}" + ("" if r.status_code < 400 else f" {r.text[:200]}")
+              print(f"{name}: created internal auto group '{AUTO_NAME}' ({added})")
           EOF
