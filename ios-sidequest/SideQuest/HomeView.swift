@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     var goToQuest: () -> Void
     @EnvironmentObject var game: GameState
+    @State private var showHero = false
     private var quest: Quest { Quests.today() }
 
     var body: some View {
@@ -11,6 +12,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     title
+                    heroRow
                     XPBar()
                     WaitingRoom()
                     QuestCard(quest: quest)
@@ -22,6 +24,25 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .sheet(isPresented: $showHero) { HeroSheet() }
+    }
+
+    /// Tappable hero card — the identity shown on Hall posts.
+    private var heroRow: some View {
+        Button { showHero = true } label: {
+            PixelPanel(fill: SQ.panelHi, border: .white.opacity(0.25)) {
+                HStack(spacing: 12) {
+                    Text(game.avatar).font(.system(size: 34))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(game.username).font(SQ.pixel(11)).foregroundStyle(SQ.gold)
+                        Text("your hero — tap to edit").font(SQ.term(17)).foregroundStyle(.white.opacity(0.6))
+                    }
+                    Spacer()
+                    Image(systemName: "pencil").foregroundStyle(.white.opacity(0.5))
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var title: some View {
@@ -47,7 +68,7 @@ struct HomeView: View {
             Button("◈ QUEST IN PROGRESS ◈", action: goToQuest)
                 .buttonStyle(PixelButton(bg: SQ.teal, fg: SQ.panel))
         } else {
-            Button("⚔ ACCEPT QUEST ⚔") { game.accept(quest); goToQuest() }
+            Button("⚔ ACCEPT QUEST ⚔") { game.accept(quest); goToQuest(); Notifications.enable() }
                 .buttonStyle(PixelButton(bg: SQ.green))
         }
     }

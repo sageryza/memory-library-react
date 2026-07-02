@@ -194,6 +194,108 @@ service cloud.firestore {
       }
     }
 
+    // Side Quest — the Hall of Absurdity, a public feed of completed quests.
+    // Posts are created by (anonymous) signed-in users; photos travel inline
+    // as a compressed JPEG blob, capped so docs stay well under the 1MB limit.
+    match /sidequestPosts/{postId} {
+      allow read: if true;
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.byUid == request.auth.uid
+                    && request.resource.data.story is string
+                    && request.resource.data.story.size() <= 2000
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() <= 24
+                    && request.resource.data.questTitle is string
+                    && request.resource.data.questTitle.size() <= 100
+                    && (!('image' in request.resource.data)
+                        || (request.resource.data.image is bytes
+                            && request.resource.data.image.size() <= 400000));
+
+      // Anyone signed in can react, but ONLY the reactions map may change.
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['reactions']);
+
+      // The author can take their post down.
+      allow delete: if isAuthenticated()
+                    && resource.data.byUid == request.auth.uid;
+    }
+
+    // Side Quest push tokens — written by the app so Cloud Functions can ping
+    // you on a match / chat message. Owner-only; functions read via admin SDK.
+    match /sidequestUsers/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Side Quest moderation reports — write-only from clients; reviewed in the
+    // Firebase console (and by Cloud Functions / admin tooling later).
+    match /sidequestReports/{reportId} {
+      allow create: if isAuthenticated()
+                    && request.resource.data.byUid == request.auth.uid
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 600;
+      allow read, update, delete: if false;
+    }
+
+    // Side Quest party matchmaking — one doc per hero waiting in a city.
+    // A matcher claims waiting heroes by stamping ONLY a partyId onto their
+    // queue docs (in the same transaction that creates the party).
+    match /sidequestQueue/{uid} {
+      allow read: if isAuthenticated();
+
+      allow create: if isOwner(uid)
+                    && request.resource.data.username is string
+                    && request.resource.data.username.size() <= 24
+                    && request.resource.data.cityKey is string
+                    && request.resource.data.cityKey.size() <= 60
+                    && request.resource.data.cityName is string
+                    && request.resource.data.cityName.size() <= 60;
+
+      // Owner may refresh their own doc; anyone signed in may set ONLY the
+      // partyId (the claim). A doc already claimed can't be re-claimed.
+      allow update: if isOwner(uid)
+                    || (isAuthenticated()
+                        && !('partyId' in resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['partyId']));
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Side Quest parties — a matched group + their co-op quest + chat.
+    match /sidequestParties/{partyId} {
+      function isPartyMember() {
+        return isAuthenticated()
+            && request.auth.uid in get(/databases/$(database)/documents/sidequestParties/$(partyId)).data.memberIds;
+      }
+
+      allow read: if isAuthenticated();
+
+      // Created by a member, small parties only (2–4 heroes).
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.memberIds
+                    && request.resource.data.memberIds.size() >= 2
+                    && request.resource.data.memberIds.size() <= 4;
+
+      // Members can update (mark completed); membership can't be rewritten.
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.memberIds
+                    && request.resource.data.memberIds == resource.data.memberIds;
+
+      allow delete: if false;
+
+      // Party chat — members only, text capped.
+      match /messages/{msgId} {
+        allow read: if isPartyMember();
+        allow create: if isPartyMember()
+                      && request.resource.data.byUid == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 500;
+        allow update, delete: if false;
+      }
+    }
+
     // Group dream journals — membership-scoped collaborative journals.
     // A group is a bounded set of members who share dream entries with each other.
     match /groups/{groupId} {
