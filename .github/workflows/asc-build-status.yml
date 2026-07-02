@@ -88,9 +88,25 @@ jobs:
 
           all_groups = requests.get(f"{API}/betaGroups", headers=H,
                                     params={"filter[app]": app["id"],
-                                            "fields[betaGroups]": "name,isInternalGroup"}).json()
-          print("app groups:", [(x["attributes"]["name"], "internal" if x["attributes"]["isInternalGroup"] else "external")
-                                for x in all_groups.get("data", [])])
+                                            "fields[betaGroups]": "name,isInternalGroup,hasAccessToAllBuilds,publicLinkEnabled"}).json()
+          for x in all_groups.get("data", []):
+              at = x["attributes"]
+              testers = requests.get(f"{API}/betaGroups/{x['id']}/betaTesters", headers=H,
+                                     params={"limit": "5", "fields[betaTesters]": "email"}).json()
+              emails = [t["attributes"].get("email") for t in testers.get("data", [])]
+              print(f"group '{at['name']}' | internal={at['isInternalGroup']} | allBuilds={at.get('hasAccessToAllBuilds')} "
+                    f"| publicLink={at.get('publicLinkEnabled')} | testers: {emails}")
+
+          # If the internal group does NOT auto-receive builds, the latest build
+          # must be linked explicitly — do that (internal groups skip beta review).
+          for x in all_groups.get("data", []):
+              at = x["attributes"]
+              if at["isInternalGroup"] and not at.get("hasAccessToAllBuilds"):
+                  r = requests.post(f"{API}/betaGroups/{x['id']}/relationships/builds",
+                                    headers={**H, "Content-Type": "application/json"},
+                                    json={"data": [{"type": "builds", "id": latest["id"]}]})
+                  print(f"linked latest build to internal group '{at['name']}': HTTP {r.status_code}"
+                        + ("" if r.status_code < 400 else f" {r.text[:300]}"))
 
           latest_groups = groups_of(latest["id"])
           print(f"latest build {latest['attributes']['version']} groups: {list(latest_groups.values()) or 'NONE'}")
