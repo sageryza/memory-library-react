@@ -1509,7 +1509,8 @@ async function drawClosetItem(imageBase64, mimeType, category) {
   const prompt =
     `Redraw the ${label} in this photo as ONE cute hand-drawn illustration: `
     + 'soft gouache texture with clean, even outlines and gentle colors. Show ONLY '
-    + 'the item itself, laid out flat and facing forward, filling most of the frame, '
+    + 'the item itself, drawn flat and front-facing in the proportions of clothing '
+    + 'for a paper doll, filling most of the frame, '
     + 'on a fully TRANSPARENT background. Keep its real colors, pattern and details '
     + 'recognizable. No person, no mannequin, no hanger, no shadow, no text, no border.';
   const form = new FormData();

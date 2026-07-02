@@ -37,7 +37,8 @@ final class ClosetStore: ObservableObject {
         drawing.insert(id)
         Task {
             if let png = try? await AIService.drawItem(source, category: item.category),
-               let small = Self.shrinkPNG(png),
+               let ui = UIImage(data: png),
+               let small = Self.shrinkPNG(Self.trimmedToAlpha(ui)),
                let idx = items.firstIndex(where: { $0.id == id }) {
                 items[idx].imageData = small
                 items[idx].drawn = true
@@ -71,9 +72,36 @@ final class ClosetStore: ObservableObject {
         return resized.jpegData(compressionQuality: quality)
     }
 
+    /// Crop a drawn illustration to its visible (non-transparent) pixels, so
+    /// garments size and anchor predictably when layered on the doll.
+    static func trimmedToAlpha(_ image: UIImage) -> UIImage {
+        guard let cg = image.cgImage else { return image }
+        let w = cg.width, h = cg.height
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                  bytesPerRow: w, space: CGColorSpaceCreateDeviceGray(),
+                                  bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue),
+              w > 0, h > 0 else { return image }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let data = ctx.data else { return image }
+        let alpha = data.bindMemory(to: UInt8.self, capacity: w * h)
+        var minX = w, minY = h, maxX = -1, maxY = -1
+        for y in 0..<h {
+            for x in 0..<w where alpha[y * w + x] > 16 {
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        guard maxX >= minX, maxY >= minY,
+              let cropped = cg.cropping(to: CGRect(x: minX, y: minY,
+                                                   width: maxX - minX + 1, height: maxY - minY + 1))
+        else { return image }
+        return UIImage(cgImage: cropped)
+    }
+
     /// Downscale a drawn illustration keeping its transparency.
-    static func shrinkPNG(_ data: Data, maxDim: CGFloat = 800) -> Data? {
-        guard let image = UIImage(data: data) else { return nil }
+    static func shrinkPNG(_ image: UIImage, maxDim: CGFloat = 800) -> Data? {
         let scale = min(1, maxDim / max(image.size.width, image.size.height))
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let format = UIGraphicsImageRendererFormat()
