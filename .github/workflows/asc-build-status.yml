@@ -1,0 +1,83 @@
+# Deck Factory TestFlight build status — asks the App Store Connect API what
+# state the latest uploads are in (processing / valid / invalid) and whether
+# they're held on the export-compliance question. If the newest build is
+# processed but waiting on compliance, it answers it (usesNonExemptEncryption
+# = false — the app only makes standard HTTPS calls, which is exempt), which
+# is what makes the TestFlight "Update" button appear.
+#
+# Runs on pull_request (paths-filtered to itself) so it can be exercised from
+# a branch without touching main; also dispatchable once merged. Reuses the
+# same ASC_* secrets as the TestFlight workflows. Prints only build metadata,
+# never key material.
+name: ASC build status (Deck Factory)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/asc-build-status.yml'
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      BUNDLE_ID: com.sageryza.imageforge
+    steps:
+      - name: Install deps
+        run: pip install --quiet pyjwt cryptography requests
+
+      - name: Query builds (and clear compliance hold if that's the blocker)
+        run: |
+          python3 - <<'EOF'
+          import base64, json, os, time
+          import jwt, requests
+
+          key = base64.b64decode(os.environ["ASC_KEY_P8"])
+          token = jwt.encode(
+              {"iss": os.environ["ASC_ISSUER_ID"], "exp": int(time.time()) + 1200,
+               "aud": "appstoreconnect-v1"},
+              key, algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+          H = {"Authorization": f"Bearer {token}"}
+          API = "https://api.appstoreconnect.apple.com/v1"
+
+          apps = requests.get(
+              f"{API}/apps", headers=H,
+              params={"filter[bundleId]": os.environ["BUNDLE_ID"]}).json()
+          if not apps.get("data"):
+              raise SystemExit(f"no app found for {os.environ['BUNDLE_ID']}: {json.dumps(apps)[:400]}")
+          app = apps["data"][0]
+          print(f"app: {app['attributes']['name']} ({app['id']})")
+
+          builds = requests.get(
+              f"{API}/builds", headers=H,
+              params={"filter[app]": app["id"], "sort": "-uploadedDate", "limit": "5",
+                      "fields[builds]": "version,processingState,usesNonExemptEncryption,uploadedDate,expired"}).json()
+          if not builds.get("data"):
+              raise SystemExit("no builds found")
+          for b in builds["data"]:
+              a = b["attributes"]
+              print(f"build {a['version']:>4} | {a['processingState']:<10} | "
+                    f"compliance={a['usesNonExemptEncryption']} | expired={a['expired']} | {a['uploadedDate']}")
+
+          latest = builds["data"][0]
+          a = latest["attributes"]
+          if a["processingState"] == "VALID" and a["usesNonExemptEncryption"] is None:
+              print("latest build is processed but held on export compliance — answering (exempt/HTTPS-only)…")
+              r = requests.patch(
+                  f"{API}/builds/{latest['id']}",
+                  headers={**H, "Content-Type": "application/json"},
+                  json={"data": {"id": latest["id"], "type": "builds",
+                                 "attributes": {"usesNonExemptEncryption": False}}})
+              print(f"compliance patch: HTTP {r.status_code}")
+              if r.status_code >= 400:
+                  print(r.text[:500])
+              else:
+                  print("done — the build should be installable from TestFlight now")
+          elif a["processingState"] != "VALID":
+              print(f"latest build is not ready yet: {a['processingState']}")
+          else:
+              print("latest build is VALID and compliance is already answered — nothing to do")
+          EOF
