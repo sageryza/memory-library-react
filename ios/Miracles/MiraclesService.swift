@@ -23,7 +23,11 @@ final class MiraclesService {
 
     func illustrate(text: String, boxID: String, distill: Bool, variants: Int = 3) async throws -> DrawResult {
         try await ensureSignedIn()
-        let result = try await functions.httpsCallable("illustrateMiracle").call([
+        let callable = functions.httpsCallable("illustrateMiracle")
+        // A 3-concept draw takes longer than the client's 70s default — match
+        // the server's 300s so it doesn't give up early (DEADLINE EXCEEDED).
+        callable.timeoutInterval = 300
+        let result = try await callable.call([
             "text": text,
             "id": boxID,
             "distill": distill,

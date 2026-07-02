@@ -20,12 +20,14 @@ struct BookView: View {
             // keyboard is up, the focused caption can scroll into view — with a
             // short page there's nothing to scroll and it just stays centered.
             GeometryReader { geo in
-                ScrollView {
-                    pageBody
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: geo.size.height, alignment: .center)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        pageBody(proxy)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geo.size.height, alignment: .center)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
                 }
-                .scrollDismissesKeyboard(.interactively)
             }
             // Tapping anywhere that isn't a control puts the redraw controls
             // away (drawings and buttons consume their own taps first).
@@ -78,13 +80,21 @@ struct BookView: View {
     // The white sheet + its content, sized to the content — with ONE neighbor
     // page bleeding off the screen edge so it reads like a real book
     // (two pages, never three).
-    private var pageBody: some View {
+    private func pageBody(_ proxy: ScrollViewProxy) -> some View {
         VStack(spacing: 16) {
             if store.page.hasContent { dateRow }
 
             LazyVGrid(columns: columns, spacing: 18) {
                 ForEach(store.page.boxes) { box in
-                    BoxView(store: store, box: box, distill: $distill)
+                    BoxView(store: store, box: box, distill: $distill) { focusedID in
+                        // Bring the focused caption above the keyboard. Small
+                        // delay so the keyboard's safe-area change lands first.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo("caption-\(focusedID)", anchor: .center)
+                            }
+                        }
+                    }
                 }
             }
         }
