@@ -74,10 +74,44 @@ jobs:
               print(f"compliance patch: HTTP {r.status_code}")
               if r.status_code >= 400:
                   print(r.text[:500])
-              else:
-                  print("done — the build should be installable from TestFlight now")
           elif a["processingState"] != "VALID":
               print(f"latest build is not ready yet: {a['processingState']}")
+
+          # ── Group assignment: a processed build still needs to be in the
+          # tester's beta group to show up in TestFlight. Compare the latest
+          # build's groups with the previous build's; add whatever's missing.
+          def groups_of(build_id):
+              g = requests.get(f"{API}/builds/{build_id}/betaGroups",
+                               headers=H, params={"fields[betaGroups]": "name,isInternalGroup"}).json()
+              return {x["id"]: (x["attributes"]["name"], x["attributes"]["isInternalGroup"])
+                      for x in g.get("data", [])}
+
+          all_groups = requests.get(f"{API}/betaGroups", headers=H,
+                                    params={"filter[app]": app["id"],
+                                            "fields[betaGroups]": "name,isInternalGroup"}).json()
+          print("app groups:", [(x["attributes"]["name"], "internal" if x["attributes"]["isInternalGroup"] else "external")
+                                for x in all_groups.get("data", [])])
+
+          latest_groups = groups_of(latest["id"])
+          print(f"latest build {latest['attributes']['version']} groups: {list(latest_groups.values()) or 'NONE'}")
+          prev_groups = {}
+          if len(builds["data"]) > 1:
+              prev = builds["data"][1]
+              prev_groups = groups_of(prev["id"])
+              print(f"previous build {prev['attributes']['version']} groups: {list(prev_groups.values()) or 'NONE'}")
+
+          missing = {gid: name for gid, name in prev_groups.items() if gid not in latest_groups}
+          if missing:
+              for gid, (name, internal) in missing.items():
+                  r = requests.post(
+                      f"{API}/betaGroups/{gid}/relationships/builds",
+                      headers={**H, "Content-Type": "application/json"},
+                      json={"data": [{"type": "builds", "id": latest["id"]}]})
+                  print(f"added latest build to group '{name}': HTTP {r.status_code}"
+                        + ("" if r.status_code < 400 else f" {r.text[:300]}"))
+          elif not latest_groups and not prev_groups:
+              print("neither build is in any group — testers are likely individual internal testers; "
+                    "checking individual-tester visibility is manual (App Store Connect ▸ TestFlight ▸ Internal Testing)")
           else:
-              print("latest build is VALID and compliance is already answered — nothing to do")
+              print("latest build already has the same groups as the previous one")
           EOF
