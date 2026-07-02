@@ -9,6 +9,10 @@ import FirebaseFirestore
 final class MiraclesStore: ObservableObject {
     @Published var pages: [MiraclePage]
     @Published var index: Int = 0
+    /// Which box is showing its edit controls (redraw / arrows / keep). Tap a
+    /// drawing to surface them; tap anywhere else to put them away. Transient
+    /// UI state — never persisted.
+    @Published var activeBoxID: String?
 
     private let fileURL: URL = {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

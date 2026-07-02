@@ -27,6 +27,10 @@ struct BookView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
+            // Tapping anywhere that isn't a control puts the redraw controls
+            // away (drawings and buttons consume their own taps first).
+            .contentShape(Rectangle())
+            .onTapGesture { store.activeBoxID = nil }
 
             // Faint turn arrows on either side (replaces the old nav row).
             HStack {

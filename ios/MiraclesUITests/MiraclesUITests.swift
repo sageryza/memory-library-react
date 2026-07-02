@@ -46,6 +46,15 @@ final class MiraclesUITests: XCTestCase {
             XCTFail("no caption field found to focus")
         }
 
+        // Redraw controls are tucked away by default: tap the first drawing to
+        // surface them, tap away to hide them again.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.29, dy: 0.32)).tap()
+        sleep(1)
+        shot(app, "04b-tap-drawing-controls-appear")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.09)).tap()
+        sleep(1)
+        shot(app, "04c-tap-away-controls-hide")
+
         // Turn forward onto the (new, empty) next page, then back.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
         sleep(1)

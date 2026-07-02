@@ -33,8 +33,10 @@ struct BoxView: View {
 
                 if drawing { ProgressView().tint(Theme.gold) }
 
-                // Controls hide once you've locked in a drawing (tap to bring back).
-                if !box.selected {
+                // Controls stay tucked away; tapping the drawing surfaces them
+                // (and tapping anywhere else puts them back — see BookView).
+                // A box with text but no drawing yet always shows "draw".
+                if showsControls {
                     // Keep ✓ — top-right, only once there's a drawing to keep.
                     if box.url != nil {
                         VStack {
@@ -55,8 +57,9 @@ struct BoxView: View {
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture {
-                // Tap a locked-in drawing to bring the edit controls back.
-                if box.selected { store.setSelected(false, boxID: box.id) }
+                // Tap the drawing to toggle its edit controls.
+                guard box.url != nil else { return }
+                store.activeBoxID = (store.activeBoxID == box.id) ? nil : box.id
             }
 
             caption
@@ -117,6 +120,13 @@ struct BoxView: View {
         box.url != nil || !box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    // No drawing yet → "draw" shows as soon as there's text (there's no picture
+    // to tap). Once a drawing exists, controls appear only while this box is
+    // the active one (tapped).
+    private var showsControls: Bool {
+        box.url == nil ? canDraw : store.activeBoxID == box.id
+    }
+
     private var controls: some View {
         HStack(spacing: 4) {
             if box.canUndo {
@@ -149,9 +159,12 @@ struct BoxView: View {
         }
     }
 
-    // Keep the shown drawing: locks it in and hides the edit controls.
+    // Keep the shown drawing: locks it in and tucks the edit controls away.
     private var keepButton: some View {
-        Button { store.setSelected(true, boxID: box.id) } label: {
+        Button {
+            store.setSelected(true, boxID: box.id)
+            store.activeBoxID = nil
+        } label: {
             Image(systemName: "checkmark")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Theme.gold)
