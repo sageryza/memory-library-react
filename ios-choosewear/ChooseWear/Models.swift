@@ -42,11 +42,14 @@ struct ClothingItem: Identifiable, Codable, Equatable {
     var isDrawn: Bool { drawn == true }
 }
 
-/// Your customizable mannequin for trying on outfits.
+/// Your paper-doll base figure for trying on outfits.
 struct Figure: Codable, Equatable {
-    var skin = 1          // index into ClosetStore.skinTones
-    var hair = 0          // index into ClosetStore.hairStyles
-    var hairColor = 0     // index into ClosetStore.hairColors
+    var skin = 1          // legacy (old shape-mannequin) — kept so older saves decode
+    var hair = 0          // legacy
+    var hairColor = 0     // legacy
+    /// "girl" or "boy" — which paper-doll base art to show.
+    var doll: String?
+    var isBoy: Bool { doll == "boy" }
 }
 
 /// A saved outfit ("look") — references closet items by id, per slot.

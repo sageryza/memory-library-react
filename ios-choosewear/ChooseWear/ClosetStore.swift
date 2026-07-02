@@ -11,16 +11,6 @@ final class ClosetStore: ObservableObject {
     /// Items being redrawn as illustrations right now (not persisted).
     @Published var drawing: Set<UUID> = []
 
-    // Figure palette options (plain placeholders — owner restyles).
-    static let skinTones: [Color] = [
-        Color(hex: 0xF3D2B3), Color(hex: 0xE3B591), Color(hex: 0xC98C63),
-        Color(hex: 0x9C6644), Color(hex: 0x6B4226),
-    ]
-    static let hairColors: [Color] = [
-        Color(hex: 0x2B2B2B), Color(hex: 0x6B4423), Color(hex: 0xC9A14A), Color(hex: 0xB04632),
-    ]
-    static let hairStyles = ["Short", "Long", "Bun", "Bald"]
-
     private var url: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("closet.json")
@@ -108,13 +98,5 @@ final class ClosetStore: ObservableObject {
         guard let d = try? Data(contentsOf: url),
               let s = try? JSONDecoder().decode(Snapshot.self, from: d) else { return }
         displayName = s.displayName; items = s.items; figure = s.figure; looks = s.looks ?? []
-    }
-}
-
-extension Color {
-    init(hex: UInt) {
-        self.init(red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255)
     }
 }

@@ -20,18 +20,14 @@ struct MeView: View {
                         .onChange(of: store.displayName) { _ in store.persist() }
                 }
 
-                Section("Skin tone") {
-                    swatches(ClosetStore.skinTones, index: store.figure.skin) { store.figure.skin = $0; store.persist() }
-                }
-                Section("Hair") {
-                    Picker("Style", selection: Binding(
-                        get: { store.figure.hair },
-                        set: { store.figure.hair = $0; store.persist() })) {
-                        ForEach(ClosetStore.hairStyles.indices, id: \.self) { i in
-                            Text(ClosetStore.hairStyles[i]).tag(i)
-                        }
+                Section("Figure") {
+                    Picker("Figure", selection: Binding(
+                        get: { store.figure.isBoy ? "boy" : "girl" },
+                        set: { store.figure.doll = $0; store.persist() })) {
+                        Text("Girl").tag("girl")
+                        Text("Boy").tag("boy")
                     }
-                    swatches(ClosetStore.hairColors, index: store.figure.hairColor) { store.figure.hairColor = $0; store.persist() }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("Legal & Safety") {
@@ -58,15 +54,4 @@ struct MeView: View {
         }
     }
 
-    private func swatches(_ colors: [Color], index: Int, pick: @escaping (Int) -> Void) -> some View {
-        HStack(spacing: 12) {
-            ForEach(colors.indices, id: \.self) { i in
-                Circle().fill(colors[i]).frame(width: 34, height: 34)
-                    .overlay(Circle().strokeBorder(.primary, lineWidth: index == i ? 3 : 0))
-                    .onTapGesture { pick(i) }
-            }
-            Spacer()
-        }
-        .padding(.vertical, 4)
-    }
 }
