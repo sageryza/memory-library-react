@@ -113,7 +113,7 @@ final class PartyService: ObservableObject {
                 // Matched while the app was closed? Rejoin instead of re-queueing.
                 if let mine = try? await queueCol.document(uid).getDocument(source: .server),
                    let pid = mine.data()?["partyId"] as? String {
-                    queueCol.document(uid).delete()
+                    try await queueCol.document(uid).delete()
                     if let p = try? await partyCol.document(pid).getDocument(source: .server),
                        p.data()?["status"] as? String == "active" {
                         attachParty(pid)
