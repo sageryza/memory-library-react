@@ -66,6 +66,12 @@ final class MiraclesStore: ObservableObject {
         save()
     }
 
+    /// Edit the current page's date (shown only once the page has content).
+    func setDate(_ date: Date) {
+        pages[index].date = date
+        save()
+    }
+
     /// Append a new drawing, discarding any redo-future.
     func pushDrawing(_ url: String, boxID: String) {
         pushDrawings([url], boxID: boxID)

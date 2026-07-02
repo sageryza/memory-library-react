@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct BookView: View {
     @ObservedObject var store: MiraclesStore
     @State private var distill = true
+    @State private var editingDate = false
 
     private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
     private let pageMargin: CGFloat = 22
@@ -12,15 +14,14 @@ struct BookView: View {
         ZStack {
             Theme.paper.ignoresSafeArea() // cream all around
 
-            // The current page, centered — with a neighbor page bleeding off the
-            // screen edge on the side(s) that have more pages, so it reads like a
-            // real book with more just out of view.
+            // The current page — with ONE neighbor page bleeding off the screen
+            // edge, so it reads like a real book (two pages, not three).
             pageContent
+                .frame(maxWidth: 560, maxHeight: .infinity)
                 .background { pageSheet }
-                .background { if store.canTurnForward { pageSheet.offset(x: neighborShift) } }
-                .background { if store.index > 0 { pageSheet.offset(x: -neighborShift) } }
-                .frame(maxWidth: 560)
+                .background { neighborSheet }
                 .padding(.horizontal, pageMargin)
+                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             // Faint turn arrows on either side (replaces the old nav row).
@@ -31,11 +32,17 @@ struct BookView: View {
             }
             .padding(.horizontal, 4)
         }
+        // ONE keyboard "Done" for the whole page (not one per box).
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { dismissKeyboard() }
+            }
+        }
+        .sheet(isPresented: $editingDate) { dateEditor }
     }
 
-    // A single page: a square-cornered white sheet (like a real book page) with
-    // a faint edge and soft shadow. Square so stacked pages read as clean page
-    // edges rather than rounded blobs.
+    // A single page: a square-cornered white sheet (like a real book page).
     private var pageSheet: some View {
         Rectangle()
             .fill(Color.white)
@@ -43,31 +50,72 @@ struct BookView: View {
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 
+    // Only ONE neighbor shows at a time: the next page if there is one, else the
+    // previous page on the last page — so you never see three pages at once.
+    @ViewBuilder private var neighborSheet: some View {
+        if store.canTurnForward {
+            pageSheet.offset(x: neighborShift)
+        } else if store.index > 0 {
+            pageSheet.offset(x: -neighborShift)
+        }
+    }
+
     private var pageContent: some View {
-        VStack(spacing: 16) {
-            // Date — right-aligned, like the physical book: a printed "DATE:"
-            // label (no line under it) then the handwritten date, with the
-            // underline only beneath the handwritten date.
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Spacer()
-                Text("DATE:")
-                    .font(.custom(Theme.serif, size: 12))
-                    .tracking(1)
-                    .foregroundStyle(Theme.muted)
+        // Scrollable so a focused caption scrolls above the keyboard instead of
+        // being hidden by it.
+        ScrollView {
+            VStack(spacing: 16) {
+                if store.page.hasContent { dateRow }
+
+                LazyVGrid(columns: columns, spacing: 18) {
+                    ForEach(store.page.boxes) { box in
+                        BoxView(store: store, box: box, distill: $distill)
+                    }
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    // Date — right-aligned, printed "DATE:" label then the handwritten date.
+    // Only appears once the page has content; tap the date to edit it.
+    private var dateRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Spacer()
+            Text("DATE:")
+                .font(.custom(Theme.serif, size: 12))
+                .tracking(1)
+                .foregroundStyle(Theme.muted)
+            Button { editingDate = true } label: {
                 Text(store.page.date, format: .dateTime.month(.wide).day())
                     .font(.custom(Theme.handwriting, size: 22))
                     .foregroundStyle(Theme.dateInk)
                     .padding(.bottom, 2)
                     .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.dateUnderline), alignment: .bottom)
             }
+            .buttonStyle(.plain)
+        }
+    }
 
-            LazyVGrid(columns: columns, spacing: 18) {
-                ForEach(store.page.boxes) { box in
-                    BoxView(store: store, box: box, distill: $distill)
+    // A small date picker sheet bound to the current page's date.
+    private var dateEditor: some View {
+        NavigationStack {
+            DatePicker(
+                "Date",
+                selection: Binding(get: { store.page.date }, set: { store.setDate($0) }),
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .padding()
+            .navigationTitle("Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { editingDate = false }
                 }
             }
         }
-        .padding(20)
+        .presentationDetents([.medium])
     }
 
     // Faint filled triangle to turn a page; invisible + inert at the ends.
@@ -81,5 +129,11 @@ struct BookView: View {
         }
         .buttonStyle(.plain)
         .allowsHitTesting(enabled)
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+        )
     }
 }
