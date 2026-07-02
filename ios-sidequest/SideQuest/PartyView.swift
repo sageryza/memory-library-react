@@ -118,7 +118,9 @@ private struct PartySetup: View {
                 Button("⚑ FIND A QUESTING PARTNER") {
                     let c = city.trimmingCharacters(in: .whitespacesAndNewlines)
                     game.setCity(c)
-                    svc.findPartner(city: c, username: game.username, avatar: game.avatar)
+                    Notifications.enable()   // so the match can ping you
+                    svc.findPartner(city: c, username: game.username, avatar: game.avatar,
+                                    excluding: game.blockedUids)
                 }
                 .buttonStyle(PixelButton(bg: ready ? SQ.green : SQ.panel))
                 .disabled(!ready)
@@ -227,25 +229,26 @@ private struct PartyRoom: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("PARTY CHAT").font(SQ.pixel(9)).foregroundStyle(.white.opacity(0.5))
                 ScrollViewReader { proxy in
+                    let visible = svc.messages.filter { !game.blockedUids.contains($0.byUid) }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
-                            if svc.messages.isEmpty {
+                            if visible.isEmpty {
                                 Text("Say hi. Plan the absurdity.")
                                     .font(SQ.term(19)).foregroundStyle(.white.opacity(0.4))
                             }
-                            ForEach(svc.messages) { m in
-                                ChatBubble(msg: m, mine: m.byUid == svc.uid)
+                            ForEach(visible) { m in
+                                ChatBubble(msg: m, mine: m.byUid == svc.uid, partyId: party.id)
                                     .id(m.id)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(height: 240)
-                    .onChange(of: svc.messages) { msgs in
-                        if let last = msgs.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
+                    .onChange(of: svc.messages) { _ in
+                        if let last = visible.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
                     }
                     .onAppear {
-                        if let last = svc.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                        if let last = visible.last { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
                 HStack(spacing: 8) {
@@ -279,6 +282,8 @@ private struct PartyRoom: View {
 private struct ChatBubble: View {
     let msg: ChatMessage
     let mine: Bool
+    let partyId: String
+    @EnvironmentObject var game: GameState
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -294,6 +299,17 @@ private struct ChatBubble: View {
             .padding(8)
             .background(mine ? SQ.teal : SQ.panelHi)
             .overlay(Rectangle().stroke(.black.opacity(0.25), lineWidth: 2))
+            .contextMenu {
+                if !mine {
+                    Button(role: .destructive) {
+                        Reports.file(type: "message", refId: "\(partyId)/\(msg.id)",
+                                     offenderUid: msg.byUid, text: msg.text)
+                    } label: { Label("Report message", systemImage: "flag") }
+                    Button(role: .destructive) {
+                        game.block(msg.byUid)
+                    } label: { Label("Block \(msg.username)", systemImage: "hand.raised") }
+                }
+            }
             if !mine { Spacer(minLength: 40) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)

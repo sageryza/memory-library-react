@@ -26,7 +26,7 @@ struct QuestView: View {
                         }
                     } else {
                         QuestCard(quest: Quests.today())
-                        Button("⚔ ACCEPT QUEST ⚔") { game.accept(Quests.today()) }
+                        Button("⚔ ACCEPT QUEST ⚔") { game.accept(Quests.today()); Notifications.enable() }
                             .buttonStyle(PixelButton(bg: SQ.green))
                     }
                     Spacer(minLength: 20)

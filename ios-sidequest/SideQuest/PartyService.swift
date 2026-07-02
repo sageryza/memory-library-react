@@ -101,7 +101,7 @@ final class PartyService: ObservableObject {
 
     // MARK: matchmaking
 
-    func findPartner(city: String, username: String, avatar: String) {
+    func findPartner(city: String, username: String, avatar: String, excluding blocked: Set<String> = []) {
         guard phase != .matched else { return }
         error = nil
         Task {
@@ -124,7 +124,7 @@ final class PartyService: ObservableObject {
                 // Anyone already waiting here? Claim up to 3 (party of 4 max).
                 let snap = try await queueCol.whereField("cityKey", isEqualTo: key)
                     .limit(to: 25).getDocuments(source: .server)
-                let waiting = snap.documents.filter { self.isWaiting($0) }
+                let waiting = snap.documents.filter { self.isWaiting($0) && !blocked.contains($0.documentID) }
                     .sorted {
                         (($0.data()["ts"] as? Timestamp)?.seconds ?? .max)
                             < (($1.data()["ts"] as? Timestamp)?.seconds ?? .max)
@@ -179,6 +179,7 @@ final class PartyService: ObservableObject {
                 "cityName": city, "cityKey": cityKey,
                 "questId": questId,
                 "memberIds": ids, "members": members,
+                "createdBy": uid,   // the matcher — push functions skip them
                 "status": "active",
                 "createdAt": FieldValue.serverTimestamp(),
             ], forDocument: partyRef)

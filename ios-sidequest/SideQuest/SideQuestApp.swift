@@ -4,6 +4,7 @@ import FirebaseCore
 
 @main
 struct SideQuestApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var game = GameState()
     @StateObject private var feed = FeedService()
     @StateObject private var party = PartyService()

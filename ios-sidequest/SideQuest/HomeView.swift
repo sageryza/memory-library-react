@@ -68,7 +68,7 @@ struct HomeView: View {
             Button("◈ QUEST IN PROGRESS ◈", action: goToQuest)
                 .buttonStyle(PixelButton(bg: SQ.teal, fg: SQ.panel))
         } else {
-            Button("⚔ ACCEPT QUEST ⚔") { game.accept(quest); goToQuest() }
+            Button("⚔ ACCEPT QUEST ⚔") { game.accept(quest); goToQuest(); Notifications.enable() }
                 .buttonStyle(PixelButton(bg: SQ.green))
         }
     }

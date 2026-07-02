@@ -32,6 +32,9 @@ final class GameState: ObservableObject {
     @Published var reacted: [String: String] = [:]
     // Matchmaking city (from the location popup or typed by hand).
     @Published var city: String = ""
+    // Moderation: heroes I've blocked and posts I've reported (hidden locally).
+    @Published var blockedUids: Set<String> = []
+    @Published var hiddenPostIds: Set<String> = []
 
     var level: Int { xp / 1000 + 1 }
     var xpIntoLevel: Int { xp % 1000 }
@@ -67,6 +70,17 @@ final class GameState: ObservableObject {
         save()
     }
 
+    func block(_ uid: String) {
+        guard !uid.isEmpty else { return }
+        blockedUids.insert(uid)
+        save()
+    }
+
+    func hide(postId: String) {
+        hiddenPostIds.insert(postId)
+        save()
+    }
+
     /// Seconds remaining on the active quest, or nil if none.
     func remaining(for q: Quest) -> Int? {
         guard activeQuestId == q.id, let start = acceptedAt else { return nil }
@@ -92,11 +106,13 @@ final class GameState: ObservableObject {
         var lastCompletedDay: Int?; var mySubmissions: [Submission]
         var username: String?; var avatar: String?; var reacted: [String: String]?
         var city: String?
+        var blockedUids: Set<String>?; var hiddenPostIds: Set<String>?
     }
     private func save() {
         let s = Snapshot(xp: xp, streak: streak, activeQuestId: activeQuestId, acceptedAt: acceptedAt,
                          lastCompletedDay: lastCompletedDay, mySubmissions: mySubmissions,
-                         username: username, avatar: avatar, reacted: reacted, city: city)
+                         username: username, avatar: avatar, reacted: reacted, city: city,
+                         blockedUids: blockedUids, hiddenPostIds: hiddenPostIds)
         if let d = try? JSONEncoder().encode(s) { UserDefaults.standard.set(d, forKey: key) }
     }
     private func load() {
@@ -111,5 +127,7 @@ final class GameState: ObservableObject {
         if let a = s.avatar { avatar = a }
         reacted = s.reacted ?? [:]
         city = s.city ?? ""
+        blockedUids = s.blockedUids ?? []
+        hiddenPostIds = s.hiddenPostIds ?? []
     }
 }

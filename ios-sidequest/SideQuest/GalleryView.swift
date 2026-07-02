@@ -22,9 +22,11 @@ struct GalleryView: View {
     ]
 
     /// Live shared posts first; if the feed is unreachable, fall back to this
-    /// device's own submissions so the Hall still works offline.
+    /// device's own submissions so the Hall still works offline. Posts from
+    /// blocked heroes and reported posts are filtered out.
     private var posts: [FeedPost] {
-        let live = feed.posts.isEmpty ? game.mySubmissions.map(Self.localPost) : feed.posts
+        let live = (feed.posts.isEmpty ? game.mySubmissions.map(Self.localPost) : feed.posts)
+            .filter { !game.blockedUids.contains($0.byUid) && !game.hiddenPostIds.contains($0.id) }
         return live + Self.seeded
     }
 
@@ -58,6 +60,7 @@ struct GalleryCard: View {
     let post: FeedPost
     @EnvironmentObject var game: GameState
     @EnvironmentObject var feed: FeedService
+    @State private var moderating = false
 
     private var mine: Bool { !post.byUid.isEmpty && post.byUid == feed.uid }
     private var myReaction: String? { game.reacted[post.id] }
@@ -75,6 +78,11 @@ struct GalleryCard: View {
                     if mine {
                         Text("YOU").font(SQ.pixel(8)).foregroundStyle(SQ.panel)
                             .padding(.vertical, 4).padding(.horizontal, 6).background(SQ.teal)
+                    } else if !post.isSeed {
+                        Button { moderating = true } label: {
+                            Image(systemName: "flag")
+                                .font(.system(size: 14)).foregroundStyle(.white.opacity(0.35))
+                        }
                     }
                 }
                 if let d = post.imageData, let ui = UIImage(data: d) {
@@ -101,6 +109,18 @@ struct GalleryCard: View {
                     Text("\(post.reactionTotal) ✦").font(SQ.term(19)).foregroundStyle(SQ.gold)
                 }
             }
+        }
+        .confirmationDialog("This post", isPresented: $moderating, titleVisibility: .visible) {
+            Button("Report post", role: .destructive) {
+                Reports.file(type: "post", refId: post.id, offenderUid: post.byUid, text: post.story)
+                game.hide(postId: post.id)
+            }
+            Button("Block \(post.username)", role: .destructive) {
+                game.block(post.byUid)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Reporting hides the post and flags it for review. Blocking hides everything from this hero.")
         }
     }
 

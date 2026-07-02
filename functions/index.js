@@ -9,7 +9,7 @@
 // of `notified` re-triggers this function, but then everyone able to move is
 // already in `notified`, so no further sends and no write — no loop.
 
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
@@ -2169,4 +2169,57 @@ exports.adsSetStatus = onCall({ region: 'us-central1' }, async (request) => {
   const json = await res.json();
   if (json.error) throw new HttpsError('internal', json.error.message || 'Couldn’t update the campaign.');
   return { id, status };
+});
+
+// ───────────────── Side Quest — party matchmaking + chat pushes ─────────────────
+//
+// Match: when a party doc is created, ping every member except the creator (who
+// is in-app at that moment — they just matched). Chat: ping the other members on
+// each message. Tokens live in sidequestUsers/{uid}.fcmTokens, written by the
+// iOS app after the notification permission is granted; dead tokens are pruned
+// after each send. Delivery to iPhones needs the APNs auth key uploaded once in
+// Firebase console → Project settings → Cloud Messaging.
+
+async function sidequestPush(uids, payload) {
+  for (const uid of uids) {
+    try {
+      const snap = await db.doc(`sidequestUsers/${uid}`).get();
+      const tokens = (snap.exists && Array.isArray(snap.data().fcmTokens)) ? snap.data().fcmTokens : [];
+      if (!tokens.length) continue;
+      const res = await getMessaging().sendEachForMulticast({
+        tokens,
+        notification: payload,
+        apns: { payload: { aps: { sound: 'default' } } },
+      });
+      const dead = [];
+      res.responses.forEach((r, i) => { if (!r.success) dead.push(tokens[i]); });
+      if (dead.length) {
+        await db.doc(`sidequestUsers/${uid}`).update({ fcmTokens: FieldValue.arrayRemove(...dead) });
+      }
+    } catch (e) {
+      console.error('sidequest push failed for', uid, e);
+    }
+  }
+}
+
+exports.sidequestPartyMatched = onDocumentCreated('sidequestParties/{partyId}', async (event) => {
+  const d = event.data ? event.data.data() : null;
+  if (!d) return;
+  const others = (d.memberIds || []).filter((u) => u !== d.createdBy);
+  await sidequestPush(others, {
+    title: '⚔ A party has formed!',
+    body: `Your questing partner awaits in ${d.cityName || 'your city'}. Open Side Quest to meet them.`,
+  });
+});
+
+exports.sidequestChatMessage = onDocumentCreated('sidequestParties/{partyId}/messages/{msgId}', async (event) => {
+  const m = event.data ? event.data.data() : null;
+  if (!m) return;
+  const party = await db.doc(`sidequestParties/${event.params.partyId}`).get();
+  if (!party.exists) return;
+  const others = (party.data().memberIds || []).filter((u) => u !== m.byUid);
+  await sidequestPush(others, {
+    title: `${m.username || 'Your partner'} · Side Quest`,
+    body: String(m.text || '').slice(0, 120),
+  });
 });

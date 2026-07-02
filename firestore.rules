@@ -222,6 +222,22 @@ service cloud.firestore {
                     && resource.data.byUid == request.auth.uid;
     }
 
+    // Side Quest push tokens — written by the app so Cloud Functions can ping
+    // you on a match / chat message. Owner-only; functions read via admin SDK.
+    match /sidequestUsers/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Side Quest moderation reports — write-only from clients; reviewed in the
+    // Firebase console (and by Cloud Functions / admin tooling later).
+    match /sidequestReports/{reportId} {
+      allow create: if isAuthenticated()
+                    && request.resource.data.byUid == request.auth.uid
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 600;
+      allow read, update, delete: if false;
+    }
+
     // Side Quest party matchmaking — one doc per hero waiting in a city.
     // A matcher claims waiting heroes by stamping ONLY a partyId onto their
     // queue docs (in the same transaction that creates the party).
