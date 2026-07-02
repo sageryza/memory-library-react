@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// One miracle: a square drawing frame with the draw / undo / redo controls in
 /// its bottom-right corner, and a handwritten caption on ruled lines beneath.
@@ -15,19 +14,8 @@ struct BoxView: View {
     // 5.1.2(i): one-time consent before any text is sent to third-party AI.
     @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
 
-    // Caption metrics derived from the REAL font so the ruled lines match the
-    // text exactly. (A hardcoded 28pt pitch clipped the third line: Caveat at
-    // 20pt + 9pt line spacing is ~34pt per line, so three lines overflowed the
-    // 84pt frame and line three rendered out of view — "blank".)
     private static let captionFontSize: CGFloat = 20
     private static let captionLineSpacing: CGFloat = 9
-    private static let linePitch: CGFloat = {
-        let font = UIFont(name: "Caveat-Regular", size: captionFontSize)
-            ?? UIFont(name: "Caveat", size: captionFontSize)
-            ?? UIFont.systemFont(ofSize: captionFontSize)
-        return ceil(font.lineHeight) + captionLineSpacing
-    }()
-    private var lineHeight: CGFloat { Self.linePitch }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -100,25 +88,27 @@ struct BoxView: View {
     }
 
     private var caption: some View {
-        ZStack(alignment: .topLeading) {
-            RuledLines(spacing: lineHeight)
-            TextField(
-                "",
-                text: Binding(get: { box.text }, set: { store.setText($0, boxID: box.id) }),
-                axis: .vertical
-            )
-            .focused($captionFocused)
-            .lineLimit(3, reservesSpace: true)
-            .lineSpacing(Self.captionLineSpacing)
-            .font(.custom(Theme.handwriting, size: Self.captionFontSize))
-            .foregroundStyle(Theme.captionInk)
-            .tint(Theme.gold)
-            .padding(.horizontal, 2)
-            .offset(y: 1)
-            // Keyboard "Done" is declared once at the BookView level, so there's
-            // a single button rather than one per box.
+        // The field's own 3-line reservation defines the height, and the ruled
+        // lines are drawn at thirds of that REAL height — so text and rules can
+        // never drift apart (a fixed 28pt/34pt guess clipped the third line).
+        // Keyboard "Done" is declared once at the BookView level.
+        TextField(
+            "",
+            text: Binding(get: { box.text }, set: { store.setText($0, boxID: box.id) }),
+            axis: .vertical
+        )
+        .focused($captionFocused)
+        .lineLimit(3, reservesSpace: true)
+        .lineSpacing(Self.captionLineSpacing)
+        .font(.custom(Theme.handwriting, size: Self.captionFontSize))
+        .foregroundStyle(Theme.captionInk)
+        .tint(Theme.gold)
+        .padding(.horizontal, 2)
+        .background {
+            GeometryReader { geo in
+                RuledLines(spacing: geo.size.height / 3)
+            }
         }
-        .frame(height: lineHeight * 3)
     }
 
     // Show the draw button only once there's something to draw — text typed,
