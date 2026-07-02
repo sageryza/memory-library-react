@@ -15,9 +15,13 @@ targets:
       - SideQuest
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.sidequest
+        # The App Store Connect records got their bundle IDs crossed vs their
+        # names: the record NAMED "Side Quest - Nihilism" is bundle
+        # com.sageryza.choosewear. So this (the Side Quest app) must ship to that
+        # bundle to land on the correctly-named listing.
+        PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.choosewear
         GENERATE_INFOPLIST_FILE: YES
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "1.1"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_KEY_CFBundleDisplayName: Side Quest
