@@ -76,6 +76,7 @@ struct BuilderView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.roundedRectangle(radius: 6))
                     .disabled(!valid)
                     .padding(.horizontal)
 
