@@ -16,23 +16,39 @@ final class MiraclesService {
         }
     }
 
-    struct DrawResult {
-        let urls: [String]   // one or more concept options to pick from
-        let version: String?
+    struct DrawOption {
+        let url: String
+        let drawing: String  // the concept text — needed to re-render at a higher tier
     }
 
-    func illustrate(text: String, boxID: String, distill: Bool, variants: Int = 3) async throws -> DrawResult {
+    struct DrawResult {
+        let options: [DrawOption]  // one or more concept options to pick from
+        let version: String?
+        var urls: [String] { options.map(\.url) }
+    }
+
+    /// One call to the backend. `tier` picks the quality rung ("fast" = mini,
+    /// "better" = 1.5-low, "best" = 2-medium; nil = the original 1-medium).
+    /// Pass `concept` to re-render a known concept at a higher tier without
+    /// re-distilling.
+    func illustrate(
+        text: String, boxID: String, distill: Bool, variants: Int = 3,
+        tier: String? = nil, concept: String? = nil
+    ) async throws -> DrawResult {
         try await ensureSignedIn()
         let callable = functions.httpsCallable("illustrateMiracle")
         // A 3-concept draw takes longer than the client's 70s default — match
         // the server's 300s so it doesn't give up early (DEADLINE EXCEEDED).
         callable.timeoutInterval = 300
-        let result = try await callable.call([
+        var payload: [String: Any] = [
             "text": text,
             "id": boxID,
             "distill": distill,
             "variants": variants,
-        ])
+        ]
+        if let tier { payload["tier"] = tier }
+        if let concept { payload["concept"] = concept }
+        let result = try await callable.call(payload)
         guard let data = result.data as? [String: Any] else {
             throw NSError(
                 domain: "Miracles", code: -1,
@@ -40,17 +56,22 @@ final class MiraclesService {
             )
         }
         // Prefer the full concepts list; fall back to the single primary url.
-        var urls: [String] = []
+        var options: [DrawOption] = []
         if let concepts = data["concepts"] as? [[String: Any]] {
-            urls = concepts.compactMap { $0["url"] as? String }
+            options = concepts.compactMap { c in
+                guard let url = c["url"] as? String else { return nil }
+                return DrawOption(url: url, drawing: (c["drawing"] as? String) ?? "")
+            }
         }
-        if urls.isEmpty, let url = data["url"] as? String { urls = [url] }
-        guard !urls.isEmpty else {
+        if options.isEmpty, let url = data["url"] as? String {
+            options = [DrawOption(url: url, drawing: (data["drawing"] as? String) ?? "")]
+        }
+        guard !options.isEmpty else {
             throw NSError(
                 domain: "Miracles", code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "No image was returned."]
             )
         }
-        return DrawResult(urls: urls, version: data["version"] as? String)
+        return DrawResult(options: options, version: data["version"] as? String)
     }
 }

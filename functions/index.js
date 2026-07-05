@@ -1852,18 +1852,29 @@ function loadMiracleRefs() {
   return _miracleRefs;
 }
 
-// Draw the subject with gpt-image-1 edits + the reference doodles. Returns a
+// Quality ladder for the OpenAI engine. 'fast' shows something in ~10s; the
+// app then upgrades in the background. Models that reject input_fidelity
+// (mini, gpt-image-2) simply don't send it. Default stays gpt-image-1 medium
+// so clients that don't pass a tier behave exactly as before.
+const MIRACLE_TIERS = {
+  fast:   { model: 'gpt-image-1-mini', quality: 'medium', fidelity: false },
+  better: { model: 'gpt-image-1.5',    quality: 'low',    fidelity: true },
+  best:   { model: 'gpt-image-2',      quality: 'medium', fidelity: false },
+};
+
+// Draw the subject with OpenAI image edits + the reference doodles. Returns a
 // PNG/webp buffer (caller trims + persists).
-async function generateMiracleOpenAIImage(key, subject) {
+async function generateMiracleOpenAIImage(key, subject, tier) {
+  const t = MIRACLE_TIERS[tier] || { model: 'gpt-image-1', quality: 'medium', fidelity: true };
   const refs = loadMiracleRefs();
   if (!refs.length) throw new HttpsError('failed-precondition', 'No reference doodles bundled.');
   const form = new FormData();
-  form.append('model', 'gpt-image-1');
+  form.append('model', t.model);
   form.append('prompt', MIRACLE_OPENAI_PROMPT(subject));
   form.append('size', '1024x1024');
-  form.append('quality', 'medium');
+  form.append('quality', t.quality);
   // Preserve the reference doodles' hand-drawn line/look much more faithfully.
-  form.append('input_fidelity', 'high');
+  if (t.fidelity) form.append('input_fidelity', 'high');
   form.append('n', '1');
   for (const r of refs) form.append('image[]', new Blob([r.buffer], { type: r.type }), r.name);
 
@@ -1988,9 +1999,18 @@ exports.illustrateMiracle = onCall(
     // How many concept variants to actually render (the distiller may offer up
     // to 3; render up to `variants` of them so the person can pick).
     const variants = Math.max(1, Math.min(3, Number(request.data?.variants) || 1));
+    // Quality tier: 'fast' | 'better' | 'best' (see MIRACLE_TIERS). Omitted →
+    // the original gpt-image-1 medium.
+    const tier = ['fast', 'better', 'best'].includes(request.data?.tier) ? request.data.tier : undefined;
+    // Upgrade path: when the app already has a concept (from a fast draw) and
+    // wants the SAME drawing at a higher tier, it passes the concept back —
+    // no re-distill, exactly one render.
+    const conceptOverride = String(request.data?.concept || '').trim();
 
     let concepts = [{ caption: text.slice(0, 80), drawing: text }];
-    if (distill) {
+    if (conceptOverride) {
+      concepts = [{ caption: String(request.data?.caption || '').trim(), drawing: conceptOverride }];
+    } else if (distill) {
       const anthropicKey = await loadAnthropicKey();
       if (anthropicKey) {
         try {
@@ -2030,9 +2050,9 @@ exports.illustrateMiracle = onCall(
         throw new HttpsError('failed-precondition',
           'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
       }
-      version = 'v7-concepts';
+      version = tier ? `v8-ladder-${tier}` : 'v7-concepts';
       renderOne = async (concept) => {
-        const buffer = await generateMiracleOpenAIImage(openaiKey, concept.drawing);
+        const buffer = await generateMiracleOpenAIImage(openaiKey, concept.drawing, tier);
         // The OpenAI image already fills its square (paper background + doodle),
         // so persist it as-is. trimToSubject is for the LoRA's small-doodle-on-
         // white output; on a paper background it can't find white to trim and

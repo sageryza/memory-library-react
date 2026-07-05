@@ -165,6 +165,11 @@ struct BoxView: View {
             if box.canRedo {
                 arrow("arrowtriangle.forward.fill") { store.step(1, boxID: box.id) }
             }
+
+            // A higher-quality render of THIS drawing is ready — step up to it.
+            if let current = box.url, box.upgrades[current] != nil {
+                arrow("arrowtriangle.up.fill") { store.applyUpgrade(boxID: box.id) }
+            }
         }
     }
 
@@ -212,16 +217,37 @@ struct BoxView: View {
         errorText = nil
         Task {
             do {
-                // One draw returns a few concept options; the ‹/› arrows let
-                // you pick among them.
+                // One draw returns a few concept options on the FAST tier
+                // (~10s); the ‹/› arrows let you pick among them.
                 let result = try await MiraclesService.shared.illustrate(
-                    text: text, boxID: box.id, distill: distill, variants: 3
+                    text: text, boxID: box.id, distill: distill, variants: 3, tier: "fast"
                 )
                 store.pushDrawings(result.urls, boxID: box.id)
+                // Meanwhile, quietly render the primary concept at the higher
+                // tiers. When one lands, ▲ appears on that drawing.
+                if let primary = result.options.first, !primary.drawing.isEmpty {
+                    launchUpgrades(for: primary, text: text)
+                }
             } catch {
                 errorText = error.localizedDescription
             }
             drawing = false
+        }
+    }
+
+    /// Background quality ladder: same concept, better models. Best-effort —
+    /// failures are silent (the fast drawing is already on the page).
+    private func launchUpgrades(for option: MiraclesService.DrawOption, text: String) {
+        let boxID = box.id
+        for (tier, isBest) in [("better", false), ("best", true)] {
+            Task {
+                if let up = try? await MiraclesService.shared.illustrate(
+                    text: text, boxID: boxID, distill: false, variants: 1,
+                    tier: tier, concept: option.drawing
+                ), let url = up.urls.first {
+                    store.addUpgrade(boxID: boxID, base: option.url, new: url, isBest: isBest)
+                }
+            }
         }
     }
 }
