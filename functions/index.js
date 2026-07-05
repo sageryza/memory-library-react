@@ -1749,9 +1749,10 @@ const MIRACLE_SYSTEM = [
   'choosing/combining the RIGHT thing so it reads instantly and makes someone smile.',
   '',
   'HARD RULES:',
-  '- It is a THING, not a scene. NO people, NO human figures, NO faces, NO hands, NO speech',
-  '  bubbles, NO background or setting. Just the object(s), centered on a blank page like a',
-  '  diagram.',
+  '- It is a THING, not a scene. NO whole people, NO stick figures, NO speech bubbles,',
+  '  NO background or setting. A single expressive body PART is welcome when it makes the',
+  '  idea click — e.g. a hand holding a chocolate, a foot mid-step — but never a whole',
+  '  figure. Just the object(s), centered on a blank page like a diagram.',
   '- Combine ideas when that is the clever move. Examples:',
   '  · "the bakery was closed but they unlocked it for my birthday" →',
   '    a birthday cake with a little "CLOSED" sign hanging on it.',
@@ -1782,7 +1783,9 @@ const MIRACLE_OPENAI_PROMPT = (concept) =>
   + 'space — like a quick diagram, NOT a scene, on a plain uncluttered background like the '
   + 'reference paper. Loose, imperfect, hand-drawn with a thin black ballpoint pen, wobbly '
   + 'uneven lines, childlike and minimal, like the reference images. No shading, no solid '
-  + `black fills, no color, NO people, NO hands. Draw: ${concept}. Do NOT write the object's `
+  + 'black fills, no color. NO whole people and NO stick figures — a single body part '
+  + '(like a hand holding something) is fine when the idea calls for it. '
+  + `Draw: ${concept}. Do NOT write the object's `
   + 'name or any caption/title anywhere. Only include words if they are literally part of '
   + "the idea (e.g. a 'CLOSED' sign, a small 'x3'); otherwise no text at all.";
 
