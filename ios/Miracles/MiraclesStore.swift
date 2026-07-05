@@ -108,6 +108,40 @@ final class MiraclesStore: ObservableObject {
         save()
     }
 
+    /// Record that `newURL` is the same concept as `baseURL` rendered one tier
+    /// up. `isBest` = the top tier. Keeps the chain fast → better → best sound
+    /// no matter which background render finishes first.
+    func addUpgrade(boxID: String, base: String, new newURL: String, isBest: Bool) {
+        guard let b = boxIndex(boxID) else { return }
+        var box = pages[index].boxes[b]
+        if isBest {
+            if let mid = box.upgrades[base] {
+                box.upgrades[mid] = newURL          // better already landed: chain off it
+            } else {
+                box.upgrades[base] = newURL          // best arrived first: temporary direct link
+            }
+        } else {
+            if let existingBest = box.upgrades[base] {
+                box.upgrades[base] = newURL          // re-point fast → better…
+                box.upgrades[newURL] = existingBest  // …and better → best
+            } else {
+                box.upgrades[base] = newURL
+            }
+        }
+        pages[index].boxes[b] = box
+        save()
+    }
+
+    /// Swap the currently-shown drawing for its next-tier version (the ▲ tap).
+    func applyUpgrade(boxID: String) {
+        guard let b = boxIndex(boxID) else { return }
+        var box = pages[index].boxes[b]
+        guard let current = box.url, let next = box.upgrades[current] else { return }
+        box.history[box.histIndex] = next
+        pages[index].boxes[b] = box
+        save()
+    }
+
     /// Lock in the currently-shown drawing (hides the edit controls), or unlock
     /// it again so the arrows / redraw come back.
     func setSelected(_ selected: Bool, boxID: String) {
