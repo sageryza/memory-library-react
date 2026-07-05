@@ -1819,7 +1819,7 @@ const MIRACLE_SYSTEM = [
 const MIRACLE_OPENAI_PROMPT = (concept) =>
   'A single object drawn as a simple doodle / icon, centered and drawn LARGE so it '
   + 'fills most of the frame — like a quick diagram, NOT a scene, on a plain uncluttered '
-  + 'background like the reference paper. '
+  + 'WHITE background like the reference images. '
   + 'Loose, imperfect, hand-drawn with a thin black ballpoint pen, wobbly '
   + 'uneven lines, childlike and minimal, like the reference images. No shading, no solid '
   + 'black fills, no color. NO whole people and NO stick figures — a single body part '
