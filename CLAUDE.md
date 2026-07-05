@@ -23,6 +23,13 @@
 - **User's timezone is US Pacific (PT).** Show times in Pacific time (PDT in
   summer / PST in winter), not UTC. e.g. CI timestamps in UTC → convert to PT.
 
+## Spending (July 2026)
+- **State the estimated cost before launching any paid batch job, and ASK first
+  if the estimate exceeds $3.** Single small calls (a few cents) don't need a
+  prompt, but nothing above the line runs on an inferred "probably fine." This
+  rule exists because a ~$19 batch (erasing handwriting from ~330 drawings via
+  gpt-image-1 edits) was run without ever surfacing the price.
+
 ## Working style
 - **Claude may merge its own PRs.** Standing permission (July 2026): when a PR
   is ready, merge it without asking — then watch the post-merge workflows
