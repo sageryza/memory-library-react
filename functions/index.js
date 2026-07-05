@@ -1857,7 +1857,7 @@ function loadMiracleRefs() {
 // (mini, gpt-image-2) simply don't send it. Default stays gpt-image-1 medium
 // so clients that don't pass a tier behave exactly as before.
 const MIRACLE_TIERS = {
-  fast:   { model: 'gpt-image-1-mini', quality: 'medium', fidelity: false },
+  fast:   { model: 'gpt-image-1-mini', quality: 'low',    fidelity: false },
   better: { model: 'gpt-image-1.5',    quality: 'low',    fidelity: true },
   best:   { model: 'gpt-image-2',      quality: 'medium', fidelity: false },
 };
