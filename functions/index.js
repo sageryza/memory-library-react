@@ -1780,9 +1780,10 @@ const MIRACLE_SYSTEM = [
 // endpoint, passing a handful of the author's own doodles as style references.
 // Toggle per-call with { engine: 'openai' }; default stays Replicate/Sketchy.
 const MIRACLE_OPENAI_PROMPT = (concept) =>
-  'A single small object drawn as a simple doodle / icon, centered with lots of empty '
-  + 'space — like a quick diagram, NOT a scene, on a plain uncluttered background like the '
-  + 'reference paper. Loose, imperfect, hand-drawn with a thin black ballpoint pen, wobbly '
+  'A single object drawn as a simple doodle / icon, centered and drawn LARGE so it '
+  + 'fills most of the frame — like a quick diagram, NOT a scene, on a plain uncluttered '
+  + 'background like the reference paper. '
+  + 'Loose, imperfect, hand-drawn with a thin black ballpoint pen, wobbly '
   + 'uneven lines, childlike and minimal, like the reference images. No shading, no solid '
   + 'black fills, no color. NO whole people and NO stick figures — a single body part '
   + '(like a hand holding something) is fine when the idea calls for it. '
