@@ -289,7 +289,7 @@ async function generateReplicateImage(token, prompt, modelSlug = REPLICATE_MODEL
       input: {
         prompt,
         model: 'dev',
-        aspect_ratio: '1:1',
+        aspect_ratio: opts.aspectRatio || '1:1',
         num_outputs: 1,
         num_inference_steps: opts.numInferenceSteps ?? 28,
         guidance_scale: 3,
@@ -515,8 +515,7 @@ async function renderDream(rawPrompt, qualityIn) {
 // caption set cleanly along the bottom (like a real children's book). The model
 // draws NO text; we composite the caption ourselves (sharp) so it's always
 // legible and correctly spelled. Pages flip in the app to build a whole book.
-async function captionStorybookPage(imgBuffer, text) {
-  const W = 1024, H = 1536;
+async function captionStorybookPage(imgBuffer, text, W = 1024, H = 1536) {
   const words = String(text).trim().split(/\s+/).filter(Boolean);
   const lines = [];
   let cur = '';
@@ -540,29 +539,63 @@ async function captionStorybookPage(imgBuffer, text) {
     .webp().toBuffer();
 }
 
-async function renderStorybookPage(rawPrompt, captionText, qualityIn) {
+// Storybook page sizes per aspect: OpenAI size, Replicate aspect_ratio, and
+// the caption-composite canvas.
+const STORYBOOK_ASPECTS = {
+  portrait:  { size: '1024x1536', ar: '2:3', W: 1024, H: 1536 },
+  square:    { size: '1024x1024', ar: '1:1', W: 1024, H: 1024 },
+  landscape: { size: '1536x1024', ar: '3:2', W: 1536, H: 1024 },
+};
+
+async function renderStorybookPage(rawPrompt, captionText, qualityIn, styleIdIn, aspectIn) {
   const raw = String(rawPrompt || '').trim();
   if (!raw) throw new HttpsError('invalid-argument', 'Describe the picture for this page.');
   let quality = String(qualityIn || 'medium');
   if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
-  const key = await loadOpenAIKey();
-  if (!key) {
-    throw new HttpsError('failed-precondition',
-      'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
-  }
+  const aspectKey = STORYBOOK_ASPECTS[String(aspectIn || '')] ? String(aspectIn) : 'portrait';
+  const aspect = STORYBOOK_ASPECTS[aspectKey];
   const body = raw.slice(0, 1000);
-  const prompt =
-    'A warm, whimsical children\'s picture-book illustration. Soft hand-painted '
-    + 'storybook style, cozy inviting palette, expressive friendly characters, a '
-    + 'full-bleed scene that fills the frame. Keep the lower portion of the image '
-    + 'calmer and less busy (room for a caption). Absolutely no text, words, '
-    + 'letters, captions or watermarks anywhere in the image. The scene: ' + body;
-  const buffer = await generateOpenAIImage(key, prompt, quality, '1024x1536');
+
+  // Style: a house LoRA by default (Watercolor Drawings), or the ChatGPT
+  // whimsical-storybook look when styleId is 'gpt-image-2'.
+  const styleId = String(styleIdIn || 'wtr');
+  const style = FORGE_STYLES[styleId];
+
+  let buffer;
+  if (style && style.provider === 'replicate') {
+    const token = await loadReplicateToken();
+    if (!token) throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
+    const prompt = `${style.trigger}, a children's picture-book page illustration: ${body}. `
+      + 'Full-bleed scene, the lower portion of the image calmer and less busy. '
+      + 'No text, words or lettering anywhere in the image'
+      + (style.promptSuffix ? `, ${style.promptSuffix}` : '');
+    const { rawUrl } = await generateReplicateImage(token, prompt, style.model, 1,
+      { numInferenceSteps: style.steps, aspectRatio: aspect.ar });
+    const resp = await fetch(rawUrl);
+    if (!resp.ok) throw new HttpsError('internal', 'Could not download the rendered page.');
+    buffer = Buffer.from(await resp.arrayBuffer());
+  } else {
+    const key = await loadOpenAIKey();
+    if (!key) {
+      throw new HttpsError('failed-precondition',
+        'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+    }
+    const prompt =
+      'A warm, whimsical children\'s picture-book illustration. Soft hand-painted '
+      + 'storybook style, cozy inviting palette, expressive friendly characters, a '
+      + 'full-bleed scene that fills the frame. Keep the lower portion of the image '
+      + 'calmer and less busy (room for a caption). Absolutely no text, words, '
+      + 'letters, captions or watermarks anywhere in the image. The scene: ' + body;
+    buffer = await generateOpenAIImage(key, prompt, quality, aspect.size);
+  }
+
   const caption = String(captionText || '').trim();
-  const finalBuffer = caption ? await captionStorybookPage(buffer, caption) : buffer;
+  const finalBuffer = caption
+    ? await captionStorybookPage(buffer, caption, aspect.W, aspect.H)
+    : buffer;
   const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const url = await persistBuffer(finalBuffer, `forge-storybook/${stamp}.webp`);
-  return { url, quality, prompt: body, caption };
+  return { url, quality, prompt: body, caption, style: styleId, aspect: aspectKey };
 }
 
 // Greeting Card — a card-front illustration with the greeting set as a clean
@@ -1228,7 +1261,8 @@ exports.forgeTestImage = onCall(
     }
     // "storybook-page" makes one picture-book page: illustrated scene + caption.
     if (styleKey === 'storybook-page') {
-      const out = await renderStorybookPage(raw, request.data?.caption, request.data?.quality);
+      const out = await renderStorybookPage(raw, request.data?.caption, request.data?.quality,
+        request.data?.pageStyle, request.data?.aspect);
       await saveCreation(uid, 'storybook', { url: out.url, prompt: out.caption || out.prompt });
       return out;
     }
