@@ -1900,6 +1900,26 @@ exports.sagediagram = onCall(
       return { ok: true };
     }
 
+    // Read-only export of written miracle moments (texts + page dates, no
+    // account info) so the distiller can be tuned on real entries. The owner
+    // has OK'd this while the app is personal; revisit before sharing the app.
+    if (mode === 'moments') {
+      const snap = await db.collection('miracleBooks').get();
+      const books = snap.docs.map((d) => {
+        let pages = [];
+        try { pages = JSON.parse(d.get('data') || '[]'); } catch { /* skip */ }
+        return {
+          book: d.id.slice(0, 6),
+          updatedAt: d.get('updatedAt') || null,
+          pages: (pages || []).map((p) => ({
+            date: p.date,
+            texts: (p.boxes || []).map((b) => String(b.text || '').trim()).filter(Boolean),
+          })).filter((p) => p.texts.length),
+        };
+      }).filter((b) => b.pages.length);
+      return { books };
+    }
+
     if (mode === 'delete') {
       const id = String(data.id || '').trim();
       if (!id) throw new HttpsError('invalid-argument', 'id required');
