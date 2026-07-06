@@ -1243,7 +1243,7 @@ exports.forgeTestImage = onCall(
 
     // "sticker-sheet" renders a full sheet (+ segmented boxes) via the helper.
     if (styleKey === 'sticker-sheet') {
-      const out = await renderStickerSheet(raw, request.data?.quality);
+      const out = await renderStickerSheet(raw, request.data?.quality, request.data?.model);
       await saveCreation(uid, 'sticker', out);
       return out;
     }
@@ -1350,11 +1350,15 @@ function loadStickerRefs() {
 
 const STICKER_QUALITIES = new Set(['low', 'medium', 'high']);
 
-async function renderStickerSheet(rawPrompt, qualityIn) {
+const STICKER_MODELS = new Set(['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2']);
+
+async function renderStickerSheet(rawPrompt, qualityIn, modelIn) {
   const raw = String(rawPrompt || '').trim();
   if (!raw) throw new HttpsError('invalid-argument', 'Describe the stickers you want.');
   let quality = String(qualityIn || 'medium');
   if (!STICKER_QUALITIES.has(quality)) quality = 'medium';
+  let model = String(modelIn || 'gpt-image-2');
+  if (!STICKER_MODELS.has(model)) model = 'gpt-image-2';
 
   const key = await loadOpenAIKey();
   if (!key) {
@@ -1384,7 +1388,7 @@ async function renderStickerSheet(rawPrompt, qualityIn) {
     + 'text, words, letters or watermarks anywhere. The illustrations depict: ' + body;
 
   const form = new FormData();
-  form.append('model', 'gpt-image-2');
+  form.append('model', model);
   form.append('prompt', prompt);
   form.append('size', '1024x1536');
   form.append('quality', quality);
