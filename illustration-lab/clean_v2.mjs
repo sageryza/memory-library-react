@@ -13,7 +13,7 @@ export function clean(raw) {
   // structural markup we never want (kept from the old cleaner)
   s = s
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "(pic)")             // embedded drawings
-    .replace(/\s*\{color=[^}\n]*\}/g, "")                  // notion color callouts
+    .replace(/\s*\{[a-zA-Z_][\w-]*=[^}\n]*\}/g, "")       // notion attribute braces ({color=…}, {toggle=…}); keeps literal {implication}
     .replace(/\t/g, " ")
     .replace(/<\/?[a-z_][a-z0-9_-]*(?:\s[^>\n]*)?\/?>/gi, "") // notion tags (synced_block, columns, empty-block…)
     .replace(/^\s*#{1,6}\s+/gm, "").replace(/\s*#{1,6}\s*$/gm, "")
