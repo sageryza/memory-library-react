@@ -25,6 +25,11 @@ def detect(rgb):
       "Make the box GENEROUS: include the ENTIRE drawing edge-to-edge plus any hand-drawn frame and any "
       "title/caption text that is part of the drawing. It's better to include a little extra margin than to "
       "clip any part of the drawing. Ignore trivial marks smaller than a few words. Add a short label. "
+      "DO NOT return a box for any of these — they are NOT drawings: "
+      "(1) a region that is only handwritten WORDS or text, even a single word or a short label with no picture; "
+      "(2) the notebook's SPIRAL BINDING — the row of metal wire-coil loops running down the left or right edge "
+      "of the page (it scans as a vertical strip of grey/black repeating rings); never box the binding on its own. "
+      "Only box a region if it clearly contains an actual picture/sketch. "
       'Return STRICT JSON only: {"drawings":[{"box":[x0,y0,x1,y1],"label":"..."}]}  (empty list if none).')
     r = requests.post("https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {KEY}"},
@@ -103,10 +108,60 @@ def tighten(rgb, box, pad_frac=0.12):
     abs_box = (X0+cx0, Y0+cy0, X0+cx1, Y0+cy1)
     return crop, abs_box
 
+def erase_binding(crop):
+    """Detect the notebook's spiral-binding coil hugging a vertical edge and
+    erase just it. Returns (out_rgb, fired). Conservative: only fires when an
+    edge strip holds a tall, periodic, grey column (the metal wire loops), and
+    only erases ink components that live in that strip — never strokes that
+    reach into the drawing. Handles the coil on the left OR the right margin."""
+    gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+    thr, _ = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    ink = gray < thr
+    H, W = gray.shape
+    strip_w = max(8, int(0.14 * W))
+    best = None
+    for side in ("L", "R"):
+        sx0, sx1 = (0, strip_w) if side == "L" else (W - strip_w, W)
+        strip = ink[:, sx0:sx1]
+        rows_cov = (strip.sum(axis=1) > 0).mean()              # coil spans most of the height
+        if rows_cov < 0.5:
+            continue
+        prof = strip.sum(axis=1).astype(float); prof -= prof.mean()
+        ac = np.correlate(prof, prof, "full")[len(prof)-1:]
+        ac = ac / (ac[0] + 1e-9)
+        lo, hi = max(8, int(0.02*H)), max(12, int(0.20*H))
+        peak = float(ac[lo:hi].max()) if hi > lo else 0.0      # regular coil pitch
+        dvals = gray[:, sx0:sx1][strip]
+        grey = float(np.median(dvals)) if len(dvals) else 0.0  # metal scans mid-grey
+        if peak > 0.33 and rows_cov > 0.5 and grey > 55:
+            score = rows_cov * peak
+            if not best or score > best[0]:
+                best = (score, sx0, sx1, side)
+    if not best:
+        return crop, False
+    _, sx0, sx1, side = best
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(ink.astype(np.uint8), 8)
+    mask = np.zeros((H, W), np.uint8)
+    reach = int(strip_w * 1.6)                                 # how far a coil ring may extend inward
+    for i in range(1, n):
+        x, w = stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_WIDTH]
+        inside = (x >= sx0 - 2 and x + w <= sx0 + reach) if side == "L" \
+                 else (x + w <= sx1 + 2 and x >= sx1 - reach)
+        if inside:
+            mask[lab == i] = 255
+    mask = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    out = crop.copy()
+    paper = crop[gray >= thr]
+    fill = np.median(paper, axis=0).astype(np.uint8) if len(paper) else np.array([255,255,255], np.uint8)
+    out[mask > 0] = fill
+    return out, True
+
 def cutout(crop, declutter=True):
     # Leave the crop exactly as scanned (natural paper, ink tone, speckles). The
-    # ONLY change is erasing the stray handwriting beside the drawing — painting
-    # just those marks back to the paper colour, nothing else touched.
+    # ONLY changes are erasing the stray handwriting beside the drawing and the
+    # spiral binding coil at the page edge — painting just those marks back to
+    # the paper colour, nothing else touched.
+    crop, _ = erase_binding(crop)
     out = crop.copy()
     if declutter:
         gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
