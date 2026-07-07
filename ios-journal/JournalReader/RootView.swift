@@ -11,7 +11,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            screen(.dreams)   { DreamsPlaceholder() }
+            screen(.timeline) { TimelineView() }
             screen(.journal)  { ContentView() }
             screen(.record)   { RecordPlaceholder() }
             screen(.stickers)   { StickersPlaceholder() }
@@ -83,9 +83,6 @@ private struct ComingSoon: View {
     }
 }
 
-private struct DreamsPlaceholder: View {
-    var body: some View { ComingSoon(title: "Dreams", symbol: "cloud", subtitle: "your dream journal will live here.") }
-}
 private struct RecordPlaceholder: View {
     var body: some View { ComingSoon(title: "Record a note", symbol: "mic", subtitle: "a quick way to capture a note — we'll build this next.") }
 }

@@ -2,13 +2,14 @@ import SwiftUI
 
 /// The five bottom-nav destinations. `.record` is the emphasized center button
 /// (a raised pink +); `.setBuilder` is the SET-game-style "make a set of three"
-/// tool (ported from ImageForge's /set).
+/// tool (ported from ImageForge's /set). `.timeline` (leftmost) is the journal
+/// timeline visualization.
 enum JournalTab: Int, CaseIterable, Identifiable {
-    case dreams, journal, record, stickers, setBuilder
+    case timeline, journal, record, stickers, setBuilder
     var id: Int { rawValue }
 }
 
-/// Shared bottom nav for the Journal app: Dreams · Journal · ＋ · Stickers · (soon).
+/// Shared bottom nav for the Journal app: Timeline · Journal · ＋ · Stickers · Set.
 /// White bar, hairline top, pink accent when active — matches the app's look.
 struct JournalNavBar: View {
     @Binding var selection: JournalTab
@@ -18,7 +19,7 @@ struct JournalNavBar: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            item(.dreams,   symbol: "cloud",           filled: "cloud.fill",           label: "Dreams")
+            item(.timeline, symbol: "calendar.day.timeline.left", filled: "calendar.day.timeline.left", label: "Timeline")
             item(.journal,  symbol: "book.closed",     filled: "book.closed.fill",     label: "Journal")
             recordButton
             item(.stickers,   symbol: "square.grid.2x2",  filled: "square.grid.2x2.fill",  label: "Stickers")
