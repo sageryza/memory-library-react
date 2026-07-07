@@ -22,6 +22,10 @@
   am/pm (e.g. "5:08 pm", not "17:08" or "22:08 UTC"). Convert before showing.
 - **User's timezone is US Pacific (PT).** Show times in Pacific time (PDT in
   summer / PST in winter), not UTC. e.g. CI timestamps in UTC → convert to PT.
+- **Deliverables go last.** When a message includes a generated file — audio,
+  image, video, or any downloadable deliverable — send it as the final item,
+  after all explanatory text, so it's easy to find and never buried
+  mid-message.
 
 ## Spending (July 2026)
 - **State the estimated cost before launching any paid batch job, and ASK first
