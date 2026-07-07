@@ -49,7 +49,7 @@ async function renderOne(m, combo) {
     });
     if (res.ok) {
       const buf = Buffer.from((await res.json()).data[0].b64_json, 'base64');
-      await sharp(buf).resize(512, 512, { fit: 'inside' }).webp({ quality: 74 }).toFile(file);
+      await sharp(buf).webp({ quality: 74 }).toFile(file);
       console.log(`${m.id}-${combo.tag} ok`);
       return;
     }

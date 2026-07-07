@@ -56,7 +56,7 @@ async function render(m) {
       method: 'POST', headers: { Authorization: `Bearer ${KEY}` }, body: form });
     if (res.ok) {
       const buf = Buffer.from((await res.json()).data[0].b64_json, 'base64');
-      await sharp(buf).resize(430, 430, { fit: 'inside' }).webp({ quality: 80 }).toFile(file);
+      await sharp(buf).webp({ quality: 80 }).toFile(file);
       console.log(m.id, 'ok', ((Date.now()-t0)/1000|0)+'s'); return;
     }
     const t = await res.text();

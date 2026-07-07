@@ -49,7 +49,7 @@ async function render(m, model, quality, fidelity, tag) {
     });
     if (res.ok) {
       const buf = Buffer.from((await res.json()).data[0].b64_json, 'base64');
-      await sharp(buf).resize(640, 640, { fit: 'inside' }).webp({ quality: 80 }).toFile(`${OUT}/${m.id}-${tag}.webp`);
+      await sharp(buf).webp({ quality: 80 }).toFile(`${OUT}/${m.id}-${tag}.webp`);
       console.log(`${m.id}-${tag} ok ${(Date.now()-t0)/1000|0}s`);
       return;
     }

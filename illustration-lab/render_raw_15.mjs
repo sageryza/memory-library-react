@@ -61,7 +61,7 @@ async function render(job) {
       method: 'POST', headers: { Authorization: `Bearer ${KEY}` }, body: form });
     if (res.ok) {
       const buf = Buffer.from((await res.json()).data[0].b64_json, 'base64');
-      await sharp(buf).resize(560, 560, { fit: 'inside' }).webp({ quality: 88 }).toFile(file);
+      await sharp(buf).webp({ quality: 88 }).toFile(file);
       console.log('OK 1.5', q, c.id); return;
     }
     const t = await res.text(); console.log('ERR 1.5', q, c.id, res.status, t.slice(0,110));

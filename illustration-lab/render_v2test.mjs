@@ -34,7 +34,7 @@ async function render(m) {
       if (p.status === 'succeeded') {
         const url = Array.isArray(p.output) ? p.output[0] : p.output;
         const buf = Buffer.from(await (await fetch(url)).arrayBuffer());
-        await sharp(buf).resize(640, 640, { fit: 'inside' }).webp({ quality: 80 }).toFile(`${OUT}/${m.id}.webp`);
+        await sharp(buf).webp({ quality: 80 }).toFile(`${OUT}/${m.id}.webp`);
         console.log(m.id, 'ok');
         return;
       }

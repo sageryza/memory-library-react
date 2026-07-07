@@ -58,7 +58,7 @@ async function render(m) {
       method: 'POST', headers: { Authorization: `Bearer ${KEY}` }, body: form });
     if (res.ok) {
       const buf = Buffer.from((await res.json()).data[0].b64_json, 'base64');
-      await sharp(buf).resize(680, 680, { fit: 'inside' }).webp({ quality: 90 }).toFile(`${OUT}/${m.id}.webp`);
+      await sharp(buf).webp({ quality: 90 }).toFile(`${OUT}/${m.id}.webp`);
       console.log(m.id, 'ok'); return;
     }
     const t = await res.text(); console.log(m.id, res.status, t.slice(0,90));
