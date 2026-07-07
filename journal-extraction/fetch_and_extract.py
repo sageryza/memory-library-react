@@ -18,6 +18,13 @@ import sys, os, json, subprocess, urllib.request, hashlib, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "output")
+
+# The JournalReader app ("Send journals to Claude") writes manifest.json here
+# with a fixed download token, so `--pull` needs no credentials or pasted link.
+MANIFEST_URL = ("https://firebasestorage.googleapis.com/v0/b/"
+                "membry-df528.firebasestorage.app/o/"
+                "journal-scans%2Fmanifest.json?alt=media&"
+                "token=5a7c1e93-8b2d-4f60-a1c9-6e3d0f24b8a1")
 STATE = os.path.join(OUT, "_processed.json")          # {month: {size, cutouts, sha1}}
 EXPECTED = ["january", "february", "march", "april", "may", "june",
             "july", "august", "september", "october", "november", "december"]
@@ -56,6 +63,8 @@ def parse_args(argv):
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a == "--pull":                       # use the app's fixed manifest URL
+            manifest = MANIFEST_URL; i += 1; continue
         if a == "--manifest":
             manifest = argv[i + 1]; i += 2; continue
         if "=" in a:
