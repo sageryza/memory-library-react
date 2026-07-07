@@ -1,0 +1,1 @@
+SAGEDIAGRAM, a small rectangle radiating little dashes

@@ -1,0 +1,18 @@
+import { createRequire } from 'module';
+const require = createRequire('/home/user/memory-library-react/');
+const { initializeApp } = require('firebase/app');
+const { getAuth, signInAnonymously, onAuthStateChanged } = require('firebase/auth');
+const { getFunctions, httpsCallable } = require('firebase/functions');
+const sharp = require('/home/user/memory-library-react/functions/node_modules/sharp');
+const cfg = { apiKey:'AIzaSyCA04ReaTAoNDUgUCuBS-ti0Jkfl-16h_s', authDomain:'membry-df528.firebaseapp.com', projectId:'membry-df528', storageBucket:'membry-df528.firebasestorage.app', messagingSenderId:'513384339473', appId:'1:513384339473:web:8f46c5915a949c93a8b9b0' };
+const app = initializeApp(cfg); const auth = getAuth(app);
+await new Promise((res,rej)=>{ onAuthStateChanged(auth,u=>u&&res()); signInAnonymously(auth).catch(rej); });
+const call = httpsCallable(getFunctions(app,'us-central1'),'sagediagram',{timeout:60000});
+const png = await sharp({create:{width:64,height:64,channels:3,background:'#fff'}}).webp().toBuffer();
+const b64 = png.toString('base64');
+const add = await call({ mode:'add', name:'__smoketest__.webp', month:'Unsorted', imageBase64:b64, contentType:'image/webp' });
+console.log('ADD OK id=', add.data.id, 'url?', /firebasestorage/.test(add.data.url||''));
+const l1 = await call({ mode:'list' }); console.log('after add, items:', l1.data.items.length);
+await call({ mode:'caption', id: add.data.id, caption:'smoke caption' }); console.log('CAPTION OK');
+await call({ mode:'delete', id: add.data.id }); console.log('DELETE OK');
+const l2 = await call({ mode:'list' }); console.log('after delete, items:', l2.data.items.length);

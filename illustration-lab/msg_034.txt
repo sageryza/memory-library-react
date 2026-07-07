@@ -1,0 +1,15 @@
+Okay, let me say that again more clearly. There were two questions.
+
+First: what model do I mean when I say feed it to a model? In the simplest version, the model is just a language model, like me, or a GPT. Feeding it to a model really just means showing it your examples inside the prompt, and asking it to look at a new passage and guess what you would draw. There's no training at that stage. So yes, at first, it's basically me.
+
+But there are really three different jobs, and only one of them is me. The first job is the taste: deciding which moments you would draw, and what you would draw. That's the language model. Right now that's me, and later it would be an automatic call to Claude or GPT running inside the app, so it can work overnight without us talking. The second job is the actual drawing, the marks on the page. That's still your LoRA, the image model you already trained. And the third job, much later, is optional: you could bake the taste permanently into a model by fine tuning it, but only once you have enough examples to make it worth it.
+
+So the short path is: me now, to feel it out. Then an automatic model inside the app, to run it for real. Then maybe fine tuning, at the very end.
+
+Second question: about needing more context, because the words aren't quite enough. I think you're completely right, and it actually makes the plan better. A drawing usually isn't illustrating one sentence. It's compressing a whole idea, and sometimes an idea that built up slowly across many days. The cage you can leave through the back. The pattern collector. The become a real person kit. Those are concepts you developed over weeks, not single lines.
+
+So instead of pairing each drawing with just one line, we should pair it with three things: the passage around it, a short summary of what it's really about, and a little glossary of your recurring ideas, so the model knows what your private words mean, like the pocket, or automatic process. That short summary is exactly the distilling step you mentioned before, and it's a job the language model can do.
+
+And this is the best reason to use a language model for the taste, instead of just matching similar words. Because ideas aren't words. Matching words only catches the surface. A language model can catch the actual concept, and remember your personal vocabulary.
+
+The good news is that the context I already added to each band, the full surrounding passage, is exactly the right material to start from. I would just add the short summary and the glossary on top.

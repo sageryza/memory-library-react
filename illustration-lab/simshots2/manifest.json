@@ -1,0 +1,134 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "E669CA87-786A-4ABA-8688-C47F19C3C2FD.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "07-relaunch-after-4s_0_3C718B8F-F42D-4BAE-B0ED-E2C59B604FED.png",
+        "timestamp" : 1783008482.98
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "2A0FFFCA-1514-4064-A94B-594D27C3FFAF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "06-relaunch-after-0_0_7620AE08-0031-4B84-8BC4-61980FE3C096.9s-should-show-cached-drawings",
+        "timestamp" : 1783008479.723
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "5333FEF8-516C-4432-9CD1-F2023DF509A6",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "UI Snapshot 2026-07-02 at 04.07.48 PM",
+        "timestamp" : 1783008468.385
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "10DCA53B-D7BE-42E6-A61B-D8829AF6B2E0",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Synthesized Event 2026-07-02 at 04.07.48 PM",
+        "timestamp" : 1783008468.748
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "68E2E5A9-EA9B-48BA-9B0A-CA71C5B5FA84.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "05-next-empty-page_0_28EF0C1D-87D4-4E04-A0C4-A1D3B9C3E406.png",
+        "timestamp" : 1783008468.328
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "79A1D018-D863-4CEF-85FC-22D2088C0AA1",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "UI Snapshot 2026-07-02 at 04.07.46 PM",
+        "timestamp" : 1783008466.829
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "903D2C23-2C95-48FB-83BD-CC1751EA122C",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Synthesized Event 2026-07-02 at 04.07.47 PM",
+        "timestamp" : 1783008467.183
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "D750A08E-E2E2-4318-952F-DC602522EFF8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "04-after-done_0_4D920461-30AB-4F39-86F1-F27BC66684FF.png",
+        "timestamp" : 1783008466.757
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "AE033932-4D5A-4AB3-B54F-4160232FE60D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "03-keyboard-up_0_29AD4B5B-C403-4F37-B124-F4A60A1BC4E5.png",
+        "timestamp" : 1783008464.832
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "067BD80E-9F52-4CD5-969C-ADEB9CCF902D",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "UI Snapshot 2026-07-02 at 04.07.43 PM",
+        "timestamp" : 1783008463.2
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "9343EA9B-E803-4E93-9454-8782D43B1EF1",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Synthesized Event 2026-07-02 at 04.07.43 PM",
+        "timestamp" : 1783008463.655
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "5B4BA117-72F6-4E7D-A7D7-1BAF04329F8C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "02-first-open-loaded_0_11A86A4C-AB77-4946-AB09-168A8D55EDCE.png",
+        "timestamp" : 1783008462.947
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "88EEF9F8-4A3F-42FF-8DCA-8B73D38F092B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "01-first-open_0_085E0009-1706-408A-9B62-947E1CE21F91.png",
+        "timestamp" : 1783008450.628
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3662F8D6-25BA-4649-8346-E6E737A4D291",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "09B3B227-6CED-4281-B14F-9DB994453DBE.mp4",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Screen Recording 2026-07-02 at 04.06.51 PM.mp4",
+        "timestamp" : 1783008411.883
+      }
+    ],
+    "testIdentifier" : "MiraclesUITests/testBookLayoutKeyboardAndRelaunchCache()",
+    "testIdentifierURL" : "test://com.apple.xcode/Miracles/MiraclesUITests/MiraclesUITests/testBookLayoutKeyboardAndRelaunchCache"
+  }
+]

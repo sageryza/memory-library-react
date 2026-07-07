@@ -1,0 +1,5 @@
+Yeah, you're thinking of the image tool in OpenAI's Responses API. It's the conversational one. Instead of asking for a whole new picture every time, it keeps the drawing in the conversation, so you can say something like, give the cars a little flag so they have identity, and it edits that same drawing instead of starting over.
+
+That's a perfect match for the redraw queue. Right now, a redraw would generate a fresh picture and might lose the parts you liked. With this, your note becomes an edit instead. The bear stays the bear, the cars just get their flags.
+
+The one thing I'd want to check is whether the conversational version holds our house style as tightly as the seven references do now. It should, but I'd test it. Want me to wire the redraw button to actually edit in place so we can try it?

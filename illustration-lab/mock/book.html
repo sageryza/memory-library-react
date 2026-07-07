@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/home/user/memory-library-react/src/components/miracles/Miracles.css">
+<style>
+  /* freeze the cover tease at its open peek for the screenshot */
+  body.freeze .miracles-cover { animation: none !important; transform: rotateY(-22deg); }
+</style>
+</head>
+<body>
+<div class="miracles-root">
+  <h1 class="miracles-title">The Little Book of Miracles</h1>
+  <div class="miracles-version">
+    <span>book v7 · built abc123 · engine v4-history</span>
+    <button type="button" class="miracles-refresh">↻ force update</button>
+  </div>
+  <div class="miracles-mode">
+    <button type="button" class="miracles-mode-btn is-on">let it choose the drawing</button>
+    <button type="button" class="miracles-mode-btn">draw exactly what I wrote</button>
+  </div>
+  <button type="button" class="miracles-seed">load sample miracles (test)</button>
+
+  <div class="miracles-page">
+    <div class="miracles-daterow"><span class="miracles-date">June 27</span></div>
+    <div class="miracles-grid">
+      <!-- box with image + undo/redo -->
+      <div class="miracle-box">
+        <div class="miracle-frame">
+          <img class="miracle-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='white'/><g fill='none' stroke='black' stroke-width='3'><circle cx='100' cy='90' r='45'/><path d='M70 150 q30 25 60 0'/><circle cx='85' cy='85' r='4' fill='black'/><circle cx='115' cy='85' r='4' fill='black'/></g></svg>">
+          <div class="miracle-controls">
+            <button class="miracle-arrow">‹</button>
+            <button class="miracle-draw">redraw <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z"/></svg></button>
+            <button class="miracle-arrow">›</button>
+          </div>
+        </div>
+        <textarea class="miracle-caption" rows="3">birthday cake, shop opened just for us</textarea>
+      </div>
+
+      <!-- box drawing (spinner) -->
+      <div class="miracle-box">
+        <div class="miracle-frame">
+          <span class="miracle-spinner"></span>
+          <div class="miracle-controls">
+            <button class="miracle-draw">drawing…</button>
+          </div>
+        </div>
+        <textarea class="miracle-caption" rows="3">ran into the book guy a third time</textarea>
+      </div>
+
+      <!-- empty box -->
+      <div class="miracle-box">
+        <div class="miracle-frame">
+          <div class="miracle-controls">
+            <button class="miracle-draw" disabled>draw <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z"/></svg></button>
+          </div>
+        </div>
+        <textarea class="miracle-caption" rows="3"></textarea>
+      </div>
+
+      <!-- box with image, no history -->
+      <div class="miracle-box">
+        <div class="miracle-frame">
+          <img class="miracle-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='white'/><g fill='none' stroke='black' stroke-width='3'><rect x='60' y='70' width='80' height='70' rx='6'/><path d='M75 70 l25 -25 l25 25'/><circle cx='100' cy='110' r='12'/></g></svg>">
+          <div class="miracle-controls">
+            <button class="miracle-draw">redraw <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z"/></svg></button>
+          </div>
+        </div>
+        <textarea class="miracle-caption" rows="3">a girl named Hope brought me water</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="miracles-nav">
+    <button class="miracles-arrow" disabled>‹ back</button>
+    <span class="miracles-pageno">1 / 1</span>
+    <button class="miracles-arrow">turn page ›</button>
+  </div>
+</div>
+</body></html>

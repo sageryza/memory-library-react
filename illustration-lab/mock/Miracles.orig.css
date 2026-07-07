@@ -1,0 +1,325 @@
+/* The Little Book of Miracles — black-passport cover + cream doodle pages. */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Cormorant+Garamond:wght@400;500&display=swap');
+
+.miracles-root {
+  --gold: #d4af37;
+  --gold-soft: rgba(212, 175, 55, 0.35);
+  --ink: #2e2a26;
+  min-height: 100vh;
+  padding: 40px 18px 100px;
+  background: #f4efe6;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.miracles-state {
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #8a8278;
+}
+
+/* ---- passport cover ---- */
+.miracles-cover-wrap { justify-content: center; min-height: 100vh; perspective: 1500px; }
+
+.miracles-cover {
+  width: min(320px, 74vw);
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 30px;
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(155deg, #181818 0%, #232323 48%, #0c0c0c 100%);
+  box-shadow:
+    0 26px 70px -22px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 7px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 8px var(--gold-soft);
+  /* Hinge on the left and gently open/close to hint that it opens. */
+  transform-origin: left center;
+  animation: miracles-cover-tease 4.2s ease-in-out infinite;
+}
+.miracles-cover:hover { animation-play-state: paused; transform: rotateY(-14deg); }
+
+@keyframes miracles-cover-tease {
+  0%, 18% { transform: rotateY(0deg); }
+  50% { transform: rotateY(-26deg); }
+  82%, 100% { transform: rotateY(0deg); }
+}
+
+.miracles-cover-frame {
+  display: inline-block;
+  padding: 22px 24px;
+  border: 1.5px solid rgba(212, 175, 55, 0.75);
+}
+
+.gold-foil,
+.miracles-cover-title {
+  background: linear-gradient(180deg, #f6e9ad 0%, #d9b44a 45%, #b8862f 56%, #f3e29a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.miracles-cover-title {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.75;
+  text-transform: uppercase;
+}
+
+/* ---- title (inside) ---- */
+.miracles-title {
+  margin: 0 0 22px;
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: #4a4239;
+}
+
+.miracles-mode {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border: 1px solid #ddd0b3;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.miracles-mode-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  color: #9a8f78;
+}
+.miracles-mode-btn.is-on { background: #efe7d4; color: #6b531f; }
+.miracles-mode-btn + .miracles-mode-btn { border-left: 1px solid #ddd0b3; }
+
+.miracles-seed {
+  margin: -10px 0 18px;
+  padding: 4px 12px;
+  border: 1px dashed #cdbfa0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  color: #a89b80;
+}
+.miracles-seed:hover { color: #6b531f; border-color: var(--gold); }
+
+/* ---- the page ---- */
+.miracles-page {
+  width: 100%;
+  max-width: 560px;
+  padding: 26px 22px 18px;
+  background: #fffdf8;
+  border: 1px solid #e7ddc8;
+  border-radius: 6px;
+  box-shadow: 0 14px 40px -26px rgba(80, 60, 30, 0.5);
+}
+.miracles-page.is-flipping { animation: miracle-flip 0.22s ease; }
+@keyframes miracle-flip {
+  0% { transform: rotateY(-12deg); opacity: 0.5; transform-origin: left center; }
+  100% { transform: rotateY(0); opacity: 1; }
+}
+
+.miracles-daterow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+.miracles-date-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #b3a78c;
+}
+.miracles-date {
+  font-family: 'Caveat', cursive;
+  font-size: 1.35rem;
+  color: #5a5043;
+  border-bottom: 1px solid #ddd0b3;
+  padding-bottom: 2px;
+}
+
+/* ---- grid of boxes ---- */
+.miracles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 18px;
+}
+
+.miracle-box { display: flex; flex-direction: column; }
+
+.miracle-frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: 1px solid #d8cdb4;
+  border-radius: 3px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.miracle-img { width: 100%; height: 100%; object-fit: contain; }
+
+.miracle-spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #e7ddc8; border-top-color: var(--gold);
+  animation: miracle-spin 0.8s linear infinite;
+}
+@keyframes miracle-spin { to { transform: rotate(360deg); } }
+.miracle-err { color: #b00020; font-size: 1.4rem; font-weight: 700; }
+.miracle-errmsg {
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #b00020;
+  word-break: break-word;
+}
+
+.miracle-caption {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 27px, #e3d8bf 27px 28px);
+  line-height: 28px;
+  padding: 0 2px;
+  font-family: 'Caveat', cursive;
+  font-size: 1.15rem;
+  color: #463f35;
+  resize: none;
+  box-sizing: border-box;
+}
+.miracle-caption:focus { outline: none; }
+.miracle-caption::placeholder { color: #c4b89c; }
+
+/* controls live in the bottom-right of the drawing frame */
+.miracle-controls {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.miracle-draw {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid #d8cdb4;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: #8a6d3b;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.miracle-draw:hover:not(:disabled) { background: #fff; border-color: var(--gold); color: #6b531f; }
+.miracle-draw:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.miracle-arrow {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.miracle-arrow:hover { color: #b8862f; border-color: var(--gold); }
+
+.miracles-add {
+  display: block;
+  margin: 22px auto 0;
+  padding: 6px 16px;
+  border: 1px dashed #d8cdb4;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  color: #9a8f78;
+}
+.miracles-add:hover { color: #6b531f; border-color: var(--gold); }
+
+/* ---- page nav ---- */
+.miracles-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  color: #8a8278;
+}
+.miracles-arrow {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: #8a6d3b;
+}
+.miracles-arrow:disabled { opacity: 0.35; cursor: default; }
+.miracles-pageno { font-size: 0.85rem; letter-spacing: 0.1em; color: #b3a78c; }
+
+.miracles-version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  margin: -8px 0 16px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #b3a78c;
+}
+.miracles-refresh {
+  border: 1px solid #ddd0b3;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 9px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #8a6d3b;
+}
+.miracles-refresh:hover { border-color: var(--gold); color: #6b531f; }
+
+.miracles-btn {
+  padding: 9px 24px;
+  border: 1px solid var(--gold-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: #8a6d3b;
+  text-decoration: none;
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.08em;
+}
