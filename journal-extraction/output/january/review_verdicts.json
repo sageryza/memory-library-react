@@ -1,0 +1,98 @@
+{
+  "month": "january",
+  "reviewer": "claude (visual eyeball of all 134)",
+  "not_a_drawing": [
+    {
+      "id": "p09_0",
+      "note": "the word 'think'"
+    },
+    {
+      "id": "p09_1",
+      "note": "scattered marks + 'SS bind?'"
+    },
+    {
+      "id": "p09_2",
+      "note": "faint marks + 'roc'"
+    },
+    {
+      "id": "p11_0",
+      "note": "faint 'hing' fragment"
+    },
+    {
+      "id": "p38_0",
+      "note": "cursive text, no picture"
+    },
+    {
+      "id": "p44_0",
+      "note": "spiral binding metal"
+    },
+    {
+      "id": "p44_2",
+      "note": "stray dashes"
+    },
+    {
+      "id": "p87_0",
+      "note": "spiral binding metal"
+    }
+  ],
+  "borderline": [
+    {
+      "id": "p06_0",
+      "note": ""
+    },
+    {
+      "id": "p12_0",
+      "note": ""
+    },
+    {
+      "id": "p13_4",
+      "note": ""
+    },
+    {
+      "id": "p15_0",
+      "note": ""
+    },
+    {
+      "id": "p18_0",
+      "note": ""
+    },
+    {
+      "id": "p18_2",
+      "note": ""
+    },
+    {
+      "id": "p30_1",
+      "note": ""
+    },
+    {
+      "id": "p44_1",
+      "note": ""
+    },
+    {
+      "id": "p53_2",
+      "note": ""
+    },
+    {
+      "id": "p55_2",
+      "note": ""
+    },
+    {
+      "id": "p66_0",
+      "note": ""
+    },
+    {
+      "id": "p71_1",
+      "note": ""
+    },
+    {
+      "id": "p81_1",
+      "note": ""
+    }
+  ],
+  "quality_notes": [
+    {
+      "id": "p34_0",
+      "note": "REAL drawing but scanned on brown cardboard (background quality issue)"
+    }
+  ]
+}
