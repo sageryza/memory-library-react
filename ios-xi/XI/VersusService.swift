@@ -196,6 +196,26 @@ final class VersusService {
         }
     }
 
+    // MARK: Moderation
+
+    /// Persist a report of another player's story so it can be reviewed and
+    /// acted on (App Store guideline 1.2). Written to a top-level `versusReports`
+    /// collection with the offending content and both parties' ids.
+    func reportStory(gameId: String, story: VersusStory, reason: String, details: String) async throws {
+        try await db.collection("versusReports").addDocument(data: [
+            "gameId": gameId,
+            "storyId": story.id,
+            "reportedUid": story.byUid,
+            "reportedName": story.byName,
+            "storyText": story.text,
+            "reason": reason,
+            "details": details.trimmingCharacters(in: .whitespacesAndNewlines),
+            "reporterUid": uid ?? "anonymous",
+            "status": "pending",
+            "ts": FieldValue.serverTimestamp(),
+        ])
+    }
+
     // MARK: Story
 
     func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced, text: String) async throws {

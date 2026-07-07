@@ -34,9 +34,17 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # iPhone-only for the first submission — smaller review surface (no iPad
+        # layout to polish, no iPad screenshots to supply).
+        TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
+    entitlements:
+      path: XI.entitlements
+      properties:
+        # Sign in with Apple — required (guideline 4.8) because the app also
+        # offers Google sign-in.
+        com.apple.developer.applesignin:
+          - Default
     dependencies:
       - package: Firebase
         product: FirebaseCore

@@ -1,5 +1,6 @@
 import SwiftUI
 import GoogleSignIn
+import AuthenticationServices
 
 /// Sign in with the same account as the web app, so XI memories land in your
 /// shared library (and show up on the web). "Play without an account" falls
@@ -9,6 +10,7 @@ struct SignInView: View {
     @State private var password = ""
     @State private var busy = false
     @State private var error: String?
+    @State private var appleNonce: String?
 
     var body: some View {
         VStack(spacing: 18) {
@@ -59,6 +61,19 @@ struct SignInView: View {
             }
             .padding(.vertical, 2)
 
+            SignInWithAppleButton(.signIn) { request in
+                let nonce = AppleNonce.random()
+                appleNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = AppleNonce.sha256(nonce)
+            } onCompletion: { result in
+                appleSignIn(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 46)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .disabled(busy)
+
             Button(action: googleSignIn) {
                 HStack(spacing: 10) {
                     Image(systemName: "g.circle.fill").font(.system(size: 18))
@@ -106,6 +121,25 @@ struct SignInView: View {
                 // A user cancelling the sheet isn't a real error.
                 if (error as NSError).code == GIDSignInError.canceled.rawValue { busy = false; return }
                 self.error = msg; busy = false
+            }
+        }
+    }
+
+    private func appleSignIn(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let err):
+            // A user cancelling the sheet isn't a real error.
+            if (err as? ASAuthorizationError)?.code == .canceled { return }
+            error = err.localizedDescription
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let nonce = appleNonce else {
+                error = "Apple sign-in failed. Please try again."; return
+            }
+            busy = true; error = nil
+            Task {
+                do { try await XIService.shared.finishAppleSignIn(credential, rawNonce: nonce) }
+                catch { self.error = error.localizedDescription; busy = false }
             }
         }
     }

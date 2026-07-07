@@ -7,43 +7,6 @@ struct Pairing: Identifiable {
     var id: String { "\(event.id)__\(twist.id)" }
 }
 
-/// TEMPORARY: the board shapes we're auditioning for readability. `.full` is the
-/// real shared daily crossword; the rest are small previews (normalised to a
-/// top-left origin) so we can see how much bigger the cards get. Remove with the
-/// size-test switcher once we've picked one.
-enum BoardLayout: CaseIterable {
-    case full, cross, three, two
-
-    var label: String {
-        switch self {
-        case .full: return "full"
-        case .cross: return "cross (5)"
-        case .three: return "three"
-        case .two: return "two"
-        }
-    }
-
-    var next: BoardLayout {
-        let all = BoardLayout.allCases
-        return all[(all.firstIndex(of: self)! + 1) % all.count]
-    }
-
-    /// Cell coordinates for the preview shapes; nil means the real daily board.
-    private var cells: [(Int, Int)]? {
-        switch self {
-        case .full:  return nil
-        case .cross: return [(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)]  // plus / cross
-        case .three: return [(0, 0), (0, 1), (1, 1)]                  // an L of three
-        case .two:   return [(0, 0), (0, 1)]                          // a single pair
-        }
-    }
-
-    func board(_ day: Int) -> [Placed] {
-        if let cells { return BoardEngine.layoutBoard(day, cells: cells) }
-        return BoardEngine.dailyBoard(day)
-    }
-}
-
 /// Collects the bounds of the framed board cells so we can draw ONE merged
 /// rectangle around the chosen pair (matching the web's `xiv-pairframe`), rather
 /// than a separate square per card.
@@ -62,13 +25,14 @@ struct BoardView: View {
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
-    @State private var layout: BoardLayout = .full   // temporary size-test switcher
+    @State private var showDeleteConfirm = false
+    @State private var deleteError: String?
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
-    private var placed: [Placed] { layout.board(viewDay) }
+    private var placed: [Placed] { BoardEngine.dailyBoard(viewDay) }
     private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
     private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
     private var byCell: [String: Placed] {
@@ -81,7 +45,6 @@ struct BoardView: View {
                 header
                 board
                     .frame(maxWidth: min(520, CGFloat(cols) * 130))
-                sizeToggle
                 if !isToday {
                     Text("Past board — view only. Tap › to come back to today.")
                         .font(.system(.footnote, design: .serif))
@@ -109,6 +72,7 @@ struct BoardView: View {
                             Text("playing without an account")
                         }
                         Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
+                        Button("delete account", role: .destructive) { showDeleteConfirm = true }
                     } label: {
                         Image(systemName: "person.circle").tint(XITheme.gold)
                     }
@@ -118,6 +82,22 @@ struct BoardView: View {
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
             .sheet(isPresented: $showHelp) { BoardHelpSheet() }
+            .confirmationDialog("Delete your account?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete account and all my data", role: .destructive) {
+                    Task {
+                        do { try await XIService.shared.deleteAccount() }
+                        catch { deleteError = error.localizedDescription }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your account and all your saved memories and boards. This can't be undone.")
+            }
+            .alert("Couldn't delete account", isPresented: .constant(deleteError != nil)) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
+            }
             .onChange(of: composing?.id) { newID in
                 if newID == nil { composedCells = [] }   // composer closed → clear the pair
             }
@@ -143,21 +123,6 @@ struct BoardView: View {
         .font(.system(.title3, design: .serif))
         .tint(XITheme.gold)
         .padding(.horizontal, 4)
-    }
-
-    /// TEMPORARY size-test switcher: cycles full → cross → three → two so we can
-    /// eyeball how bigger cards read. Remove once we've settled on a layout.
-    private var sizeToggle: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selected = nil; composedCells = []; layout = layout.next
-            }
-        } label: {
-            Label("layout: \(layout.label) · tap to switch", systemImage: "arrow.triangle.2.circlepath")
-                .font(.system(.caption, design: .serif))
-                .foregroundStyle(XITheme.gold)
-        }
-        .buttonStyle(.plain)
     }
 
     private var board: some View {
