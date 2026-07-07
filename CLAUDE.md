@@ -23,6 +23,20 @@
 - **User's timezone is US Pacific (PT).** Show times in Pacific time (PDT in
   summer / PST in winter), not UTC. e.g. CI timestamps in UTC → convert to PT.
 
+## Saving work (forever — non-negotiable)
+- **Never let anything we make live only in the temp scratchpad.** The scratchpad
+  is an ephemeral container dir that gets wiped when the session ends — anything
+  left there is lost. Every generated artifact (drawings/renders, audio clips,
+  galleries, prototypes, prompts, scripts, logs, comparison sheets) MUST be copied
+  into the repo and committed **and pushed** so it survives. The archive lives in
+  `illustration-lab/`.
+- **Always save at full resolution.** Never downscale an image before it's the
+  only copy on disk. Save the model's full-size output first; make any smaller
+  copies as *extra* files, never as replacements. (This rule exists because early
+  renders were shrunk to 560px before saving and the full-res originals were lost.)
+- **Commit + push as you go**, not at the end — a batch of renders, an audio set,
+  a gallery: save it the moment it exists. Losing work is never acceptable.
+
 ## Spending (July 2026)
 - **State the estimated cost before launching any paid batch job, and ASK first
   if the estimate exceeds $3.** Single small calls (a few cents) don't need a
