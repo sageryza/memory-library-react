@@ -82,7 +82,7 @@ struct VersusGameView: View {
                 } catch { self.error = error.localizedDescription }
             }
             .onDisappear { store.unsubscribe() }
-            .onChange(of: store.stories) { _, newStories in
+            .onChange(of: store.stories) { newStories in
                 syncOpponentStoriesToCommons(newStories)
             }
     }
