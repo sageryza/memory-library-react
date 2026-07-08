@@ -44,8 +44,8 @@ final class VersusService {
 
     private func currentName() -> String {
         if let u = Auth.auth().currentUser {
-            if let dn = u.displayName, !dn.isEmpty { return dn }
-            if let em = u.email, let p = em.split(separator: "@").first { return String(p) }
+            if let dn = u.displayName, !dn.isEmpty { return ContentFilter.masked(dn) }
+            if let em = u.email, let p = em.split(separator: "@").first { return ContentFilter.masked(String(p)) }
         }
         return "Player"
     }
@@ -220,7 +220,8 @@ final class VersusService {
 
     func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced, text: String) async throws {
         guard let uid = uid else { throw e("Sign in to write.") }
-        let t = text.trimmingCharacters(in: .whitespacesAndNewlines); guard !t.isEmpty else { return }
+        let t = ContentFilter.masked(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !t.isEmpty else { return }
         let evCard = XIDeck.events[event.i], twCard = XIDeck.twists[twist.i]
         let pk = "\(evCard.id)__\(twCard.id)"
         var name = "Player"; var color: String?

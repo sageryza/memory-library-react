@@ -27,6 +27,7 @@ struct BoardView: View {
     @State private var showHelp = false
     @State private var showDeleteConfirm = false
     @State private var deleteError: String?
+    @State private var showBlocked = false
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
@@ -71,6 +72,7 @@ struct BoardView: View {
                         } else if auth.isAnonymous {
                             Text("playing without an account")
                         }
+                        Button("manage blocked players") { showBlocked = true }
                         Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
                         Button("delete account", role: .destructive) { showDeleteConfirm = true }
                     } label: {
@@ -82,6 +84,7 @@ struct BoardView: View {
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
             .sheet(isPresented: $showHelp) { BoardHelpSheet() }
+            .sheet(isPresented: $showBlocked) { BlockedUsersView() }
             .confirmationDialog("Delete your account?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete account and all my data", role: .destructive) {
                     Task {

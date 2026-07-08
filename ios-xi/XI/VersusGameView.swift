@@ -274,7 +274,7 @@ struct VersusGameView: View {
             Menu {
                 Button { reportingStory = s } label: { Label("Report story", systemImage: "flag") }
                 Button(role: .destructive) {
-                    withAnimation { moderation.block(s.byUid) }
+                    withAnimation { moderation.block(s.byUid, name: s.byName) }
                 } label: {
                     Label("Block \(s.byName)", systemImage: "hand.raised")
                 }

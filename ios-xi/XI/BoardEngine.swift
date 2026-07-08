@@ -38,13 +38,19 @@ enum XIDeck {
     static func loadJSON(_ name: String) -> Data {
         guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
               let data = try? Data(contentsOf: url) else {
-            fatalError("Missing bundled resource \(name).json")
+            // Bundled resource — should always be present. Assert in debug so we
+            // catch a packaging mistake, but never hard-crash a shipped build.
+            assertionFailure("Missing bundled resource \(name).json")
+            return Data()
         }
         return data
     }
 
     static func loadDeck() -> ([XICard], [XICard]) {
-        let file = try! JSONDecoder().decode(DeckFile.self, from: loadJSON("boardDeck"))
+        guard let file = try? JSONDecoder().decode(DeckFile.self, from: loadJSON("boardDeck")) else {
+            assertionFailure("boardDeck.json missing or malformed")
+            return ([], [])
+        }
         return (file.events, file.twists)
     }
 
