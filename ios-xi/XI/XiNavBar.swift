@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// The five XI destinations, matching the web `XiNavBar`.
+/// The five XI destinations. (Curate moved into Settings — it's a rare,
+/// owner-facing task, not a primary destination.)
 enum XiTab: String, CaseIterable, Identifiable {
-    case today, curate, daily, versus, board, library
+    case today, daily, versus, board, library
     var id: String { rawValue }
     var label: String {
         switch self {
         case .today: return "Today"
-        case .curate: return "Curate"
         case .daily: return "Daily"
         case .versus: return "Versus"
         case .board: return "Board"
@@ -18,7 +18,6 @@ enum XiTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .today: return "rectangle.portrait.on.rectangle.portrait"
-        case .curate: return "heart"
         case .daily: return "square.grid.3x3"
         case .versus: return "person.2"
         case .board: return "sparkles"

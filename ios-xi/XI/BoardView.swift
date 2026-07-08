@@ -18,16 +18,11 @@ private struct FrameAnchorKey: PreferenceKey {
 }
 
 struct BoardView: View {
-    @ObservedObject var auth: AuthState
-
     @State private var viewDay = BoardEngine.dayNumber()
     @State private var selected: Cell?
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
-    @State private var showDeleteConfirm = false
-    @State private var deleteError: String?
-    @State private var showBlocked = false
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
@@ -65,42 +60,11 @@ struct BoardView: View {
                         Image(systemName: "info.circle").tint(XITheme.gold)
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        if let email = auth.email {
-                            Text(email)
-                        } else if auth.isAnonymous {
-                            Text("playing without an account")
-                        }
-                        Button("manage blocked players") { showBlocked = true }
-                        Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
-                        Button("delete account", role: .destructive) { showDeleteConfirm = true }
-                    } label: {
-                        Image(systemName: "person.circle").tint(XITheme.gold)
-                    }
-                }
             }
             .sheet(item: $composing) { pair in
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
             .sheet(isPresented: $showHelp) { BoardHelpSheet() }
-            .sheet(isPresented: $showBlocked) { BlockedUsersView() }
-            .confirmationDialog("Delete your account?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-                Button("Delete account and all my data", role: .destructive) {
-                    Task {
-                        do { try await XIService.shared.deleteAccount() }
-                        catch { deleteError = error.localizedDescription }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This permanently deletes your account and all your saved memories and boards. This can't be undone.")
-            }
-            .alert("Couldn't delete account", isPresented: .constant(deleteError != nil)) {
-                Button("OK") { deleteError = nil }
-            } message: {
-                Text(deleteError ?? "")
-            }
             .onChange(of: composing?.id) { newID in
                 if newID == nil { composedCells = [] }   // composer closed → clear the pair
             }

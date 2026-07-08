@@ -24,6 +24,7 @@ struct TodayView: View {
     @State private var totalCount = 0
     @State private var started = false
     @State private var showGallery = false
+    @State private var showSettings = false
     @FocusState private var writing: Bool
 
     private var event: XICard { events[min(ev, events.count - 1)] }
@@ -47,16 +48,21 @@ struct TodayView: View {
         .background(XITheme.paper.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
             if !writing {
-                Button { showGallery = true } label: {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 20)).foregroundStyle(soft)
-                        .padding(.top, 20).padding(.trailing, 18)
+                HStack(spacing: 18) {
+                    Button { showGallery = true } label: {
+                        Image(systemName: "calendar").font(.system(size: 20)).foregroundStyle(soft)
+                    }
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
+                    }
                 }
+                .padding(.top, 20).padding(.trailing, 18)
             }
         }
         .sheet(isPresented: $showGallery) {
             GalleryView { ev, tw in usePair(ev, tw) }
         }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {

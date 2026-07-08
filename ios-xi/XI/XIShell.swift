@@ -43,8 +43,7 @@ struct XIShell: View {
     private var screen: some View {
         switch tab {
         case .today: TodayView()
-        case .curate: CurateView()
-        case .daily: BoardView(auth: auth)
+        case .daily: BoardView()
         case .versus: VersusLobbyView(auth: auth)
         case .board: ConstellationTab()
         case .library: LibraryView()
