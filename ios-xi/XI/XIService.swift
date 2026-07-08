@@ -21,6 +21,10 @@ struct XIMemory: Identifiable {
     let dateTime: String      // short display date, e.g. "6/28/26"
     let timestamp: String     // ISO8601, used for sorting
     var additionalContext: String = ""
+    /// Non-empty only for Commons memories — the friend who wrote it. Your own
+    /// memories leave this blank.
+    var authorName: String = ""
+    var isCommons: Bool { !authorName.isEmpty }
 }
 
 /// A saved board arrangement — the placed memories, their positions, the
@@ -396,8 +400,61 @@ final class XIService {
             mode: d["mode"] as? String ?? "board",
             dateTime: dt,
             timestamp: timestamp,
-            additionalContext: d["additionalContext"] as? String ?? ""
+            additionalContext: d["additionalContext"] as? String ?? "",
+            authorName: d["authorName"] as? String ?? ""
         )
+    }
+
+    // MARK: The Commons — friends' memories brought in from Versus games and
+    // shared boards. A separate collection so they never mix into the archive;
+    // only real people you play or share with land here (never robots/strangers).
+
+    /// Every memory in the user's Commons, newest first.
+    func commonsMemories() async -> [XIMemory] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("commons").getDocuments()
+        return (snap?.documents ?? []).compactMap(parse).sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// Add a friend's memory to the Commons. De-dupes on (author + content) so
+    /// replaying a game or re-importing a board never piles up duplicates.
+    /// Returns true if a new memory was actually written.
+    @discardableResult
+    func addToCommons(title: String, content: String, hashtags: [String],
+                      authorName: String, sourceType: String, sourceId: String) async -> Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = authorName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if c.isEmpty && t.isEmpty { return false }
+        let col = db.collection("users").document(uid).collection("commons")
+        // De-dupe: same author + same content already in the Commons.
+        if let dupe = try? await col.whereField("content", isEqualTo: c).getDocuments(),
+           dupe.documents.contains(where: { ($0.data()["authorName"] as? String ?? "") == author }) {
+            return false
+        }
+        let now = Date()
+        let doc: [String: Any] = [
+            "title": t, "content": c, "hashtags": hashtags,
+            "authorName": author.isEmpty ? "A friend" : author,
+            "sourceType": sourceType, "sourceId": sourceId,
+            "source": "commons",
+            "mode": sourceType == "versus" ? "versus" : "board",
+            "timestamp": isoFormatter.string(from: now),
+            "dateTime": shortDateFormatter.string(from: now),
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+        _ = try? await col.addDocument(data: doc)
+        return true
+    }
+
+    /// Remove a memory from the Commons (hard delete — it isn't yours to trash).
+    func removeFromCommons(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await db.collection("users").document(uid)
+            .collection("commons").document(id).delete()
     }
 
     // MARK: Constellation connections (manual strings between cards)

@@ -69,9 +69,16 @@ struct LibraryView: View {
                         Task { await store.editMemory(m.id, title: t, content: c, hashtagsText: h, context: x) }
                     }
                 case .view(let m):
-                    MemoryDetailSheet(memory: m,
-                                      onEdit: { memSheet = .edit(m) },
-                                      onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
+                    if m.isCommons {
+                        MemoryDetailSheet(memory: m,
+                                          onRemoveFromCommons: {
+                                              Task { await store.removeFromCommons(m.id) }; memSheet = nil
+                                          })
+                    } else {
+                        MemoryDetailSheet(memory: m,
+                                          onEdit: { memSheet = .edit(m) },
+                                          onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
+                    }
                 }
             }
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
@@ -265,7 +272,9 @@ struct LibraryView: View {
     private var content: some View {
         if store.loading {
             Spacer(); ProgressView().tint(XITheme.gold); Spacer()
-        } else if store.memories.isEmpty {
+        } else if store.scope == .commons && store.commons.isEmpty {
+            emptyState("The Commons is empty.", "Friends' memories from Versus games and shared boards collect here — never robots or strangers.")
+        } else if store.scope == .mine && store.memories.isEmpty {
             emptyState("No memories yet.", "Tap ⋯ → New memory to write one, or make one on the board.")
         } else if store.filtered.isEmpty {
             emptyState("No matches.", "Try a different search or clear your filters.")
@@ -301,9 +310,15 @@ struct LibraryView: View {
 
     private func simplifyCard(_ m: XIMemory) -> some View {
         let title = m.title.isEmpty ? m.content : m.title
-        return Text(title.replacingOccurrences(of: ", ", with: " • "))
-            .font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.archiveTitle)
-            .multilineTextAlignment(.center).lineLimit(4)
+        return VStack(spacing: 3) {
+            Text(title.replacingOccurrences(of: ", ", with: " • "))
+                .font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.archiveTitle)
+                .multilineTextAlignment(.center).lineLimit(4)
+            if m.isCommons {
+                Text(m.authorName).font(.system(size: 9, design: .serif).italic())
+                    .foregroundStyle(XITheme.gold).lineLimit(1)
+            }
+        }
             .frame(maxWidth: .infinity, minHeight: 96)
             .padding(8)
             .background(XITheme.archiveCard)
@@ -313,7 +328,10 @@ struct LibraryView: View {
     }
 
     private func open(_ m: XIMemory) {
-        if store.selectMode { store.toggleSelected(m.id) } else { memSheet = .view(m) }
+        if store.selectMode {
+            guard !m.isCommons else { return }   // Commons memories aren't yours to bulk-edit
+            store.toggleSelected(m.id)
+        } else { memSheet = .view(m) }
     }
 
     // MARK: masonry (pack cards into the shortest column so there are no gaps)
@@ -373,6 +391,12 @@ private struct MemoryCard: View {
             if !memory.hashtags.isEmpty {
                 FlowTags(tags: Array(memory.hashtags.prefix(3)), active: activeTags, onTag: onTag)
             }
+            if memory.isCommons {
+                HStack(spacing: 4) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 10))
+                    Text(memory.authorName).font(.system(size: 11, design: .serif).italic())
+                }.foregroundStyle(XITheme.gold)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -380,7 +404,7 @@ private struct MemoryCard: View {
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? XITheme.maroon : XITheme.archiveBorder, lineWidth: selected ? 2 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .topTrailing) {
-            if selectMode {
+            if selectMode && !memory.isCommons {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? XITheme.maroon : XITheme.line)
                     .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
@@ -423,11 +447,20 @@ struct MemoryDetailSheet: View {
     /// When set (archive context), shows Edit / Delete actions.
     var onEdit: (() -> Void)? = nil
     var onTrash: (() -> Void)? = nil
+    /// When set (Commons context), shows a "Remove from Commons" action.
+    var onRemoveFromCommons: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    if memory.isCommons {
+                        HStack(spacing: 5) {
+                            Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
+                            Text("From \(memory.authorName) · the Commons")
+                                .font(.system(.footnote, design: .serif).italic())
+                        }.foregroundStyle(XITheme.gold)
+                    }
                     if !memory.title.isEmpty {
                         Text(memory.title)
                             .font(.system(.title3, design: .serif).weight(.semibold))
@@ -461,6 +494,14 @@ struct MemoryDetailSheet: View {
                     if let onTrash {
                         Button(role: .destructive) { onTrash() } label: {
                             Label("Delete memory", systemImage: "trash")
+                                .font(.system(.body, design: .serif))
+                        }
+                        .tint(XITheme.maroon)
+                        .padding(.top, 6)
+                    }
+                    if let onRemoveFromCommons {
+                        Button(role: .destructive) { onRemoveFromCommons(); dismiss() } label: {
+                            Label("Remove from Commons", systemImage: "person.badge.minus")
                                 .font(.system(.body, design: .serif))
                         }
                         .tint(XITheme.maroon)

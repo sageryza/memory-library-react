@@ -15,8 +15,11 @@ func xiNormTag(_ raw: String) -> String {
 final class ArchiveStore: ObservableObject {
     enum Sort: String, CaseIterable, Identifiable { case newest = "Newest", oldest = "Oldest"; var id: String { rawValue } }
     enum Mode: String, CaseIterable, Identifiable { case all = "All", board = "Board", versus = "Versus"; var id: String { rawValue } }
+    /// Which memories to search: your own, the Commons (friends'), or both.
+    enum Scope: String, CaseIterable, Identifiable { case mine = "Mine", commons = "Commons", both = "Both"; var id: String { rawValue } }
 
     @Published var memories: [XIMemory] = []
+    @Published var commons: [XIMemory] = []
     @Published var libraries: [XILibrary] = []
     @Published var loading = true
 
@@ -27,6 +30,7 @@ final class ArchiveStore: ObservableObject {
     @Published var advancedOn = false
     @Published var mode: Mode = .all
     @Published var sort: Sort = .newest
+    @Published var scope: Scope = .mine
     @Published var selectedLibraryId: String?
 
     // Simplify view (persisted)
@@ -50,20 +54,30 @@ final class ArchiveStore: ObservableObject {
         if !tagFilters.isEmpty { n += 1 }
         if advancedOn && !advanced.isEmpty { n += 1 }
         if mode != .all { n += 1 }
+        if scope != .mine { n += 1 }
         if selectedLibraryId != nil { n += 1 }
         return n
     }
 
     func load() async {
         async let mem = XIService.shared.allMemories()
+        async let com = XIService.shared.commonsMemories()
         async let libs = XIService.shared.loadLibraries()
         memories = await mem
+        commons = await com
         libraries = await libs
         loading = false
     }
 
     func reloadLibraries() async { libraries = await XIService.shared.loadLibraries() }
     func reloadMemories() async { memories = await XIService.shared.allMemories() }
+    func reloadCommons() async { commons = await XIService.shared.commonsMemories() }
+
+    /// Remove a friend's memory from the Commons.
+    func removeFromCommons(_ id: String) async {
+        await XIService.shared.removeFromCommons(id)
+        commons.removeAll { $0.id == id }
+    }
 
     // MARK: memory create / edit / delete
 
@@ -138,16 +152,28 @@ final class ArchiveStore: ObservableObject {
         return ids
     }
 
-    var filtered: [XIMemory] {
+    /// Your own memories, with library scoping / locked-library hiding applied.
+    /// (Libraries are a "mine" concept — they never touch the Commons.)
+    private var scopedMine: [XIMemory] {
         var out = memories
-
-        // Locked-library hiding / library scoping.
         if let lib = selectedLibrary {
             let ids = Set(lib.memories(from: memories).map(\.id))
             out = out.filter { ids.contains($0.id) }
         } else {
             let hidden = lockedHiddenIds
             if !hidden.isEmpty { out = out.filter { !hidden.contains($0.id) } }
+        }
+        return out
+    }
+
+    var filtered: [XIMemory] {
+        // Base set by scope: yours, the Commons, or both. Library selection only
+        // applies to your own memories.
+        var out: [XIMemory]
+        switch scope {
+        case .mine:    out = scopedMine
+        case .commons: out = commons
+        case .both:    out = scopedMine + commons
         }
 
         // Mode.
@@ -224,7 +250,7 @@ final class ArchiveStore: ObservableObject {
 
     func clearAllFilters() {
         search = ""; tagFilters = []; advanced = XISearchLogic(); advancedOn = false
-        mode = .all; selectedLibraryId = nil
+        mode = .all; scope = .mine; selectedLibraryId = nil
     }
 
     // MARK: libraries

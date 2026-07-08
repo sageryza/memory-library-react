@@ -16,6 +16,7 @@ struct LibraryFilterPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            segment("SEARCH IN", ArchiveStore.Scope.allCases, selection: $store.scope) { $0.rawValue }
             segment("MODE", ArchiveStore.Mode.allCases, selection: $store.mode) { $0.rawValue }
             segment("SORT", ArchiveStore.Sort.allCases, selection: $store.sort) { $0.rawValue }
             if !store.tagFilters.isEmpty { activeChips }
