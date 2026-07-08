@@ -184,6 +184,31 @@ final class XIService {
 
     func signOut() throws { try Auth.auth().signOut() }
 
+    /// Permanently delete the signed-in account and all of its data — every
+    /// document under `users/{uid}`, then the Firebase auth user itself.
+    /// Required by App Store guideline 5.1.1(v). If the login is too old,
+    /// Firebase demands a recent re-auth; we surface that as a plain-language
+    /// ask to sign in again rather than a raw error.
+    func deleteAccount() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "XI", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Not signed in."])
+        }
+        let root = db.collection("users").document(user.uid)
+        for sub in ["memories", "libraries", "xiBoard"] {
+            if let snap = try? await root.collection(sub).getDocuments() {
+                for doc in snap.documents { try? await doc.reference.delete() }
+            }
+        }
+        try? await root.delete()
+        do {
+            try await user.delete()
+        } catch let e as NSError where e.code == AuthErrorCode.requiresRecentLogin.rawValue {
+            throw NSError(domain: "XI", code: -10, userInfo: [NSLocalizedDescriptionKey:
+                "For your security, please sign out, sign in again, then delete your account."])
+        }
+    }
+
     // MARK: Save
 
     func saveMemory(event: XICard, twist: XICard, text: String, boardDay: Int, mode: String = "board") async throws {

@@ -36,19 +36,94 @@ extension ComplianceTheme {
     )
 }
 
-/// Tracks blocked players (by uid) so their stories can be hidden. Persists
-/// locally; in a later phase this can sync to the backend.
+/// Tracks blocked players (uid → display name, so the manage-blocked screen can
+/// show who they are). Persists locally; a later phase can sync to the backend.
 @MainActor
 final class Moderation: ObservableObject {
-    @Published private(set) var blocked: Set<String> = []
-    private let key = "xi.blockedUids.v1"
+    @Published private(set) var blocked: [String: String] = [:]
+    private let key = "xi.blocked.v2"
+    private let legacyKey = "xi.blockedUids.v1"
 
-    init() { blocked = Set(UserDefaults.standard.stringArray(forKey: key) ?? []) }
+    init() {
+        if let dict = UserDefaults.standard.dictionary(forKey: key) as? [String: String] {
+            blocked = dict
+        } else if let uids = UserDefaults.standard.stringArray(forKey: legacyKey), !uids.isEmpty {
+            blocked = Dictionary(uniqueKeysWithValues: uids.map { ($0, "Player") })   // migrate v1
+            persist()
+        }
+    }
 
-    func isBlocked(_ uid: String) -> Bool { blocked.contains(uid) }
-    func block(_ uid: String) { guard !uid.isEmpty else { return }; blocked.insert(uid); persist() }
-    func unblock(_ uid: String) { blocked.remove(uid); persist() }
-    private func persist() { UserDefaults.standard.set(Array(blocked), forKey: key) }
+    func isBlocked(_ uid: String) -> Bool { blocked[uid] != nil }
+    func block(_ uid: String, name: String) {
+        guard !uid.isEmpty else { return }
+        blocked[uid] = name.isEmpty ? "Player" : name; persist()
+    }
+    func unblock(_ uid: String) { blocked.removeValue(forKey: uid); persist() }
+    var list: [(uid: String, name: String)] {
+        blocked.map { (uid: $0.key, name: $0.value) }.sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+    private func persist() { UserDefaults.standard.set(blocked, forKey: key) }
+}
+
+/// Lightweight objectionable-word filter for user-generated text (Versus
+/// stories, display names). Masks matches with asterisks — enough to meet the
+/// Guideline 1.2 "filter objectionable content" expectation without a server
+/// round-trip. Word-boundary + case-insensitive so it doesn't mangle innocent
+/// substrings (e.g. "class", "assess").
+enum ContentFilter {
+    private static let banned = [
+        "fuck", "shit", "bitch", "cunt", "asshole", "bastard", "dick",
+        "piss", "slut", "whore", "nigger", "faggot", "retard", "rape",
+    ]
+    private static let regex: NSRegularExpression? = {
+        let alt = banned.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+        return try? NSRegularExpression(pattern: "\\b(\(alt))\\b", options: [.caseInsensitive])
+    }()
+
+    /// Return `text` with any banned word replaced by asterisks of equal length.
+    static func masked(_ text: String) -> String {
+        guard !text.isEmpty, let regex else { return text }
+        let result = NSMutableString(string: text)
+        let full = NSRange(location: 0, length: (text as NSString).length)
+        for m in regex.matches(in: text, options: [], range: full).reversed() {
+            result.replaceCharacters(in: m.range, with: String(repeating: "*", count: m.range.length))
+        }
+        return result as String
+    }
+}
+
+/// A simple manage-blocked screen so a block can be undone (the block itself is
+/// applied inline from a story's ••• menu). Reads the persisted block list.
+struct BlockedUsersView: View {
+    @StateObject private var moderation = Moderation()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                if moderation.list.isEmpty {
+                    Text("You haven't blocked anyone.")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(moderation.list, id: \.uid) { item in
+                        HStack {
+                            Text(item.name)
+                            Spacer()
+                            Button("Unblock") {
+                                withAnimation { moderation.unblock(item.uid) }
+                            }
+                            .foregroundColor(.accentColor)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Blocked players")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
+            }
+        }
+    }
 }
 
 /// Gates the app behind a one-time acceptance of the Terms (EULA) + Privacy
