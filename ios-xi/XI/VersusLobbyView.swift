@@ -17,6 +17,8 @@ struct VersusLobbyView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var path: [String] = []
+    @State private var names: [String: String] = [:]   // gameId → other players' names
+    @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -56,7 +58,8 @@ struct VersusLobbyView: View {
                         ForEach(VersusRecents.list(), id: \.self) { id in
                             Button { path.append(id) } label: {
                                 HStack {
-                                    Text(id).font(.system(.body, design: .serif, weight: .medium))
+                                    Text(names[id] ?? "game \(id)")
+                                        .font(.system(.body, design: .serif, weight: .medium))
                                     Spacer()
                                     Image(systemName: "chevron.right").font(.caption)
                                 }
@@ -84,6 +87,27 @@ struct VersusLobbyView: View {
             }
         }
         .tint(XITheme.gold)
+        // Load the other players' names for the "your games" list.
+        .task { await loadNames() }
+        // A shared Versus link joins the game and opens it.
+        .task(id: deepLink.pendingVersusGameId) {
+            guard let id = deepLink.pendingVersusGameId else { return }
+            deepLink.pendingVersusGameId = nil
+            busy = true; error = nil
+            do {
+                try await VersusService.shared.joinGame(id)
+                VersusRecents.remember(id)
+                if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
+                busy = false
+                if !path.contains(id) { path.append(id) }
+            } catch { self.error = error.localizedDescription; busy = false }
+        }
+    }
+
+    private func loadNames() async {
+        for id in VersusRecents.list() where names[id] == nil {
+            if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
+        }
     }
 
     private func start() {
@@ -99,7 +123,12 @@ struct VersusLobbyView: View {
     }
 
     private func join(_ code: String) {
-        let id = code.trimmingCharacters(in: .whitespaces)
+        var id = code.trimmingCharacters(in: .whitespaces)
+        // Accept a pasted "…/versus/{id}" link as well as a bare code.
+        if id.contains("/"), let url = URL(string: id),
+           let parsed = XIDeepLink.parse(url), parsed.kind == "versus" {
+            id = parsed.id
+        }
         guard !id.isEmpty else { return }
         busy = true; error = nil
         Task {

@@ -94,6 +94,20 @@ final class VersusService {
         ])
     }
 
+    /// The other players' names in a game (everyone but you), for the lobby list.
+    /// nil if no one else has joined yet.
+    func otherPlayerNames(gameId: String) async -> String? {
+        guard let snap = try? await gameRef(gameId).getDocument(), let g = snap.data() else { return nil }
+        let players = (g["players"] as? [[String: Any]]) ?? []
+        let mine = uid
+        let others = players.compactMap { p -> String? in
+            guard let puid = p["uid"] as? String, puid != mine else { return nil }
+            let n = (p["name"] as? String)?.trimmingCharacters(in: .whitespaces)
+            return (n?.isEmpty == false) ? n : nil
+        }
+        return others.isEmpty ? nil : others.joined(separator: ", ")
+    }
+
     // MARK: Hand
 
     func ensureHand(_ gameId: String) async throws {

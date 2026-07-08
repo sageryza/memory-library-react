@@ -11,21 +11,29 @@ final class XIDeepLink: ObservableObject {
 
     /// The share id from a `/share/{id}` or `/x/{id}` link, awaiting handling.
     @Published var pendingShareId: String?
+    /// The game id from a `/versus/{id}` or `/v/{id}` link, awaiting handling.
+    @Published var pendingVersusGameId: String?
 
-    /// Pull a share id out of a universal link. Returns nil for links we don't own.
-    static func shareId(from url: URL) -> String? {
+    /// Pull the (kind, id) out of a universal link. Returns nil for links we
+    /// don't own. kind is "share" or "versus".
+    static func parse(_ url: URL) -> (kind: String, id: String)? {
         guard let host = url.host, host.contains("incaseofamnesia.com") else { return nil }
-        let parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["share", "abc123"]
-        guard parts.count >= 2, parts[0] == "share" || parts[0] == "x" else { return nil }
+        let parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
+        guard parts.count >= 2 else { return nil }
         let id = parts[1].trimmingCharacters(in: .whitespaces)
-        return id.isEmpty ? nil : id
+        guard !id.isEmpty else { return nil }
+        switch parts[0] {
+        case "share", "x": return ("share", id)
+        case "versus", "v": return ("versus", id)
+        default: return nil
+        }
     }
 
     /// Handle a universal-link URL; returns true if it was ours.
     @discardableResult
     func handle(_ url: URL) -> Bool {
-        guard let id = Self.shareId(from: url) else { return false }
-        pendingShareId = id
+        guard let (kind, id) = Self.parse(url) else { return false }
+        if kind == "versus" { pendingVersusGameId = id } else { pendingShareId = id }
         return true
     }
 }

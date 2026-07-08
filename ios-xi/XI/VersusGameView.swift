@@ -304,7 +304,7 @@ struct VersusGameView: View {
     }
 
     private var shareText: String {
-        "Join my XI Versus game — code \(gameId) at https://incaseofamnesia.com/xi"
+        "Join my XI Versus game — tap to play: https://incaseofamnesia.com/versus/\(gameId)"
     }
 
     // MARK: interaction

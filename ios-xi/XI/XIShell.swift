@@ -39,9 +39,12 @@ struct XIShell: View {
             }
             .animation(.easeInOut(duration: 0.2), value: keyboard.visible)
             // A shared-board link jumps to the Library, which offers to add it to
-            // your Commons.
+            // your Commons; a Versus link jumps to the Versus tab, which joins.
             .onChange(of: deepLink.pendingShareId) { id in
                 if id != nil { tab = .library }
+            }
+            .onChange(of: deepLink.pendingVersusGameId) { id in
+                if id != nil { tab = .versus }
             }
     }
 
