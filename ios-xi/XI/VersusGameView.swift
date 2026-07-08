@@ -221,17 +221,6 @@ struct VersusGameView: View {
                 Button("undo placement") { run { try await VersusService.shared.undoLastMove(gameId) } }
                     .buttonStyle(VersusButton(filled: false))
             }
-            // Skip is a quiet escape hatch, not a call to action — just a line of
-            // faint italic text in the same spot.
-            if !iActed && !iPlaced {
-                Button { run { try await VersusService.shared.skipTurn(gameId) } } label: {
-                    Text("skip turn")
-                        .font(.system(.footnote, design: .serif).italic())
-                        .foregroundStyle(XITheme.line)
-                        .underline()
-                }
-                .buttonStyle(.plain)
-            }
         }
         .disabled(busy)
     }

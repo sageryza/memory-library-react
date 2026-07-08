@@ -141,7 +141,7 @@ struct TodayView: View {
 
             HStack(alignment: .center, spacing: 10) {
                 if totalCount > 0 {
-                    Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
+                    Text("\(totalCount) collected today")
                         .font(.system(size: 13, design: .serif).italic())
                         .foregroundStyle(soft)
                 }
@@ -218,10 +218,17 @@ struct TodayView: View {
         memories = await XIService.shared.memories(pairKey: pairKey)
     }
 
-    /// Running total of every memory collected — a sense of progress that holds
-    /// across cards, not just the current pairing.
+    /// How many memories were collected TODAY (a daily tally, not an all-time
+    /// running total).
     private func loadTotal() async {
-        totalCount = await XIService.shared.allMemories().count
+        let all = await XIService.shared.allMemories()
+        let full = ISO8601DateFormatter(); full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter(); plain.formatOptions = [.withInternetDateTime]
+        let cal = Calendar.current
+        totalCount = all.filter { m in
+            guard let d = full.date(from: m.timestamp) ?? plain.date(from: m.timestamp) else { return false }
+            return cal.isDateInToday(d)
+        }.count
     }
 
     private func save() async {

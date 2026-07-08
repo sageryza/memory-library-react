@@ -20,7 +20,7 @@ struct LibraryView: View {
     @StateObject private var store = ArchiveStore()
 
     @State private var memSheet: MemSheet?
-    @State private var showFilter = false
+    @State private var filtersExpanded = false
     @State private var showLibraries = false
     @State private var showAddTag = false
     @State private var addTagText = ""
@@ -38,6 +38,11 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
+                if filtersExpanded {
+                    ScrollView { LibraryFilterPanel(store: store) }
+                        .frame(maxHeight: 460)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
                 content
                 if store.selectMode { selectionBar }
@@ -70,7 +75,6 @@ struct LibraryView: View {
                 }
             }
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
-            .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
             .alert("Add hashtag", isPresented: $showAddTag) {
                 TextField("#tag", text: $addTagText)
@@ -109,35 +113,22 @@ struct LibraryView: View {
                 .foregroundStyle(XITheme.ink)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button { showLibraries = true } label: { Image(systemName: "books.vertical") }.tint(XITheme.gold)
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button { showFilter = true } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .overlay(alignment: .topTrailing) {
-                        if store.activeFilterCount > 0 {
-                            Text("\(store.activeFilterCount)")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 14, height: 14)
-                                .background(XITheme.maroon).clipShape(Circle())
-                                .offset(x: 6, y: -6)
-                        }
-                    }
-            }.tint(XITheme.gold)
+            Button { memSheet = .add } label: { Image(systemName: "plus") }
+                .tint(XITheme.gold)
+                .accessibilityLabel("New memory")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button { memSheet = .add } label: { Label("New memory", systemImage: "square.and.pencil") }
-                Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
-                Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
+                Button { store.toggleSelectMode() } label: {
+                    Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
+                }
+                Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
                 Button { store.simplify.toggle() } label: {
                     Label(store.simplify ? "Detailed view" : "Simplify view",
                           systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
                 }
-                Button { store.toggleSelectMode() } label: {
-                    Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
-                }
+                Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
+                Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
             } label: { Image(systemName: "ellipsis.circle") }.tint(XITheme.gold)
         }
     }
@@ -156,6 +147,21 @@ struct LibraryView: View {
             if !store.search.isEmpty {
                 Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
             }
+            Button {
+                searchFocused = false
+                withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .semibold))
+                    .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
+                    .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
+                    .overlay(alignment: .topTrailing) {
+                        if store.activeFilterCount > 0 && !filtersExpanded {
+                            Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: 4, y: -3)
+                        }
+                    }
+            }
+            .accessibilityLabel(filtersExpanded ? "Hide filters" : "Show filters")
         }
         .padding(10)
         .background(XITheme.white)
