@@ -50,6 +50,14 @@ struct VersusGameView: View {
         return Set(VersusModel.legalCells(placed, card).map { "\($0.0),\($0.1)" })
     }
 
+    /// A simple gold shape per player (by join order) instead of a coloured dot —
+    /// triangle, square, circle, diamond, …
+    static func playerSymbol(_ order: Int) -> String {
+        let shapes = ["triangle.fill", "square.fill", "circle.fill", "diamond.fill",
+                      "pentagon.fill", "hexagon.fill"]
+        return shapes[((order % shapes.count) + shapes.count) % shapes.count]
+    }
+
     // Body is split into layered `some View` properties so each modifier chain
     // stays short — keeps the SwiftUI type-checker well under its timeout.
     var body: some View {
@@ -156,7 +164,8 @@ struct VersusGameView: View {
             LazyVGrid(columns: cols, spacing: 8) {
                 ForEach(g.players) { p in
                     HStack(spacing: 5) {
-                        Circle().fill(Color(xiHex: p.color)).frame(width: 9, height: 9)
+                        Image(systemName: Self.playerSymbol(p.order))
+                            .font(.system(size: 9)).foregroundStyle(XITheme.gold)
                         Text(p.name).font(.system(.caption, design: .serif)).lineLimit(1)
                             .foregroundStyle(XITheme.ink)
                         if g.acted.contains(p.uid) {

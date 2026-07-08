@@ -35,8 +35,7 @@ struct TodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                brand
-                newCardsRow
+                header
                 cardRow
                 composer
                 collected
@@ -82,27 +81,24 @@ struct TodayView: View {
 
     // MARK: header
 
-    private var brand: some View {
-        Text("cards of the day")
-            .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.maroon)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.bottom, 10)
-    }
-
-    /// "New cards" stays centered near the top; the undo (when present) sits to
-    /// its left, balanced so the button reads as centered.
-    private var newCardsRow: some View {
+    /// The header row: "New cards" sits at the very top-left (with undo when
+    /// available), the "cards of the day" title centered over it. The floating
+    /// gear/calendar cluster lives top-right, so space is reserved on the right.
+    private var header: some View {
         HStack(spacing: 10) {
             if !hist.isEmpty {
                 Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
                     .foregroundStyle(soft)
             }
-            Spacer()
             newCardsButton
             Spacer()
-            Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
+            Color.clear.frame(width: 56, height: 1)   // clears the floating gear/calendar
         }
-        .padding(.bottom, 14)
+        .overlay(
+            Text("cards of the day")
+                .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.maroon)
+        )
+        .padding(.bottom, 12)
     }
 
     private var newCardsButton: some View {

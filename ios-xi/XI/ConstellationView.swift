@@ -187,19 +187,27 @@ struct ConstellationView: View {
     }
 
     private var emptyBoard: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "pin").font(.system(size: 34, weight: .thin)).foregroundStyle(bodyGrey)
-            Text("Your board is empty")
-                .font(.system(.title3, design: .serif)).foregroundStyle(slate)
-            Text("Pin memories to the board to connect them with string.")
-                .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
-                .multilineTextAlignment(.center)
-            Button { showAdd = true } label: {
-                Label("Add memories", systemImage: "plus")
-                    .font(.system(.body, design: .serif).weight(.medium))
-                    .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
-                    .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
-            }.padding(.top, 4)
+        ZStack {
+            // The blurred mock of a finished constellation sits behind, partially
+            // covered by the prompt — a hint of what the board becomes.
+            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
+                                 slate: slate, bodyGrey: bodyGrey)
+            VStack(spacing: 14) {
+                Text("Your board is empty")
+                    .font(.system(.title3, design: .serif)).foregroundStyle(slate)
+                Text("Pin memories to the board to connect them with string.")
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
+                    .multilineTextAlignment(.center)
+                Button { showAdd = true } label: {
+                    Label("Add memories", systemImage: "plus")
+                        .font(.system(.body, design: .serif).weight(.medium))
+                        .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
+                        .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
+                }.padding(.top, 4)
+            }
+            .padding(20)
+            .background(Color.white.opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .padding(28)
     }
@@ -1044,11 +1052,6 @@ private struct ConstellationPreview: View {
         .frame(width: 300, height: 230)
         .blur(radius: 2.6)
         .opacity(0.7)
-        .overlay(
-            Text("this is what a constellation looks like")
-                .font(.system(.footnote, design: .serif).italic())
-                .foregroundStyle(crimson)
-        )
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
