@@ -29,6 +29,7 @@ struct LibraryView: View {
     @State private var importMsg: String?
     @State private var pendingImport: ArchiveStore.PendingImport?
     @State private var showTrash = false
+    @ObservedObject private var deepLink = XIDeepLink.shared
     @FocusState private var searchFocused: Bool
 
     private let simplifyCols = [GridItem(.flexible(), spacing: 10),
@@ -121,6 +122,14 @@ struct LibraryView: View {
             } message: { Text(importMsg ?? "") }
         }
         .task { await store.load() }
+        // A universal link (incaseofamnesia.com/share/…) resolves here and raises
+        // the same "Add to your Commons?" prompt as a pasted link.
+        .task(id: deepLink.pendingShareId) {
+            guard let id = deepLink.pendingShareId else { return }
+            if let p = await store.prepareImport(id) { pendingImport = p }
+            else { importMsg = "Couldn't open that shared board." }
+            deepLink.pendingShareId = nil
+        }
     }
 
     // MARK: toolbar

@@ -25,6 +25,7 @@ struct XIShell: View {
     @ObservedObject var auth: AuthState
     @State private var tab: XiTab = .today
     @StateObject private var keyboard = KeyboardObserver()
+    @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
         screen
@@ -37,6 +38,11 @@ struct XIShell: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: keyboard.visible)
+            // A shared-board link jumps to the Library, which offers to add it to
+            // your Commons.
+            .onChange(of: deepLink.pendingShareId) { id in
+                if id != nil { tab = .library }
+            }
     }
 
     @ViewBuilder
