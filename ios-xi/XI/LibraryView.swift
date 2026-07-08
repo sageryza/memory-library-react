@@ -43,7 +43,7 @@ struct LibraryView: View {
                 if store.selectMode { selectionBar }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle(store.selectedLibrary?.name ?? "your memories")
+            .navigationTitle(store.selectedLibrary?.name ?? "Memory Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .toolbar {
@@ -103,6 +103,11 @@ struct LibraryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            Text(store.selectedLibrary?.name ?? "Memory Library")
+                .font(.system(.headline, design: .serif))
+                .foregroundStyle(XITheme.ink)
+        }
         ToolbarItem(placement: .topBarLeading) {
             Button { showLibraries = true } label: { Image(systemName: "books.vertical") }.tint(XITheme.gold)
         }

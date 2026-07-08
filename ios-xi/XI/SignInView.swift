@@ -11,6 +11,7 @@ struct SignInView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var appleNonce: String?
+    @State private var showPassword = false
 
     var body: some View {
         VStack(spacing: 18) {
@@ -28,14 +29,30 @@ struct SignInView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(XITheme.white)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
-                SecureField("password", text: $password)
+                HStack(spacing: 8) {
+                    Group {
+                        if showPassword {
+                            TextField("password", text: $password)
+                        } else {
+                            SecureField("password", text: $password)
+                        }
+                    }
                     .textContentType(.password)
-                    .padding(12)
-                    .background(XITheme.white)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                    Button { showPassword.toggle() } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .foregroundStyle(XITheme.line)
+                    }
+                    .accessibilityLabel(showPassword ? "Hide password" : "Show password")
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
             }
             .font(.system(.body, design: .serif))
             .padding(.top, 6)
