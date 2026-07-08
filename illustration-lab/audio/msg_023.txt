@@ -1,0 +1,21 @@
+Found solid ones. Here are three where the same passage got a different label — old version versus my rebuild. One honest caveat first: I don't have the other chat's written reasoning — those bands came from a prior session with no recorded rationale — so their "why" is my inference from the label and text, not something they documented.
+
+One. February 2nd — "building a business around thinking about plants: autopro, look at each plant and decide what you like about it, draw and map each plant."
+Old: abstract. New: ideas.
+My call: it names a concrete thing to build — a business, plus a repeatable process, "autopro." A named project or plan is ideas, by the rule I used: a concrete artifact or plan equals ideas.
+Their likely call: "autopro" is one of her recurring mental-system concepts — it's even a theme tag in your Notion — so they probably read this as her theorizing about a thinking-process, which is abstract.
+This is the blurry ideas-versus-abstract seam both passes struggled with.
+
+Two. February 3rd — "I like how I depicted the trip from Evan to Zach's house. The line goes across the page like a heading. I like how I abstracted the two maps game."
+Old: ideas. New: drawings.
+My call: she's describing a drawing she actually made — how it's rendered on the page, where the line goes. Describing a physical made piece is drawings.
+Their likely call: the passage is about her abstraction technique and creative concept, so they filed the idea aspect under ideas.
+
+Three. February 1st — "Reading back through all my old diaries is a trip. I feel like I really was crazy. Some of the papers are just like 'pee god.'"
+Old: abstract. New: day.
+My call: it's recounting an activity and her reaction to it — reading old diaries, what she found — everyday narrative, so, day.
+Their likely call: it's self-reflection on her own mind, her "craziness," which reads as introspective and meta, so they leaned abstract.
+
+The pattern: my pass classified more literally, by what she's concretely doing or making — an activity becomes day, a named project becomes ideas, a physical drawing becomes drawings — while the old pass leaned toward the underlying conceptual theme: introspection and mental-systems became abstract. Neither is wrong; it's a genuine altitude choice. If you have a preference — lean literal, or lean thematic — tell me, and I can make the whole timeline consistent to that.
+
+To wrap up: three real cases — February 2nd, abstract to ideas, the plants business; February 3rd, ideas to drawings, the depicted trip; February 1st, abstract to day, reading old diaries. I labeled by the concrete surface; the old chat leaned toward the abstract theme underneath. Their reasoning is my inference — it wasn't written down. Tell me which way you prefer and I'll standardize it. The draft pull request link is in the chat.
