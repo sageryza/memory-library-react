@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "5XR23N2CBH.com.sageryza.xi",
+        "paths": [ "/share/*", "/x/*" ]
+      }
+    ]
+  }
+}
