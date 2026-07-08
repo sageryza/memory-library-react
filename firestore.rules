@@ -39,6 +39,12 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // User's Commons — friends' memories brought in from Versus games and
+      // shared boards. Owner-only, just like their own memories.
+      match /commons/{memoryId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // User's board state
       match /boardState/{stateId} {
         allow read, write: if isOwner(userId);
