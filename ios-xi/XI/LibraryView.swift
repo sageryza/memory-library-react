@@ -142,7 +142,7 @@ struct LibraryView: View {
                 .foregroundStyle(XITheme.maroon)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button { memSheet = .add } label: { Image(systemName: "rectangle.stack.badge.plus") }
+            Button { memSheet = .add } label: { Image(systemName: "rectangle.badge.plus") }
                 .tint(XITheme.gold)
                 .buttonBorderShape(.roundedRectangle)
                 .accessibilityLabel("New memory")
@@ -563,6 +563,9 @@ struct MemoryEditorSheet: View {
     @State private var content = ""
     @State private var hashtags = ""
     @State private var context = ""
+    @State private var genTitle = false
+    @State private var genTags = false
+    @AppStorage("xiMemoryCreateCount") private var createCount = 0
     @FocusState private var focused: Bool
 
     private var canSave: Bool {
@@ -574,19 +577,18 @@ struct MemoryEditorSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    field("TITLE") {
-                        TextField("a short title (optional)", text: $title)
-                            .font(.system(.body, design: .serif)).focused($focused)
-                    }
                     field("MEMORY") {
                         TextEditor(text: $content)
                             .font(.system(.body, design: .serif)).frame(minHeight: 140)
                             .scrollContentBackground(.hidden).focused($focused)
                     }
-                    field("HASHTAGS") {
-                        TextField("family, beach, summer", text: $hashtags)
-                            .font(.system(.body, design: .serif)).autocorrectionDisabled()
-                            .textInputAutocapitalization(.never).focused($focused)
+                    magicField("TITLE", text: $title, generating: genTitle,
+                               nudge: existing == nil && createCount < 2) {
+                        await runGenerateTitle()
+                    }
+                    magicField("HASHTAGS", text: $hashtags, autocorrect: false, generating: genTags,
+                               nudge: false) {
+                        await runGenerateTags()
                     }
                     field("MORE CONTEXT (optional)") {
                         TextEditor(text: $context)
@@ -610,7 +612,10 @@ struct MemoryEditorSheet: View {
                         .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { onSave(title, content, hashtags, context); dismiss() } label: {
+                    Button {
+                        if existing == nil { createCount += 1 }
+                        onSave(title, content, hashtags, context); dismiss()
+                    } label: {
                         Image(systemName: "checkmark")
                     }
                     .tint(XITheme.gold)
@@ -641,6 +646,61 @@ struct MemoryEditorSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
+    }
+
+    /// A short one-line field with a square gold "sparkles" button that fills it
+    /// in automatically from the memory text.
+    private func magicField(_ label: String, text: Binding<String>, autocorrect: Bool = true,
+                            generating: Bool, nudge: Bool,
+                            action: @escaping () async -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .tracking(1).foregroundStyle(XITheme.navInk)
+            HStack(spacing: 8) {
+                TextField("", text: text)
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .autocorrectionDisabled(!autocorrect)
+                    .textInputAutocapitalization(autocorrect ? .sentences : .never)
+                    .focused($focused)
+                    .padding(10).background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Button { Task { await action() } } label: {
+                    Group {
+                        if generating { ProgressView().tint(XITheme.gold) }
+                        else { Image(systemName: "sparkles").font(.system(size: 17)).foregroundStyle(.white) }
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(XITheme.gold)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .disabled(generating || content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                .accessibilityLabel("Generate \(label.lowercased())")
+            }
+            if nudge {
+                Text("✨ tap the star to fill this in automatically")
+                    .font(.system(size: 11, design: .serif).italic()).foregroundStyle(XITheme.gold)
+            }
+        }
+    }
+
+    private func runGenerateTitle() async {
+        let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !c.isEmpty else { return }
+        focused = false; genTitle = true
+        if let t = await XIService.shared.generateTitle(from: c) { title = t }
+        genTitle = false
+    }
+
+    private func runGenerateTags() async {
+        let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !c.isEmpty else { return }
+        focused = false; genTags = true
+        if let tags = await XIService.shared.generateTags(from: c), !tags.isEmpty {
+            hashtags = tags.joined(separator: " ")
+        }
+        genTags = false
     }
 }
 

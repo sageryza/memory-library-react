@@ -172,11 +172,6 @@ private struct VersusPreview: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .blur(radius: 2.6)
         .opacity(0.72)
-        .overlay(
-            Text("this is what a game looks like")
-                .font(.system(.footnote, design: .serif).italic())
-                .foregroundStyle(XITheme.gold)
-        )
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

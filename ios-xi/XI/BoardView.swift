@@ -47,11 +47,6 @@ struct BoardView: View {
                         .foregroundStyle(XITheme.line)
                         .multilineTextAlignment(.center)
                         .padding(.top, 4)
-                } else {
-                    Text("\(XIRobots.playedToday(day: today)) people played today")
-                        .font(.system(.footnote, design: .serif))
-                        .foregroundStyle(XITheme.gold)
-                        .padding(.top, 4)
                 }
                 Spacer()
             }

@@ -1676,6 +1676,17 @@ const CARDS_SYSTEM = [
   'Output ONLY the cards, one per line, lowercase, no numbering, no commentary.',
 ].join('\n');
 
+const TAGS_SYSTEM = [
+  'You tag a person\'s own memory with a few hashtags that capture its THEMES —',
+  'the underlying shape or recurring kind of life-moment — not just surface nouns.',
+  'Aim for the altitude of these:',
+  '#times-i-was-disappointed · #times-i-got-what-i-wanted · #small-kindnesses ·',
+  '#letting-go · #almost-said-it · #unexpected-turns · #quiet-pride · #near-misses',
+  'Give 3–5 tags: mostly thematic, with at most one concrete anchor (a place,',
+  'a kind of person, an object) if it truly matters. Lowercase; hyphenate',
+  'multi-word tags; each starts with #. Output ONLY the tags separated by spaces.',
+].join('\n');
+
 const textOf = (msg) => ((msg && msg.content && msg.content[0] && msg.content[0].text) || '');
 
 // Callable AI assist:
@@ -1723,6 +1734,20 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
       .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
       .filter(Boolean).slice(0, n);
     return { cards };
+  }
+
+  if (mode === 'tags') {
+    const text = String(data.text || '').trim().slice(0, 4000);
+    if (!text) throw new HttpsError('invalid-argument', 'No text to tag.');
+    const msg = await client.messages.create({
+      model: TITLE_MODEL,
+      max_tokens: 80,
+      system: TAGS_SYSTEM,
+      messages: [{ role: 'user', content: `Memory:\n\n${text}\n\nTags:` }],
+    });
+    const tags = textOf(msg).split(/[\s,]+/).map((t) => t.trim()).filter(Boolean)
+      .map((t) => (t.startsWith('#') ? t : `#${t}`)).slice(0, 6);
+    return { tags };
   }
 
   throw new HttpsError('invalid-argument', 'Unknown mode.');

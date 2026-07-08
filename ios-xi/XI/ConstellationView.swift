@@ -180,12 +180,8 @@ struct ConstellationView: View {
     }
 
     private var emptyBoard: some View {
-        VStack(spacing: 18) {
-            // A blurred mock of a little finished constellation — three pinned
-            // cards joined by crimson string — so the empty state hints at what
-            // the board becomes rather than being a bare "add memories" prompt.
-            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
-                                 slate: slate, bodyGrey: bodyGrey)
+        VStack(spacing: 14) {
+            Image(systemName: "pin").font(.system(size: 34, weight: .thin)).foregroundStyle(bodyGrey)
             Text("Your board is empty")
                 .font(.system(.title3, design: .serif)).foregroundStyle(slate)
             Text("Pin memories to the board to connect them with string.")
@@ -195,8 +191,8 @@ struct ConstellationView: View {
                 Label("Add memories", systemImage: "plus")
                     .font(.system(.body, design: .serif).weight(.medium))
                     .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
-                    .background(crimson).clipShape(RoundedRectangle(cornerRadius: 6))
-            }
+                    .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
+            }.padding(.top, 4)
         }
         .padding(28)
     }

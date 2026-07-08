@@ -294,6 +294,23 @@ final class XIService {
         return (updated, targets.count)
     }
 
+    /// Ask the shared `aiAssist` Cloud Function (Claude Haiku) for a few thematic
+    /// hashtags distilled from the memory's text. Returns nil if AI is off /
+    /// unreachable (or the `tags` mode isn't deployed yet).
+    func generateTags(from text: String) async -> [String]? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count > 3 else { return nil }
+        do {
+            let res = try await functions.httpsCallable("aiAssist").call(["mode": "tags", "text": t])
+            guard let data = res.data as? [String: Any],
+                  let arr = data["tags"] as? [String] else { return nil }
+            let tags = arr.map { xiNormTag($0) }.filter { !$0.isEmpty }
+            return tags.isEmpty ? nil : tags
+        } catch {
+            return nil
+        }
+    }
+
     /// Create a memory written directly (not from the XI card game): the same
     /// fields the web's Add Memory modal uses — title, content, hashtags, and an
     /// optional bit of extra context.
