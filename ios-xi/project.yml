@@ -46,9 +46,11 @@ targets:
         com.apple.developer.applesignin:
           - Default
         # Universal links — a tapped incaseofamnesia.com/share/… link opens the
-        # app and offers to add that board's memories to your Commons.
-        com.apple.developer.associated-domains:
-          - applinks:incaseofamnesia.com
+        # app and offers to add that board's memories to your Commons. Held out
+        # of the build until certificate reuse is proven (re-add after), so the
+        # first cert-reuse build changes only one thing at a time.
+        # com.apple.developer.associated-domains:
+        #   - applinks:incaseofamnesia.com
     dependencies:
       - package: Firebase
         product: FirebaseCore

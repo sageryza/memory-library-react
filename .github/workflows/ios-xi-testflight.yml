@@ -42,6 +42,34 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # Import ONE stored Apple Distribution certificate into a temporary
+      # keychain. With a valid signing identity already present, automatic
+      # signing REUSES it instead of minting a fresh certificate every run —
+      # which is what kept filling the account's certificate cap. If the secret
+      # isn't set yet, we warn and fall back to the old (cert-minting) behaviour
+      # so the workflow still runs during setup.
+      - name: Import signing certificate
+        env:
+          CERT_P12: ${{ secrets.XI_DIST_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.XI_DIST_CERT_PASSWORD }}
+        run: |
+          if [ -z "$CERT_P12" ]; then
+            echo "::warning::XI_DIST_CERT_P12 not set — skipping cert reuse (build will mint a certificate as before)."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/xi-signing.keychain-db"
+          KEYCHAIN_PW="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/xi-dist.p12"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/xi-dist.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+          # Put our keychain first in the search list so xcodebuild finds the identity.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          echo "Signing identities now available:"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
       - name: Generate Xcode project
         working-directory: ios-xi
         run: xcodegen generate
