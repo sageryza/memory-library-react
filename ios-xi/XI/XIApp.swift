@@ -4,7 +4,7 @@ import GoogleSignIn
 
 @main
 struct XIApp: App {
-    init() { Self.configureFirebase() }
+    init() { Self.configureFirebase(); XIImagePrefetch.warm() }
 
     var body: some Scene {
         WindowGroup {
