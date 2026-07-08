@@ -44,8 +44,8 @@ final class VersusService {
 
     private func currentName() -> String {
         if let u = Auth.auth().currentUser {
-            if let dn = u.displayName, !dn.isEmpty { return dn }
-            if let em = u.email, let p = em.split(separator: "@").first { return String(p) }
+            if let dn = u.displayName, !dn.isEmpty { return ContentFilter.masked(dn) }
+            if let em = u.email, let p = em.split(separator: "@").first { return ContentFilter.masked(String(p)) }
         }
         return "Player"
     }
@@ -196,11 +196,32 @@ final class VersusService {
         }
     }
 
+    // MARK: Moderation
+
+    /// Persist a report of another player's story so it can be reviewed and
+    /// acted on (App Store guideline 1.2). Written to a top-level `versusReports`
+    /// collection with the offending content and both parties' ids.
+    func reportStory(gameId: String, story: VersusStory, reason: String, details: String) async throws {
+        try await db.collection("versusReports").addDocument(data: [
+            "gameId": gameId,
+            "storyId": story.id,
+            "reportedUid": story.byUid,
+            "reportedName": story.byName,
+            "storyText": story.text,
+            "reason": reason,
+            "details": details.trimmingCharacters(in: .whitespacesAndNewlines),
+            "reporterUid": uid ?? "anonymous",
+            "status": "pending",
+            "ts": FieldValue.serverTimestamp(),
+        ])
+    }
+
     // MARK: Story
 
     func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced, text: String) async throws {
         guard let uid = uid else { throw e("Sign in to write.") }
-        let t = text.trimmingCharacters(in: .whitespacesAndNewlines); guard !t.isEmpty else { return }
+        let t = ContentFilter.masked(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !t.isEmpty else { return }
         let evCard = XIDeck.events[event.i], twCard = XIDeck.twists[twist.i]
         let pk = "\(evCard.id)__\(twCard.id)"
         var name = "Player"; var color: String?
