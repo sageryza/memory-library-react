@@ -27,6 +27,7 @@ struct LibraryView: View {
     @State private var showImport = false
     @State private var importText = ""
     @State private var importMsg: String?
+    @State private var pendingImport: ArchiveStore.PendingImport?
     @State private var showTrash = false
     @FocusState private var searchFocused: Bool
 
@@ -95,14 +96,26 @@ struct LibraryView: View {
                 TextField("paste share link", text: $importText)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Cancel", role: .cancel) {}
-                Button("Import") {
+                Button("Next") {
                     let raw = importText; importText = ""
                     Task {
-                        let n = await store.importShared(raw)
-                        importMsg = n > 0 ? "Imported \(n) \(n == 1 ? "memory" : "memories")." : "Couldn't find that board."
+                        if let p = await store.prepareImport(raw) { pendingImport = p }
+                        else { importMsg = "Couldn't find that board." }
                     }
                 }
-            } message: { Text("Paste a board share link to add its memories to your library.") }
+            } message: { Text("Paste a board share link to add its memories to your Commons.") }
+            .alert("Add to your Commons?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), presenting: pendingImport) { p in
+                Button("Add to Commons") {
+                    Task {
+                        let n = await store.confirmImportToCommons(p.shareId)
+                        importMsg = n > 0 ? "Added \(n) \(n == 1 ? "memory" : "memories") from \(p.sharer) to your Commons." : "Nothing new to add."
+                    }
+                    pendingImport = nil
+                }
+                Button("Not now", role: .cancel) { pendingImport = nil }
+            } message: { p in
+                Text("\(p.count) \(p.count == 1 ? "memory" : "memories") from \(p.sharer). They'll live in your Commons, not mixed into your own library.")
+            }
             .alert("Import", isPresented: Binding(get: { importMsg != nil }, set: { if !$0 { importMsg = nil } })) {
                 Button("OK", role: .cancel) { importMsg = nil }
             } message: { Text(importMsg ?? "") }
@@ -117,7 +130,7 @@ struct LibraryView: View {
         ToolbarItem(placement: .principal) {
             Text(store.selectedLibrary?.name ?? "Memory Library")
                 .font(.system(.headline, design: .serif))
-                .foregroundStyle(XITheme.ink)
+                .foregroundStyle(XITheme.maroon)
         }
         ToolbarItem(placement: .topBarLeading) {
             Button { memSheet = .add } label: { Image(systemName: "rectangle.stack.badge.plus") }
@@ -173,17 +186,19 @@ struct LibraryView: View {
                 }
                 .accessibilityLabel(filtersExpanded ? "Hide filters" : "Show filters")
             }
-            .padding(10)
+            .padding(.horizontal, 12)
+            .frame(height: 40)
             .background(XITheme.white)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            // Simplify / compact toggle lives OUTSIDE the box, right beside it.
+            // Simplify / compact toggle lives OUTSIDE the box, right beside it —
+            // same height as the search box.
             Button { withAnimation { store.simplify.toggle() } } label: {
                 Image(systemName: store.simplify ? "rectangle.grid.1x2" : "square.grid.2x2")
                     .font(.system(size: 18))
                     .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 40, height: 40)
                     .background(XITheme.white)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))

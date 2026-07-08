@@ -127,15 +127,25 @@ final class ArchiveStore: ObservableObject {
         trashed.removeAll { $0.id == id }
     }
 
-    /// Import a shared board (link or bare code) — copies its memories into the
-    /// library. Returns how many were imported.
-    func importShared(_ raw: String) async -> Int {
+    /// A shared board resolved and ready to confirm before importing to the Commons.
+    struct PendingImport: Identifiable { let id = UUID(); let shareId: String; let sharer: String; let count: Int }
+
+    /// Resolve a share link (or bare code) into who shared it and how many
+    /// memories it holds, so we can ask before adding anything. nil if not found.
+    func prepareImport(_ raw: String) async -> PendingImport? {
         var id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !id.isEmpty else { return 0 }
+        guard !id.isEmpty else { return nil }
         if let last = id.split(separator: "/").last { id = String(last) }
         if let q = id.split(separator: "?").first { id = String(q) }
-        let n = await XIService.shared.importSharedBoard(id)
-        if n > 0 { await reloadMemories() }
+        guard let info = await XIService.shared.sharedBoardInfo(id) else { return nil }
+        return PendingImport(shareId: id, sharer: info.sharer, count: info.count)
+    }
+
+    /// After the user says yes, pull the board's memories into the Commons (never
+    /// into your own library). Returns how many were added.
+    func confirmImportToCommons(_ shareId: String) async -> Int {
+        let n = await XIService.shared.importSharedBoardToCommons(shareId)
+        if n > 0 { await reloadCommons() }
         return n
     }
 

@@ -26,6 +26,9 @@ struct VersusGameView: View {
     @State private var reported = false
     @State private var error: String?
     @State private var busy = false
+    /// Opponent stories already copied into the Commons this session (so live
+    /// snapshot updates don't re-add them; the service also de-dupes server-side).
+    @State private var syncedStoryIds: Set<String> = []
 
     private var visibleStories: [VersusStory] { store.stories.filter { !moderation.isBlocked($0.byUid) } }
 
@@ -79,6 +82,32 @@ struct VersusGameView: View {
                 } catch { self.error = error.localizedDescription }
             }
             .onDisappear { store.unsubscribe() }
+            .onChange(of: store.stories) { _, newStories in
+                syncOpponentStoriesToCommons(newStories)
+            }
+    }
+
+    /// Copy other players' stories into your Commons — you're playing together, so
+    /// they're friends. Your own stories go to your library (see writeStory), never
+    /// here; blocked players are skipped.
+    private func syncOpponentStoriesToCommons(_ stories: [VersusStory]) {
+        guard let myUid = uid else { return }
+        for s in stories where s.byUid != myUid && !s.byUid.isEmpty
+            && !syncedStoryIds.contains(s.id) && !moderation.isBlocked(s.byUid) {
+            syncedStoryIds.insert(s.id)
+            let title = "times i \(s.eventCap.lowercased()) \(s.twistCap.lowercased())"
+            let tags = [s.eventCap, s.twistCap].compactMap { cap -> String? in
+                let x = cap.lowercased()
+                    .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+                return x.isEmpty ? nil : "#\(x)"
+            }
+            Task {
+                await XIService.shared.addToCommons(
+                    title: title, content: s.text, hashtags: tags,
+                    authorName: s.byName, sourceType: "versus", sourceId: gameId)
+            }
+        }
     }
 
     private var decorated: some View {

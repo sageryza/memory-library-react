@@ -150,6 +150,8 @@ struct LibraryFilterPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: $store.advancedOn) {
                 Text("Boolean search").font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())   // whole row toggles, not just the switch
             }.tint(XITheme.gold)
 
             if store.advancedOn {
@@ -169,9 +171,10 @@ struct LibraryFilterPanel: View {
                             Image(systemName: "bookmark").font(.system(size: 11))
                             Text("Save as Library").font(.system(.footnote, design: .serif))
                         }
-                        .foregroundStyle(XITheme.gold)
+                        .foregroundStyle(.white)
                         .padding(.vertical, 6).padding(.horizontal, 11)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold, lineWidth: 1))
+                        .background(XITheme.gold)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
                     .disabled(store.advanced.isEmpty)
@@ -185,12 +188,13 @@ struct LibraryFilterPanel: View {
     private func termRow(_ title: String, op: String, terms: Binding<[String]>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             label(title)
-            WrapLayout(spacing: 6) {
+            WrapLayout(spacing: 8) {
                 ForEach(Array(terms.wrappedValue.indices), id: \.self) { i in
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
                         if i > 0 {
-                            Text(op).font(.system(size: 10, weight: .bold, design: .monospaced))
+                            Text(op.uppercased()).font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(XITheme.maroon)
+                                .padding(.horizontal, 2)
                         }
                         TextField("term", text: Binding(
                             get: { i < terms.wrappedValue.count ? terms.wrappedValue[i] : "" },

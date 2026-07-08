@@ -736,6 +736,38 @@ final class XIService {
         return count
     }
 
+    /// Light metadata for a shared board (who shared it, how many memories) —
+    /// used to show the "Add to your Commons?" prompt before importing.
+    func sharedBoardInfo(_ shareId: String) async -> (sharer: String, count: Int)? {
+        guard let snap = try? await db.collection("sharedBoards").document(shareId).getDocument(),
+              let data = snap.data() else { return nil }
+        let dropped = (data["droppedMemories"] as? [[String: Any]]) ?? []
+        let sharer = ((data["sharedBy"] as? [String: Any])?["firstName"] as? String) ?? ""
+        return (sharer.isEmpty ? "A friend" : sharer, dropped.count)
+    }
+
+    /// Import a shared board's memories into the Commons (friends' memories),
+    /// attributed to whoever shared it — NOT into your own library. Returns the
+    /// count actually added (de-duped).
+    @discardableResult
+    func importSharedBoardToCommons(_ shareId: String) async -> Int {
+        guard let snap = try? await db.collection("sharedBoards").document(shareId).getDocument(),
+              let data = snap.data() else { return 0 }
+        let dropped = (data["droppedMemories"] as? [[String: Any]]) ?? []
+        let sharer = ((data["sharedBy"] as? [String: Any])?["firstName"] as? String) ?? "A friend"
+        var count = 0
+        for m in dropped {
+            let title = m["title"] as? String ?? ""
+            let content = (m["description"] as? String) ?? (m["content"] as? String) ?? ""
+            let tags = (m["tags"] as? [String]) ?? (m["hashtags"] as? [String]) ?? []
+            let added = await addToCommons(title: title, content: content, hashtags: tags,
+                                           authorName: sharer.isEmpty ? "A friend" : sharer,
+                                           sourceType: "sharedBoard", sourceId: shareId)
+            if added { count += 1 }
+        }
+        return count
+    }
+
     private func sharerFirstName(uid: String) async -> String {
         if let snap = try? await db.collection("users").document(uid)
             .collection("profile").document("current").getDocument(),
