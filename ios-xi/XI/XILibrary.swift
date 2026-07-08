@@ -6,8 +6,8 @@ extension String { var xiTrimmed: String { trimmingCharacters(in: .whitespacesAn
 /// AND terms (all must match), OR terms (any), one Exclude term (NOT), each
 /// scoped to any of Titles / Content / Hashtags / Dates.
 struct XISearchLogic: Equatable {
-    var andTerms: [String] = [""]   // one empty row so the builder shows a field
-    var orTerms: [String] = [""]
+    var andTerms: [String] = ["", ""]   // two empty rows so the builder shows "term and term"
+    var orTerms: [String] = ["", ""]
     var excludeTerms: String = ""
     var searchInTitles = true
     var searchInContent = true

@@ -8,6 +8,11 @@ struct LibraryFilterPanel: View {
     @ObservedObject var store: ArchiveStore
     @State private var saveName = ""
     @State private var showSave = false
+    @State private var showAllTags = false
+
+    /// How many hashtags to show before "show more" — keeps the (often long) tag
+    /// cloud from burying the Boolean search below it.
+    private let tagCap = 24
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -29,7 +34,7 @@ struct LibraryFilterPanel: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.5)))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 14)
-        .padding(.bottom, 10)
+        .padding(.bottom, 28)
         .alert("Save as Library", isPresented: $showSave) {
             TextField("Library name", text: $saveName)
             Button("Cancel", role: .cancel) {}
@@ -110,8 +115,9 @@ struct LibraryFilterPanel: View {
             } else {
                 let counts = cloud.map(\.count)
                 let lo = counts.min() ?? 1, hi = counts.max() ?? 1
+                let shown = showAllTags ? cloud : Array(cloud.prefix(tagCap))
                 WrapLayout(spacing: 6) {
-                    ForEach(cloud, id: \.tag) { item in
+                    ForEach(shown, id: \.tag) { item in
                         Button { store.toggleTag(item.tag) } label: {
                             Text(item.tag)
                                 .font(.system(size: cloudSize(item.count, lo, hi), design: .serif))
@@ -121,6 +127,12 @@ struct LibraryFilterPanel: View {
                                 .clipShape(Capsule())
                         }.buttonStyle(.plain)
                     }
+                }
+                if cloud.count > tagCap {
+                    Button { withAnimation { showAllTags.toggle() } } label: {
+                        Text(showAllTags ? "show fewer" : "show \(cloud.count - tagCap) more…")
+                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
+                    }.buttonStyle(.plain).padding(.top, 2)
                 }
             }
         }
@@ -149,16 +161,21 @@ struct LibraryFilterPanel: View {
                         .font(.system(.footnote, design: .serif))
                         .frame(maxWidth: 200)
                 }
-                scopeToggles
-                Button { showSave = true } label: {
-                    Text("Save as Library")
-                        .font(.system(.body, design: .serif).weight(.semibold))
-                        .foregroundStyle(.white).frame(maxWidth: .infinity)
-                        .padding(.vertical, 11).background(XITheme.gold)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                HStack {
+                    Spacer()
+                    Button { showSave = true } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "bookmark").font(.system(size: 11))
+                            Text("Save as Library").font(.system(.footnote, design: .serif))
+                        }
+                        .foregroundStyle(XITheme.gold)
+                        .padding(.vertical, 6).padding(.horizontal, 11)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(store.advanced.isEmpty)
+                    .opacity(store.advanced.isEmpty ? 0.4 : 1)
                 }
-                .disabled(store.advanced.isEmpty)
-                .opacity(store.advanced.isEmpty ? 0.5 : 1)
             }
         }
     }
@@ -187,30 +204,6 @@ struct LibraryFilterPanel: View {
                 }.buttonStyle(.plain)
             }
         }
-    }
-
-    private var scopeToggles: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            label("SEARCH IN")
-            WrapLayout(spacing: 8) {
-                scopeChip("Titles", $store.advanced.searchInTitles)
-                scopeChip("Content", $store.advanced.searchInContent)
-                scopeChip("Hashtags", $store.advanced.searchInHashtags)
-                scopeChip("Dates", $store.advanced.searchInDates)
-            }
-        }
-    }
-
-    private func scopeChip(_ title: String, _ on: Binding<Bool>) -> some View {
-        Button { on.wrappedValue.toggle() } label: {
-            HStack(spacing: 4) {
-                Image(systemName: on.wrappedValue ? "checkmark.square.fill" : "square").font(.system(size: 12))
-                Text(title).font(.system(size: 13, design: .serif))
-            }
-            .foregroundStyle(on.wrappedValue ? XITheme.gold : XITheme.line)
-            .padding(.vertical, 5).padding(.horizontal, 9)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(on.wrappedValue ? XITheme.gold : XITheme.line, lineWidth: 1))
-        }.buttonStyle(.plain)
     }
 
     private func label(_ s: String) -> some View {

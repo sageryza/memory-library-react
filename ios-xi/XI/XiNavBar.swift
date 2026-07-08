@@ -52,10 +52,10 @@ struct XiNavBar: View {
         let on = selection == tab
         return VStack(spacing: 3) {
             Image(systemName: tab.symbol)
-                .font(.system(size: 19, weight: on ? .semibold : .regular))
-                .frame(height: 23)
+                .font(.system(size: 23, weight: on ? .semibold : .regular))
+                .frame(height: 27)
             Text(tab.label.lowercased())
-                .font(.system(size: 9.5, design: .serif))
+                .font(.system(size: 10.5, design: .serif))
                 .tracking(0.2).lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(on ? XITheme.gold : XITheme.navInk)

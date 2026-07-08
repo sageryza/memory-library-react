@@ -136,44 +136,53 @@ struct LibraryView: View {
 
     private var searchBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
-            TextField("search memories", text: $store.search)
-                .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                .autocorrectionDisabled()
-                .focused($searchFocused)
-                .submitLabel(.search)
-                .onSubmit { searchFocused = false }
-            if !store.search.isEmpty {
-                Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
+            // The search box itself (magnifier · field · clear · filters chevron).
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
+                TextField("search memories", text: $store.search)
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .autocorrectionDisabled()
+                    .focused($searchFocused)
+                    .submitLabel(.search)
+                    .onSubmit { searchFocused = false }
+                if !store.search.isEmpty {
+                    Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
+                }
+                Button {
+                    searchFocused = false
+                    withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
+                } label: {
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 16))
+                        .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
+                        .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                        .overlay(alignment: .topTrailing) {
+                            if store.activeFilterCount > 0 && !filtersExpanded {
+                                Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: -2, y: 3)
+                            }
+                        }
+                }
+                .accessibilityLabel(filtersExpanded ? "Hide filters" : "Show filters")
             }
+            .padding(10)
+            .background(XITheme.white)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // Simplify / compact toggle lives OUTSIDE the box, right beside it.
             Button { withAnimation { store.simplify.toggle() } } label: {
                 Image(systemName: store.simplify ? "rectangle.grid.1x2" : "square.grid.2x2")
-                    .font(.system(size: 15))
+                    .font(.system(size: 18))
                     .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
+                    .frame(width: 38, height: 38)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
-            Button {
-                searchFocused = false
-                withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
-            } label: {
-                Image(systemName: "arrowtriangle.down.fill")
-                    .font(.system(size: 16))
-                    .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
-                    .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
-                    .overlay(alignment: .topTrailing) {
-                        if store.activeFilterCount > 0 && !filtersExpanded {
-                            Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: -2, y: 3)
-                        }
-                    }
-            }
-            .accessibilityLabel(filtersExpanded ? "Hide filters" : "Show filters")
         }
-        .padding(10)
-        .background(XITheme.white)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 10)
     }
 
