@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var showDeleteConfirm = false
     @State private var deleteError: String?
     @State private var showBlocked = false
+    @State private var titling = false
+    @State private var titleResult: String?
 
     private var email: String? { Auth.auth().currentUser?.email }
     private var isAnon: Bool { Auth.auth().currentUser?.isAnonymous ?? false }
@@ -36,6 +38,24 @@ struct SettingsView: View {
                     } label: {
                         Label("Delete account", systemImage: "trash")
                     }
+                }
+                Section("Memories") {
+                    Button {
+                        titling = true
+                        Task {
+                            let r = await XIService.shared.backfillTitles()
+                            titling = false
+                            titleResult = r.scanned == 0
+                                ? "Every memory already has a title."
+                                : "Added \(r.updated) \(r.updated == 1 ? "title" : "titles") to untitled memories."
+                        }
+                    } label: {
+                        HStack {
+                            Label("Generate titles for untitled memories", systemImage: "sparkles")
+                            if titling { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(titling)
                 }
                 Section("Cards") {
                     NavigationLink {
@@ -72,6 +92,11 @@ struct SettingsView: View {
                 Button("OK") { deleteError = nil }
             } message: {
                 Text(deleteError ?? "")
+            }
+            .alert("Titles", isPresented: .constant(titleResult != nil)) {
+                Button("OK") { titleResult = nil }
+            } message: {
+                Text(titleResult ?? "")
             }
         }
     }

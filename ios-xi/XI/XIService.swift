@@ -275,6 +275,25 @@ final class XIService {
         }
     }
 
+    /// Generate AI (Haiku) titles for the signed-in user's memories that have no
+    /// title yet, leaving titled ones untouched. Returns (updated, scanned).
+    func backfillTitles() async -> (updated: Int, scanned: Int) {
+        guard let uid = Auth.auth().currentUser?.uid else { return (0, 0) }
+        let targets = (await allMemories()).filter {
+            $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        var updated = 0
+        for m in targets {
+            if let ai = await generateTitle(from: m.content) {
+                try? await db.collection("users").document(uid).collection("memories").document(m.id)
+                    .updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+                updated += 1
+            }
+        }
+        return (updated, targets.count)
+    }
+
     /// Create a memory written directly (not from the XI card game): the same
     /// fields the web's Add Memory modal uses — title, content, hashtags, and an
     /// optional bit of extra context.
