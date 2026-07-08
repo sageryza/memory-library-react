@@ -14,6 +14,10 @@
   test, give the live URL(s) to test it on as full clickable links — the deployed
   app page for the feature (e.g. `https://incaseofamnesia.com/xi`), plus the PR
   link. Don't make the user hunt for where to look.
+- **Message order is fixed: body → TL;DR → clickable links → audio LAST.** The
+  short TL;DR comes after the body; then the things to click (app pages, PR); then
+  any attached audio/file goes at the *very bottom*, below the links — never above
+  the text. Images likewise go at the END of the message.
 - **Copy-paste / handoff messages = one code block.** When the user asks for a
   message to copy-paste, forward, or hand off to another chat, put the ENTIRE
   message inside a single fenced code block so it copies in one tap — no
