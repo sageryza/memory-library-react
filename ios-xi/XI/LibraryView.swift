@@ -115,6 +115,7 @@ struct LibraryView: View {
         ToolbarItem(placement: .topBarLeading) {
             Button { memSheet = .add } label: { Image(systemName: "rectangle.stack.badge.plus") }
                 .tint(XITheme.gold)
+                .buttonBorderShape(.roundedRectangle)
                 .accessibilityLabel("New memory")
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -125,7 +126,8 @@ struct LibraryView: View {
                 Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
                 Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
                 Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
-            } label: { Image(systemName: "ellipsis.circle").foregroundStyle(XITheme.gold) }
+            } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+            .buttonBorderShape(.roundedRectangle)
             .tint(.primary)
         }
     }
