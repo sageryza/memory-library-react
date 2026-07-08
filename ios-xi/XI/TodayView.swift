@@ -38,6 +38,7 @@ struct TodayView: View {
                 cardRow
                 composer
                 collected
+                others
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -187,6 +188,40 @@ struct TodayView: View {
             }
             .padding(.top, 12)
             .padding(.bottom, 30)
+        }
+    }
+
+    // MARK: others (display-only social proof — never saved to your Commons)
+
+    @ViewBuilder
+    private var others: some View {
+        let robots = XIRobots.memories(for: pairKey, count: 3)
+        if !robots.isEmpty {
+            let othersCount = XIRobots.othersCollectedToday(day: BoardEngine.dayNumber())
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("others also wrote")
+                        .font(.system(size: 12, design: .serif).italic()).foregroundStyle(soft)
+                    Spacer()
+                    Text("you \(totalCount) · others \(othersCount) today")
+                        .font(.system(size: 11, design: .serif)).foregroundStyle(soft.opacity(0.75))
+                }
+                ForEach(robots) { r in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(r.text)
+                            .font(.system(size: 14, design: .serif)).foregroundStyle(XITheme.ink.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(r.isAnonymous ? "— anonymous" : "— \(r.author)")
+                            .font(.system(size: 11, design: .serif).italic()).foregroundStyle(XITheme.gold)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(XITheme.white.opacity(0.55))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line.opacity(0.5)))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+            .padding(.top, 18).padding(.bottom, 30)
         }
     }
 
