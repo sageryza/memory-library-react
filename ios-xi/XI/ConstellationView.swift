@@ -103,9 +103,9 @@ struct ConstellationView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                        .disabled(undoStack.isEmpty).tint(crimson)
+                        .disabled(undoStack.isEmpty).tint(XITheme.gold)
                     Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                        .disabled(redoStack.isEmpty).tint(crimson)
+                        .disabled(redoStack.isEmpty).tint(XITheme.gold)
                 }
                 ToolbarItem(placement: .principal) {
                     Text("\(placed.count) on board")
@@ -126,9 +126,10 @@ struct ConstellationView: View {
                             .disabled(offBoard.isEmpty)
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
                             .disabled(placed.isEmpty)
-                    } label: { Image(systemName: "ellipsis.circle") }.tint(crimson)
+                    } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+                        .buttonBorderShape(.roundedRectangle).tint(.primary)
                     if !embedded {
-                        Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
+                        Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                     }
                 }
             }
@@ -179,8 +180,12 @@ struct ConstellationView: View {
     }
 
     private var emptyBoard: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "pin").font(.system(size: 34, weight: .thin)).foregroundStyle(bodyGrey)
+        VStack(spacing: 18) {
+            // A blurred mock of a little finished constellation — three pinned
+            // cards joined by crimson string — so the empty state hints at what
+            // the board becomes rather than being a bare "add memories" prompt.
+            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
+                                 slate: slate, bodyGrey: bodyGrey)
             Text("Your board is empty")
                 .font(.system(.title3, design: .serif)).foregroundStyle(slate)
             Text("Pin memories to the board to connect them with string.")
@@ -191,7 +196,7 @@ struct ConstellationView: View {
                     .font(.system(.body, design: .serif).weight(.medium))
                     .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
                     .background(crimson).clipShape(RoundedRectangle(cornerRadius: 6))
-            }.padding(.top, 4)
+            }
         }
         .padding(28)
     }
@@ -997,6 +1002,70 @@ private struct ConnectGlow: View {
             .onAppear {
                 withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
             }
+    }
+}
+
+/// A blurred, non-interactive mock of a small constellation — three pinned index
+/// cards joined by crimson string — shown on an empty board so it hints at what a
+/// finished constellation looks like rather than a bare empty prompt.
+private struct ConstellationPreview: View {
+    let beige, border, crimson, slate, bodyGrey: Color
+
+    // Three card centres within the 300×230 canvas, arranged like a cluster.
+    private let spots: [CGPoint] = [
+        CGPoint(x: 82, y: 58), CGPoint(x: 224, y: 92), CGPoint(x: 128, y: 176),
+    ]
+    private let lines = [
+        "the night we drove nowhere",
+        "a door i almost didn't open",
+        "what she said at the table",
+    ]
+    private let cardW: CGFloat = 122, cardH: CGFloat = 76
+
+    var body: some View {
+        ZStack {
+            // Crimson string joining the three cards (a little triangle).
+            Canvas { ctx, _ in
+                for (i, j) in [(0, 1), (1, 2), (0, 2)] {
+                    let a = CGPoint(x: spots[i].x + cardW / 2 - 8, y: spots[i].y - cardH / 2 + 6)
+                    let b = CGPoint(x: spots[j].x + cardW / 2 - 8, y: spots[j].y - cardH / 2 + 6)
+                    var p = Path(); p.move(to: a); p.addLine(to: b)
+                    ctx.stroke(p, with: .color(crimson),
+                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                }
+            }
+            ForEach(0..<3, id: \.self) { i in
+                miniCard(i).position(spots[i])
+            }
+        }
+        .frame(width: 300, height: 230)
+        .blur(radius: 2.6)
+        .opacity(0.7)
+        .overlay(
+            Text("this is what a constellation looks like")
+                .font(.system(.footnote, design: .serif).italic())
+                .foregroundStyle(crimson)
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func miniCard(_ i: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(lines[i])
+                .font(.system(size: 11, design: .serif).weight(.medium))
+                .foregroundStyle(slate).lineLimit(2)
+            Text("i keep coming back to this one, the way it kept")
+                .font(.system(size: 8, design: .serif)).foregroundStyle(bodyGrey).lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .padding(9)
+        .frame(width: cardW, height: cardH, alignment: .topLeading)
+        .background(beige)
+        .overlay(RoundedRectangle(cornerRadius: 5).stroke(border, lineWidth: 0.75))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1.5)
+        .overlay(alignment: .topTrailing) { Pushpin(crimson: crimson).offset(x: -2, y: 1) }
     }
 }
 

@@ -34,14 +34,13 @@ struct TodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                brand
-                topBar
+                header
                 cardRow
                 composer
                 collected
             }
             .padding(.horizontal, 16)
-            .padding(.top, 18)
+            .padding(.top, 8)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
@@ -80,19 +79,25 @@ struct TodayView: View {
 
     // MARK: header
 
-    private var brand: some View {
-        XILogo(height: 32)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 14)
-    }
-
-    private var topBar: some View {
+    /// The logo and "New cards" sit on one row so the header isn't empty and the
+    /// cards ride higher up the screen. The floating gear/calendar cluster lives
+    /// top-right (see the overlay), so a little space is reserved on the right.
+    private var header: some View {
         HStack(spacing: 10) {
+            XILogo(height: 30)
+            Spacer(minLength: 8)
             if !hist.isEmpty {
                 Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
                     .foregroundStyle(soft)
             }
-            Spacer()
+            newCardsButton
+            Color.clear.frame(width: 56, height: 1)   // clears the floating gear/calendar
+        }
+        .padding(.bottom, 14)
+    }
+
+    private var newCardsButton: some View {
+        HStack(spacing: 10) {
             Button { newCards() } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "sun.max").foregroundStyle(sepia)
@@ -108,11 +113,7 @@ struct TodayView: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            Spacer()
-            // keeps the New cards button visually centered
-            Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
         }
-        .padding(.bottom, 16)
     }
 
     // MARK: cards

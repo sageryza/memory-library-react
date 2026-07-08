@@ -50,7 +50,7 @@ struct BoardView: View {
                 }
                 Spacer()
             }
-            .padding(16)
+            .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 16)
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())

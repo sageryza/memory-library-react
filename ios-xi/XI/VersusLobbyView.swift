@@ -117,36 +117,23 @@ struct VersusLobbyView: View {
 /// started anything so the empty state hints at what Versus feels like rather
 /// than being a bare "start a game" button.
 private struct VersusPreview: View {
-    // A little checkerboard with a scatter of "placed" cards in two players'
-    // colours, plus a couple of ghosted story rows.
-    private let filled: Set<Int> = [0, 2, 5, 7, 8, 12, 13, 15, 18, 20, 22]
-    private let owners: [Int: Color] = [
-        5: Color(xiHex: "#800020"), 7: Color(xiHex: "#2c6e6e"),
-        12: Color(xiHex: "#800020"), 13: Color(xiHex: "#2c6e6e"), 18: Color(xiHex: "#800020"),
+    // A full board like the real Board of the Day — cream (event) / white (twist)
+    // cards with faint captions — plus two players' claimed pairs framed in their
+    // colours, the way a Versus game in progress actually looks.
+    private let claims: [(Int, Int, String)] = [   // (cellA, cellB, colour) — adjacent pairs
+        (6, 7, "#800020"), (12, 17, "#2c6e6e"), (18, 19, "#800020"), (8, 13, "#2c6e6e"),
+    ]
+    private let caps = [
+        "a summer", "the call", "first frost", "we drove", "too much",
+        "she knew", "the door", "late again", "almost", "the vow",
+        "one more", "nowhere", "i meant it", "the edge", "unsaid",
+        "goodbye", "the train", "held on", "the note", "after",
+        "meant all", "the year", "possible", "said too", "and stayed",
     ]
 
     var body: some View {
         VStack(spacing: 10) {
-            VStack(spacing: 4) {
-                ForEach(0..<5, id: \.self) { r in
-                    HStack(spacing: 4) {
-                        ForEach(0..<5, id: \.self) { c in
-                            let idx = r * 5 + c
-                            let isEvent = (r + c) % 2 == 0
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(filled.contains(idx)
-                                      ? (isEvent ? XITheme.cream : XITheme.white)
-                                      : Color.black.opacity(0.03))
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay(RoundedRectangle(cornerRadius: 4)
-                                    .stroke(owners[idx] ?? XITheme.line,
-                                            lineWidth: owners[idx] != nil ? 2 : 0.5))
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: 240)
-
+            board
             fakeStory("#800020", "Ana", "the summer everything felt possible")
             fakeStory("#2c6e6e", "You", "times i said too much and meant all of it")
         }
@@ -154,8 +141,8 @@ private struct VersusPreview: View {
         .background(XITheme.white.opacity(0.5))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(XITheme.line.opacity(0.5), lineWidth: 0.5))
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .blur(radius: 3)
-        .opacity(0.6)
+        .blur(radius: 2.6)
+        .opacity(0.72)
         .overlay(
             Text("this is what a game looks like")
                 .font(.system(.footnote, design: .serif).italic())
@@ -163,6 +150,60 @@ private struct VersusPreview: View {
         )
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var board: some View {
+        let cols = 5
+        let spacing: CGFloat = 4
+        return GeometryReader { geo in
+            let cell = (geo.size.width - spacing * CGFloat(cols - 1)) / CGFloat(cols)
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: spacing) {
+                    ForEach(0..<5, id: \.self) { r in
+                        HStack(spacing: spacing) {
+                            ForEach(0..<cols, id: \.self) { c in
+                                miniCell(r * cols + c, size: cell)
+                            }
+                        }
+                    }
+                }
+                ForEach(Array(claims.enumerated()), id: \.offset) { _, claim in
+                    claimFrame(claim, cell: cell, spacing: spacing)
+                }
+            }
+        }
+        .frame(width: 240, height: 240)
+    }
+
+    private func miniCell(_ idx: Int, size: CGFloat) -> some View {
+        let isEvent = ((idx / 5) + (idx % 5)) % 2 == 0
+        return RoundedRectangle(cornerRadius: 4)
+            .fill(isEvent ? XITheme.cream : XITheme.white)
+            .frame(width: size, height: size)
+            .overlay(
+                Text(caps[idx % caps.count])
+                    .font(.system(size: 6.5, design: .serif))
+                    .foregroundStyle(XITheme.ink.opacity(0.5))
+                    .multilineTextAlignment(.center).padding(1.5)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line, lineWidth: 0.5))
+    }
+
+    /// A player-coloured rectangle framing one claimed adjacent pair, sized and
+    /// placed from the two cell indices (mirrors the game's pair frame).
+    private func claimFrame(_ claim: (Int, Int, String), cell: CGFloat, spacing: CGFloat) -> some View {
+        let cols = 5
+        let (i, j) = (claim.0, claim.1)
+        let minR = min(i / cols, j / cols), maxR = max(i / cols, j / cols)
+        let minC = min(i % cols, j % cols), maxC = max(i % cols, j % cols)
+        let x = CGFloat(minC) * (cell + spacing)
+        let y = CGFloat(minR) * (cell + spacing)
+        let w = CGFloat(maxC - minC + 1) * cell + CGFloat(maxC - minC) * spacing
+        let h = CGFloat(maxR - minR + 1) * cell + CGFloat(maxR - minR) * spacing
+        return RoundedRectangle(cornerRadius: 5)
+            .stroke(Color(xiHex: claim.2), lineWidth: 2)
+            .frame(width: w + 3, height: h + 3)
+            .offset(x: x - 1.5, y: y - 1.5)
     }
 
     private func fakeStory(_ hex: String, _ who: String, _ text: String) -> some View {
