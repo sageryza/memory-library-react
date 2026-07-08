@@ -129,7 +129,8 @@ struct LibraryView: View {
                 }
                 Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
                 Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
-            } label: { Image(systemName: "ellipsis.circle") }.tint(XITheme.gold)
+            } label: { Image(systemName: "ellipsis.circle").foregroundStyle(XITheme.gold) }
+            .tint(.primary)
         }
     }
 

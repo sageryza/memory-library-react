@@ -3,6 +3,7 @@ import UIKit
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import GoogleSignIn
 
 /// A saved XI memory (mirrors the shared `users/{uid}/memories` schema).
@@ -238,8 +239,36 @@ final class XIService {
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
         ]
-        _ = try await db.collection("users").document(uid)
+        let ref = try await db.collection("users").document(uid)
             .collection("memories").addDocument(data: doc)
+        // Replace the card-pair title with an AI title distilled from what the
+        // user actually wrote — in the background so saving stays instant. Falls
+        // back silently to the "I event, twist" title if AI is unavailable.
+        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            if let ai = await self.generateTitle(from: content) {
+                try? await ref.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+            }
+        }
+    }
+
+    private lazy var functions = Functions.functions()
+
+    /// Ask the shared `aiAssist` Cloud Function (Claude Haiku) for a short,
+    /// evocative title based on the memory's text. Returns nil if AI is off /
+    /// unreachable, so callers keep their fallback title.
+    func generateTitle(from text: String) async -> String? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count > 3 else { return nil }
+        do {
+            let res = try await functions.httpsCallable("aiAssist").call(["mode": "title", "text": t])
+            guard let data = res.data as? [String: Any],
+                  let title = (data["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !title.isEmpty else { return nil }
+            return title
+        } catch {
+            return nil
+        }
     }
 
     /// Create a memory written directly (not from the XI card game): the same

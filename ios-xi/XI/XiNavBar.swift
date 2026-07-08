@@ -17,7 +17,7 @@ enum XiTab: String, CaseIterable, Identifiable {
     /// SF Symbol for the tab (same icon family as the Libraries books.vertical).
     var symbol: String {
         switch self {
-        case .today: return "calendar"
+        case .today: return "rectangle.portrait.on.rectangle.portrait"
         case .curate: return "heart"
         case .daily: return "square.grid.3x3"
         case .versus: return "person.2"
