@@ -40,11 +40,11 @@ struct LibraryView: View {
                 searchBar
                 if filtersExpanded {
                     ScrollView { LibraryFilterPanel(store: store) }
-                        .frame(maxHeight: 460)
                         .transition(.move(edge: .top).combined(with: .opacity))
+                } else {
+                    if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
+                    content
                 }
-                if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
-                content
                 if store.selectMode { selectionBar }
             }
             .background(XITheme.paper.ignoresSafeArea())
@@ -113,7 +113,7 @@ struct LibraryView: View {
                 .foregroundStyle(XITheme.ink)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button { memSheet = .add } label: { Image(systemName: "plus") }
+            Button { memSheet = .add } label: { Image(systemName: "rectangle.stack.badge.plus") }
                 .tint(XITheme.gold)
                 .accessibilityLabel("New memory")
         }
@@ -154,13 +154,15 @@ struct LibraryView: View {
                 searchFocused = false
                 withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
             } label: {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "arrowtriangle.down.fill")
+                    .font(.system(size: 16))
                     .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
                     .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
                     .overlay(alignment: .topTrailing) {
                         if store.activeFilterCount > 0 && !filtersExpanded {
-                            Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: 4, y: -3)
+                            Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: -2, y: 3)
                         }
                     }
             }
@@ -522,12 +524,21 @@ struct MemoryEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line)
+                        .accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(existing == nil ? "new memory" : "edit memory")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(title, content, hashtags, context); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
-                        .disabled(!canSave)
+                    Button { onSave(title, content, hashtags, context); dismiss() } label: {
+                        Image(systemName: "checkmark")
+                    }
+                    .tint(XITheme.gold)
+                    .disabled(!canSave)
+                    .accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)

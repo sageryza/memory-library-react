@@ -68,9 +68,10 @@ struct VersusLobbyView: View {
                         }
                     }
                     .padding(.top, 4)
-                } else {
-                    VersusPreview().padding(.top, 6)
                 }
+                // Always show the blurred preview of a game in progress, whether or
+                // not you have games — it hints at what Versus feels like.
+                VersusPreview().padding(.top, 6)
 
                 Spacer()
             }
