@@ -83,8 +83,9 @@ struct TodayView: View {
     // MARK: header
 
     private var brand: some View {
-        XILogo(height: 30)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Text("cards of the day")
+            .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.maroon)
+            .frame(maxWidth: .infinity, alignment: .center)
             .padding(.bottom, 10)
     }
 

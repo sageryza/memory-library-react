@@ -98,15 +98,22 @@ struct ConstellationView: View {
                 if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
             }
             .background(Color.white.ignoresSafeArea())
+            // Small, plain undo/redo icons on the board (no button chrome) —
+            // like the New-cards undo on Today.
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 16) {
+                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                        .disabled(undoStack.isEmpty).opacity(undoStack.isEmpty ? 0.3 : 1)
+                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
+                        .disabled(redoStack.isEmpty).opacity(redoStack.isEmpty ? 0.3 : 1)
+                }
+                .font(.system(size: 16))
+                .foregroundStyle(slate)
+                .padding(.leading, 16).padding(.top, 8)
+            }
             .navigationTitle("constellation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                        .disabled(undoStack.isEmpty).tint(XITheme.gold)
-                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                        .disabled(redoStack.isEmpty).tint(XITheme.gold)
-                }
                 ToolbarItem(placement: .principal) {
                     Text("\(placed.count) on board")
                         .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)

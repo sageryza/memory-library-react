@@ -37,8 +37,8 @@ struct BoardView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                header
+            VStack(spacing: 12) {
+                dayNav
                 board
                     .frame(maxWidth: min(520, CGFloat(cols) * 130))
                 if !isToday {
@@ -54,11 +54,16 @@ struct BoardView: View {
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showHelp = true } label: {
                         Image(systemName: "info.circle").tint(XITheme.gold)
                     }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("board of the day")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.maroon)
                 }
             }
             .sheet(item: $composing) { pair in
@@ -72,22 +77,17 @@ struct BoardView: View {
         .tint(XITheme.gold)
     }
 
-    private var header: some View {
-        HStack {
+    /// A slim day switcher (‹ label ›) that sits right under the nav title so the
+    /// board rides high — no big "XI" block.
+    private var dayNav: some View {
+        HStack(spacing: 16) {
             Button { viewDay -= 1; selected = nil; composedCells = [] } label: { Image(systemName: "chevron.left") }
-            Spacer()
-            VStack(spacing: 2) {
-                Text("XI")
-                    .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
-                    .foregroundStyle(XITheme.ink)
-                Text(BoardEngine.dayLabel(viewDay, today: today))
-                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
-            }
-            Spacer()
+            Text(BoardEngine.dayLabel(viewDay, today: today))
+                .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
             Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: { Image(systemName: "chevron.right") }
                 .disabled(viewDay >= today)
         }
-        .font(.system(.title3, design: .serif))
+        .font(.system(.subheadline, design: .serif))
         .tint(XITheme.gold)
         .padding(.horizontal, 4)
     }

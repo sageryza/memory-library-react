@@ -193,13 +193,12 @@ struct VersusGameView: View {
                            owner: p.color, anchored: anchor == Anchor(r: r, c: c))
                 .onTapGesture { tapPlaced(r, c, p) }
         } else {
-            let isLegal = legal.contains(key)
+            // No "legal cells" highlighting — placement still only lands on a
+            // valid neighbor, it just isn't advertised (kept the game fun).
             RoundedRectangle(cornerRadius: 4)
-                .fill(isLegal ? XITheme.gold.opacity(0.18) : Color.black.opacity(0.025))
+                .fill(Color.black.opacity(0.025))
                 .aspectRatio(1, contentMode: .fit)
-                .overlay(RoundedRectangle(cornerRadius: 4)
-                    .stroke(isLegal ? XITheme.gold : .clear, lineWidth: isLegal ? 2 : 0))
-                .onTapGesture { if isLegal { place(r, c) } }
+                .onTapGesture { if legal.contains(key) { place(r, c) } }
         }
     }
 
@@ -215,7 +214,7 @@ struct VersusGameView: View {
 
     private var promptText: String {
         if iActed { return "You've gone this round — waiting on the others." }
-        if selectedCard != nil { return "Tap a glowing cell to place your card." }
+        if selectedCard != nil { return "Tap a cell next to another card to place it." }
         if iPlaced { return "Now tap your card and a neighbor to tell their story." }
         return "Pick a card to place, or tap two touching cards to tell their story."
     }
@@ -397,6 +396,11 @@ struct StoryComposer: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 10) {
+                    storyCard(evCard, isEvent: true)
+                    storyCard(twCard, isEvent: false)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
                 Text("times i \(evCard.cap.lowercased()) \(twCard.cap.lowercased())")
                     .font(.system(.title3, design: .serif, weight: .semibold))
                     .foregroundStyle(XITheme.ink)
@@ -431,6 +435,24 @@ struct StoryComposer: View {
             }
         }
         .tint(XITheme.gold)
+    }
+
+    private func storyCard(_ card: XICard, isEvent: Bool) -> some View {
+        ZStack {
+            (isEvent ? XITheme.cream : XITheme.white)
+            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFit().blendMode(.multiply)
+                } placeholder: { Color.clear }
+                .padding(2)
+            } else {
+                Text(card.cap).font(.system(size: 11, design: .serif)).multilineTextAlignment(.center)
+                    .foregroundStyle(XITheme.ink).padding(4)
+            }
+        }
+        .frame(width: 104, height: 104)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }
 
     private func save() {
