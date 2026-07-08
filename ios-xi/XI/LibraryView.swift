@@ -123,10 +123,6 @@ struct LibraryView: View {
                     Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
                 }
                 Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
-                Button { store.simplify.toggle() } label: {
-                    Label(store.simplify ? "Detailed view" : "Simplify view",
-                          systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
-                }
                 Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
                 Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
             } label: { Image(systemName: "ellipsis.circle").foregroundStyle(XITheme.gold) }
@@ -148,6 +144,12 @@ struct LibraryView: View {
             if !store.search.isEmpty {
                 Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
             }
+            Button { withAnimation { store.simplify.toggle() } } label: {
+                Image(systemName: store.simplify ? "rectangle.grid.1x2" : "square.grid.2x2")
+                    .font(.system(size: 15))
+                    .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
+            }
+            .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
             Button {
                 searchFocused = false
                 withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
