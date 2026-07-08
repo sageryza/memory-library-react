@@ -182,7 +182,8 @@ struct LibraryView: View {
                     withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
                 } label: {
                     Image(systemName: "arrowtriangle.down.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 15))
+                        .scaleEffect(x: 1.35, y: 0.7)   // wider + shorter arrow
                         .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
                         .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
                         .frame(width: 30, height: 30)

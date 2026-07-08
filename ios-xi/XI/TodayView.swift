@@ -8,6 +8,7 @@ struct TodayView: View {
     private let sepia = Color(red: 0.478, green: 0.353, blue: 0.212)   // #7A5A36
     private let soft = Color(red: 0.420, green: 0.365, blue: 0.306)    // #6B5D4F
     private let nothingRed = Color(red: 0.753, green: 0.224, blue: 0.169) // #c0392b
+    private let mauve = Color(red: 0.616, green: 0.420, blue: 0.478)   // lighter maroon / mauve #9D6C7A
 
     @ObservedObject private var curate = CurateStore.shared
     private var events: [XICard] { curate.keep(XIDeck.events) }
@@ -34,7 +35,8 @@ struct TodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
+                brand
+                newCardsRow
                 cardRow
                 composer
                 collected
@@ -80,19 +82,24 @@ struct TodayView: View {
 
     // MARK: header
 
-    /// The logo and "New cards" sit on one row so the header isn't empty and the
-    /// cards ride higher up the screen. The floating gear/calendar cluster lives
-    /// top-right (see the overlay), so a little space is reserved on the right.
-    private var header: some View {
+    private var brand: some View {
+        XILogo(height: 30)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 10)
+    }
+
+    /// "New cards" stays centered near the top; the undo (when present) sits to
+    /// its left, balanced so the button reads as centered.
+    private var newCardsRow: some View {
         HStack(spacing: 10) {
-            XILogo(height: 30)
-            Spacer(minLength: 8)
             if !hist.isEmpty {
                 Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
                     .foregroundStyle(soft)
             }
+            Spacer()
             newCardsButton
-            Color.clear.frame(width: 56, height: 1)   // clears the floating gear/calendar
+            Spacer()
+            Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
         }
         .padding(.bottom, 14)
     }
@@ -148,11 +155,15 @@ struct TodayView: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
             HStack(alignment: .center, spacing: 10) {
-                if totalCount > 0 {
-                    Text("\(totalCount) collected today")
-                        .font(.system(size: 13, design: .serif).italic())
+                // Your count, then a slash and the grand total collected today
+                // (yours + everyone else's), the total shown in mauve.
+                HStack(spacing: 4) {
+                    Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
                         .foregroundStyle(soft)
+                    Text("/ \(totalCount + XIRobots.othersCollectedToday(day: BoardEngine.dayNumber()))")
+                        .foregroundStyle(mauve)
                 }
+                .font(.system(size: 13, design: .serif).italic())
                 Spacer()
                 Button { Task { await save() } } label: {
                     Text(saving ? "Saving…" : "Save")
@@ -197,15 +208,9 @@ struct TodayView: View {
     private var others: some View {
         let robots = XIRobots.memories(for: pairKey, count: 3)
         if !robots.isEmpty {
-            let othersCount = XIRobots.othersCollectedToday(day: BoardEngine.dayNumber())
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("others also wrote")
-                        .font(.system(size: 12, design: .serif).italic()).foregroundStyle(soft)
-                    Spacer()
-                    Text("you \(totalCount) · others \(othersCount) today")
-                        .font(.system(size: 11, design: .serif)).foregroundStyle(soft.opacity(0.75))
-                }
+                Text("others also wrote")
+                    .font(.system(size: 12, design: .serif).italic()).foregroundStyle(soft)
                 ForEach(robots) { r in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(r.text)

@@ -52,7 +52,7 @@ final class ArchiveStore: ObservableObject {
         var n = 0
         if !search.xiTrimmed.isEmpty { n += 1 }
         if !tagFilters.isEmpty { n += 1 }
-        if advancedOn && !advanced.isEmpty { n += 1 }
+        if !advanced.isEmpty { n += 1 }
         if mode != .all { n += 1 }
         if scope != .mine { n += 1 }
         if selectedLibraryId != nil { n += 1 }
@@ -203,8 +203,8 @@ final class ArchiveStore: ObservableObject {
             }
         }
 
-        // Advanced boolean search.
-        if advancedOn && !advanced.isEmpty {
+        // Advanced boolean search (always available in the panel now).
+        if !advanced.isEmpty {
             out = out.filter { advanced.matches($0) }
         }
 
