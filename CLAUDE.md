@@ -6,6 +6,22 @@
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
   buttons.)
 
+## Journal timeline — banding categories
+The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
+entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
+- **`drawings` = ONLY actual drawings/sketches present in the journal itself**
+  (confirmable in the scanned PDF) — NOT descriptions of, or references to,
+  drawings, and never a drawing that lives in a *different* journal. A passage
+  that talks *about* a drawing is `ideas` (or `abstract`), not `drawings`. When
+  unsure whether something is a real drawing, the PDF is the source of truth —
+  check it or flag it; don't default to `drawings`.
+- **Jokey / throwaway "ideas" are not `ideas`.** A bit she's clearly not going to
+  build (e.g. "a business about drawing plants") is `abstract` (or `todos` if it's
+  literally on a to-do list), not a real product idea.
+- Categorize by content; when a passage genuinely blurs two types, pick the
+  dominant mode. (Preference so far: literal for what she's concretely doing/
+  making, but confirm with Sage when a call is close.)
+
 ## Communication
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
