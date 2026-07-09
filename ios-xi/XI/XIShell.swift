@@ -13,13 +13,15 @@ struct XIShell: View {
         screen
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(XITheme.paper.ignoresSafeArea())
-            // The nav is ALWAYS in the safe area — the keyboard simply covers it
-            // while typing. It used to be removed/re-inserted around keyboard
-            // show/hide, and that animated re-insertion could leave the bar
-            // floating above the bottom (the recurring "nav rides up" bug).
+            // The nav is ALWAYS in the safe area — and the shell ignores the
+            // keyboard's safe area, so the bar is bolted to the bottom of the
+            // screen no matter what: the keyboard slides OVER it rather than
+            // pushing it up. (Without this, SwiftUI treats the keyboard as
+            // eating the bottom inset and lifts the bar on top of it.)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 XiNavBar(selection: $tab)
             }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             // A shared-board link jumps to the Library, which offers to add it to
             // your Commons; a Versus link jumps to the Versus tab, which joins.
             .onChange(of: deepLink.pendingShareId) { id in
