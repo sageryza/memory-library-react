@@ -42,9 +42,7 @@ struct LibraryFilterPanel: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.5)))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 14)
-        // Generous bottom scroll room so the last controls always clear the
-        // bottom nav bar (you can scroll them fully into view).
-        .padding(.bottom, 80)
+        .padding(.bottom, 12)
         .alert("Save as Library", isPresented: $showSave) {
             TextField("Library name", text: $saveName)
             Button("Cancel", role: .cancel) {}

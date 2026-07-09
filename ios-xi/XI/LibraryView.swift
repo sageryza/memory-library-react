@@ -41,15 +41,21 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
-                if filtersExpanded {
-                    // Bolted nav = no automatic keyboard avoidance; pad the
-                    // panel by the keyboard height so low term boxes can always
-                    // be scrolled above it while typing.
-                    ScrollView { LibraryFilterPanel(store: store).padding(.bottom, kb.height) }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                } else {
-                    if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
-                    content
+                // The grid stays rendered — the filter panel drops down OVER it
+                // so the live-filtered cards remain visible beneath, and the
+                // dropdown's own height ends a little above the nav bar (you
+                // scroll inside it, it never runs under the nav).
+                ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
+                        if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
+                        content
+                    }
+                    if filtersExpanded {
+                        ScrollView { LibraryFilterPanel(store: store).padding(.bottom, kb.height) }
+                            .background(XITheme.paper.opacity(0.01))
+                            .padding(.bottom, 14)   // dropdown stops above the nav
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
                 if store.selectMode { selectionBar }
             }
@@ -524,11 +530,17 @@ struct MemoryDetailSheet: View {
                         .padding(.top, 6)
                     }
                     if let onTrash {
-                        Button(role: .destructive) { onTrash() } label: {
-                            Label("Delete memory", systemImage: "trash")
-                                .font(.system(.body, design: .serif))
+                        HStack {
+                            Spacer()
+                            Button(role: .destructive) { onTrash() } label: {
+                                Label("Delete memory", systemImage: "trash")
+                                    .font(.system(.footnote, design: .serif))
+                                    .foregroundStyle(.white)
+                                    .padding(.vertical, 8).padding(.horizontal, 14)
+                                    .background(XITheme.maroon)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
                         }
-                        .tint(XITheme.maroon)
                         .padding(.top, 6)
                     }
                     if let onRemoveFromCommons {
