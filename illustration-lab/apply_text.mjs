@@ -8,6 +8,8 @@ const [,, specPath, label] = process.argv;
 function finalize(t) {
   if (t == null) return "";
   let s = String(t);
+  // some agents HTML-escape the emphasis tags they emit — normalize those back
+  s = s.replace(/&lt;(\/?)(em|strong)&gt;/gi, "<$1$2>");
   // protect intended emphasis tags + page-break tokens
   s = s.replace(/<strong>/g, "S").replace(/<\/strong>/g, "/S")
        .replace(/<em>/g, "E").replace(/<\/em>/g, "/E")
