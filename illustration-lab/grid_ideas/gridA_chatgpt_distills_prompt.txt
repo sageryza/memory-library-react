@@ -1,0 +1,25 @@
+Create a new 3x3 grid of nine original black-line drawings that closely match the raw drawing style in the reference images. Use ONLY the user's reference sketches as style guidance; do not use or imitate any previous generated image. Image A is the hanging fish mobile sketch. Image B is the loose puzzle-piece sketch. Image C is the open box/kit sketch. Image D is the grouped chess/game-piece sketch. Image E is the hand dropping small pieces into a bowl/tray sketch. Image F is the simple wheeled dome/creature toy sketch. Image G is the tray of standing figures with a pull cord sketch.
+
+Make one square page with a rough hand-drawn 3x3 grid. In each cell, draw one new strange object or tiny object-group in the same spirit as the references: simple invention sketch, toy sketch, mechanism sketch, or odd household-object sketch. The drawings should feel like quick marker sketches on paper, not like clean doodles or clipart.
+
+Important style rules:
+
+* Match the user's line quality: wobbly, blunt, uneven, slightly shaky black lines with inconsistent thickness.
+* Keep the forms extremely simple, sparse, awkward, and direct.
+* Let proportions be clumsy and imperfect.
+* The grid lines should also be hand-drawn, a little crooked, with uneven spacing.
+* Keep lots of blank white or off-white paper visible.
+* No shading, no color, no polished icon design, no smooth symmetry, no cute decorative embellishment.
+* Make the page feel like a photographed or scanned sketch page.
+* Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
+
+For the nine cells, each panel is based on a line from the user's journal below. Read each line and draw your OWN simple marker-sketch interpretation of the scene or object it describes, keeping the raw reference style. Do not add caption text.
+Cell 1 is based on this line from the user's journal: "plants creeping in through the window where m and d usually wash dishes... plants stealing coins in the middle of the night... then they go back to their pots, and pretend like nothing happened - see the sickening smile on their little face."
+Cell 2 is based on this line from the user's journal: "Mine was a monkey whose eyeballs dropped out from a string when you twisted the ears on the side."
+Cell 3 is based on this line from the user's journal: "Also dreamt that J went to walk his golden dog - made out of solid gold."
+Cell 4 is based on this line from the user's journal: "BIRDS WITH COMPASSES ON THEIR BACK (BECAUSE THEY NEED TO SEE WHICH DIRECTION THEY'RE GOING)... They kept making shapes with each other, and I thought they were trying to say things to me."
+Cell 5 is based on this line from the user's journal: "I have a little piece of green glass in one of the black socks I'm wearing right now - long, so as not to show off, I can feel it when I walk. It reminds me of summer ;)"
+Cell 6 is based on this line from the user's journal: "bruise blocks - ten blocks, and each is different/various ugly discolored bruises. None are the same. These don't fit together in any particular way."
+Cell 7 is based on this line from the user's journal: "(pre-used wishes) yes, these eyelashes have already been wished on, but they are still pretty good :) (same with these dandelions)."
+Cell 8 is based on this line from the user's journal: "I got a small glass of milk... then said 'oh but…can I have just a little bit of milk'... so I got to dip my cookie in for a sip."
+Cell 9 is based on this line from the user's journal: "just: a train of friends. each train car can be hooked to the next one... Each person is a Big Head. And that is nice. To go around together like that."
