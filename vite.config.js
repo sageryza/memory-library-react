@@ -50,7 +50,23 @@ export default defineConfig({
         // Drop stale precaches when a new service worker activates, so updates
         // don't get stuck behind old cached assets.
         cleanupOutdatedCaches: true,
+        // Page opens go to the NETWORK first: a fresh visit always gets the
+        // newest deploy (the HTML is ~1.4KB), and the cached copy is only the
+        // fallback when offline or the network stalls past 3s. Without this,
+        // the service worker served the stored app shell first, so people kept
+        // seeing versions from before the latest deploy until it updated in
+        // the background — stale-cache bug reports during rapid iteration.
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
