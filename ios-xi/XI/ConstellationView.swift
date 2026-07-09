@@ -491,17 +491,16 @@ struct ConstellationView: View {
     /// board opens scrolled to this point.
     static let boardCenter = CGPoint(x: 1100, y: 1600)
 
-    /// A scattered grid slot for the i-th placed card, centered on the board so
-    /// added cards land in the middle (fixed columns so a slot doesn't shift as
-    /// more are added).
+    /// Where the i-th newly-placed card lands: a phyllotaxis spiral out from the
+    /// board centre (where the board opens), so the FIRST card sits dead-centre
+    /// on screen and later ones ring around it — never off to one side. Cards
+    /// with a saved position keep it; this is only for fresh adds.
     static func slot(_ i: Int) -> CGPoint {
-        let col = i % placeCols, row = i / placeCols
-        let originX = boardCenter.x - CGFloat(placeCols - 1) * colW / 2
-        let originY = boardCenter.y - rowH / 2
-        let jx = CGFloat((i &* 73) % 49) - 24
-        let jy = CGFloat((i &* 37) % 41) - 20
-        return CGPoint(x: originX + CGFloat(col) * colW + jx,
-                       y: originY + CGFloat(row) * rowH + jy)
+        guard i > 0 else { return boardCenter }
+        let angle = Double(i) * 2.399963229728653          // golden angle (radians)
+        let radius = 210.0 * Double(i).squareRoot()
+        return CGPoint(x: boardCenter.x + CGFloat(cos(angle) * radius),
+                       y: boardCenter.y + CGFloat(sin(angle) * radius))
     }
 
     /// A big board so cards and string have room to roam — no "wall" at the edge.
