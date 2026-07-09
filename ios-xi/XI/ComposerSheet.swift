@@ -13,7 +13,7 @@ struct ComposerSheet: View {
     @State private var existing: [XIMemory] = []
 
     private var prompt: String {
-        "times i \(pairing.event.cap.lowercased()) \(pairing.twist.cap.lowercased())"
+        "times i \(pairing.event.cap.lowercased()), \(pairing.twist.cap.lowercased())"
     }
     private var pairKey: String { "\(pairing.event.id)__\(pairing.twist.id)" }
 

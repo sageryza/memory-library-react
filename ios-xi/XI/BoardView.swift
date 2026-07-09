@@ -68,6 +68,7 @@ struct BoardView: View {
                         Button { viewDay -= 1; selected = nil; composedCells = [] } label: {
                             Image(systemName: "chevron.left")
                         }
+                        .disabled(viewDay <= 1)   // no rewinding into day zero / negative days
                         Text("BOARD OF THE DAY")
                             .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                         Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: {

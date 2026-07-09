@@ -11,15 +11,29 @@ enum XIImagePrefetch {
                                    diskCapacity: 256 * 1024 * 1024)
         Task.detached(priority: .utility) {
             var imgs = Set<String>()
+            let dn = BoardEngine.dayNumber()
             // The whole daily board (covers the Daily screen).
-            for p in BoardEngine.dailyBoard(BoardEngine.dayNumber()) {
+            for p in BoardEngine.dailyBoard(dn) {
                 let card = p.d == "be" ? XIDeck.events[p.i] : XIDeck.twists[p.i]
                 if let img = card.img { imgs.insert(img) }
             }
-            // The first handful of each deck (covers Today's opening pair + a few
-            // "new cards" reshuffles).
+            // Today's opening pair + a few redraws: events walk FORWARD from the
+            // front of the deck, twists walk BACKWARD from the END — so warm the
+            // twist deck's tail, not its head.
             for c in XIDeck.events.prefix(16) { if let img = c.img { imgs.insert(img) } }
-            for c in XIDeck.twists.prefix(16) { if let img = c.img { imgs.insert(img) } }
+            for c in XIDeck.twists.suffix(16) { if let img = c.img { imgs.insert(img) } }
+            // The last week of past-day pairs (Today's ‹ › arrows) — same
+            // deterministic walk TodayView.pairForDay uses.
+            let ne = XIDeck.events.count, nt = XIDeck.twists.count
+            if ne > 0 && nt > 0 {
+                for d in max(1, dn - 7)...dn {
+                    if let img = XIDeck.events[((d % ne) + ne) % ne].img { imgs.insert(img) }
+                    if let img = XIDeck.twists[((((nt - 1 - d) % nt) + nt) % nt)].img { imgs.insert(img) }
+                }
+            }
+            // The Versus lobby preview board (real card art, cells 0–24 of each deck).
+            for c in XIDeck.events.prefix(25) { if let img = c.img { imgs.insert(img) } }
+            for c in XIDeck.twists.prefix(25) { if let img = c.img { imgs.insert(img) } }
 
             await withTaskGroup(of: Void.self) { group in
                 for img in imgs {

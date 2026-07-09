@@ -30,8 +30,12 @@ struct TodayView: View {
     @State private var showSettings = false
     @FocusState private var writing: Bool
 
-    private var event: XICard { isToday ? events[min(ev, events.count - 1)] : pairForDay(viewDay).0 }
-    private var twist: XICard { isToday ? twists[min(tw, twists.count - 1)] : pairForDay(viewDay).1 }
+    // Guard against a fully curated-away deck (would index [-1] and crash) by
+    // falling back to the uncurated deck.
+    private var safeEvents: [XICard] { events.isEmpty ? XIDeck.events : events }
+    private var safeTwists: [XICard] { twists.isEmpty ? XIDeck.twists : twists }
+    private var event: XICard { isToday ? safeEvents[min(ev, safeEvents.count - 1)] : pairForDay(viewDay).0 }
+    private var twist: XICard { isToday ? safeTwists[min(tw, safeTwists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
 
     /// Deterministic daily pairing (same walk the gallery used): event forward,
@@ -105,10 +109,12 @@ struct TodayView: View {
     private var header: some View {
         VStack(spacing: 10) {
             HStack(spacing: 14) {
-                Button { viewDay -= 1; text = "" } label: { Image(systemName: "chevron.left") }
+                // No lower bound past day 1; arrows never wipe in-progress text.
+                Button { viewDay -= 1 } label: { Image(systemName: "chevron.left") }
+                    .disabled(viewDay <= 1)
                 Text("CARDS OF THE DAY")
                     .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
-                Button { if !isToday { viewDay += 1; text = "" } } label: { Image(systemName: "chevron.right") }
+                Button { if !isToday { viewDay += 1 } } label: { Image(systemName: "chevron.right") }
                     .disabled(isToday)
             }
             .font(.system(.subheadline))
@@ -277,17 +283,17 @@ struct TodayView: View {
     }
 
     private func newCards() {
+        // Redraw replaces BOTH cards, not one at a time.
         hist.append((ev, tw))
-        let ne = events.count, nt = twists.count
-        if flip == "tw" { tw = (tw - 1 + nt) % nt; flip = "ev" }
-        else { ev = (ev + 1) % ne; flip = "tw" }
+        let ne = safeEvents.count, nt = safeTwists.count
+        tw = (tw - 1 + nt) % nt
+        ev = (ev + 1) % ne
         text = ""
     }
 
     private func undo() {
         guard let last = hist.popLast() else { return }
         ev = last.0; tw = last.1
-        flip = flip == "tw" ? "ev" : "tw"
     }
 
     private func reload() async {
@@ -313,8 +319,10 @@ struct TodayView: View {
         saving = true
         defer { saving = false }
         do {
+            // Stamp the memory with the day actually being VIEWED, so writing on
+            // a past day's pair doesn't get misattributed to today.
             try await XIService.shared.saveMemory(event: event, twist: twist, text: trimmed,
-                                                  boardDay: BoardEngine.dayNumber(), mode: "daily")
+                                                  boardDay: viewDay, mode: "daily")
             text = ""
             writing = false
             await reload()

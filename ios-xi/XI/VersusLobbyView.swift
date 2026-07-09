@@ -8,6 +8,9 @@ enum VersusRecents {
         l.insert(id, at: 0)
         UserDefaults.standard.set(Array(l.prefix(12)), forKey: key)
     }
+    static func forget(_ id: String) {
+        UserDefaults.standard.set(list().filter { $0 != id }, forKey: key)
+    }
 }
 
 struct VersusLobbyView: View {
@@ -18,6 +21,7 @@ struct VersusLobbyView: View {
     @State private var error: String?
     @State private var path: [String] = []
     @State private var names: [String: String] = [:]   // gameId → other players' names
+    @State private var recents: [String] = VersusRecents.list()
     @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
@@ -54,13 +58,15 @@ struct VersusLobbyView: View {
 
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
-                if !VersusRecents.list().isEmpty {
+                if !recents.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("your games").font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
-                        ForEach(VersusRecents.list(), id: \.self) { id in
+                        ForEach(recents, id: \.self) { id in
                             Button { path.append(id) } label: {
                                 HStack {
-                                    Text(names[id] ?? "game \(id)")
+                                    // A game no one else has joined yet has no name to
+                                    // show — say what it is, not a raw code.
+                                    Text(names[id] ?? "waiting for a friend")
                                         .font(.system(.body, design: .serif, weight: .medium))
                                     Spacer()
                                     Image(systemName: "chevron.right").font(.caption)
@@ -99,6 +105,7 @@ struct VersusLobbyView: View {
             do {
                 try await VersusService.shared.joinGame(id)
                 VersusRecents.remember(id)
+                recents = VersusRecents.list()
                 if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
                 busy = false
                 if !path.contains(id) { path.append(id) }
@@ -107,8 +114,16 @@ struct VersusLobbyView: View {
     }
 
     private func loadNames() async {
-        for id in VersusRecents.list() where names[id] == nil {
-            if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
+        for id in recents {
+            // Prune games whose document is gone (deleted / expired) so the list
+            // only shows games you can actually reopen.
+            guard await VersusService.shared.gameExists(id) else {
+                VersusRecents.forget(id)
+                recents.removeAll { $0 == id }
+                continue
+            }
+            if names[id] == nil,
+               let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
         }
     }
 
@@ -118,6 +133,7 @@ struct VersusLobbyView: View {
             do {
                 let id = try await VersusService.shared.createGame()
                 VersusRecents.remember(id)
+                recents = VersusRecents.list()
                 busy = false
                 path.append(id)
             } catch { self.error = error.localizedDescription; busy = false }
@@ -137,6 +153,7 @@ struct VersusLobbyView: View {
             do {
                 try await VersusService.shared.joinGame(id)
                 VersusRecents.remember(id)
+                recents = VersusRecents.list()
                 busy = false
                 path.append(id)
             } catch { self.error = error.localizedDescription; busy = false }

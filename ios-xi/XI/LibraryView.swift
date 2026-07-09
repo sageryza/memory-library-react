@@ -51,10 +51,22 @@ struct LibraryView: View {
                         content
                     }
                     if filtersExpanded {
-                        ScrollView { LibraryFilterPanel(store: store).padding(.bottom, kb.height) }
-                            .background(XITheme.paper.opacity(0.01))
-                            .padding(.bottom, 14)   // dropdown stops above the nav
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                        ScrollView {
+                            LibraryFilterPanel(store: store)
+                                // A tap on the panel itself does nothing (absorbs),
+                                // so only taps on the grid area close the dropdown.
+                                .contentShape(Rectangle())
+                                .onTapGesture {}
+                                .padding(.bottom, kb.height)
+                        }
+                        // Tap anywhere outside the panel (the visible grid) to
+                        // close the dropdown — one tap closes, the next interacts.
+                        .background(
+                            Color.black.opacity(0.001)
+                                .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded = false } }
+                        )
+                        .padding(.bottom, 14)   // dropdown stops above the nav
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
                 if store.selectMode { selectionBar }

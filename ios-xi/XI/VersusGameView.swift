@@ -103,7 +103,7 @@ struct VersusGameView: View {
         for s in stories where s.byUid != myUid && !s.byUid.isEmpty
             && !syncedStoryIds.contains(s.id) && !moderation.isBlocked(s.byUid) {
             syncedStoryIds.insert(s.id)
-            let title = "times i \(s.eventCap.lowercased()) \(s.twistCap.lowercased())"
+            let title = "times i \(s.eventCap.lowercased()), \(s.twistCap.lowercased())"
             let tags = [s.eventCap, s.twistCap].compactMap { cap -> String? in
                 let x = cap.lowercased()
                     .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
@@ -273,10 +273,14 @@ struct VersusGameView: View {
                 ForEach(visibleStories) { s in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Circle().fill(Color(xiHex: s.color)).frame(width: 8, height: 8)
+                            // The teller's gold shape (same one shown on their cards),
+                            // not a coloured dot — matches the player list up top.
+                            let order = game?.players.first { $0.uid == s.byUid }?.order
+                            Image(systemName: Self.playerSymbol(order ?? 2))
+                                .font(.system(size: 9)).foregroundStyle(XITheme.gold)
                             Text(s.byName).font(.system(.caption, design: .serif, weight: .medium)).foregroundStyle(XITheme.ink)
                             Spacer()
-                            Text("times i \(s.eventCap.lowercased()) \(s.twistCap.lowercased())")
+                            Text("times i \(s.eventCap.lowercased()), \(s.twistCap.lowercased())")
                                 .font(.system(.caption2, design: .serif)).foregroundStyle(XITheme.line)
                                 .lineLimit(1)
                             storyMenu(s)
@@ -421,7 +425,7 @@ struct StoryComposer: View {
                     storyCard(twCard, isEvent: false)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
-                Text("times i \(evCard.cap.lowercased()) \(twCard.cap.lowercased())")
+                Text("times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())")
                     .font(.system(.title3, design: .serif, weight: .semibold))
                     .foregroundStyle(XITheme.ink)
                 ZStack(alignment: .topLeading) {

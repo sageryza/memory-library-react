@@ -46,6 +46,9 @@ final class VersusService {
         if let u = Auth.auth().currentUser {
             if let dn = u.displayName, !dn.isEmpty { return ContentFilter.masked(dn) }
             if let em = u.email, let p = em.split(separator: "@").first { return ContentFilter.masked(String(p)) }
+            // Anonymous users get a distinguishable handle instead of everyone
+            // collapsing to the same bare "Player".
+            return "Player " + String(u.uid.suffix(4))
         }
         return "Player"
     }
@@ -78,20 +81,27 @@ final class VersusService {
 
     func joinGame(_ gameId: String) async throws {
         guard let uid = uid else { throw e("Sign in to join.") }
-        let snap = try await gameRef(gameId).getDocument()
-        guard let g = snap.data() else { throw e("Game not found.") }
-        let players = (g["players"] as? [[String: Any]]) ?? []
-        if players.contains(where: { ($0["uid"] as? String) == uid }) { return }
-        let order = players.count
-        let player: [String: Any] = [
-            "uid": uid, "name": currentName(),
-            "color": VersusModel.playerColors[order % VersusModel.playerColors.count], "order": order,
-        ]
-        try await gameRef(gameId).updateData([
-            "players": players + [player],
-            "stats.\(uid)": ["placed": 0, "stories": 0],
-            "updatedAt": FieldValue.serverTimestamp(),
-        ])
+        let name = currentName()
+        // Transactional: two players joining at the same moment must not clobber
+        // each other's entry or compute the same order.
+        _ = try await db.runTransaction { txn, errPtr -> Any? in
+            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else {
+                errPtr?.pointee = self.e("Game not found."); return nil
+            }
+            let players = (g["players"] as? [[String: Any]]) ?? []
+            if players.contains(where: { ($0["uid"] as? String) == uid }) { return nil }
+            let order = players.count
+            let player: [String: Any] = [
+                "uid": uid, "name": name,
+                "color": VersusModel.playerColors[order % VersusModel.playerColors.count], "order": order,
+            ]
+            txn.updateData([
+                "players": players + [player],
+                "stats.\(uid)": ["placed": 0, "stories": 0],
+                "updatedAt": FieldValue.serverTimestamp(),
+            ], forDocument: self.gameRef(gameId))
+            return nil
+        }
     }
 
     /// The other players' names in a game (everyone but you), for the lobby list.
@@ -106,6 +116,14 @@ final class VersusService {
             return (n?.isEmpty == false) ? n : nil
         }
         return others.isEmpty ? nil : others.joined(separator: ", ")
+    }
+
+    /// Whether the game document still exists — used to prune dead games from the
+    /// lobby's recents. A network error reads as "exists" so we never prune a
+    /// live game just because the fetch failed.
+    func gameExists(_ gameId: String) async -> Bool {
+        guard let snap = try? await gameRef(gameId).getDocument() else { return true }
+        return snap.exists
     }
 
     // MARK: Hand
@@ -262,16 +280,26 @@ final class VersusService {
             "eventCap": evCard.cap, "twistCap": twCard.cap, "text": t, "ts": Date().timeIntervalSince1970 * 1000,
         ])
 
-        let title = "times i \(evCard.cap.lowercased()) \(twCard.cap.lowercased())"
+        let title = "times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())"
         let tags = [slugTag(evCard.cap), slugTag(twCard.cap)].compactMap { $0 }
         let now = Date(); let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let df = DateFormatter(); df.dateStyle = .short
-        _ = try? await db.collection("users").document(uid).collection("memories").addDocument(data: [
+        let memRef = try? await db.collection("users").document(uid).collection("memories").addDocument(data: [
             "content": t, "title": title, "hashtags": tags, "source": "xi", "mode": "versus",
             "event": ["id": evCard.id, "cap": evCard.cap], "twist": ["id": twCard.id, "cap": twCard.cap],
             "pairKey": pk, "timestamp": iso.string(from: now), "dateTime": df.string(from: now),
             "gameId": gameId, "createdAt": FieldValue.serverTimestamp(), "updatedAt": FieldValue.serverTimestamp(),
         ])
+        // Swap the card-pair title for an AI title distilled from the story itself,
+        // in the background — same as saving from the daily board. Falls back
+        // silently to the template title if AI is unavailable.
+        if let memRef {
+            Task {
+                if let ai = await XIService.shared.generateTitle(from: t) {
+                    try? await memRef.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+                }
+            }
+        }
     }
 
     // MARK: helpers

@@ -51,6 +51,12 @@ struct XIShell: View {
             .onChange(of: deepLink.pendingVersusGameId) { id in
                 if id != nil { tab = .versus }
             }
+            // Cold launches: a link that arrived BEFORE the shell mounted never
+            // fires onChange — route it on appear too.
+            .onAppear {
+                if deepLink.pendingShareId != nil { tab = .library }
+                if deepLink.pendingVersusGameId != nil { tab = .versus }
+            }
     }
 
     @ViewBuilder

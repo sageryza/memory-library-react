@@ -196,13 +196,16 @@ struct ConstellationView: View {
 
     private var emptyBoard: some View {
         VStack(spacing: 22) {
-            // Instructions up top…
+            // Instructions up top… (text and preview pass touches through to the
+            // board beneath — only the Add button is tappable)
             VStack(spacing: 14) {
                 Text("Your board is empty")
                     .font(.system(.title3, design: .serif)).foregroundStyle(slate)
+                    .allowsHitTesting(false)
                 Text("Pin memories to the board to connect them with string.")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
                     .multilineTextAlignment(.center)
+                    .allowsHitTesting(false)
                 Button { showAdd = true } label: {
                     Label("Add memories", systemImage: "plus")
                         .font(.system(.body, design: .serif).weight(.medium))
@@ -213,6 +216,7 @@ struct ConstellationView: View {
             // …the blurred preview sits below, clearly visible.
             ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
                                  slate: slate, bodyGrey: bodyGrey)
+                .allowsHitTesting(false)
         }
         .padding(28)
     }
