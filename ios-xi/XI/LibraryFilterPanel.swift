@@ -8,6 +8,7 @@ struct LibraryFilterPanel: View {
     @ObservedObject var store: ArchiveStore
     @State private var saveName = ""
     @State private var showSave = false
+    @State private var showEmptyHint = false
     @State private var showAllTags = false
 
     /// Roughly three lines of chips before "show more" — keeps the (often long)
@@ -46,6 +47,9 @@ struct LibraryFilterPanel: View {
                 Task { await store.saveAdvancedAsLibrary(name: name); saveName = "" }
             }
         } message: { Text("Re-run this search anytime from Libraries.") }
+        .alert("Nothing to save yet", isPresented: $showEmptyHint) {
+            Button("OK", role: .cancel) {}
+        } message: { Text("Type a term or two in the boxes above first.") }
     }
 
     // MARK: scope toggle (Mine · Both · Others)
@@ -167,7 +171,13 @@ struct LibraryFilterPanel: View {
             }
             HStack {
                 Spacer()
-                Button { showSave = true } label: {
+                // Never .disabled() — iOS grays a disabled button, overriding the
+                // gold/white. Since the term boxes start empty, that made this
+                // button LOOK gray every time the panel opened. Instead it stays
+                // gold and explains itself if there's nothing to save yet.
+                Button {
+                    if store.advanced.isEmpty { showEmptyHint = true } else { showSave = true }
+                } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "bookmark").font(.system(size: 11))
                         Text("Save as Library").font(.system(.footnote, design: .serif))
@@ -178,7 +188,6 @@ struct LibraryFilterPanel: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .disabled(store.advanced.isEmpty)
             }
         }
     }

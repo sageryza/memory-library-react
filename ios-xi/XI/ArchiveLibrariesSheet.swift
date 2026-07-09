@@ -51,7 +51,7 @@ struct ArchiveLibrariesSheet: View {
                     }.tint(XITheme.gold)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .alert("New Library", isPresented: $showNew) {

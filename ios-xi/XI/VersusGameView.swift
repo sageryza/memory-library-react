@@ -445,12 +445,16 @@ struct StoryComposer: View {
             .background(XITheme.paper.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Cancel")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(busy ? "…" : "save") { save() }
-                        .tint(XITheme.gold)
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+                    Button { save() } label: {
+                        if busy { ProgressView() } else { Image(systemName: "checkmark") }
+                    }
+                    .tint(XITheme.gold)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+                    .accessibilityLabel("Save")
                 }
             }
         }

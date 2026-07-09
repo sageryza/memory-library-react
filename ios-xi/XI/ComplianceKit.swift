@@ -120,7 +120,10 @@ struct BlockedUsersView: View {
             .navigationTitle("Blocked players")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Close")
+                }
             }
         }
     }

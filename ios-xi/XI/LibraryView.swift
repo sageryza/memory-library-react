@@ -544,7 +544,7 @@ struct MemoryDetailSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }
@@ -751,7 +751,7 @@ struct TrashSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .task { await store.loadTrashed(); loading = false }

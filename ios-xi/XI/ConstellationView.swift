@@ -129,7 +129,7 @@ struct ConstellationView: View {
                     } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
                         .buttonBorderShape(.roundedRectangle).tint(.primary)
                     if !embedded {
-                        Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                        Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                     }
                 }
             }
@@ -779,14 +779,19 @@ private struct BoardAddSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Add\(selected.isEmpty ? "" : " (\(selected.count))")") {
-                        onAdd(Array(selected)); dismiss()
+                    Button { onAdd(Array(selected)); dismiss() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark")
+                            if !selected.isEmpty {
+                                Text("\(selected.count)").font(.system(.body, design: .serif).weight(.semibold))
+                            }
+                        }
                     }
-                    .font(.system(.body, design: .serif).weight(.semibold))
                     .tint(XITheme.gold).disabled(selected.isEmpty)
+                    .accessibilityLabel("Add selected")
                 }
             }
         }
@@ -904,11 +909,11 @@ private struct ConnectionInsightSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(text); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                    Button { onSave(text); dismiss() } label: { Image(systemName: "checkmark") }
+                        .tint(XITheme.gold).accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
@@ -983,7 +988,7 @@ private struct BoardShareSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }
@@ -1128,11 +1133,11 @@ private struct PinEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(draft); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                    Button { onSave(draft); dismiss() } label: { Image(systemName: "checkmark") }
+                        .tint(XITheme.gold).accessibilityLabel("Save")
                 }
             }
             .onAppear { draft = text }
@@ -1194,7 +1199,7 @@ private struct ConstellationsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .task { items = await XIService.shared.loadConstellations(); loading = false }
