@@ -1,5 +1,36 @@
 import SwiftUI
 
+/// A simple wrapping (flow) layout — chips wrap to the next line when they run
+/// out of width. Used for the hashtag cloud and active-tag chips.
+struct WrapLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let maxW = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x + s.width > maxW, x > 0 { x = 0; y += rowH + spacing; rowH = 0 }
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+        }
+        return CGSize(width: maxW == .infinity ? x : maxW, height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        let maxW = bounds.width
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x + s.width > maxW, x > 0 { x = 0; y += rowH + spacing; rowH = 0 }
+            v.place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + y), proposal: ProposedViewSize(s))
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+        }
+    }
+}
+
+
 /// The inline filter dropdown that expands under the search bar. Top to bottom:
 /// a small Mine/Both/Others scope toggle, the hashtag cloud (truncated), then
 /// Boolean search (always available). State lives in ArchiveStore so collapsing
@@ -108,7 +139,7 @@ struct LibraryFilterPanel: View {
                         }
                         .foregroundStyle(.white)
                         .padding(.vertical, 5).padding(.horizontal, 9)
-                        .background(XITheme.maroon).clipShape(Capsule())
+                        .background(XITheme.maroon).clipShape(RoundedRectangle(cornerRadius: 6))
                     }.buttonStyle(.plain)
                 }
             }
@@ -145,7 +176,7 @@ struct LibraryFilterPanel: View {
                                 .foregroundStyle(store.isTagActive(item.tag) ? .white : XITheme.maroon)
                                 .padding(.vertical, 4).padding(.horizontal, 9)
                                 .background(store.isTagActive(item.tag) ? XITheme.maroon : XITheme.maroon.opacity(0.08))
-                                .clipShape(Capsule())
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                         }.buttonStyle(.plain)
                     }
                 }

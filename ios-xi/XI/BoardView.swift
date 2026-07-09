@@ -66,6 +66,7 @@ struct BoardView: View {
                         Button { showHelp = true } label: {
                             Image(systemName: "info.circle").tint(XITheme.gold)
                         }
+                        .buttonBorderShape(.roundedRectangle)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 } else {
@@ -76,6 +77,7 @@ struct BoardView: View {
                         Button { showHelp = true } label: {
                             Image(systemName: "info.circle").tint(XITheme.gold)
                         }
+                        .buttonBorderShape(.roundedRectangle)
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -209,9 +211,12 @@ private struct BoardHelpSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("How to play")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("how to play")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }

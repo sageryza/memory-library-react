@@ -24,6 +24,7 @@ struct TodayView: View {
 
     @State private var text = ""
     @State private var saving = false
+    @State private var saveError: String?
     @State private var memories: [XIMemory] = []
     @State private var totalCount = 0
     @State private var started = false
@@ -217,6 +218,10 @@ struct TodayView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+            }
+            if let saveError {
+                Text(saveError).font(.footnote).foregroundStyle(.red)
             }
         }
         .padding(.top, 12)
@@ -324,7 +329,7 @@ struct TodayView: View {
     private func save() async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        saving = true
+        saving = true; saveError = nil
         defer { saving = false }
         do {
             // Stamp the memory with the day actually being VIEWED, so writing on
@@ -336,7 +341,7 @@ struct TodayView: View {
             await reload()
             await loadTotal()
         } catch {
-            // surfaced minimally for now; a memory failing to save is rare
+            saveError = error.localizedDescription
         }
     }
 }

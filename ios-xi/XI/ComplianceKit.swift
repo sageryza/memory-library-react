@@ -99,27 +99,39 @@ struct BlockedUsersView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 if moderation.list.isEmpty {
                     Text("You haven't blocked anyone.")
-                        .foregroundColor(.secondary)
+                        .font(.system(.body, design: .serif))
+                        .foregroundStyle(XITheme.line)
                 } else {
                     ForEach(moderation.list, id: \.uid) { item in
                         HStack {
                             Text(item.name)
+                                .font(.system(.body, design: .serif))
+                                .foregroundStyle(XITheme.ink)
                             Spacer()
-                            Button("Unblock") {
+                            Button {
                                 withAnimation { moderation.unblock(item.uid) }
+                            } label: {
+                                Text("Unblock")
+                                    .font(.system(.body, design: .serif))
+                                    .foregroundStyle(XITheme.gold)
                             }
-                            .foregroundColor(.accentColor)
                         }
                     }
                 }
             }
-            .navigationTitle("Blocked players")
+            .scrollContentBackground(.hidden)
+            .background(XITheme.paper.ignoresSafeArea())
+            .tint(XITheme.gold)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("blocked users")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                         .tint(XITheme.line).accessibilityLabel("Close")
@@ -168,7 +180,7 @@ struct EULAGate<Content: View>: View {
                             .font(theme.titleFont(19)).foregroundStyle(theme.accentText)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(theme.accent)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     Text("By tapping I Agree you accept the Terms and Privacy Policy.")
                         .font(theme.bodyFont(13)).foregroundStyle(theme.subtleInk)
@@ -199,25 +211,41 @@ struct ReportSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Reason") {
+                Section {
                     Picker("Reason", selection: $reason) {
-                        ForEach(Reason.allCases) { Text($0.rawValue).tag($0) }
+                        ForEach(Reason.allCases) { Text($0.rawValue).font(.system(.body, design: .serif)).tag($0) }
                     }
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                } header: {
+                    Text("Reason").font(.system(.footnote, design: .serif))
                 }
-                Section("Details (optional)") {
-                    TextField("What happened?", text: $details, axis: .vertical).lineLimit(3...6)
+                Section {
+                    TextField("What happened?", text: $details, axis: .vertical)
+                        .font(.system(.body, design: .serif)).lineLimit(3...6)
+                } header: {
+                    Text("Details (optional)").font(.system(.footnote, design: .serif))
                 }
                 Section {
                     Text("There is zero tolerance for objectionable content or abusive users. Reports are reviewed and acted on, typically within 24 hours.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
                 }
             }
-            .navigationTitle("Report \(subjectLabel)")
+            .scrollContentBackground(.hidden)
+            .background(XITheme.paper.ignoresSafeArea())
+            .tint(XITheme.gold)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Submit") { onSubmit(reason.rawValue, details) }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: onCancel) { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("report")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { onSubmit(reason.rawValue, details) } label: { Image(systemName: "checkmark") }
+                        .tint(XITheme.gold).accessibilityLabel("Submit")
                 }
             }
         }

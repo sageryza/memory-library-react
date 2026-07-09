@@ -384,12 +384,12 @@ final class XIService {
     /// The trashed (soft-deleted) memories — those carrying a `deletedAt`.
     func trashedMemories() async -> [XIMemory] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let snap = try? await db.collection("users").document(uid)
-            .collection("memories").getDocuments()
-        let docs = (snap?.documents ?? []).filter { doc in
-            let dv = doc.data()["deletedAt"]
-            return dv != nil && !(dv is NSNull)
-        }
+        let docs = await retryingDocuments(
+            db.collection("users").document(uid).collection("memories"))
+            .filter { doc in
+                let dv = doc.data()["deletedAt"]
+                return dv != nil && !(dv is NSNull)
+            }
         return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
 
@@ -403,11 +403,25 @@ final class XIService {
 
     // MARK: Read
 
+    /// One dropped request must not render as a false "No memories yet" — the
+    /// same one-shot-no-retry disease the card art had. Reads go through this:
+    /// retry with backoff before conceding an empty result.
+    private func retryingDocuments(_ query: Query, attempts: Int = 3) async -> [QueryDocumentSnapshot] {
+        for attempt in 1...attempts {
+            if let snap = try? await query.getDocuments() { return snap.documents }
+            if attempt < attempts {
+                try? await Task.sleep(nanoseconds: UInt64(attempt) * 700_000_000)
+            }
+        }
+        return []
+    }
+
     func memories(pairKey: String) async -> [XIMemory] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let snap = try? await db.collection("users").document(uid).collection("memories")
-            .whereField("pairKey", isEqualTo: pairKey).getDocuments()
-        return (snap?.documents ?? []).compactMap(parse).sorted { $0.timestamp > $1.timestamp }
+        let docs = await retryingDocuments(
+            db.collection("users").document(uid).collection("memories")
+                .whereField("pairKey", isEqualTo: pairKey))
+        return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
 
     /// Every memory in the user's library (not just XI-game ones), minus trash —
@@ -416,12 +430,12 @@ final class XIService {
     /// it; soft-deleted memories carry a `deletedAt` and are excluded.
     func allMemories() async -> [XIMemory] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let snap = try? await db.collection("users").document(uid)
-            .collection("memories").getDocuments()
-        let docs = (snap?.documents ?? []).filter { doc in
-            let dv = doc.data()["deletedAt"]
-            return dv == nil || dv is NSNull          // keep active (and restored) only
-        }
+        let docs = await retryingDocuments(
+            db.collection("users").document(uid).collection("memories"))
+            .filter { doc in
+                let dv = doc.data()["deletedAt"]
+                return dv == nil || dv is NSNull      // keep active (and restored) only
+            }
         return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
 
@@ -469,9 +483,9 @@ final class XIService {
     /// Every memory in the user's Commons, newest first.
     func commonsMemories() async -> [XIMemory] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let snap = try? await db.collection("users").document(uid)
-            .collection("commons").getDocuments()
-        return (snap?.documents ?? []).compactMap(parse).sorted { $0.timestamp > $1.timestamp }
+        let docs = await retryingDocuments(
+            db.collection("users").document(uid).collection("commons"))
+        return docs.compactMap(parse).sorted { $0.timestamp > $1.timestamp }
     }
 
     /// Add a friend's memory to the Commons. De-dupes on (author + content) so

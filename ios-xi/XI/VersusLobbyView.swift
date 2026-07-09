@@ -21,17 +21,14 @@ struct VersusLobbyView: View {
     @State private var error: String?
     @State private var path: [String] = []
     @State private var names: [String: String] = [:]   // gameId → other players' names
+    @State private var namesLoaded: Set<String> = []    // games whose name fetch finished
     @State private var recents: [String] = VersusRecents.list()
+    @FocusState private var joinFocused: Bool
     @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 22) {
-                XILogo(height: 22)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("Versus")
-                    .font(.system(.largeTitle, design: .serif).weight(.semibold)).tracking(4)
-                    .foregroundStyle(XITheme.ink)
                 Text("a memory game with friends")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
 
@@ -40,7 +37,7 @@ struct VersusLobbyView: View {
                         .font(.system(.body, design: .serif))
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                         .background(XITheme.gold).foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .disabled(busy)
 
@@ -50,6 +47,7 @@ struct VersusLobbyView: View {
                     TextField("paste invite link", text: $joinCode)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .font(.system(.body, design: .serif))
+                        .focused($joinFocused)
                         .padding(12)
                         .background(XITheme.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -60,6 +58,10 @@ struct VersusLobbyView: View {
                 }
 
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+                if busy {
+                    // Joining from a tapped invite (or starting a game) — show it.
+                    ProgressView().tint(XITheme.gold)
+                }
 
                 if !recents.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -68,8 +70,9 @@ struct VersusLobbyView: View {
                             Button { path.append(id) } label: {
                                 HStack {
                                     // A game no one else has joined yet has no name to
-                                    // show — say what it is, not a raw code.
-                                    Text(names[id] ?? "waiting for a friend")
+                                    // show — say what it is, not a raw code. While the
+                                    // name is still loading, stay neutral.
+                                    Text(names[id] ?? (namesLoaded.contains(id) ? "waiting for a friend" : "…"))
                                         .font(.system(.body, design: .serif, weight: .medium))
                                     Spacer()
                                     Image(systemName: "chevron.right").font(.caption)
@@ -94,6 +97,28 @@ struct VersusLobbyView: View {
             .frame(maxWidth: 460)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
+            // Tapping anywhere outside the join field dismisses the keyboard.
+            .onTapGesture { joinFocused = false }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // App-wide title convention: ALL-CAPS typewriter, navInk; logo
+                // top-left with the iOS 26 glass pill suppressed.
+                ToolbarItem(placement: .principal) {
+                    Text("VERSUS")
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { joinFocused = false }
+                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
             .navigationDestination(for: String.self) { gameId in
                 VersusGameView(gameId: gameId, auth: auth)
             }
@@ -128,6 +153,7 @@ struct VersusLobbyView: View {
             }
             if names[id] == nil,
                let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
+            namesLoaded.insert(id)
         }
     }
 

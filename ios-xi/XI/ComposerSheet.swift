@@ -11,6 +11,7 @@ struct ComposerSheet: View {
     @State private var saving = false
     @State private var error: String?
     @State private var existing: [XIMemory] = []
+    @FocusState private var writing: Bool
 
     private var prompt: String {
         "times i \(pairing.event.cap.lowercased()), \(pairing.twist.cap.lowercased())"
@@ -31,14 +32,22 @@ struct ComposerSheet: View {
                 .foregroundStyle(XITheme.ink)
                 .padding(.horizontal, 8)
 
-            TextEditor(text: $text)
-                .font(.system(.body, design: .serif))
-                .frame(height: 120)
-                .padding(8)
-                .scrollContentBackground(.hidden)
-                .background(XITheme.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("A memory that's both of these…")
+                        .font(.system(.body, design: .serif)).foregroundStyle(XITheme.line)
+                        .padding(.top, 16).padding(.leading, 13)
+                }
+                TextEditor(text: $text)
+                    .font(.system(.body, design: .serif))
+                    .focused($writing)
+                    .frame(height: 120)
+                    .padding(8)
+                    .scrollContentBackground(.hidden)
+            }
+            .background(XITheme.white)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
@@ -71,7 +80,14 @@ struct ComposerSheet: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .background(XITheme.paper)
+        .background(XITheme.paper.onTapGesture { writing = false })
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { writing = false }
+                    .font(.system(.body, design: .serif)).tint(XITheme.gold)
+            }
+        }
         .presentationDetents([.medium, .large])
         .task { existing = await XIService.shared.memories(pairKey: pairKey) }
     }

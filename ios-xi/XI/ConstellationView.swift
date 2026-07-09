@@ -123,8 +123,8 @@ struct ConstellationView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(placed.count) on board")
-                        .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
+                    Text("\(placed.count) ON BOARD")
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
@@ -176,6 +176,7 @@ struct ConstellationView: View {
                 }
             } message: { Text("Save this board arrangement to reload later.") }
         }
+        .tint(XITheme.gold)
         .task {
             guard !loaded else { return }
             async let conns = XIService.shared.loadConnections()
@@ -588,7 +589,7 @@ private struct PinCard: View {
                         Text(tag)
                             .font(.system(size: 9, design: .monospaced)).foregroundStyle(maroon)
                             .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(crimson.opacity(0.10)).clipShape(Capsule())
+                            .background(crimson.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -609,7 +610,7 @@ private struct Pushpin: View {
     let crimson: Color
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Capsule().fill(Color(white: 0.6))
+            RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.6))
                 .frame(width: 2, height: 12)
                 .rotationEffect(.degrees(15), anchor: .top)
                 .offset(x: 11, y: 10)
@@ -753,6 +754,7 @@ private struct BoardAddSheet: View {
 
     @State private var search = ""
     @State private var selected: Set<String> = []
+    @State private var showNothingSelected = false
 
     private var filtered: [XIMemory] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -799,14 +801,23 @@ private struct BoardAddSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("add to board")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
                 }
+                ToolbarItem(placement: .principal) {
+                    Text("add to board")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { onAdd(Array(selected)); dismiss() } label: {
+                    Button {
+                        if selected.isEmpty {
+                            showNothingSelected = true
+                        } else {
+                            onAdd(Array(selected)); dismiss()
+                        }
+                    } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark")
                             if !selected.isEmpty {
@@ -814,10 +825,13 @@ private struct BoardAddSheet: View {
                             }
                         }
                     }
-                    .tint(XITheme.gold).disabled(selected.isEmpty)
+                    .tint(XITheme.gold).opacity(selected.isEmpty ? 0.5 : 1)
                     .accessibilityLabel("Add selected")
                 }
             }
+            .alert("Nothing selected yet", isPresented: $showNothingSelected) {
+                Button("OK", role: .cancel) {}
+            } message: { Text("Tap some memories to add first.") }
         }
     }
 
@@ -840,7 +854,7 @@ private struct BoardAddSheet: View {
                     ForEach(m.hashtags.prefix(3), id: \.self) { tag in
                         Text(tag).font(.system(size: 11, design: .serif)).foregroundStyle(XITheme.gold)
                             .padding(.vertical, 3).padding(.horizontal, 8)
-                            .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
+                            .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -915,7 +929,7 @@ private struct ConnectionInsightSheet: View {
                         .foregroundStyle(XITheme.ink)
                     TextEditor(text: $text)
                         .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                        .frame(minHeight: 120)
+                        .frame(height: 120)
                         .scrollContentBackground(.hidden)
                         .padding(8).background(XITheme.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -931,18 +945,21 @@ private struct ConnectionInsightSheet: View {
                 .padding(20)
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("connection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("connection")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { onSave(text); dismiss() } label: { Image(systemName: "checkmark") }
                         .tint(XITheme.gold).accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                    Spacer(); Button("Done") { focused = false }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
             .onAppear { text = insight }
@@ -1160,11 +1177,14 @@ private struct PinEditorSheet: View {
             }
             .padding(20)
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("concept pin")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("concept pin")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { onSave(draft); dismiss() } label: { Image(systemName: "checkmark") }
@@ -1226,9 +1246,12 @@ private struct ConstellationsSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("constellations")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("constellations")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }

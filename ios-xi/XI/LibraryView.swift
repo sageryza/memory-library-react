@@ -146,6 +146,7 @@ struct LibraryView: View {
                 Button("OK", role: .cancel) { importMsg = nil }
             } message: { Text(importMsg ?? "") }
         }
+        .tint(XITheme.gold)   // alerts get gold buttons, not system blue
         .task { await store.load() }
         // A universal link (incaseofamnesia.com/share/…) resolves here and raises
         // the same "Add to your Commons?" prompt as a pasted link.
@@ -272,7 +273,7 @@ struct LibraryView: View {
                         Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                     }
                     .foregroundStyle(.white).padding(.vertical, 5).padding(.horizontal, 10)
-                    .background(XITheme.gold).clipShape(Capsule())
+                    .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
                     .onTapGesture { store.selectLibrary(nil) }
                 }
                 ForEach(Array(store.tagFilters.enumerated()), id: \.element.id) { idx, f in
@@ -289,7 +290,7 @@ struct LibraryView: View {
                                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                             }
                             .foregroundStyle(.white).padding(.vertical, 5).padding(.horizontal, 10)
-                            .background(XITheme.maroon).clipShape(Capsule())
+                            .background(XITheme.maroon).clipShape(RoundedRectangle(cornerRadius: 6))
                         }.buttonStyle(.plain)
                     }
                 }
@@ -501,7 +502,7 @@ private struct FlowTags: View {
                         .foregroundStyle(XITheme.gold)
                         .padding(.vertical, 3).padding(.horizontal, 8)
                         .background(XITheme.gold.opacity(active.contains(xiNormTag(tag)) ? 0.22 : 0.08))
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }.buttonStyle(.plain)
             }
         }
@@ -545,7 +546,7 @@ struct MemoryDetailSheet: View {
                             ForEach(memory.hashtags, id: \.self) { tag in
                                 Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
                                     .padding(.vertical, 3).padding(.horizontal, 8)
-                                    .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
+                                    .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                         }
                     }
@@ -617,6 +618,7 @@ struct MemoryEditorSheet: View {
     @State private var context = ""
     @State private var genTitle = false
     @State private var genTags = false
+    @State private var showEmptyHint = false
     @AppStorage("xiMemoryCreateCount") private var createCount = 0
     @FocusState private var focused: Bool
 
@@ -631,7 +633,7 @@ struct MemoryEditorSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     field("MEMORY") {
                         TextEditor(text: $content)
-                            .font(.system(.body, design: .serif)).frame(minHeight: 140)
+                            .font(.system(.body, design: .serif)).frame(height: 140)
                             .scrollContentBackground(.hidden).focused($focused)
                     }
                     magicField("TITLE", text: $title, generating: genTitle,
@@ -644,7 +646,7 @@ struct MemoryEditorSheet: View {
                     }
                     field("MORE CONTEXT (optional)") {
                         TextEditor(text: $context)
-                            .font(.system(.body, design: .serif)).frame(minHeight: 80)
+                            .font(.system(.body, design: .serif)).frame(height: 80)
                             .scrollContentBackground(.hidden).focused($focused)
                     }
                 }
@@ -664,20 +666,26 @@ struct MemoryEditorSheet: View {
                         .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Never iOS-gray-disabled: stays tappable and EXPLAINS what's
+                    // missing (the Save-as-Library convention).
                     Button {
+                        guard canSave else { showEmptyHint = true; return }
                         if existing == nil { createCount += 1 }
                         onSave(title, content, hashtags, context); dismiss()
                     } label: {
                         Image(systemName: "checkmark")
                     }
                     .tint(XITheme.gold)
-                    .disabled(!canSave)
+                    .opacity(canSave ? 1 : 0.5)
                     .accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                    Spacer(); Button("Done") { focused = false }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
+            .alert("Nothing to save yet", isPresented: $showEmptyHint) {
+                Button("OK", role: .cancel) {}
+            } message: { Text("Write the memory (or at least a title) first.") }
             .onAppear {
                 if let m = existing {
                     title = m.title; content = m.content
@@ -802,9 +810,12 @@ struct TrashSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("recently deleted")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("recently deleted")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }

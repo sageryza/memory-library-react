@@ -30,7 +30,6 @@ struct SignInView: View {
                     .autocorrectionDisabled()
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
                 HStack(spacing: 8) {
@@ -53,7 +52,6 @@ struct SignInView: View {
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
             }
             .font(.system(.body, design: .serif))
@@ -69,7 +67,7 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(XITheme.gold).foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .disabled(busy || email.isEmpty || password.isEmpty)
 
@@ -90,7 +88,7 @@ struct SignInView: View {
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 46)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .disabled(busy)
 
             Button(action: googleSignIn) {
@@ -102,9 +100,8 @@ struct SignInView: View {
                 .padding(.vertical, 12)
                 .foregroundStyle(XITheme.ink)
                 .background(XITheme.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
             }
             .disabled(busy)
 

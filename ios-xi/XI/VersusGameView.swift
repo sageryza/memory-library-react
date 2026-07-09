@@ -80,11 +80,17 @@ struct VersusGameView: View {
                 ReportSheet(
                     subjectLabel: "story",
                     onSubmit: { reason, details in
+                        // Only claim success if the report actually landed.
                         Task {
-                            try? await VersusService.shared.reportStory(
-                                gameId: gameId, story: story, reason: reason, details: details)
+                            do {
+                                try await VersusService.shared.reportStory(
+                                    gameId: gameId, story: story, reason: reason, details: details)
+                                await MainActor.run { reported = true }
+                            } catch {
+                                await MainActor.run { self.error = "Report didn't send — \(error.localizedDescription)" }
+                            }
                         }
-                        reportingStory = nil; reported = true
+                        reportingStory = nil
                     },
                     onCancel: { reportingStory = nil }
                 )
@@ -135,22 +141,30 @@ struct VersusGameView: View {
     private var decorated: some View {
         scroll
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("Versus")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // App-wide title convention: ALL-CAPS typewriter, navInk.
+                ToolbarItem(placement: .principal) {
+                    Text("VERSUS")
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                }
                 // Plain icons, no iOS 26 glass pill behind them (same opt-out
                 // as the constellation toolbar).
                 if #available(iOS 26.0, *) {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         // Instructions live behind the ⓘ, not on the board.
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
+                            .buttonBorderShape(.roundedRectangle)
                         ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                            .buttonBorderShape(.roundedRectangle)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 } else {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
+                            .buttonBorderShape(.roundedRectangle)
                         ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                            .buttonBorderShape(.roundedRectangle)
                     }
                 }
             }
@@ -414,9 +428,12 @@ private struct VersusHelpSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("How to play")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("how to play")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
@@ -490,6 +507,7 @@ struct StoryComposer: View {
     @State private var text = ""
     @State private var busy = false
     @State private var error: String?
+    @FocusState private var writing: Bool
 
     private var evCard: XICard { XIDeck.events[event.i] }
     private var twCard: XICard { XIDeck.twists[twist.i] }
@@ -518,13 +536,14 @@ struct StoryComposer: View {
                 }
                 TextEditor(text: $text)
                     .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .focused($writing)
                     .frame(height: 120)
                     .padding(8)
                     .scrollContentBackground(.hidden)
             }
             .background(XITheme.white)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
@@ -541,7 +560,14 @@ struct StoryComposer: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .background(XITheme.paper)
+        .background(XITheme.paper.onTapGesture { writing = false })
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { writing = false }
+                    .font(.system(.body, design: .serif)).tint(XITheme.gold)
+            }
+        }
         .presentationDetents([.medium, .large])
     }
 
