@@ -13,6 +13,8 @@ Important style rules:
 * Make the page feel like a photographed or scanned sketch page.
 * Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
 
+IMPORTANT LAYOUT: draw a COMPLETE 3x3 grid — exactly three columns and three rows, nine equal square cells. Fit the ENTIRE grid inside the image with a clear white margin all around it; do not zoom in, do not crop any cell, do not let the grid run off any edge, and keep every one of the nine cells fully visible and separate (never merge two scenes into one cell). One scene per cell.
+
 For the nine cells, draw exactly these nine scenes, one per cell, in the raw reference sketch style, no caption text:
 1) Potted houseplants creeping over the kitchen sink at night, clutching stolen gold coins in leaf-claws, then sitting innocently back in their pots wearing tiny sickening smiles.
 2) A foam monkey mask held up in a college critique, its eyeballs dangling out on strings the moment its ears are twisted.

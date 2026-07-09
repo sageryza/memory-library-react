@@ -13,6 +13,8 @@ Important style rules:
 * Make the page feel like a photographed or scanned sketch page.
 * Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
 
+IMPORTANT LAYOUT: draw a COMPLETE 3x3 grid — exactly three columns and three rows, nine equal square cells. Fit the ENTIRE grid inside the image with a clear white margin all around it; do not zoom in, do not crop any cell, do not let the grid run off any edge, and keep every one of the nine cells fully visible and separate (never merge two scenes into one cell). One scene per cell.
+
 For the nine cells, draw exactly these nine scenes, one per cell, in the raw reference sketch style, no caption text:
 1) A boy holding a white sugar cube out on a flat palm to a girl the way you'd feed a horse, in a spare room among sketched-out furniture.
 2) A neat wooden crate of ten toy building blocks, each hand-painted as a different mottled green-and-purple bruise.
