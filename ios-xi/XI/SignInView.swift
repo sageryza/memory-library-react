@@ -30,6 +30,7 @@ struct SignInView: View {
                     .autocorrectionDisabled()
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
                 HStack(spacing: 8) {
@@ -52,6 +53,7 @@ struct SignInView: View {
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
             }
             .font(.system(.body, design: .serif))
@@ -100,6 +102,7 @@ struct SignInView: View {
                 .padding(.vertical, 12)
                 .foregroundStyle(XITheme.ink)
                 .background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }

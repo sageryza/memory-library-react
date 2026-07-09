@@ -596,6 +596,7 @@ private struct PinCard: View {
         .padding(12)
         .frame(width: width, height: height, alignment: .leading)
         .background(beige)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .shadow(color: .black.opacity(0.13), radius: 4, x: 0, y: 2)
@@ -771,6 +772,7 @@ private struct BoardAddSheet: View {
                         .font(.system(.body, design: .serif)).autocorrectionDisabled()
                 }
                 .padding(10).background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -846,6 +848,7 @@ private struct BoardAddSheet: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
         .background(on ? XITheme.gold.opacity(0.10) : XITheme.archiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? XITheme.gold : XITheme.archiveBorder, lineWidth: on ? 2 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .topTrailing) {
@@ -915,6 +918,7 @@ private struct ConnectionInsightSheet: View {
                         .frame(minHeight: 120)
                         .scrollContentBackground(.hidden)
                         .padding(8).background(XITheme.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .focused($focused)
@@ -950,6 +954,7 @@ private struct ConnectionInsightSheet: View {
             .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveTitle)
             .lineLimit(3).padding(10).frame(maxWidth: .infinity)
             .background(XITheme.archiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.archiveBorder))
             .clipShape(RoundedRectangle(cornerRadius: 6))
     }
@@ -981,6 +986,7 @@ private struct BoardShareSheet: View {
                     .lineLimit(2).truncationMode(.middle)
                     .padding(12).frame(maxWidth: .infinity)
                     .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -1084,6 +1090,7 @@ private struct ConstellationPreview: View {
         .padding(9)
         .frame(width: cardW, height: cardH, alignment: .topLeading)
         .background(beige)
+        .clipShape(RoundedRectangle(cornerRadius: 5))
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(border, lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1.5)
@@ -1114,6 +1121,7 @@ private struct PinMarker: View {
                     .foregroundStyle(slate).multilineTextAlignment(.center).lineLimit(2)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(beige)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .frame(maxWidth: 150)
@@ -1142,6 +1150,7 @@ private struct PinEditorSheet: View {
                 TextField("a theme or idea", text: $draft)
                     .font(.system(.body, design: .serif)).focused($focused)
                     .padding(10).background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 Button(role: .destructive) { onDelete(); dismiss() } label: {

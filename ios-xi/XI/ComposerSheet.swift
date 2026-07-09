@@ -37,6 +37,7 @@ struct ComposerSheet: View {
                 .padding(8)
                 .scrollContentBackground(.hidden)
                 .background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }

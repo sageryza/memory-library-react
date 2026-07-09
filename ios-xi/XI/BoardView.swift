@@ -55,10 +55,27 @@ struct BoardView: View {
             .background(XITheme.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    XILogo(height: 20)
-                    Button { showHelp = true } label: {
-                        Image(systemName: "info.circle").tint(XITheme.gold)
+                // Logo alone top-left, ⓘ alone top-right — balanced corners,
+                // title truly centered, and no iOS 26 glass pills behind them.
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showHelp = true } label: {
+                            Image(systemName: "info.circle").tint(XITheme.gold)
+                        }
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showHelp = true } label: {
+                            Image(systemName: "info.circle").tint(XITheme.gold)
+                        }
                     }
                 }
                 ToolbarItem(placement: .principal) {

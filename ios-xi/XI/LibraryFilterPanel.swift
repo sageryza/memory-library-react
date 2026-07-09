@@ -39,6 +39,7 @@ struct LibraryFilterPanel: View {
         }
         .padding(16)
         .background(XITheme.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.5)))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 14)
@@ -68,6 +69,7 @@ struct LibraryFilterPanel: View {
             scopeSeg("Others", .commons)
         }
         .fixedSize(horizontal: false, vertical: true)   // dividers match segment height
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5), lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }

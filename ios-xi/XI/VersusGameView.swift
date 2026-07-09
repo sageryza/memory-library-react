@@ -138,10 +138,20 @@ struct VersusGameView: View {
             .navigationTitle("Versus")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    // Instructions live behind the ⓘ, not on the board.
-                    Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
-                    ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                // Plain icons, no iOS 26 glass pill behind them (same opt-out
+                // as the constellation toolbar).
+                if #available(iOS 26.0, *) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        // Instructions live behind the ⓘ, not on the board.
+                        Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
+                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
+                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
+                    }
                 }
             }
             .sheet(isPresented: $showHelp) { VersusHelpSheet() }
@@ -181,7 +191,15 @@ struct VersusGameView: View {
             let others = waiting.filter { $0.uid != uid }
             let focus = iActed ? others.first : g.players.first { $0.uid == uid }
             if let p = focus {
+                let status = Text(iActed
+                                  ? "waiting for \(others.map(\.name).joined(separator: ", "))…"
+                                  : "it's your turn")
+                    .font(.system(.caption, design: .serif))
+                    .foregroundStyle(XITheme.line)
+                // The CHIP is the exact center of the screen; the status text
+                // sits to its left, balanced by a hidden copy on the right.
                 HStack(spacing: 8) {
+                    status
                     HStack(spacing: 5) {
                         Image(systemName: Self.playerSymbol(p.order))
                             .font(.system(size: 9)).foregroundStyle(XITheme.gold)
@@ -190,12 +208,9 @@ struct VersusGameView: View {
                     }
                     .padding(.vertical, 4).padding(.horizontal, 8)
                     .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
-                    Text(iActed
-                         ? "waiting for \(others.map(\.name).joined(separator: ", "))…"
-                         : "it's your turn")
-                        .font(.system(.caption, design: .serif))
-                        .foregroundStyle(XITheme.line)
+                    status.hidden()
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -294,7 +309,7 @@ struct VersusGameView: View {
     private var stories: some View {
         if !visibleStories.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("the stories so far").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
+                Text("stories").font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
                 ForEach(visibleStories) { s in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
@@ -316,6 +331,7 @@ struct VersusGameView: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line, lineWidth: 0.5))
                 }
             }
@@ -507,6 +523,7 @@ struct StoryComposer: View {
                     .scrollContentBackground(.hidden)
             }
             .background(XITheme.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }

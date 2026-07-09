@@ -166,24 +166,41 @@ struct LibraryView: View {
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(XITheme.navInk)
         }
-        ToolbarItemGroup(placement: .topBarLeading) {
-            XILogo(height: 20)
-            Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
-                .tint(XITheme.gold)
-                .buttonBorderShape(.roundedRectangle)
-                .accessibilityLabel("New memory")
+        // Plain icons — no iOS 26 glass pill behind the toolbar buttons (same
+        // opt-out as the constellation and board screens).
+        if #available(iOS 26.0, *) {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                XILogo(height: 20)
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .tint(XITheme.gold)
+                    .buttonBorderShape(.roundedRectangle)
+                    .accessibilityLabel("New memory")
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                XILogo(height: 20)
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .tint(XITheme.gold)
+                    .buttonBorderShape(.roundedRectangle)
+                    .accessibilityLabel("New memory")
+            }
+            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { store.toggleSelectMode() } label: {
-                    Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
-                }
-                Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
-                Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
-            } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
-            .buttonBorderShape(.roundedRectangle)
-            .tint(.primary)
-        }
+    }
+
+    private var libraryMenu: some View {
+        Menu {
+            Button { store.toggleSelectMode() } label: {
+                Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
+            }
+            Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
+            Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
+        } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+        .buttonBorderShape(.roundedRectangle)
+        .tint(.primary)
     }
 
     // MARK: bars
@@ -224,6 +241,7 @@ struct LibraryView: View {
             .padding(.horizontal, 12)
             .frame(height: 40)
             .background(XITheme.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -235,6 +253,7 @@ struct LibraryView: View {
                     .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
                     .frame(width: 40, height: 40)
                     .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
@@ -372,6 +391,7 @@ struct LibraryView: View {
             .frame(maxWidth: .infinity, minHeight: 96)
             .padding(8)
             .background(XITheme.archiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XITheme.archiveBorder, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture { open(m) }
@@ -451,6 +471,7 @@ private struct MemoryCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(selected ? XITheme.maroon.opacity(0.06) : XITheme.archiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? XITheme.maroon : XITheme.archiveBorder, lineWidth: selected ? 2 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .topTrailing) {
@@ -674,6 +695,7 @@ struct MemoryEditorSheet: View {
             content()
                 .foregroundStyle(XITheme.ink)
                 .padding(10).background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
@@ -694,6 +716,7 @@ struct MemoryEditorSheet: View {
                     .textInputAutocapitalization(autocorrect ? .sentences : .never)
                     .focused($focused)
                     .padding(10).background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 Button { Task { await action() } } label: {

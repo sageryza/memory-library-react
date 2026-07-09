@@ -149,8 +149,8 @@ struct TodayView: View {
                                             Color(red: 0.949, green: 0.878, blue: 0.729)],
                                    startPoint: .top, endPoint: .bottom)
                 )
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
         }
     }
 
