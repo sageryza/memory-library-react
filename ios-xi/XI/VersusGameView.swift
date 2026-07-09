@@ -199,7 +199,8 @@ struct VersusGameView: View {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
             VersusCardCell(card: card, isEvent: isEvent,
-                           owner: p.color, anchored: anchor == Anchor(r: r, c: c))
+                           ownerOrder: game?.players.first { $0.uid == p.by }?.order,
+                           anchored: anchor == Anchor(r: r, c: c))
                 .onTapGesture { tapPlaced(r, c, p) }
         } else {
             // No "legal cells" highlighting — placement still only lands on a
@@ -238,7 +239,7 @@ struct VersusGameView: View {
                     ForEach(store.hand, id: \.key) { card in
                         let isEvent = card.d == "be"
                         let xc = isEvent ? XIDeck.events[card.i] : XIDeck.twists[card.i]
-                        VersusCardCell(card: xc, isEvent: isEvent, owner: nil,
+                        VersusCardCell(card: xc, isEvent: isEvent, ownerOrder: nil,
                                        anchored: selectedCard == card)
                             .frame(width: 78, height: 78)
                             .onTapGesture { selectedCard = (selectedCard == card) ? nil : card; anchor = nil }
@@ -352,7 +353,7 @@ struct VersusGameView: View {
 struct VersusCardCell: View {
     let card: XICard
     let isEvent: Bool
-    let owner: String?     // hex color of the placer, nil for hand cards / unowned
+    let ownerOrder: Int?   // join order of the placer → their shape; nil if unowned
     let anchored: Bool
 
     var body: some View {
@@ -367,8 +368,18 @@ struct VersusCardCell: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(RoundedRectangle(cornerRadius: 4)
-            .stroke(anchored ? XITheme.gold : (owner != nil ? Color(xiHex: owner) : XITheme.line),
-                    lineWidth: anchored ? 2.5 : (owner != nil ? 2 : 0.5)))
+            .stroke(anchored ? XITheme.gold : XITheme.line, lineWidth: anchored ? 2.5 : 0.5))
+        // Who placed a memory here — a small gold player shape, not a colour.
+        .overlay(alignment: .topTrailing) {
+            if let ownerOrder {
+                Image(systemName: VersusGameView.playerSymbol(ownerOrder))
+                    .font(.system(size: 8))
+                    .foregroundStyle(XITheme.gold)
+                    .padding(2.5)
+                    .background(XITheme.white.opacity(0.9), in: Circle())
+                    .padding(2)
+            }
+        }
     }
 }
 
