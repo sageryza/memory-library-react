@@ -1687,6 +1687,15 @@ const TAGS_SYSTEM = [
   'multi-word tags; each starts with #. Output ONLY the tags separated by spaces.',
 ].join('\n');
 
+const OTHERS_SYSTEM = [
+  'You write short first-person memories for a memory game, as if written by',
+  'different ordinary people. You are given TWO prompt cards — an event and a',
+  'twist. Each memory must genuinely be about BOTH cards at once: a moment where',
+  'the event happened AND the twist was true of it. 1–2 sentences each, lowercase,',
+  'plain and human, each in a distinct voice — no names, no quotes, never generic.',
+  'Output ONLY the memories, one per line.',
+].join('\n');
+
 const textOf = (msg) => ((msg && msg.content && msg.content[0] && msg.content[0].text) || '');
 
 // Callable AI assist:
@@ -1734,6 +1743,23 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
       .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
       .filter(Boolean).slice(0, n);
     return { cards };
+  }
+
+  if (mode === 'others') {
+    const ev = String(data.event || '').trim().slice(0, 200);
+    const tw = String(data.twist || '').trim().slice(0, 200);
+    if (!ev || !tw) throw new HttpsError('invalid-argument', 'Need both cards.');
+    const n = Math.max(1, Math.min(5, Number(data.n) || 3));
+    const msg = await client.messages.create({
+      model: TITLE_MODEL,
+      max_tokens: 400,
+      system: OTHERS_SYSTEM,
+      messages: [{ role: 'user', content: `Event card: ${ev}\nTwist card: ${tw}\n\nWrite ${n} memories.` }],
+    });
+    const memories = textOf(msg).split('\n')
+      .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
+      .filter(Boolean).slice(0, n);
+    return { memories };
   }
 
   if (mode === 'tags') {

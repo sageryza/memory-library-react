@@ -1,0 +1,41 @@
+name: XI build (compile check)
+
+# Compiles XI for the Simulator on a cloud macOS runner — no code signing, no
+# TestFlight upload, and crucially NO certificate spent. Use this to verify a
+# branch compiles between TestFlight ships.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest Xcode (need 26+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Selecting $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios-xi
+        run: xcodegen generate
+
+      - name: Build for Simulator (no signing)
+        working-directory: ios-xi
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project XI.xcodeproj \
+            -scheme XI \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build

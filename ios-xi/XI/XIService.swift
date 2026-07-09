@@ -294,6 +294,27 @@ final class XIService {
         return (updated, targets.count)
     }
 
+    /// Cache of AI-written "others" memories per card pair, so re-drawing the
+    /// same pair (or shuffling back to it) never refetches.
+    private var othersCache: [String: [String]] = [:]
+
+    /// Ask `aiAssist` (Claude Haiku) for a few short memories that genuinely
+    /// combine BOTH cards — shown as what other people wrote for this pair.
+    /// Returns nil if AI is off / unreachable (callers then show nothing).
+    func generateOthers(pairKey: String, eventCap: String, twistCap: String) async -> [String]? {
+        if let hit = othersCache[pairKey] { return hit }
+        do {
+            let res = try await functions.httpsCallable("aiAssist")
+                .call(["mode": "others", "event": eventCap, "twist": twistCap, "n": 3])
+            guard let data = res.data as? [String: Any],
+                  let memories = data["memories"] as? [String], !memories.isEmpty else { return nil }
+            othersCache[pairKey] = memories
+            return memories
+        } catch {
+            return nil
+        }
+    }
+
     /// Ask the shared `aiAssist` Cloud Function (Claude Haiku) for a few thematic
     /// hashtags distilled from the memory's text. Returns nil if AI is off /
     /// unreachable (or the `tags` mode isn't deployed yet).

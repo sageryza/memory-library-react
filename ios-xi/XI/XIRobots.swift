@@ -63,6 +63,16 @@ enum XIRobots {
         return out
     }
 
+    /// Deterministic author names for a card pair (mix of first names and
+    /// "anonymous"), for attributing AI-written pair memories.
+    static func authors(for pairKey: String, count: Int) -> [String] {
+        let seed = stableHash(pairKey)
+        return (0..<count).map { k in
+            let named = ((seed >> (k + 1)) & 1) == 0
+            return named ? names[(seed / (k + 3) + k * 5) % names.count] : "anonymous"
+        }
+    }
+
     /// A stable "others collected today" count — varies by day so it feels alive,
     /// but is deterministic within a day.
     static func othersCollectedToday(day: Int) -> Int {

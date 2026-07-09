@@ -77,6 +77,11 @@ struct TodayView: View {
         }
         .task { startIfNeeded(); await loadTotal() }
         .task(id: pairKey) { await reload() }
+        .task(id: pairKey) {
+            othersTexts = []
+            othersTexts = await XIService.shared.generateOthers(
+                pairKey: pairKey, eventCap: event.cap, twistCap: twist.cap) ?? []
+        }
     }
 
     // MARK: header
@@ -95,8 +100,8 @@ struct TodayView: View {
             Color.clear.frame(width: 56, height: 1)   // clears the floating gear/calendar
         }
         .overlay(
-            Text("cards of the day")
-                .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.maroon)
+            Text("CARDS OF THE DAY")
+                .font(.system(.headline, design: .monospaced)).foregroundStyle(XITheme.maroon)
         )
         .padding(.bottom, 12)
     }
@@ -199,21 +204,23 @@ struct TodayView: View {
         }
     }
 
-    // MARK: others (display-only social proof — never saved to your Commons)
+    // MARK: others (display-only — AI-written memories that combine BOTH of the
+    // current cards, attributed to seeded personas. Never saved anywhere; if the
+    // AI is unavailable, the section simply doesn't appear.)
+
+    @State private var othersTexts: [String] = []
 
     @ViewBuilder
     private var others: some View {
-        let robots = XIRobots.memories(for: pairKey, count: 3)
-        if !robots.isEmpty {
+        if !othersTexts.isEmpty {
+            let authors = XIRobots.authors(for: pairKey, count: othersTexts.count)
             VStack(alignment: .leading, spacing: 8) {
-                Text("others also wrote")
-                    .font(.system(size: 12, design: .serif).italic()).foregroundStyle(soft)
-                ForEach(robots) { r in
+                ForEach(Array(othersTexts.enumerated()), id: \.offset) { i, text in
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(r.text)
+                        Text(text)
                             .font(.system(size: 14, design: .serif)).foregroundStyle(XITheme.ink.opacity(0.85))
                             .fixedSize(horizontal: false, vertical: true)
-                        Text(r.isAnonymous ? "— anonymous" : "— \(r.author)")
+                        Text("— \(authors[i])")
                             .font(.system(size: 11, design: .serif).italic()).foregroundStyle(XITheme.gold)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

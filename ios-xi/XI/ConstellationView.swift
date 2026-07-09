@@ -101,11 +101,24 @@ struct ConstellationView: View {
             .navigationTitle("constellation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
-                        .disabled(undoStack.isEmpty).tint(XITheme.gold)
-                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
-                        .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                // On iOS 26 the system draws a glass pill behind top-bar buttons;
+                // sharedBackgroundVisibility(.hidden) opts these two out so they
+                // render as plain icons. Older iOS falls back to the default look.
+                if #available(iOS 26.0, *) {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
+                            .disabled(undoStack.isEmpty).tint(XITheme.gold)
+                        Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
+                            .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
+                            .disabled(undoStack.isEmpty).tint(XITheme.gold)
+                        Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
+                            .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                    }
                 }
                 ToolbarItem(placement: .principal) {
                     Text("\(placed.count) on board")

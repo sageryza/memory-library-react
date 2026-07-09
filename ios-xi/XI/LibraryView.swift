@@ -137,7 +137,7 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            Text(store.selectedLibrary?.name ?? "Memory Library")
+            Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
                 .font(.system(.headline, design: .monospaced))
                 .foregroundStyle(XITheme.maroon)
         }
