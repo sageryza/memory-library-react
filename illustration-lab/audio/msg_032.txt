@@ -1,0 +1,17 @@
+You're right, and that's the better instinct. This isn't a this-chat problem — it recurs across every project: illustrations here, video in the movies chat, whatever's next. So don't bury it in one web app. Build it once, shared, and put it where you actually review things: your phone.
+
+Here's my best idea: one "review boards" surface, fed by all your chats.
+
+The shared store already exists — it's the Firebase project that both ImageForge and the journal app already point at. Each chat writes a "board": its images or video go to storage, plus a small manifest to the database — a boards entry per chat, with its items and a tiny display config.
+
+Then: one viewer, with a tab per chat. The key trick is that each board carries its own config — which labels to show, grid versus swipe, image versus video. So the movies chat declares video and its own columns, this chat declares grids and model and cost — same app, different requirements handled by data, not by new code. That's what keeps "one tab per chat" clean instead of a maintenance mess.
+
+It lives in the iOS app — a new "Boards" tab in the JournalReader app you already have on TestFlight — with a web mirror for desktop. And your Tinder swipe-to-curate idea from way back just becomes one of the board modes.
+
+I'd build it incrementally so it's not one giant bang. One: nail the manifest schema. Two: a tiny "post to board" helper any chat can drop in. Three: viewer version one is just tabs and a lightbox grid, then filters, then swipe, then video. Four: prove it by back-filling this chat's renders as board number one.
+
+Two quick calls for you. A: iOS-first, using the existing JournalReader app — yes? B: put video in the schema from day one, even if playback comes later, so the movies chat fits with no redo — I'd say yes.
+
+Honest scope note: it's a few sessions, and it touches multiple repos, since the movies chat needs the same little helper. But it kills a recurring chore across every project.
+
+Want me to start with the schema, the post helper, and back-filling this chat's renders as the first board? Everything else hangs off that.
