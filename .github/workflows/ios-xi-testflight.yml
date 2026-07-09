@@ -42,6 +42,13 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # Every CI run mints a throwaway signing certificate; Apple caps the
+      # account, so revoke all but the newest of each type before building —
+      # same janitor every other app's TestFlight workflow already runs. (XI
+      # was the only workflow missing this, hence the recurring cert jams.)
+      - name: Revoke stale signing certificates
+        run: python3 ci/revoke_stale_certs.py
+
       # Import ONE stored Apple Distribution certificate into a temporary
       # keychain. With a valid signing identity already present, automatic
       # signing REUSES it instead of minting a fresh certificate every run —
