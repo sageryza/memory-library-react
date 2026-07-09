@@ -245,13 +245,39 @@ struct ConstellationView: View {
 
     // MARK: board membership (add / remove / scatter / clear)
 
+    /// The next spiral slot that doesn't collide with anything already on the
+    /// board. Cards may have been dragged anywhere, so each candidate is
+    /// checked against every occupied position — new cards land in EMPTY
+    /// space, never on top of existing ones.
+    private func freeSlot(startingAt start: Int, occupied: [CGPoint]) -> (index: Int, point: CGPoint) {
+        var i = start
+        while i < start + 500 {
+            let p = Self.slot(i)
+            let collides = occupied.contains {
+                abs($0.x - p.x) < Self.cardW && abs($0.y - p.y) < Self.cardH
+            }
+            if !collides { return (i, p) }
+            i += 1
+        }
+        return (i, Self.slot(i))
+    }
+
     private func addToBoard(_ ids: [String]) {
         guard !ids.isEmpty else { return }
         recordUndo()
+        var occupied = placed.compactMap { positions[$0] } + pins.compactMap { positions[$0.id] }
         var n = placed.count
         for id in ids where !placed.contains(id) {
-            if positions[id] == nil { positions[id] = Self.slot(n) }
-            placed.insert(id); n += 1
+            if positions[id] == nil {
+                let (idx, p) = freeSlot(startingAt: n, occupied: occupied)
+                positions[id] = p
+                occupied.append(p)
+                n = idx + 1
+            } else {
+                occupied.append(positions[id]!)
+                n += 1
+            }
+            placed.insert(id)
         }
         persistAll()
     }
@@ -281,7 +307,10 @@ struct ConstellationView: View {
     private func addPin() {
         recordUndo()
         let id = "pin_" + XIService.randomShareId()
-        positions[id] = CGPoint(x: Self.boardCenter.x, y: Self.boardCenter.y - 30)
+        // Pins get the same collision-checked placement as cards.
+        let occupied = placed.compactMap { positions[$0] } + pins.compactMap { positions[$0.id] }
+        let (_, p) = freeSlot(startingAt: 0, occupied: occupied)
+        positions[id] = CGPoint(x: p.x, y: p.y - 30)
         let pin = BoardPin(id: id, text: "")
         pins.append(pin)
         persistAll()
