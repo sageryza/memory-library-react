@@ -29,7 +29,7 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:clamp(16px,3vw,40px);}
   h1{font-family:Georgia,serif;font-size:clamp(24px,4vw,36px);margin:0 0 4px;letter-spacing:-.01em;}
   .sub{color:var(--muted);margin:0 0 26px;}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
   .card{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 20px rgba(0,0,0,.06);}
   .card img{width:100%;height:auto;display:block;background:#fff;border-bottom:1px solid var(--line);}
   figcaption{display:flex;flex-direction:column;gap:6px;padding:13px 15px;}
