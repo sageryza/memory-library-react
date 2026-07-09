@@ -234,7 +234,11 @@ final class ArchiveStore: ObservableObject {
                 map[n, default: 0] += 1
             }
         }
-        return map.map { (tag: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
+        // Stable order: count desc, then alphabetical. Without the tiebreak,
+        // equal-count tags come out of the dictionary in random order and the
+        // cloud visibly reshuffles on every redraw.
+        return map.map { (tag: $0.key, count: $0.value) }
+            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.tag < $1.tag }
     }
 
     // MARK: boolean hashtag actions

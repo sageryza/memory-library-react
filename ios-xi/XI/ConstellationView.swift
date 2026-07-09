@@ -842,7 +842,7 @@ private struct BoardAddSheet: View {
         .overlay(alignment: .topTrailing) {
             Image(systemName: on ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(on ? XITheme.gold : XITheme.line)
-                .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
+                .padding(10)
         }
         .contentShape(Rectangle())
         .onTapGesture { toggle(m.id) }

@@ -12,14 +12,17 @@ struct LibraryFilterPanel: View {
     @State private var showAllTags = false
 
     /// Roughly three lines of chips before "show more" — keeps the (often long)
-    /// tag cloud from burying the Boolean search below it.
-    private let tagCap = 15
+    /// tag cloud from burying the Boolean search below it. Tags run long
+    /// (#had-a-little-too-much-fun), so ~8 chips ≈ 3 lines.
+    private let tagCap = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Scope toggle sits above the hashtags, aligned right.
             HStack { Spacer(); scopeToggle }
             tagCloud
+            // Active tags (with their AND/OR controls) live BELOW the cloud so
+            // selecting a tag never shoves the cloud around.
             if !store.tagFilters.isEmpty { activeChips }
             booleanSection
 
@@ -57,9 +60,12 @@ struct LibraryFilterPanel: View {
     private var scopeToggle: some View {
         HStack(spacing: 0) {
             scopeSeg("Mine", .mine)
+            Rectangle().fill(XITheme.gold.opacity(0.5)).frame(width: 0.75)
             scopeSeg("Both", .both)
+            Rectangle().fill(XITheme.gold.opacity(0.5)).frame(width: 0.75)
             scopeSeg("Others", .commons)
         }
+        .fixedSize(horizontal: false, vertical: true)   // dividers match segment height
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5), lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }

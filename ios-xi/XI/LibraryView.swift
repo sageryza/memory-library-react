@@ -431,7 +431,7 @@ private struct MemoryCard: View {
             if selectMode && !memory.isCommons {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? XITheme.maroon : XITheme.line)
-                    .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
+                    .padding(10)
             }
         }
         .contentShape(Rectangle())
