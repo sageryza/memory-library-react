@@ -1,0 +1,13 @@
+Okay, a few answers for you.
+
+First, the model. The New Yorker cartoons — both the first three tests and the full set I just kicked off — use GPT-image-1 at medium quality. The first three, I rendered the art and then typeset the captions myself. This new full run of all fourteen does it your way: I just describe the scene, say "New Yorker cartoon," and let the model pick its own punchline and print the caption itself. Same model, medium quality. It's rendering now, and I'll send them when they're done.
+
+Second, the hybrid drawings — here's exactly what went into those. I used the OpenAI image edits endpoint, also GPT-image-1. For the references, I took your pastel style cards, cut them into nine caption-free tiles, and fed six of them in as style guidance — the flower boots, the wrapped gift, the marbles jar, the unicorn, the little pocket-world dome, and the treasure chest.
+
+Then I ran two prompt approaches for each moment. Approach A, I described the style in words — cute cozy storybook illustration, black ink outline, soft pastel watercolor fills in mint, lavender, and pink, a few sparkles, white background — plus the scene. Approach B, I gave almost no style words and let the model infer the whole look purely from the reference tiles.
+
+I ran eight of the should-draw moments through both: five at low quality, two at medium, one at high — sixteen images in all.
+
+The finding: describing the style, approach A, clearly beat letting it infer, approach B — the references alone drifted toward flat, generic clip-art. But honestly, neither fully captured your real hybrid; both came out cuter and cleaner than your cards, more like cute app icons than your wavy watercolor wash. My recommendation for actually nailing your look is still a small LoRA trained on those cards.
+
+Next up, I'll build you that artifact showing the prompt behind every panel of both grids. The draft pull request link is in the chat.
