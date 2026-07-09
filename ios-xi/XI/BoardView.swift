@@ -68,7 +68,7 @@ struct BoardView: View {
                             Image(systemName: "chevron.left")
                         }
                         Text("BOARD OF THE DAY")
-                            .font(.system(.headline, design: .monospaced)).foregroundStyle(XITheme.maroon)
+                            .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                         Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: {
                             Image(systemName: "chevron.right")
                         }

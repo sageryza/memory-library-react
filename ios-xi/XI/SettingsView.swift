@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var showBlocked = false
     @State private var titling = false
     @State private var titleResult: String?
+    @State private var showCurate = false
 
     private var email: String? { Auth.auth().currentUser?.email }
     private var isAnon: Bool { Auth.auth().currentUser?.isAnonymous ?? false }
@@ -58,9 +59,7 @@ struct SettingsView: View {
                     .disabled(titling)
                 }
                 Section("Cards") {
-                    NavigationLink {
-                        CurateView()
-                    } label: {
+                    Button { showCurate = true } label: {
                         Label("Curate your deck", systemImage: "heart")
                     }
                 }
@@ -77,6 +76,19 @@ struct SettingsView: View {
                 }
             }
             .sheet(isPresented: $showBlocked) { BlockedUsersView() }
+            // Curate is a full page of its own, not a push inside the settings
+            // pull-up sheet.
+            .fullScreenCover(isPresented: $showCurate) {
+                NavigationStack {
+                    CurateView()
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button { showCurate = false } label: { Image(systemName: "xmark") }
+                                    .tint(XITheme.line).accessibilityLabel("Close")
+                            }
+                        }
+                }
+            }
             .confirmationDialog("Delete your account?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete account and all my data", role: .destructive) {
                     Task {

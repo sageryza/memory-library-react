@@ -18,19 +18,30 @@ struct TodayView: View {
     @State private var tw = 0
     @State private var flip = "tw"
     @State private var hist: [(Int, Int)] = []
+    /// Which day's pair is showing — ‹ › browse past days like Board of the Day.
+    @State private var viewDay = BoardEngine.dayNumber()
+    private var isToday: Bool { viewDay == BoardEngine.dayNumber() }
 
     @State private var text = ""
     @State private var saving = false
     @State private var memories: [XIMemory] = []
     @State private var totalCount = 0
     @State private var started = false
-    @State private var showGallery = false
     @State private var showSettings = false
     @FocusState private var writing: Bool
 
-    private var event: XICard { events[min(ev, events.count - 1)] }
-    private var twist: XICard { twists[min(tw, twists.count - 1)] }
+    private var event: XICard { isToday ? events[min(ev, events.count - 1)] : pairForDay(viewDay).0 }
+    private var twist: XICard { isToday ? twists[min(tw, twists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
+
+    /// Deterministic daily pairing (same walk the gallery used): event forward,
+    /// twist backward.
+    private func pairForDay(_ dn: Int) -> (XICard, XICard) {
+        let ne = XIDeck.events.count, nt = XIDeck.twists.count
+        let ei = ((dn % ne) + ne) % ne
+        let ti = ((((nt - 1 - dn) % nt) + nt) % nt)
+        return (XIDeck.events[ei], XIDeck.twists[ti])
+    }
 
     var body: some View {
         ScrollView {
@@ -49,19 +60,11 @@ struct TodayView: View {
         .background(XITheme.paper.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
             if !writing {
-                HStack(spacing: 18) {
-                    Button { showGallery = true } label: {
-                        Image(systemName: "calendar").font(.system(size: 20)).foregroundStyle(soft)
-                    }
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
-                    }
+                Button { showSettings = true } label: {
+                    Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
                 }
                 .padding(.top, 20).padding(.trailing, 18)
             }
-        }
-        .sheet(isPresented: $showGallery) {
-            GalleryView { ev, tw in usePair(ev, tw) }
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .scrollDismissesKeyboard(.interactively)
@@ -86,43 +89,45 @@ struct TodayView: View {
 
     // MARK: header
 
-    /// The header row: "New cards" sits at the very top-left (with undo when
-    /// available), the "cards of the day" title centered over it. The floating
-    /// gear/calendar cluster lives top-right, so space is reserved on the right.
+    /// Title row with ‹ › day arrows (same pattern as Board of the Day); the
+    /// redraw/undo controls sit on a row beneath, today only. The floating gear
+    /// lives top-right (see the overlay).
     private var header: some View {
-        HStack(spacing: 10) {
-            if !hist.isEmpty {
-                Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                    .foregroundStyle(soft)
+        VStack(spacing: 10) {
+            HStack(spacing: 14) {
+                Button { viewDay -= 1; text = "" } label: { Image(systemName: "chevron.left") }
+                Text("CARDS OF THE DAY")
+                    .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                Button { if !isToday { viewDay += 1; text = "" } } label: { Image(systemName: "chevron.right") }
+                    .disabled(isToday)
             }
-            newCardsButton
-            Spacer()
-            Color.clear.frame(width: 56, height: 1)   // clears the floating gear/calendar
+            .font(.system(.subheadline))
+            .tint(XITheme.gold)
+            .frame(maxWidth: .infinity)
+            if isToday {
+                HStack(spacing: 10) {
+                    if !hist.isEmpty {
+                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                            .foregroundStyle(soft)
+                    }
+                    Spacer()
+                    redrawButton
+                    Spacer()
+                    Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
+                }
+            }
         }
-        .overlay(
-            Text("CARDS OF THE DAY")
-                .font(.system(.headline, design: .monospaced)).foregroundStyle(XITheme.maroon)
-        )
         .padding(.bottom, 12)
     }
 
-    private var newCardsButton: some View {
-        HStack(spacing: 10) {
-            Button { newCards() } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sun.max").foregroundStyle(sepia)
-                    Text("New cards").font(.system(size: 13, design: .serif)).tracking(0.6)
-                        .foregroundStyle(XITheme.ink)
-                }
-                .padding(.vertical, 6).padding(.horizontal, 13)
-                .background(
-                    LinearGradient(colors: [Color(red: 0.984, green: 0.953, blue: 0.878),
-                                            Color(red: 0.949, green: 0.878, blue: 0.729)],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
+    private var redrawButton: some View {
+        Button { newCards() } label: {
+            Text("redraw")
+                .font(.system(.footnote, design: .serif))
+                .foregroundStyle(.white)
+                .padding(.vertical, 6).padding(.horizontal, 14)
+                .background(XITheme.gold)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
         }
     }
 
@@ -157,23 +162,29 @@ struct TodayView: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
             HStack(alignment: .center, spacing: 10) {
-                // Your count, then a slash and the grand total collected today
-                // (yours + everyone else's), the total shown in mauve.
-                HStack(spacing: 4) {
-                    Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
-                        .foregroundStyle(soft)
-                    Text("/ \(totalCount + XIRobots.othersCollectedToday(day: BoardEngine.dayNumber()))")
-                        .foregroundStyle(mauve)
+                // Never says zero: before your first memory of the day it shows
+                // just the day's overall count; after, "1 memory collected / N".
+                Group {
+                    if totalCount == 0 {
+                        Text("\(XIRobots.othersCollectedToday(day: BoardEngine.dayNumber())) memories collected")
+                            .foregroundStyle(mauve)
+                    } else {
+                        HStack(spacing: 4) {
+                            Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
+                                .foregroundStyle(soft)
+                            Text("/ \(totalCount + XIRobots.othersCollectedToday(day: BoardEngine.dayNumber()))")
+                                .foregroundStyle(mauve)
+                        }
+                    }
                 }
                 .font(.system(size: 13, design: .serif).italic())
                 Spacer()
                 Button { Task { await save() } } label: {
-                    Text(saving ? "Saving…" : "Save")
+                    Text(saving ? "saving…" : "save")
                         .font(.system(size: 15, design: .serif)).tracking(0.5)
-                        .foregroundStyle(XITheme.ink)
+                        .foregroundStyle(.white)
                         .padding(.vertical, 8).padding(.horizontal, 20)
-                        .background(XITheme.paper)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.ink, lineWidth: 1))
+                        .background(XITheme.gold)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -214,20 +225,22 @@ struct TodayView: View {
     private var others: some View {
         if !othersTexts.isEmpty {
             let authors = XIRobots.authors(for: pairKey, count: othersTexts.count)
+            // Styled exactly like your own collected memories, with the writer's
+            // name on top in a neutral color.
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(othersTexts.enumerated()), id: \.offset) { i, text in
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(authors[i])
+                            .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
                         Text(text)
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(XITheme.ink.opacity(0.85))
+                            .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("— \(authors[i])")
-                            .font(.system(size: 11, design: .serif).italic()).foregroundStyle(XITheme.gold)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(XITheme.white.opacity(0.55))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line.opacity(0.5)))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, 13).padding(.vertical, 11)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
             .padding(.top, 18).padding(.bottom, 30)
@@ -255,14 +268,6 @@ struct TodayView: View {
         guard let last = hist.popLast() else { return }
         ev = last.0; tw = last.1
         flip = flip == "tw" ? "ev" : "tw"
-    }
-
-    /// Load a pairing chosen in the gallery into Today.
-    private func usePair(_ chosenEvent: XICard, _ chosenTwist: XICard) {
-        hist.append((ev, tw))
-        if let ei = events.firstIndex(where: { $0.id == chosenEvent.id }) { ev = ei }
-        if let ti = twists.firstIndex(where: { $0.id == chosenTwist.id }) { tw = ti }
-        text = ""
     }
 
     private func reload() async {

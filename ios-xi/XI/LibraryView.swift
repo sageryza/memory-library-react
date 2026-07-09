@@ -138,8 +138,8 @@ struct LibraryView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
-                .font(.system(.headline, design: .monospaced))
-                .foregroundStyle(XITheme.maroon)
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(XITheme.navInk)
         }
         ToolbarItem(placement: .topBarLeading) {
             Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }

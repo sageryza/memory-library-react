@@ -18,8 +18,12 @@ struct LibraryFilterPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Scope toggle sits above the hashtags, aligned right.
-            HStack { Spacer(); scopeToggle }
+            // Top row: Save as Library on the left, scope toggle on the right.
+            HStack {
+                saveButton
+                Spacer()
+                scopeToggle
+            }
             tagCloud
             // Active tags (with their AND/OR controls) live BELOW the cloud so
             // selecting a tag never shoves the cloud around.
@@ -175,27 +179,23 @@ struct LibraryFilterPanel: View {
                     .font(.system(.footnote, design: .serif))
                     .frame(maxWidth: 200)
             }
-            HStack {
-                Spacer()
-                // Never .disabled() — iOS grays a disabled button, overriding the
-                // gold/white. Since the term boxes start empty, that made this
-                // button LOOK gray every time the panel opened. Instead it stays
-                // gold and explains itself if there's nothing to save yet.
-                Button {
-                    if store.advanced.isEmpty { showEmptyHint = true } else { showSave = true }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "bookmark").font(.system(size: 11))
-                        Text("Save as Library").font(.system(.footnote, design: .serif))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 6).padding(.horizontal, 11)
-                    .background(XITheme.gold)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-            }
         }
+    }
+
+    /// Never .disabled() — iOS grays a disabled button, overriding the gold and
+    /// white. It stays gold and explains itself if there's nothing to save yet.
+    private var saveButton: some View {
+        Button {
+            if store.advanced.isEmpty { showEmptyHint = true } else { showSave = true }
+        } label: {
+            Text("Save as Library")
+                .font(.system(.footnote, design: .serif))
+                .foregroundStyle(.white)
+                .padding(.vertical, 6).padding(.horizontal, 11)
+                .background(XITheme.gold)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
     }
 
     /// A wrapping row of short term boxes with the operator shown between them.
