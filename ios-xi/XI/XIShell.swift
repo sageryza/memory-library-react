@@ -1,6 +1,27 @@
 import SwiftUI
 import UIKit
 
+/// Publishes the keyboard's height. The shell ignores the keyboard's safe area
+/// so the nav stays bolted to the bottom — which also disables automatic
+/// keyboard avoidance for on-screen text fields. Screens with low-sitting
+/// fields use this to pad their scroll content so typing stays visible.
+@MainActor
+final class KeyboardHeight: ObservableObject {
+    static let shared = KeyboardHeight()
+    @Published var height: CGFloat = 0
+
+    private init() {
+        let nc = NotificationCenter.default
+        nc.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { note in
+            let h = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+            Task { @MainActor in KeyboardHeight.shared.height = h }
+        }
+        nc.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in KeyboardHeight.shared.height = 0 }
+        }
+    }
+}
+
 /// The XI app shell: one shared bottom nav spanning all five destinations,
 /// matching the web (Today · Curate · Daily · Versus · Library). The nav slides
 /// away while a text field is focused so it never crowds the keyboard.

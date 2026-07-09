@@ -43,19 +43,32 @@ struct TodayView: View {
         return (XIDeck.events[ei], XIDeck.twists[ti])
     }
 
+    @ObservedObject private var kb = KeyboardHeight.shared
+
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 cardRow
-                composer
+                composer.id("composer")
                 collected
                 others
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
+            // The shell pins the nav by ignoring the keyboard's safe area, so
+            // avoidance is manual here: pad by the keyboard height and scroll
+            // the composer up above it while writing.
+            .padding(.bottom, kb.height)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
+        }
+        .onChange(of: kb.height) { h in
+            if h > 0 && writing {
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("composer", anchor: .bottom) }
+            }
+        }
         }
         .background(XITheme.paper.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {

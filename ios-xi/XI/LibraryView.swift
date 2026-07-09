@@ -30,6 +30,7 @@ struct LibraryView: View {
     @State private var pendingImport: ArchiveStore.PendingImport?
     @State private var showTrash = false
     @ObservedObject private var deepLink = XIDeepLink.shared
+    @ObservedObject private var kb = KeyboardHeight.shared
     @FocusState private var searchFocused: Bool
 
     private let simplifyCols = [GridItem(.flexible(), spacing: 10),
@@ -41,7 +42,10 @@ struct LibraryView: View {
             VStack(spacing: 0) {
                 searchBar
                 if filtersExpanded {
-                    ScrollView { LibraryFilterPanel(store: store) }
+                    // Bolted nav = no automatic keyboard avoidance; pad the
+                    // panel by the keyboard height so low term boxes can always
+                    // be scrolled above it while typing.
+                    ScrollView { LibraryFilterPanel(store: store).padding(.bottom, kb.height) }
                         .transition(.move(edge: .top).combined(with: .opacity))
                 } else {
                     if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
