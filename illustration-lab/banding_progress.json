@@ -1,18 +1,70 @@
 {
   "note": "Autonomous banding of all remaining Notion journal pages (Sage's trip). Year/order does not matter. Never stop; commit+push per page.",
   "pages": [
-    {"id": "13b03b13a2dd800aad05dc91d3d78731", "name": "june", "status": "pending"},
-    {"id": "13803b13a2dd80c38b19dad7accb5418", "name": "july", "status": "pending"},
-    {"id": "13c03b13a2dd80b8b0b8e932f99f85e0", "name": "too many clothes", "status": "pending"},
-    {"id": "13c03b13a2dd80e79d5fdb21948cb366", "name": "june 30 - july 8 - 25", "status": "pending"},
-    {"id": "14203b13a2dd8075852fe67043fd6ae9", "name": "February 12 - March 18th, March 23rd", "status": "pending"},
-    {"id": "17203b13a2dd805fad79f217f7e740f6", "name": "December and January", "status": "pending"},
-    {"id": "17303b13a2dd80d3a409d8e0a43077e9", "name": "August", "status": "pending"},
-    {"id": "17d03b13a2dd80c2892edc15bdf526a3", "name": "January 15 - ?", "status": "pending"},
-    {"id": "17e03b13a2dd80468402e7a123db086a", "name": "playtest + xi ideas, shower thoughts", "status": "pending"},
-    {"id": "1bf03b13a2dd8032aae5ffc261348183", "name": "March 21st - ?", "status": "pending"},
-    {"id": "1c403b13a2dd808f9de1ea436d752a8f", "name": "le petit ontologie", "status": "pending"},
-    {"id": "1cd03b13a2dd8050b018c93da1e9fa5b", "name": "(untitled Apr)", "status": "pending"},
-    {"id": "24103b13a2dd80edb7cde6bdc2e5e840", "name": "july 2025", "status": "pending"}
+    {
+      "id": "13b03b13a2dd800aad05dc91d3d78731",
+      "name": "june",
+      "status": "pending"
+    },
+    {
+      "id": "13803b13a2dd80c38b19dad7accb5418",
+      "name": "july",
+      "status": "pending"
+    },
+    {
+      "id": "13c03b13a2dd80b8b0b8e932f99f85e0",
+      "name": "too many clothes",
+      "status": "pending"
+    },
+    {
+      "id": "13c03b13a2dd80e79d5fdb21948cb366",
+      "name": "june 30 - july 8 - 25",
+      "status": "pending"
+    },
+    {
+      "id": "14203b13a2dd8075852fe67043fd6ae9",
+      "name": "February 12 - March 18th, March 23rd",
+      "status": "pending"
+    },
+    {
+      "id": "17203b13a2dd805fad79f217f7e740f6",
+      "name": "December and January",
+      "status": "pending"
+    },
+    {
+      "id": "17303b13a2dd80d3a409d8e0a43077e9",
+      "name": "August",
+      "status": "applied"
+    },
+    {
+      "id": "17d03b13a2dd80c2892edc15bdf526a3",
+      "name": "January 15 - ?",
+      "status": "pending"
+    },
+    {
+      "id": "17e03b13a2dd80468402e7a123db086a",
+      "name": "playtest + xi ideas, shower thoughts",
+      "status": "pending"
+    },
+    {
+      "id": "1bf03b13a2dd8032aae5ffc261348183",
+      "name": "March 21st - ?",
+      "status": "pending"
+    },
+    {
+      "id": "1c403b13a2dd808f9de1ea436d752a8f",
+      "name": "le petit ontologie",
+      "status": "pending"
+    },
+    {
+      "id": "1cd03b13a2dd8050b018c93da1e9fa5b",
+      "name": "(untitled Apr)",
+      "status": "applied"
+    },
+    {
+      "id": "24103b13a2dd80edb7cde6bdc2e5e840",
+      "name": "july 2025",
+      "status": "applied"
+    }
   ]
 }
