@@ -71,24 +71,21 @@ struct TodayView: View {
         }
         }
         .background(XITheme.paper.ignoresSafeArea())
+        // Tapping anywhere outside the text box dismisses the keyboard.
+        .onTapGesture { writing = false }
         .overlay(alignment: .topTrailing) {
-            if !writing {
-                Button { showSettings = true } label: {
-                    Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
-                }
-                .padding(.top, 20).padding(.trailing, 18)
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
             }
+            .padding(.top, 20).padding(.trailing, 18)
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
-                Button("Done") { writing = false }
-                    .font(.system(.body, design: .serif)).tint(XITheme.navInk)
                 Spacer()
-                Button(saving ? "Saving…" : "Save memory") { Task { await save() } }
-                    .font(.system(.body, design: .serif).weight(.medium)).tint(XITheme.gold)
-                    .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Done") { writing = false }
+                    .font(.system(.body, design: .serif)).tint(XITheme.gold)
             }
         }
         .task { startIfNeeded(); await loadTotal() }
@@ -117,6 +114,8 @@ struct TodayView: View {
             .font(.system(.subheadline))
             .tint(XITheme.gold)
             .frame(maxWidth: .infinity)
+            // The XI wordmark lives top-left on every screen.
+            .overlay(alignment: .leading) { XILogo(height: 22) }
             if isToday {
                 HStack(spacing: 10) {
                     if !hist.isEmpty {
@@ -136,10 +135,15 @@ struct TodayView: View {
     private var redrawButton: some View {
         Button { newCards() } label: {
             Text("redraw")
-                .font(.system(.footnote, design: .serif))
-                .foregroundStyle(.white)
+                .font(.system(size: 13, design: .serif)).tracking(0.6)
+                .foregroundStyle(XITheme.ink)
                 .padding(.vertical, 6).padding(.horizontal, 14)
-                .background(XITheme.gold)
+                .background(
+                    LinearGradient(colors: [Color(red: 0.984, green: 0.953, blue: 0.878),
+                                            Color(red: 0.949, green: 0.878, blue: 0.729)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
@@ -163,10 +167,13 @@ struct TodayView: View {
                         .font(.system(size: 16, design: .serif)).foregroundStyle(soft.opacity(0.7))
                         .padding(.horizontal, 14).padding(.vertical, 14)
                 }
+                // Fixed height so the editor scrolls INTERNALLY as you type —
+                // the caret always stays visible instead of the box growing
+                // past the bottom of the screen.
                 TextEditor(text: $text)
                     .focused($writing)
                     .font(.system(size: 16, design: .serif)).foregroundStyle(XITheme.ink)
-                    .frame(minHeight: 96)
+                    .frame(height: 120)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 9).padding(.vertical, 6)
             }

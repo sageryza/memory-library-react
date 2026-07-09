@@ -54,6 +54,9 @@ struct LibraryView: View {
                 if store.selectMode { selectionBar }
             }
             .background(XITheme.paper.ignoresSafeArea())
+            // Tapping outside the search box dismisses the keyboard (card taps
+            // still win — child gestures take precedence).
+            .onTapGesture { searchFocused = false }
             .navigationTitle(store.selectedLibrary?.name ?? "Memory Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
@@ -145,7 +148,8 @@ struct LibraryView: View {
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(XITheme.navInk)
         }
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItemGroup(placement: .topBarLeading) {
+            XILogo(height: 20)
             Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
                 .tint(XITheme.gold)
                 .buttonBorderShape(.roundedRectangle)

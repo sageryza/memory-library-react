@@ -55,7 +55,8 @@ struct BoardView: View {
             .background(XITheme.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    XILogo(height: 20)
                     Button { showHelp = true } label: {
                         Image(systemName: "info.circle").tint(XITheme.gold)
                     }

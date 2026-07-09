@@ -23,6 +23,8 @@ struct VersusLobbyView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 22) {
+                XILogo(height: 22)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Text("Versus")
                     .font(.system(.largeTitle, design: .serif).weight(.semibold)).tracking(4)
                     .foregroundStyle(XITheme.ink)
