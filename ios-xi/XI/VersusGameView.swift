@@ -11,6 +11,15 @@ extension Color {
     }
 }
 
+/// Collects the bounds of the framed cells so ONE merged gold rectangle wraps
+/// the chosen pair — same as Board of the Day's `FrameAnchorKey`.
+private struct VersusFrameKey: PreferenceKey {
+    static var defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
 /// The live Versus board: join the game, draw a hand, place cards, and write the
 /// stories of touching pairs. Mirrors the web `VersusGame` screen.
 struct VersusGameView: View {
@@ -22,6 +31,8 @@ struct VersusGameView: View {
     @State private var selectedCard: HandCard?      // placement mode when set
     @State private var anchor: Anchor?              // first tapped cell for a story
     @State private var composing: StoryTarget?
+    @State private var composedCells: [String] = [] // the pair framed while composing
+    @State private var showHelp = false
     @State private var reportingStory: VersusStory?
     @State private var reported = false
     @State private var error: String?
@@ -93,6 +104,9 @@ struct VersusGameView: View {
             .onChange(of: store.stories) { newStories in
                 syncOpponentStoriesToCommons(newStories)
             }
+            .onChange(of: composing?.id) { newID in
+                if newID == nil { composedCells = [] }   // composer closed → clear the pair
+            }
     }
 
     /// Copy other players' stories into your Commons — you're playing together, so
@@ -124,10 +138,13 @@ struct VersusGameView: View {
             .navigationTitle("Versus")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    // Instructions live behind the ⓘ, not on the board.
+                    Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
                     ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
                 }
             }
+            .sheet(isPresented: $showHelp) { VersusHelpSheet() }
             .tint(XITheme.gold)
     }
 
@@ -141,7 +158,6 @@ struct VersusGameView: View {
                 } else {
                     header
                     board
-                    prompt
                     if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
                     hand
                     controls
@@ -154,28 +170,34 @@ struct VersusGameView: View {
         }
     }
 
-    // MARK: header — just the players (code lives behind the share button, no
-    // rounds). Kept deliberately spare per feedback: the board is the focus.
+    // MARK: header — whoever the game is waiting on, centered above the board:
+    // you (with "it's your turn") until you've gone, then the player you're
+    // waiting for ("waiting for Charlie…").
 
     @ViewBuilder
     private var header: some View {
-        if let g = game {
-            let cols = [GridItem(.adaptive(minimum: 84), spacing: 8)]
-            LazyVGrid(columns: cols, spacing: 8) {
-                ForEach(g.players) { p in
+        if let g = game, let uid {
+            let waiting = g.players.filter { !g.acted.contains($0.uid) }
+            let others = waiting.filter { $0.uid != uid }
+            let focus = iActed ? others.first : g.players.first { $0.uid == uid }
+            if let p = focus {
+                HStack(spacing: 8) {
                     HStack(spacing: 5) {
                         Image(systemName: Self.playerSymbol(p.order))
                             .font(.system(size: 9)).foregroundStyle(XITheme.gold)
                         Text(p.name).font(.system(.caption, design: .serif)).lineLimit(1)
                             .foregroundStyle(XITheme.ink)
-                        if g.acted.contains(p.uid) {
-                            Image(systemName: "checkmark").font(.system(size: 8)).foregroundStyle(XITheme.gold)
-                        }
                     }
                     .padding(.vertical, 4).padding(.horizontal, 8)
                     .background(XITheme.white)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
+                    Text(iActed
+                         ? "waiting for \(others.map(\.name).joined(separator: ", "))…"
+                         : "it's your turn")
+                        .font(.system(.caption, design: .serif))
+                        .foregroundStyle(XITheme.line)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -190,6 +212,22 @@ struct VersusGameView: View {
                 }
             }
         }
+        // One merged gold rectangle around the chosen card(s): a single cell
+        // after the first tap, growing to span the pair while its story is
+        // written — same frame as Board of the Day.
+        .overlayPreferenceValue(VersusFrameKey.self) { anchors in
+            GeometryReader { proxy in
+                if !anchors.isEmpty {
+                    let rects = anchors.map { proxy[$0] }
+                    let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(XITheme.gold, lineWidth: 2.5)
+                        .frame(width: union.width + 4, height: union.height + 4)
+                        .position(x: union.midX, y: union.midY)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -198,9 +236,13 @@ struct VersusGameView: View {
         if let p = byCell[key] {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
+            let framed = anchor == Anchor(r: r, c: c) || composedCells.contains(key)
             VersusCardCell(card: card, isEvent: isEvent,
                            ownerOrder: game?.players.first { $0.uid == p.by }?.order,
-                           anchored: anchor == Anchor(r: r, c: c))
+                           anchored: false)
+                .anchorPreference(key: VersusFrameKey.self, value: .bounds) {
+                    framed ? [$0] : []
+                }
                 .onTapGesture { tapPlaced(r, c, p) }
         } else {
             // No "legal cells" highlighting — placement still only lands on a
@@ -210,23 +252,6 @@ struct VersusGameView: View {
                 .aspectRatio(1, contentMode: .fit)
                 .onTapGesture { if legal.contains(key) { place(r, c) } }
         }
-    }
-
-    // MARK: prompt line
-
-    @ViewBuilder
-    private var prompt: some View {
-        Text(promptText)
-            .font(.system(.footnote, design: .serif))
-            .foregroundStyle(XITheme.line)
-            .multilineTextAlignment(.center)
-    }
-
-    private var promptText: String {
-        if iActed { return "You've gone this round — waiting on the others." }
-        if selectedCard != nil { return "Tap a cell next to another card to place it." }
-        if iPlaced { return "Now tap your card and a neighbor to tell their story." }
-        return "Pick a card to place, or tap two touching cards to tell their story."
     }
 
     // MARK: hand
@@ -339,6 +364,7 @@ struct VersusGameView: View {
         guard adjacent, let other = byCell["\(a.r),\(a.c)"] else { anchor = here; return }
         let (ev, tw) = p.d == "be" ? (p, other) : (other, p)
         guard ev.d == "be", tw.d == "bw" else { anchor = here; return }
+        composedCells = ["\(a.r),\(a.c)", "\(r),\(c)"]  // keep the pair framed while writing
         composing = StoryTarget(event: ev, twist: tw)
         anchor = nil
     }
@@ -349,6 +375,46 @@ struct VersusGameView: View {
             do { try await op() } catch { await MainActor.run { self.error = error.localizedDescription } }
             await MainActor.run { busy = false }
         }
+    }
+}
+
+// MARK: - How to play
+
+/// The game instructions, tucked behind the ⓘ in the top-right corner —
+/// nothing on the board itself. Mirrors Board of the Day's help sheet.
+private struct VersusHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    help("Each round, **place one card** from your hand in a cell touching a card already on the board.")
+                    help("Then tap **two touching cards** to write the story that's both of them (\u{201C}times i\u{2026}\u{201D}) — that finishes your go.")
+                    help("Everyone goes once per round; the next round starts when all players have gone.")
+                    help("Your stories are saved to your library. Friends' stories land in your Commons.")
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(XITheme.paper.ignoresSafeArea())
+            .navigationTitle("How to play")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .tint(XITheme.gold)
+    }
+
+    private func help(_ markdown: String) -> some View {
+        Text((try? AttributedString(markdown: markdown)) ?? AttributedString(markdown))
+            .font(.system(.callout, design: .serif))
+            .foregroundStyle(XITheme.ink)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -363,12 +429,7 @@ struct VersusCardCell: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4).fill(isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.padding(1)
-            } else {
-                Text(card.cap).font(.system(size: 9, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(2)
-            }
+            CardArt(card: card, capSize: 9, pad: 1, blend: false)
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(RoundedRectangle(cornerRadius: 4)
@@ -470,15 +531,7 @@ struct StoryComposer: View {
     private func storyCard(_ card: XICard, isEvent: Bool) -> some View {
         ZStack {
             (isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(2)
-            } else {
-                Text(card.cap).font(.system(size: 11, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(4)
-            }
+            CardArt(card: card, capSize: 11, pad: 2)
         }
         .frame(width: 132, height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 6))

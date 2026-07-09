@@ -164,20 +164,7 @@ struct CardCell: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4).fill(isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    Color.clear
-                }
-                .padding(1)
-            } else {
-                Text(card.cap)
-                    .font(.system(size: 9, design: .serif))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink)
-                    .padding(2)
-            }
+            CardArt(card: card, capSize: 9, pad: 1, blend: false)
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(

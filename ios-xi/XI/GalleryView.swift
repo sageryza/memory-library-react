@@ -106,15 +106,7 @@ private struct GalleryCard: View {
     var body: some View {
         ZStack {
             (isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(4)
-            } else {
-                Text(card.cap).font(.system(size: 8, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(3)
-            }
+            CardArt(card: card, capSize: 8, pad: 4)
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: .infinity)

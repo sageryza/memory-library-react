@@ -219,6 +219,9 @@ struct ConstellationView: View {
                 .allowsHitTesting(false)
         }
         .padding(28)
+        // The whole block (text + button + preview, spacing intact) sits a
+        // little higher than dead center.
+        .offset(y: -60)
     }
 
     /// Persist the board arrangement after a card is dragged.

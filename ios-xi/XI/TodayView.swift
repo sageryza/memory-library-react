@@ -349,16 +349,7 @@ private struct TodayCard: View {
     var body: some View {
         ZStack {
             (isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(2)
-            } else {
-                Text(card.cap)
-                    .font(.system(size: 12, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(6)
-            }
+            CardArt(card: card, capSize: 12, pad: 2)
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: .infinity)

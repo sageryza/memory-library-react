@@ -78,15 +78,7 @@ struct ComposerSheet: View {
     private func cardImage(_ card: XICard, isEvent: Bool) -> some View {
         ZStack {
             (isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(2)
-            } else {
-                Text(card.cap).font(.system(size: 11, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(4)
-            }
+            CardArt(card: card, capSize: 11, pad: 2)
         }
         .frame(width: 132, height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 6))

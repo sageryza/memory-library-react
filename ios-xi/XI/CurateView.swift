@@ -90,19 +90,8 @@ private struct CurCard: View {
     }
 
     private var art: some View {
-        Group {
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(6)
-            } else {
-                Text(card.cap)
-                    .font(.system(size: 10, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(6)
-            }
-        }
-        .opacity(off ? 0.32 : 1)
+        CardArt(card: card, capSize: 10, pad: 6)
+            .opacity(off ? 0.32 : 1)
     }
 
     private func toggle(system: String, fg: Color, bg: Color, action: @escaping () -> Void) -> some View {
