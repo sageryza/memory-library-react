@@ -98,22 +98,15 @@ struct ConstellationView: View {
                 if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
             }
             .background(Color.white.ignoresSafeArea())
-            // Small, plain undo/redo icons on the board (no button chrome) —
-            // like the New-cards undo on Today.
-            .overlay(alignment: .topLeading) {
-                HStack(spacing: 16) {
-                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                        .disabled(undoStack.isEmpty).opacity(undoStack.isEmpty ? 0.3 : 1)
-                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                        .disabled(redoStack.isEmpty).opacity(redoStack.isEmpty ? 0.3 : 1)
-                }
-                .font(.system(size: 16))
-                .foregroundStyle(slate)
-                .padding(.leading, 16).padding(.top, 8)
-            }
             .navigationTitle("constellation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
+                        .disabled(undoStack.isEmpty).tint(XITheme.gold)
+                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
+                        .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                }
                 ToolbarItem(placement: .principal) {
                     Text("\(placed.count) on board")
                         .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
@@ -187,11 +180,8 @@ struct ConstellationView: View {
     }
 
     private var emptyBoard: some View {
-        ZStack {
-            // The blurred mock of a finished constellation sits behind, partially
-            // covered by the prompt — a hint of what the board becomes.
-            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
-                                 slate: slate, bodyGrey: bodyGrey)
+        VStack(spacing: 22) {
+            // Instructions up top…
             VStack(spacing: 14) {
                 Text("Your board is empty")
                     .font(.system(.title3, design: .serif)).foregroundStyle(slate)
@@ -205,9 +195,9 @@ struct ConstellationView: View {
                         .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
                 }.padding(.top, 4)
             }
-            .padding(20)
-            .background(Color.white.opacity(0.55))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            // …the blurred preview sits below, clearly visible.
+            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
+                                 slate: slate, bodyGrey: bodyGrey)
         }
         .padding(28)
     }

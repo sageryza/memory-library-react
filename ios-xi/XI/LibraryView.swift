@@ -138,11 +138,11 @@ struct LibraryView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             Text(store.selectedLibrary?.name ?? "Memory Library")
-                .font(.system(.headline, design: .serif))
+                .font(.system(.headline, design: .monospaced))
                 .foregroundStyle(XITheme.maroon)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button { memSheet = .add } label: { Image(systemName: "rectangle.badge.plus") }
+            Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
                 .tint(XITheme.gold)
                 .buttonBorderShape(.roundedRectangle)
                 .accessibilityLabel("New memory")
@@ -153,8 +153,7 @@ struct LibraryView: View {
                     Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
                 }
                 Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
-                Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
-                Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
+                Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
             } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
             .buttonBorderShape(.roundedRectangle)
             .tint(.primary)

@@ -56,7 +56,7 @@ struct LibraryFilterPanel: View {
             scopeSeg("Both", .both)
             scopeSeg("Others", .commons)
         }
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.maroon.opacity(0.3), lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5), lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
@@ -65,9 +65,9 @@ struct LibraryFilterPanel: View {
         return Button { withAnimation(.easeInOut(duration: 0.15)) { store.scope = s } } label: {
             Text(title)
                 .font(.system(size: 12, design: .serif))
-                .foregroundStyle(on ? .white : XITheme.maroon)
+                .foregroundStyle(on ? .white : XITheme.gold)
                 .padding(.vertical, 5).padding(.horizontal, 12)
-                .background(on ? XITheme.maroon : XITheme.maroon.opacity(0.06))
+                .background(on ? XITheme.gold : XITheme.gold.opacity(0.10))
         }.buttonStyle(.plain)
     }
 
@@ -113,6 +113,16 @@ struct LibraryFilterPanel: View {
                 let counts = cloud.map(\.count)
                 let lo = counts.min() ?? 1, hi = counts.max() ?? 1
                 let shown = showAllTags ? cloud : Array(cloud.prefix(tagCap))
+                // When expanded, a "hide" control sits ABOVE the cloud so you can
+                // always collapse it back.
+                if showAllTags && cloud.count > tagCap {
+                    Button { withAnimation { showAllTags = false } } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.up").font(.system(size: 10, weight: .semibold))
+                            Text("hide").font(.system(.footnote, design: .serif))
+                        }.foregroundStyle(XITheme.gold)
+                    }.buttonStyle(.plain)
+                }
                 WrapLayout(spacing: 6) {
                     ForEach(shown, id: \.tag) { item in
                         Button { store.toggleTag(item.tag) } label: {
@@ -125,10 +135,12 @@ struct LibraryFilterPanel: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                if cloud.count > tagCap {
-                    Button { withAnimation { showAllTags.toggle() } } label: {
-                        Text(showAllTags ? "show fewer" : "show \(cloud.count - tagCap) more…")
-                            .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
+                if !showAllTags && cloud.count > tagCap {
+                    Button { withAnimation { showAllTags = true } } label: {
+                        HStack(spacing: 4) {
+                            Text("show \(cloud.count - tagCap) more").font(.system(.footnote, design: .serif))
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                        }.foregroundStyle(XITheme.gold)
                     }.buttonStyle(.plain).padding(.top, 2)
                 }
             }
