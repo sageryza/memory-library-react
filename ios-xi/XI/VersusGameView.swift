@@ -417,52 +417,54 @@ struct StoryComposer: View {
     private var evCard: XICard { XIDeck.events[event.i] }
     private var twCard: XICard { XIDeck.twists[twist.i] }
 
+    // Mirrors the board's ComposerSheet exactly: a half-height sheet (the game
+    // board stays visible behind it), the two cards big up top, the prompt, and
+    // a normal fixed-height memory box that scrolls internally.
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 10) {
-                    storyCard(evCard, isEvent: true)
-                    storyCard(twCard, isEvent: false)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                Text("times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())")
-                    .font(.system(.title3, design: .serif, weight: .semibold))
-                    .foregroundStyle(XITheme.ink)
-                ZStack(alignment: .topLeading) {
-                    if text.isEmpty {
-                        Text("tell the story…").font(.system(.body, design: .serif))
-                            .foregroundStyle(XITheme.line).padding(.top, 8).padding(.leading, 5)
-                    }
-                    TextEditor(text: $text)
-                        .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 160)
-                }
-                .padding(8)
-                .background(XITheme.white)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
-                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-                Spacer()
+        VStack(spacing: 14) {
+            HStack(spacing: 10) {
+                storyCard(evCard, isEvent: true)
+                storyCard(twCard, isEvent: false)
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(XITheme.paper.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(XITheme.line).accessibilityLabel("Cancel")
+            .padding(.top, 18)
+
+            Text("times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())")
+                .font(.system(.title3, design: .serif))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(XITheme.ink)
+                .padding(.horizontal, 8)
+
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("tell the story…").font(.system(.body, design: .serif))
+                        .foregroundStyle(XITheme.line).padding(.top, 16).padding(.leading, 13)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { save() } label: {
-                        if busy { ProgressView() } else { Image(systemName: "checkmark") }
-                    }
-                    .tint(XITheme.gold)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
-                    .accessibilityLabel("Save")
-                }
+                TextEditor(text: $text)
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .frame(height: 120)
+                    .padding(8)
+                    .scrollContentBackground(.hidden)
             }
+            .background(XITheme.white)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+
+            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+
+            Button(action: save) {
+                Text(busy ? "saving…" : "save")
+                    .font(.system(.body, design: .serif))
+                    .padding(.horizontal, 28).padding(.vertical, 10)
+                    .background(XITheme.gold).foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+            .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+
+            Spacer(minLength: 0)
         }
-        .tint(XITheme.gold)
+        .padding(20)
+        .background(XITheme.paper)
+        .presentationDetents([.medium, .large])
     }
 
     private func storyCard(_ card: XICard, isEvent: Bool) -> some View {
@@ -478,7 +480,7 @@ struct StoryComposer: View {
                     .foregroundStyle(XITheme.ink).padding(4)
             }
         }
-        .frame(width: 104, height: 104)
+        .frame(width: 132, height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }

@@ -206,11 +206,14 @@ struct TodayView: View {
                 .font(.system(size: 13, design: .serif).italic())
                 Spacer()
                 Button { Task { await save() } } label: {
-                    Text(saving ? "saving…" : "save")
+                    // The original quiet save — ink on paper with a thin ink
+                    // outline (reverted from gold/white at her request).
+                    Text(saving ? "Saving…" : "Save")
                         .font(.system(size: 15, design: .serif)).tracking(0.5)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(XITheme.ink)
                         .padding(.vertical, 8).padding(.horizontal, 20)
-                        .background(XITheme.gold)
+                        .background(XITheme.paper)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.ink, lineWidth: 1))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -283,17 +286,22 @@ struct TodayView: View {
     }
 
     private func newCards() {
-        // Redraw replaces BOTH cards, not one at a time.
+        // Redraws ONE card per tap, alternating twist then event — her explicit
+        // preference (reverted from redrawing the pair).
         hist.append((ev, tw))
         let ne = safeEvents.count, nt = safeTwists.count
-        tw = (tw - 1 + nt) % nt
-        ev = (ev + 1) % ne
+        if flip == "tw" {
+            tw = (tw - 1 + nt) % nt; flip = "ev"
+        } else {
+            ev = (ev + 1) % ne; flip = "tw"
+        }
         text = ""
     }
 
     private func undo() {
         guard let last = hist.popLast() else { return }
         ev = last.0; tw = last.1
+        flip = (flip == "tw") ? "ev" : "tw"
     }
 
     private func reload() async {

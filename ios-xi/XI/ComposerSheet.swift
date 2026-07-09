@@ -88,7 +88,7 @@ struct ComposerSheet: View {
                     .foregroundStyle(XITheme.ink).padding(4)
             }
         }
-        .frame(width: 116, height: 116)
+        .frame(width: 132, height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }

@@ -166,27 +166,33 @@ struct VersusLobbyView: View {
 /// mid-play), then blurred. Shown before you've started so the empty state hints
 /// at what Versus feels like rather than being a bare "start a game" button.
 private struct VersusPreview: View {
-    private let owners: [Int: Int] = [6: 0, 7: 0, 8: 1, 12: 1, 13: 1, 18: 0]  // cell → player order
+    /// Mid-game crossword like a real Versus board: a vertical spine, a run
+    /// crossing it, and one offshoot — the rest stay blank like Scrabble.
+    private static let filled: Set<Int> = [2, 7, 12, 17, 22, 10, 11, 13, 14, 16]
+    private let owners: [Int: Int] = [7: 0, 11: 1, 13: 1, 16: 1, 17: 0]  // cell → player order
 
     var body: some View {
-        VStack(spacing: 4) {
+        // Same geometry as the real game board (5pt gaps, full width, plain
+        // background) so it reads as an actual game, just blurred.
+        VStack(spacing: 5) {
             ForEach(0..<5, id: \.self) { r in
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     ForEach(0..<5, id: \.self) { c in
                         let idx = r * 5 + c
-                        let isEvent = (r + c) % 2 == 0
-                        let deck = isEvent ? XIDeck.events : XIDeck.twists
-                        VersusCardCell(card: deck[idx % deck.count], isEvent: isEvent,
-                                       ownerOrder: owners[idx], anchored: false)
+                        if Self.filled.contains(idx) {
+                            let isEvent = (r + c) % 2 == 0
+                            let deck = isEvent ? XIDeck.events : XIDeck.twists
+                            VersusCardCell(card: deck[idx % deck.count], isEvent: isEvent,
+                                           ownerOrder: owners[idx], anchored: false)
+                        } else {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.black.opacity(0.025))
+                                .aspectRatio(1, contentMode: .fit)
+                        }
                     }
                 }
             }
         }
-        .frame(maxWidth: 320)
-        .padding(12)
-        .background(XITheme.white.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(XITheme.line.opacity(0.5), lineWidth: 0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
         .blur(radius: 2.4)
         .opacity(0.8)
         .allowsHitTesting(false)
