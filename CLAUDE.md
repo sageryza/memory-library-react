@@ -1,6 +1,8 @@
 # Project notes
 
 ## Design rules (forever)
+- **NO GRADIENTS. Ever.** Sophie hates gradients — flat solid colors only, in
+  every UI. No LinearGradient, no CSS gradients.
 - **No pills.** Never use fully-rounded / pill-shaped buttons or chips. Buttons
   are rounded rectangles — use `border-radius: 6px`. (Circular icon buttons like
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
@@ -22,6 +24,15 @@
   am/pm (e.g. "5:08 pm", not "17:08" or "22:08 UTC"). Convert before showing.
 - **User's timezone is US Pacific (PT).** Show times in Pacific time (PDT in
   summer / PST in winter), not UTC. e.g. CI timestamps in UTC → convert to PT.
+- **Deliverables go last.** When a message includes a generated file — audio,
+  image, video, or any downloadable deliverable — send it as the final item,
+  after all explanatory text, so it's easy to find and never buried
+  mid-message.
+- **Long replies get an audio version.** When a chat reply runs longer than
+  about one phone screen (~2–3 paragraphs), also attach a text-to-speech
+  recording of it — OpenAI `gpt-4o-mini-tts` by default (cheap, reliable).
+  Keep it faithful to the text, lightly adapted for listening (spell out URLs
+  and numbers). Only render it in the F5 cloned voice when asked.
 
 ## Spending (July 2026)
 - **State the estimated cost before launching any paid batch job, and ASK first

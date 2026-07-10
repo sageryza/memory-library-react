@@ -11,6 +11,13 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // ImageForge story boards — read-only for signed-in (anonymous) users.
+    // Written only by the studio's server-side sync (admin SDK bypasses rules).
+    match /forge-story/{projectId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // Little Book of Miracles — one cloud-backup document per (anonymous) user.
     match /miracleBooks/{uid} {
       allow read, write: if isOwner(uid);
