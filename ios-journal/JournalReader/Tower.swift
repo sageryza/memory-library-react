@@ -74,7 +74,7 @@ struct Tower: Identifiable {
 }
 
 enum TowersData {
-    static let all: [Tower] = [autoPro, coins, journals]
+    static let all: [Tower] = [autoPro, coins, journals, tots, hiddenMechanism, tray, newOldThoughts, instruments]
 
     // MARK: AutoPro — automatic program → automatic process → autopro / AP
     static let autoPro = Tower(
@@ -184,6 +184,126 @@ enum TowersData {
                 quote: "…this app — the Journal Reader itself.",
                 note: "The current form of the idea. It lives outside the journals — an “after.”",
                 inCorpus: false),
+        ],
+        examples: []
+    )
+
+    // MARK: Tots — the unit of thought you collect
+    static let tots = Tower(
+        name: "Tots",
+        blurb: "A single captured thought — the unit you collect.",
+        symbol: "sparkles",
+        tint: Color(red: 0.20, green: 0.52, blue: 0.52),
+        trajectory: [
+            TowerEntry(date: "early Feb", page: 19, kind: .definition,
+                quote: "I struggled with how to represent the Tots (this was their genesis) — and to turn them into receipts.",
+                note: "Genesis — Tots as thoughts to be represented and collected."),
+            TowerEntry(date: "Feb 6", page: 29, kind: .redefinition,
+                quote: "the pre-Tot was: it's nice that I have more than one kind of work I can do.",
+                note: "A “pre-Tot” — the seed a Tot grows from."),
+            TowerEntry(date: "Feb 7", page: 35, kind: .mention,
+                quote: "On October 24th, I was so sure that I was going to finish the Tot assignment.",
+                note: nil),
+            TowerEntry(date: "Feb 11", page: 50, kind: .redefinition,
+                quote: "An unrecognized Tot is when I say: “Oh — I need to summarize everything, so: bit by bit, in order.”",
+                note: "Names a new kind: the unrecognized Tot."),
+            TowerEntry(date: "Feb 13", page: 60, kind: .mention,
+                quote: "things like the 24th — the Tot day — are quite sticky, quite contagious.",
+                note: nil),
+        ],
+        examples: [
+            TowerEntry(date: nil, page: 20, kind: .example,
+                quote: "Tot: “I tried to explain to grant… you listen to sad songs all day.”",
+                note: nil),
+            TowerEntry(date: "Feb 12", page: 57, kind: .example,
+                quote: "The Tot after I got myself off was planning an autopro that doesn't involve any “innie” work.",
+                note: nil),
+        ]
+    )
+
+    // MARK: Hidden mechanism — the concealed structure running the show
+    static let hiddenMechanism = Tower(
+        name: "Hidden Mechanism",
+        blurb: "A concealed structure quietly running the show.",
+        symbol: "puzzlepiece.fill",
+        tint: Color(red: 0.20, green: 0.42, blue: 0.70),
+        trajectory: [
+            TowerEntry(date: "Feb 7", page: 35, kind: .definition,
+                quote: "The hidden mechanism was that there were only perhaps 2–3 thoughts in November, one in December, and 2 in January.",
+                note: "First in-app use — a concealed reason things were easier than they looked."),
+            TowerEntry(date: "Feb 8", page: 40, kind: .redefinition,
+                quote: "The hidden mechanism of turning it on and off gives me a headache — trying to paint the inside of my mind.",
+                note: "Turns reflexive — a mechanism running inside herself."),
+            TowerEntry(date: "Feb 11", page: 53, kind: .definition,
+                quote: "a “hidden mechanism” poster, with all the different uses of hidden mechanisms in a constellation.",
+                note: "Most evolved — collect every hidden mechanism into one constellation."),
+        ],
+        examples: [
+            TowerEntry(date: "Feb 11", page: 52, kind: .example,
+                quote: "there was a hidden mechanism in which the whole world was pretending it was one thing by calling it therapy.",
+                note: nil),
+        ]
+    )
+
+    // MARK: The tray — lay thoughts out and find what they share
+    static let tray = Tower(
+        name: "The Tray",
+        blurb: "A tray to lay thoughts on and find what they share.",
+        symbol: "tray.fill",
+        tint: Color(red: 0.34, green: 0.52, blue: 0.32),
+        trajectory: [
+            TowerEntry(date: "Feb 4", page: 25, kind: .definition,
+                quote: "I forgot what a tray was for, and started putting memories on it. Then the game was easy and obvious: figure out what they have in common.",
+                note: "Genesis — a tray to lay memories on and find the link."),
+            TowerEntry(date: "Feb 11", page: 49, kind: .mention,
+                quote: "continuing on the train of the tray idea.",
+                note: nil),
+            TowerEntry(date: "Feb 12", page: 54, kind: .redefinition,
+                quote: "The tray idea — I can put stickers on bead trays, because they are temporary, because they are preparing for something.",
+                note: "Trays as temporary staging — a place things wait."),
+        ],
+        examples: []
+    )
+
+    // MARK: New thoughts vs old thoughts
+    static let newOldThoughts = Tower(
+        name: "New vs Old Thoughts",
+        blurb: "Which thoughts are actually new — and worth keeping.",
+        symbol: "lightbulb.fill",
+        tint: Color(red: 0.70, green: 0.38, blue: 0.48),
+        trajectory: [
+            TowerEntry(date: "Feb 6", page: 31, kind: .definition,
+                quote: "I had a new thought, and it was that “I don't always have new thoughts” — a lot of my thoughts are old, I have them over and over.",
+                note: "Genesis — and self-referential: the new thought is about new thoughts."),
+            TowerEntry(date: "Feb 6", page: 32, kind: .mention,
+                quote: "The thoughts that I dredged up in the garden that day, on purpose, were old thoughts and not worthy of commemorating.",
+                note: nil),
+            TowerEntry(date: "Feb 11", page: 50, kind: .redefinition,
+                quote: "I've been thinking about “New thoughts and old thoughts.”",
+                note: "Names it as a standing way to sort what she writes."),
+        ],
+        examples: []
+    )
+
+    // MARK: Instruments of abstraction / zooming in
+    static let instruments = Tower(
+        name: "Instruments of Abstraction",
+        blurb: "Tools for abstracting — and zooming in to see.",
+        symbol: "pencil.and.ruler.fill",
+        tint: Color(red: 0.36, green: 0.44, blue: 0.55),
+        trajectory: [
+            TowerEntry(date: "early Feb", page: 19, kind: .imagery,
+                quote: "I “abstracted” the two maps games… you'd have to zoom in to find what the games are about.",
+                note: "Early: abstracting by hiding the meaning until you zoom in."),
+            TowerEntry(date: "Feb 6", page: 32, kind: .mention,
+                quote: "“zooming in” about abstraction — a reel idea.",
+                note: nil),
+            TowerEntry(date: "Feb 7", page: 35, kind: .definition,
+                quote: "I discussed fine-tipped instruments of abstraction with myself.",
+                note: "Names the tools: fine-tipped instruments of abstraction."),
+            TowerEntry(date: "Feb 11", page: 51, kind: .mention,
+                quote: "Instruments of Abstraction.",
+                note: "Listed as a topic to gather."),
         ],
         examples: []
     )
