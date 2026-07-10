@@ -3,7 +3,7 @@ import UIKit
 /// Renders a full constellation board — every card, string, insight, and pin,
 /// laid out exactly as arranged — into one image, so a shared board can be SEEN
 /// at a glance in a text message (the picture rides the share link's preview).
-enum BoardSnapshot {
+enum BoardImage {
     private static let cardW: CGFloat = 188
     private static let cardH: CGFloat = 128
     private static let beige = UIColor(red: 0.980, green: 0.973, blue: 0.914, alpha: 1)      // #faf8e9

@@ -529,13 +529,13 @@ struct ConstellationView: View {
         guard !placed.isEmpty else { return }
         sharing = true
         let byId = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let cards = placed.compactMap { id -> BoardSnapshot.Card? in
+        let cards = placed.compactMap { id -> BoardImage.Card? in
             guard let m = byId[id] else { return nil }
-            return BoardSnapshot.Card(id: id, title: m.title, snippet: m.content)
+            return BoardImage.Card(id: id, title: m.title, snippet: m.content)
         }
         let pinData = pins.map { (id: $0.id, text: $0.text) }
         let conns = connections.map { ($0.a, $0.b, $0.insight) }
-        let jpeg = BoardSnapshot.render(
+        let jpeg = BoardImage.render(
             cards: cards, positions: positions, pins: pinData,
             connections: connections.map { (a: $0.a, b: $0.b, insight: $0.insight) })
         let id = await XIService.shared.shareBoard(
