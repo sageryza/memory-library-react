@@ -36,7 +36,7 @@
   .seg + .seg{border-top:1px solid rgba(90,30,34,0.07);}
   .seg.page-edge{border-top:1px solid rgba(90,30,34,0.28);}
   .seg.sel{box-shadow:inset 0 0 0 2px rgba(90,30,34,0.6);}
-  .seg.hidden{opacity:0.12;filter:grayscale(0.6);}
+  .seg.collapsed{display:none;}
   .reader{flex:1 1 auto;overflow-y:auto;padding:20px 22px 60px;min-width:0;border-left:1px solid rgba(90,30,34,0.12);}
   .reader .hint{font-style:italic;color:rgba(90,30,34,0.5);font-size:15px;margin-top:6px;}
   .entry{margin:0 0 26px;max-width:62ch;}
@@ -46,6 +46,17 @@
   .entry p{margin:0 0 9px;font-size:16px;line-height:1.5;color:#3f2c20;}
   .entry .nodraw{font-style:italic;color:rgba(90,30,34,0.55);}
   @media (max-width:560px){.strip{width:62px;flex-basis:62px;}.reader{padding:16px 16px 50px;}}
+  /* Floating auto-scroll toggle — reads the entry pane hands-free at reading pace. */
+  .autoscroll{position:fixed;right:16px;bottom:20px;width:48px;height:48px;border-radius:50%;
+    border:none;background:#2f6fed;color:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 10px rgba(30,40,70,0.28);cursor:pointer;z-index:50;
+    -webkit-tap-highlight-color:transparent;transition:background .18s,transform .1s;}
+  .autoscroll:active{transform:scale(0.92);}
+  .autoscroll.on{background:#1b4fc4;box-shadow:0 0 0 4px rgba(47,111,237,0.28),0 3px 10px rgba(30,40,70,0.28);}
+  .autoscroll svg{width:24px;height:24px;display:block;}
+  .autoscroll .ic-stop{display:none;}
+  .autoscroll.on .ic-go{display:none;}
+  .autoscroll.on .ic-stop{display:block;}
 </style>
 </head>
 <body>
@@ -57,6 +68,10 @@
   <div class="railwrap"><div class="gutter" id="gutter"></div><div class="strip" id="strip"></div></div>
   <div class="reader" id="reader"><p class="hint">Tap a block to read its whole color segment. Tap a color above to read only that kind.</p></div>
 </div>
+<button class="autoscroll" id="autoscroll" aria-label="Auto-scroll" aria-pressed="false">
+  <svg class="ic-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/><path d="m6 4 6 6 6-6" opacity=".5"/></svg>
+  <svg class="ic-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>
+</button>
 <script>
 const LABELS={day:"day details",drawings:"drawings",dreams:"dreams",ideas:"ideas / making",abstract:"abstract",todos:"to-dos"};
 const ORDER=["day","drawings","ideas","abstract","dreams","todos"];
@@ -196,7 +211,7 @@ In another part of my dream, I was doing something on my phone in the car and mi
 const PX_PER_LINE=2.6, MIN_H=16;
 const strip=document.getElementById('strip'),gutter=document.getElementById('gutter'),
       reader=document.getElementById('reader'),legendEl=document.getElementById('legend');
-let activeColor=null;
+const activeColors=new Set();
 
 ORDER.forEach(type=>{
   const k=document.createElement('span');k.className='key';k.dataset.type=type;
@@ -204,37 +219,63 @@ ORDER.forEach(type=>{
   k.onclick=()=>toggleColor(type);legendEl.appendChild(k);
 });
 const resetK=document.createElement('span');resetK.className='key reset';resetK.textContent='show all';
-resetK.onclick=()=>{activeColor=null;render();reader.innerHTML=hint();};legendEl.appendChild(resetK);
+resetK.onclick=()=>{activeColors.clear();render();reader.innerHTML=hint();};legendEl.appendChild(resetK);
 
-function hint(){return '<p class="hint">Tap a block to read its whole color segment. Tap a color above to read only that kind.</p>';}
+function hint(){return '<p class="hint">Tap a block to read it. Tap one or more colors above to filter the timeline.</p>';}
 
-let y=0,lastPage=null;const segEls=[];
+const segEls=[],segH=[];
 sections.forEach((s,i)=>{
-  if(s.page!==lastPage){
-    const lbl=document.createElement('div');lbl.className='pagenum';lbl.style.top=y+'px';lbl.textContent='p'+s.page;
-    gutter.appendChild(lbl);lastPage=s.page;
-  }
-  const h=Math.max(s.lines*PX_PER_LINE,MIN_H);
+  const h=Math.max(s.lines*PX_PER_LINE,MIN_H);segH.push(h);
   const div=document.createElement('div');
   const firstOfPage=(i===0||sections[i-1].page!==s.page);
   div.className='seg'+(firstOfPage?' page-edge':'');
   div.style.height=h+'px';div.style.background=`var(--${s.type})`;
   div.title=`p${s.page} — ${LABELS[s.type]}`;
   div.onclick=()=>openOne(i);
-  strip.appendChild(div);segEls.push(div);y+=h;
+  strip.appendChild(div);segEls.push(div);
 });
+layoutGutter();
+
+// Re-place the page numbers against whatever segments are currently visible, so
+// the gutter stays aligned after a filter collapses the strip.
+function layoutGutter(){
+  gutter.innerHTML='';
+  const filtering=activeColors.size>0;
+  let y=0,lastPage=null;
+  segEls.forEach((el,i)=>{
+    const s=sections[i];
+    if(filtering&&!activeColors.has(s.type))return;
+    if(s.page!==lastPage){
+      const lbl=document.createElement('div');lbl.className='pagenum';
+      lbl.style.top=y+'px';lbl.textContent='p'+s.page;
+      gutter.appendChild(lbl);lastPage=s.page;
+    }
+    y+=segH[i];
+  });
+}
 
 function toggleColor(type){
-  activeColor=(activeColor===type)?null:type;render();
-  if(activeColor)readColor(activeColor);else reader.innerHTML=hint();
+  if(activeColors.has(type))activeColors.delete(type);else activeColors.add(type);
+  render();updateReader();
+}
+function updateReader(){
+  if(activeColors.size===0){reader.innerHTML=hint();return;}
+  reader.innerHTML=sections.filter(s=>activeColors.has(s.type)).map(entryHTML).join('');
+  reader.scrollTop=0;
 }
 function render(){
+  const filtering=activeColors.size>0;
   [...legendEl.querySelectorAll('.key')].forEach(k=>{
     if(!k.dataset.type)return;
-    k.classList.toggle('active',k.dataset.type===activeColor);
-    k.classList.toggle('dim',activeColor&&k.dataset.type!==activeColor);
+    const on=activeColors.has(k.dataset.type);
+    k.classList.toggle('active',on);
+    k.classList.toggle('dim',filtering&&!on);
   });
-  segEls.forEach((el,i)=>{el.classList.toggle('hidden',activeColor&&sections[i].type!==activeColor);el.classList.remove('sel');});
+  segEls.forEach((el,i)=>{
+    el.classList.toggle('collapsed',filtering&&!activeColors.has(sections[i].type));
+    el.classList.remove('sel');
+  });
+  layoutGutter();
 }
 function entryHTML(s){
   const dot=`<span class="dot" style="background:var(--${s.type})"></span>`;
@@ -254,7 +295,35 @@ function openOne(i){
   reader.innerHTML=sections.slice(a,b+1).map(entryHTML).join('');
   reader.scrollTop=0;
 }
-function readColor(type){reader.innerHTML=sections.filter(s=>s.type===type).map(entryHTML).join('');reader.scrollTop=0;}
+
+/* ---- Auto-scroll: eases the reading pane down at a slow reading pace ---- */
+const autoBtn=document.getElementById('autoscroll');
+const SCROLL_PX_PER_SEC=22;          // ~one line every second — reading pace
+let autoOn=false,autoRAF=null,lastTS=null,scrollAcc=0;
+function autoTarget(){                 // scroll the entry pane; fall back to the rail
+  if(reader.scrollHeight-reader.clientHeight>2)return reader;
+  const rail=document.querySelector('.railwrap');
+  return (rail && rail.scrollHeight-rail.clientHeight>2)?rail:reader;
+}
+function autoStep(ts){
+  if(!autoOn){autoRAF=null;return;}
+  if(lastTS===null)lastTS=ts;
+  const dt=(ts-lastTS)/1000;lastTS=ts;
+  const el=autoTarget();
+  scrollAcc+=SCROLL_PX_PER_SEC*dt;
+  const whole=Math.floor(scrollAcc);
+  if(whole>=1){el.scrollTop+=whole;scrollAcc-=whole;}
+  if(el.scrollTop+el.clientHeight>=el.scrollHeight-1){setAuto(false);return;} // stop at the end
+  autoRAF=requestAnimationFrame(autoStep);
+}
+function setAuto(on){
+  autoOn=on;autoBtn.classList.toggle('on',on);
+  autoBtn.setAttribute('aria-pressed',on?'true':'false');
+  autoBtn.setAttribute('aria-label',on?'Stop auto-scroll':'Auto-scroll');
+  if(on){lastTS=null;scrollAcc=0;autoRAF=requestAnimationFrame(autoStep);}
+  else if(autoRAF){cancelAnimationFrame(autoRAF);autoRAF=null;}
+}
+autoBtn.addEventListener('click',()=>setAuto(!autoOn));
 </script>
 </body>
 </html>
