@@ -616,6 +616,144 @@ final class XIService {
             .collection("libraries").document(id).delete()
     }
 
+    // MARK: Multiple boards (named canvases; one is active at a time)
+
+    struct XIBoardMeta: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let updatedAt: Date
+    }
+
+    struct XIBoardData {
+        let id: String
+        var name: String
+        var positions: [String: CGPoint]
+        var placed: [String]
+        var pins: [(id: String, text: String)]
+        var connections: [(String, String, String)]
+    }
+
+    private func boardsRef(_ uid: String) -> CollectionReference {
+        db.collection("users").document(uid).collection("xiBoards")
+    }
+    private func activePointerRef(_ uid: String) -> DocumentReference {
+        db.collection("users").document(uid).collection("xiBoard").document("active")
+    }
+
+    private func decodeBoard(_ id: String, _ d: [String: Any]) -> XIBoardData {
+        var positions: [String: CGPoint] = [:]
+        for (k, v) in (d["positions"] as? [String: [String: Double]]) ?? [:] {
+            if let x = v["x"], let y = v["y"] { positions[k] = CGPoint(x: x, y: y) }
+        }
+        let pins = ((d["pins"] as? [[String: Any]]) ?? []).compactMap { p -> (id: String, text: String)? in
+            guard let pid = p["id"] as? String else { return nil }
+            return (pid, p["text"] as? String ?? "")
+        }
+        let conns = ((d["connections"] as? [[String: Any]]) ?? []).compactMap { c -> (String, String, String)? in
+            guard let a = c["a"] as? String, let b = c["b"] as? String else { return nil }
+            return (a, b, c["insight"] as? String ?? "")
+        }
+        return XIBoardData(id: id, name: d["name"] as? String ?? "Untitled board",
+                           positions: positions, placed: (d["placed"] as? [String]) ?? [],
+                           pins: pins, connections: conns)
+    }
+
+    private func encodeBoard(_ b: XIBoardData) -> [String: Any] {
+        var pos: [String: [String: Double]] = [:]
+        for (k, p) in b.positions { pos[k] = ["x": Double(p.x), "y": Double(p.y)] }
+        return [
+            "name": b.name,
+            "positions": pos,
+            "placed": b.placed,
+            "pins": b.pins.map { ["id": $0.id, "text": $0.text] },
+            "connections": b.connections.map { ["a": $0.0, "b": $0.1, "insight": $0.2] },
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+    }
+
+    func listBoards() async -> [XIBoardMeta] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let docs = await retryingDocuments(boardsRef(uid))
+        return docs.map { doc in
+            XIBoardMeta(id: doc.documentID,
+                        name: doc.data()["name"] as? String ?? "Untitled board",
+                        updatedAt: (doc.data()["updatedAt"] as? Timestamp)?.dateValue() ?? .distantPast)
+        }
+        .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// The board to show on open: the active pointer's board, else the most
+    /// recently touched, else the legacy single board migrated into the new
+    /// collection, else a fresh empty one.
+    func loadActiveBoard() async -> XIBoardData {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            return XIBoardData(id: "", name: "Untitled board", positions: [:], placed: [], pins: [], connections: [])
+        }
+        if let pointed = (try? await activePointerRef(uid).getDocument())?.data()?["boardId"] as? String,
+           let snap = try? await boardsRef(uid).document(pointed).getDocument(),
+           snap.exists, let d = snap.data() {
+            return decodeBoard(pointed, d)
+        }
+        if let newest = await listBoards().first,
+           let snap = try? await boardsRef(uid).document(newest.id).getDocument(), let d = snap.data() {
+            try? await activePointerRef(uid).setData(["boardId": newest.id])
+            return decodeBoard(newest.id, d)
+        }
+        // Migrate the legacy single board (four loose docs) into the first
+        // named board, so nothing anyone arranged is lost.
+        async let conns = loadConnections()
+        async let pos = loadBoardPositions()
+        async let placedIds = loadPlacedIds()
+        async let pinData = loadPins()
+        let legacy = XIBoardData(id: "", name: "My board",
+                                 positions: await pos, placed: await placedIds,
+                                 pins: await pinData, connections: await conns)
+        let hasContent = !legacy.placed.isEmpty || !legacy.pins.isEmpty
+        var board = hasContent ? legacy : XIBoardData(id: "", name: "Untitled board",
+                                                      positions: [:], placed: [], pins: [], connections: [])
+        let ref = boardsRef(uid).document()
+        board = XIBoardData(id: ref.documentID, name: board.name, positions: board.positions,
+                            placed: board.placed, pins: board.pins, connections: board.connections)
+        try? await ref.setData(encodeBoard(board))
+        try? await activePointerRef(uid).setData(["boardId": ref.documentID])
+        return board
+    }
+
+    func saveBoard(_ board: XIBoardData) async {
+        guard let uid = Auth.auth().currentUser?.uid, !board.id.isEmpty else { return }
+        try? await boardsRef(uid).document(board.id).setData(encodeBoard(board))
+    }
+
+    func createBoard(name: String = "Untitled board") async -> XIBoardData {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            return XIBoardData(id: "", name: name, positions: [:], placed: [], pins: [], connections: [])
+        }
+        let ref = boardsRef(uid).document()
+        let board = XIBoardData(id: ref.documentID, name: name, positions: [:], placed: [], pins: [], connections: [])
+        try? await ref.setData(encodeBoard(board))
+        try? await activePointerRef(uid).setData(["boardId": ref.documentID])
+        return board
+    }
+
+    func switchBoard(to id: String) async -> XIBoardData? {
+        guard let uid = Auth.auth().currentUser?.uid,
+              let snap = try? await boardsRef(uid).document(id).getDocument(),
+              snap.exists, let d = snap.data() else { return nil }
+        try? await activePointerRef(uid).setData(["boardId": id])
+        return decodeBoard(id, d)
+    }
+
+    func renameBoard(_ id: String, to name: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await boardsRef(uid).document(id)
+            .updateData(["name": name, "updatedAt": FieldValue.serverTimestamp()])
+    }
+
+    func deleteBoard(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try? await boardsRef(uid).document(id).delete()
+    }
+
     // MARK: Constellation card positions (persist the board arrangement)
 
     func loadBoardPositions() async -> [String: CGPoint] {

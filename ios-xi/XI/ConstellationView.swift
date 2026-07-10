@@ -56,6 +56,13 @@ struct ConstellationView: View {
     @State private var pins: [BoardPin] = []
     @State private var editingPin: BoardPin?
     @State private var showConstellations = false
+    // Multiple boards: the active board's identity plus the switcher UI.
+    @State private var boardId = ""
+    @State private var boardName = "Untitled board"
+    @State private var boardsList: [XIService.XIBoardMeta] = []
+    @State private var showAllBoards = false
+    @State private var showRenameBoard = false
+    @State private var renameText = ""
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
@@ -123,8 +130,41 @@ struct ConstellationView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(placed.count) ON BOARD")
-                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                    // The board's NAME is the title; tapping it drops down the
+                    // three most recent boards plus rename / new / see-all.
+                    Menu {
+                        ForEach(boardsList.prefix(3)) { b in
+                            Button {
+                                switchBoard(to: b.id)
+                            } label: {
+                                if b.id == boardId {
+                                    Label(b.name, systemImage: "checkmark")
+                                } else {
+                                    Text(b.name)
+                                }
+                            }
+                        }
+                        Divider()
+                        Button { renameText = boardName; showRenameBoard = true } label: {
+                            Label("Rename board", systemImage: "pencil")
+                        }
+                        Button { newBoard() } label: {
+                            Label("New board", systemImage: "plus")
+                        }
+                        if boardsList.count > 3 {
+                            Button { showAllBoards = true } label: {
+                                Label("All boards…", systemImage: "square.stack")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(boardName)
+                                .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .semibold)).foregroundStyle(XITheme.gold)
+                        }
+                    }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
@@ -175,23 +215,153 @@ struct ConstellationView: View {
                     Task { await saveConstellationAction(n) }
                 }
             } message: { Text("Save this board arrangement to reload later.") }
+            .alert("Rename board", isPresented: $showRenameBoard) {
+                TextField("name", text: $renameText)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { renameCurrentBoard(renameText) }
+            }
+            .sheet(isPresented: $showAllBoards) {
+                AllBoardsSheet(boards: boardsList, activeId: boardId,
+                               onSelect: { switchBoard(to: $0); showAllBoards = false },
+                               onDelete: { deleteBoard($0) },
+                               onNew: { newBoard(); showAllBoards = false })
+            }
         }
         .tint(XITheme.gold)
         .task {
             guard !loaded else { return }
-            async let conns = XIService.shared.loadConnections()
-            async let pos = XIService.shared.loadBoardPositions()
-            async let placedIds = XIService.shared.loadPlacedIds()
-            async let pinData = XIService.shared.loadPins()
-            connections = await conns.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
-            positions = await pos
-            placed = Set(await placedIds)
-            pins = (await pinData).map { BoardPin(id: $0.id, text: $0.text) }
-            // Any placed card lacking a saved position gets a tidy slot.
-            var i = 0
-            for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
-            for p in pins where positions[p.id] == nil { positions[p.id] = Self.boardCenter }
+            let board = await XIService.shared.loadActiveBoard()
+            apply(board)
+            boardsList = await XIService.shared.listBoards()
             loaded = true
+        }
+    }
+
+    // MARK: boards (multiple named canvases)
+
+    /// Swap the view's state to a loaded board (fresh undo history).
+    private func apply(_ board: XIService.XIBoardData) {
+        boardId = board.id
+        boardName = board.name
+        connections = board.connections.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
+        positions = board.positions
+        placed = Set(board.placed)
+        pins = board.pins.map { BoardPin(id: $0.id, text: $0.text) }
+        undoStack = []; redoStack = []
+        connectFrom = nil
+        // Any placed card lacking a saved position gets a tidy slot.
+        var i = 0
+        for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
+        for p in pins where positions[p.id] == nil { positions[p.id] = Self.boardCenter }
+    }
+
+    /// The view's current state as a savable board document.
+    private func currentBoard() -> XIService.XIBoardData {
+        XIService.XIBoardData(id: boardId, name: boardName,
+                              positions: positions, placed: Array(placed),
+                              pins: pins.map { (id: $0.id, text: $0.text) },
+                              connections: connections.map { ($0.a, $0.b, $0.insight) })
+    }
+
+    private func switchBoard(to id: String) {
+        guard id != boardId else { return }
+        let outgoing = currentBoard()
+        Task {
+            await XIService.shared.saveBoard(outgoing)   // never lose the board you're leaving
+            if let board = await XIService.shared.switchBoard(to: id) {
+                apply(board)
+            }
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func newBoard() {
+        let outgoing = currentBoard()
+        Task {
+            await XIService.shared.saveBoard(outgoing)
+            let board = await XIService.shared.createBoard()
+            apply(board)
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func renameCurrentBoard(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        boardName = trimmed
+        Task {
+            await XIService.shared.renameBoard(boardId, to: trimmed)
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func deleteBoard(_ id: String) {
+        Task {
+            await XIService.shared.deleteBoard(id)
+            boardsList = await XIService.shared.listBoards()
+            if id == boardId {
+                // Deleted the board being viewed — land on the next one (or a
+                // fresh empty board when it was the last).
+                if let next = boardsList.first, let board = await XIService.shared.switchBoard(to: next.id) {
+                    apply(board)
+                } else {
+                    apply(await XIService.shared.createBoard())
+                    boardsList = await XIService.shared.listBoards()
+                }
+            }
+        }
+    }
+
+    /// Every board, for when the dropdown's three most-recent aren't enough —
+    /// same modal pattern as the constellations sheet.
+    private struct AllBoardsSheet: View {
+        let boards: [XIService.XIBoardMeta]
+        let activeId: String
+        var onSelect: (String) -> Void
+        var onDelete: (String) -> Void
+        var onNew: () -> Void
+
+        @Environment(\.dismiss) private var dismiss
+
+        var body: some View {
+            NavigationStack {
+                List {
+                    ForEach(boards) { b in
+                        Button { onSelect(b.id) } label: {
+                            HStack {
+                                Text(b.name)
+                                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                                Spacer()
+                                if b.id == activeId {
+                                    Image(systemName: "checkmark").font(.caption).foregroundStyle(XITheme.gold)
+                                }
+                            }
+                        }
+                        .swipeActions {
+                            Button(role: .destructive) { onDelete(b.id) } label: { Label("Delete", systemImage: "trash") }
+                        }
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(XITheme.paper.ignoresSafeArea())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("boards")
+                            .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { onNew() } label: { Image(systemName: "plus") }.tint(XITheme.gold)
+                            .accessibilityLabel("New board")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line)
+                            .accessibilityLabel("Close")
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .tint(XITheme.gold)
         }
     }
 
@@ -227,7 +397,7 @@ struct ConstellationView: View {
 
     /// Persist the board arrangement after a card is dragged.
     private func savePositions() {
-        Task { await XIService.shared.saveBoardPositions(positions) }
+        persistAll()   // whole-board doc — positions live inside it now
     }
 
     /// Long-press from one card released on another: add the string, or remove
@@ -391,15 +561,8 @@ struct ConstellationView: View {
     }
 
     private func persistAll() {
-        savePositions()
-        let pairs = connections.map { ($0.a, $0.b, $0.insight) }
-        let ids = Array(placed)
-        let pinData = pins.map { (id: $0.id, text: $0.text) }
-        Task {
-            await XIService.shared.saveConnections(pairs)
-            await XIService.shared.savePlacedIds(ids)
-            await XIService.shared.savePins(pinData)
-        }
+        let board = currentBoard()
+        Task { await XIService.shared.saveBoard(board) }
     }
 
     private var board: some View {
