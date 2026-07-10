@@ -95,3 +95,12 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   and send the mp3 to Sage.
 - Adapt the text for listening: skip URLs and code, read numbers naturally, keep
   the wording otherwise faithful to the written message.
+
+## Reply format (forever)
+- **TLDR first.** Start every substantive reply with a 1-3 line TLDR that answers
+  the question(s) directly, before any detail.
+- **Current link(s) at the very bottom.** End every reply with the working link(s)
+  for whatever is being built — the live page/artifact and the open PR — as full
+  clickable links, so the latest link is always the last thing in the message.
+- **Audio when warranted.** If the message is long AND important, also attach the
+  voice-note version per the Audio messages rule (British male, 1.2x).
