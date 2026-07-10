@@ -199,7 +199,7 @@ struct ConstellationView: View {
                     titleA: memoryTitle(c.a), titleB: memoryTitle(c.b), insight: c.insight,
                     onSave: { setInsight(c, $0) }, onDelete: { deleteConnection(c) })
             }
-            .sheet(item: $share) { s in BoardShareSheet(url: s.url) }
+            .sheet(item: $share) { s in BoardShareSheet(info: s) }
             .sheet(item: $editingPin) { p in
                 PinEditorSheet(text: p.text, onSave: { setPinText(p, $0) }, onDelete: { deletePin(p) })
             }
@@ -523,17 +523,29 @@ struct ConstellationView: View {
         persistAll()
     }
 
-    /// Publish the board and hand back a shareable web link.
+    /// Publish the board and hand back a shareable web link whose preview IS a
+    /// picture of the whole board — texting the link shows the board itself.
     private func shareBoardAction() async {
         guard !placed.isEmpty else { return }
         sharing = true
+        let byId = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let cards = placed.compactMap { id -> BoardSnapshot.Card? in
+            guard let m = byId[id] else { return nil }
+            return BoardSnapshot.Card(id: id, title: m.title, snippet: m.content)
+        }
+        let pinData = pins.map { (id: $0.id, text: $0.text) }
         let conns = connections.map { ($0.a, $0.b, $0.insight) }
+        let jpeg = BoardSnapshot.render(
+            cards: cards, positions: positions, pins: pinData,
+            connections: connections.map { (a: $0.a, b: $0.b, insight: $0.insight) })
         let id = await XIService.shared.shareBoard(
-            name: "My board", memories: memories, placedIds: Array(placed),
-            positions: positions, connections: conns)
+            name: boardName, memories: memories, placedIds: Array(placed),
+            positions: positions, connections: conns,
+            pins: pinData, snapshotJpeg: jpeg)
         sharing = false
-        if let id, let url = URL(string: "https://incaseofamnesia.com/share/\(id)") {
-            share = ShareInfo(url: url)
+        if let id, let url = URL(string: "https://incaseofamnesia.com/s/\(id)") {
+            share = ShareInfo(url: url, boardName: boardName,
+                              image: jpeg.flatMap { UIImage(data: $0) })
         }
     }
 
@@ -1170,23 +1182,40 @@ private struct ConnectionInsightSheet: View {
 }
 
 /// Wraps a shareable board link so it can drive an item-sheet.
-struct ShareInfo: Identifiable { let id = UUID(); let url: URL }
+struct ShareInfo: Identifiable {
+    let id = UUID()
+    let url: URL
+    var boardName: String = "My board"
+    var image: UIImage?
+}
 
 /// Confirmation sheet after publishing a board — shows the link, a system share
 /// button, and copy. Anyone with the link can open the board on the web.
 private struct BoardShareSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let url: URL
+    let info: ShareInfo
     @State private var copied = false
+
+    private var url: URL { info.url }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Image(systemName: "link.circle.fill")
-                    .font(.system(size: 46)).foregroundStyle(XITheme.gold)
+                // The picture that rides the link — recipients see this in the
+                // message bubble before they ever tap.
+                if let img = info.image {
+                    Image(uiImage: img)
+                        .resizable().scaledToFit()
+                        .frame(maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                } else {
+                    Image(systemName: "link.circle.fill")
+                        .font(.system(size: 46)).foregroundStyle(XITheme.gold)
+                }
                 Text("Your board is shared")
                     .font(.system(.title3, design: .serif).weight(.semibold)).foregroundStyle(XITheme.ink)
-                Text("Anyone with this link can open your board on the web.")
+                Text("Texting the link shows this picture — tapping it opens the live board.")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.line)
                     .multilineTextAlignment(.center)
 
@@ -1210,7 +1239,9 @@ private struct BoardShareSheet: View {
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold, lineWidth: 1))
                     }.tint(XITheme.gold)
 
-                    ShareLink(item: url) {
+                    ShareLink(item: url,
+                              preview: SharePreview(info.boardName,
+                                                    image: info.image.map(Image.init(uiImage:)) ?? Image(systemName: "square.grid.2x2"))) {
                         Label("Share", systemImage: "square.and.arrow.up")
                             .font(.system(.body, design: .serif).weight(.semibold))
                             .foregroundStyle(.white).frame(maxWidth: .infinity)

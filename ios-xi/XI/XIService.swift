@@ -874,9 +874,14 @@ final class XIService {
 
     /// Publish the current board as a `sharedBoards/{shareId}` snapshot that the
     /// web viewer at /share/{id} can open. Returns the share id.
+    /// snapshotJpeg: a rendered picture of the whole board — served by the
+    /// sharePreview function as the link's preview image, so texting the link
+    /// shows the board itself.
     func shareBoard(name: String, memories: [XIMemory], placedIds: [String],
                     positions: [String: CGPoint],
-                    connections: [(String, String, String)]) async -> String? {
+                    connections: [(String, String, String)],
+                    pins: [(id: String, text: String)] = [],
+                    snapshotJpeg: Data? = nil) async -> String? {
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
         let firstName = await sharerFirstName(uid: uid)
         let byId = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -897,17 +902,24 @@ final class XIService {
             .map { ["id": "conn-\($0.0)-\($0.1)", "from": $0.0, "to": $0.1, "insight": $0.2] }
 
         let shareId = Self.randomShareId()
-        let doc: [String: Any] = [
+        let pinArr: [[String: Any]] = pins.compactMap { p in
+            guard let pt = positions[p.id] else { return nil }
+            return ["id": p.id, "text": p.text, "x": Double(pt.x), "y": Double(pt.y)]
+        }
+        var doc: [String: Any] = [
             "name": name.isEmpty ? "My board" : name,
             "sharedBy": ["userId": uid, "firstName": firstName],
             "sharedWith": ["name": "you"],
             "memoryCount": dropped.count,
             "droppedMemories": dropped,
             "connections": conns,
-            "standalonePins": [],
+            "standalonePins": pinArr,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
         ]
+        if let jpeg = snapshotJpeg {
+            doc["snapshotB64"] = jpeg.base64EncodedString()
+        }
         do {
             try await db.collection("sharedBoards").document(shareId).setData(doc)
             return shareId

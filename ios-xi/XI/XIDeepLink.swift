@@ -28,7 +28,7 @@ final class XIDeepLink: ObservableObject {
         let token = URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "i" }?.value
         switch parts[0] {
-        case "share", "x": return ("share", id, nil)
+        case "share", "x", "s": return ("share", id, nil)   // /s/ = snapshot-preview share links
         case "versus", "v": return ("versus", id, token)
         default: return nil
         }
