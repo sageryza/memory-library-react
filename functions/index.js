@@ -2430,3 +2430,53 @@ exports.sidequestChatMessage = onDocumentCreated('sidequestParties/{partyId}/mes
     body: String(m.text || '').slice(0, 120),
   });
 });
+
+// ---------------------------------------------------------------------------
+// Shared-board rich links.
+//
+// /s/{id} serves a tiny page whose Open Graph image is the board's rendered
+// snapshot — so texting the link shows the WHOLE BOARD as a picture in the
+// message bubble. Humans get redirected to the live board at /share/{id};
+// crawlers (iMessage, WhatsApp, etc.) read the tags and stop. /s/{id}/og.jpg
+// streams the snapshot bytes stored on the share doc by the iOS app.
+exports.sharePreview = onRequest({ cors: true }, async (req, res) => {
+  const m = req.path.match(/^\/s\/([A-Za-z0-9_-]+)(\/og\.jpg)?\/?$/);
+  if (!m) { res.status(404).send('Not found'); return; }
+  const id = m[1];
+  const wantsImage = !!m[2];
+  const snap = await db.collection('sharedBoards').doc(id).get();
+  if (!snap.exists) { res.redirect(302, '/share/' + id); return; }
+  const d = snap.data();
+
+  if (wantsImage) {
+    if (!d.snapshotB64) { res.status(404).send('No snapshot'); return; }
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(Buffer.from(d.snapshotB64, 'base64'));
+    return;
+  }
+
+  const esc = (x) => String(x || '').replace(/[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const name = esc(d.name || 'A memory board');
+  const by = esc((d.sharedBy && d.sharedBy.firstName) || 'a friend');
+  const count = d.memoryCount || 0;
+  const img = d.snapshotB64 ? `https://incaseofamnesia.com/s/${id}/og.jpg` : '';
+  const target = `/share/${id}`;
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>${name}</title>
+<meta property="og:title" content="${name}">
+<meta property="og:description" content="${by} shared a memory board with you — ${count} ${count === 1 ? 'memory' : 'memories'}. Tap to open it.">
+${img ? `<meta property="og:image" content="${img}">` : ''}
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://incaseofamnesia.com/s/${id}">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0;url=${target}">
+</head><body>
+<p>Opening the board… <a href="${target}">Continue</a></p>
+<script>location.replace('${target}');</script>
+</body></html>`);
+});
