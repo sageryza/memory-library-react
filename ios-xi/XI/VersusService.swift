@@ -182,7 +182,11 @@ final class VersusService {
         }
         let status = g["status"] as? String ?? "active"
         let acted = (g["acted"] as? [String]) ?? []
-        let yourTurn = status == "active" && mine.map { !acted.contains($0) && players.contains { p in (p["uid"] as? String) == $0 } } ?? false
+        let yourTurn: Bool = {
+            guard status == "active", let me = mine else { return false }
+            let isPlayer = players.contains { ($0["uid"] as? String) == me }
+            return isPlayer && !acted.contains(me)
+        }()
         let updated = (g["updatedAt"] as? Timestamp)?.dateValue().timeIntervalSince1970 ?? 0
         return .some(GameSummary(others: others.isEmpty ? nil : others.joined(separator: ", "),
                                  yourTurn: yourTurn, updatedAt: updated, waiting: status == "waiting"))
