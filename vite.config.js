@@ -20,6 +20,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered manually (deferred) in main.jsx: on a first visit over a
+      // weak connection, the service worker's ~2MB precache download was
+      // competing with the page's own code for bandwidth — the app is
+      // interactive first, THEN the offline copy downloads.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'Membry',

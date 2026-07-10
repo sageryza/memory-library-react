@@ -22,10 +22,12 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirect to conspiracy board if user is logged in (and not anonymous)
+  // After sign-in, return wherever the visitor came from (?next=/xi/versus/…,
+  // set by pages that require an account) — else the conspiracy board.
   useEffect(() => {
     if (user && !authLoading && !isAnonymous) {
-      navigate('/conspiracy-board');
+      const next = new URLSearchParams(window.location.search).get('next');
+      navigate(next && next.startsWith('/') ? next : '/conspiracy-board');
     }
   }, [user, authLoading, isAnonymous, navigate]);
 

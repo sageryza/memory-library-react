@@ -35,7 +35,7 @@ const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
 export default function XiVersus() {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading, isAnonymous, signInAnonymously } = useAuth();
+  const { user, loading: authLoading, isAnonymous, } = useAuth();
   const { profile } = useUserProfile(user);
   const { game, loading, error } = useVersusGame(gameId);
   const hand = useHand(gameId, user?.uid);
@@ -52,9 +52,6 @@ export default function XiVersus() {
   const [notifDismissed, setNotifDismissed] = useState(false);
   const [phoneInput, setPhoneInput] = useState(() => {
     try { return localStorage.getItem('xiVersusPhone') || ''; } catch { return ''; }
-  });
-  const [nameInput, setNameInput] = useState(() => {
-    try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
   });
 
   const amInGame = !!(game && user && (game.players || []).some((p) => p.uid === user.uid));
@@ -86,23 +83,6 @@ export default function XiVersus() {
     else if (gameId && error === 'not-found') clearLastVersusGame();
   }, [gameId, game, error]);
 
-  // Sign in anonymously (guest), stashing the typed name for the join to use.
-  const playAsGuest = async (after) => {
-    const name = (nameInput.trim() || 'Guest');
-    try { localStorage.setItem('xiVersusName', name); } catch { /* ignore */ }
-    setBusy(true);
-    try {
-      await signInAnonymously();
-      if (after) await after();
-    } catch (e) {
-      setBusy(false);
-      if (e.code === 'auth/operation-not-allowed') {
-        alert('Guest play isn’t enabled yet. Please sign in instead.');
-      } else {
-        alert('Could not join: ' + (e.message || e.code));
-      }
-    }
-  };
 
   // Turn on "your turn" alerts for this user. Email + push are free; SMS only
   // fires if they gave a number. The number is remembered locally so it prefills
@@ -162,15 +142,6 @@ export default function XiVersus() {
     );
   };
 
-  const NameField = (
-    <input
-      className="xiv-name"
-      placeholder="Your name"
-      value={nameInput}
-      maxLength={24}
-      onChange={(e) => setNameInput(e.target.value)}
-    />
-  );
 
   // ---- Create / lobby (no game id) ----
   if (!gameId) {
@@ -203,11 +174,12 @@ export default function XiVersus() {
             </button>
           ) : (
             <div className="xiv-guest">
-              {NameField}
-              <button className="xiv-btn" disabled={busy} onClick={() => playAsGuest(startGame)}>
-                {busy ? 'Starting…' : 'Start as guest'}
+              {/* Playing needs an account (no guest mode) — Google is one tap,
+                  and sign-in returns straight here. */}
+              <button className="xiv-btn" onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus'))}>
+                Sign in to play
               </button>
-              <a className="xiv-signin" href="/login">or sign in</a>
+              <p className="xiv-note">Takes a moment with Google — then you can start a game.</p>
             </div>
           )}
           <button className="xiv-back" onClick={() => navigate('/xi')}>← Back to XI</button>
@@ -380,9 +352,10 @@ export default function XiVersus() {
 
       {!user && (
         <div className="xiv-join">
-          {NameField}
-          <button className="xiv-btn-sm" disabled={busy} onClick={() => playAsGuest()}>Join as guest</button>
-          <a className="xiv-signin" href="/login">or sign in</a>
+          <button className="xiv-btn-sm"
+            onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus/' + gameId))}>
+            Sign in to join this game
+          </button>
         </div>
       )}
       {isAnonymous && (
@@ -407,7 +380,7 @@ export default function XiVersus() {
             : (canPlace2
               ? 'Your move — place a card or write a story'
               : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
-          : 'Watching live'}
+          : (user ? 'Joining…' : 'Sign in to join')}
       </div>
 
       <XiBoardGrid
@@ -457,7 +430,7 @@ export default function XiVersus() {
           </div>
         </>
       ) : (
-        <p className="xiv-note">Watching live. Join to play, or share the invite link.</p>
+        <p className="xiv-note">{user ? 'Joining the game…' : 'Sign in above to join this game.'}</p>
       )}
 
       {stories.length > 0 && (
