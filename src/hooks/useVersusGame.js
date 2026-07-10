@@ -88,7 +88,7 @@ function assertStarted(g) {
 
 // Create a new game seeded from the board deck; the creator is player 0. The
 // deck honors the creator's Curate removals (a curated game for everyone in it).
-export async function createVersusGame(user, profile) {
+export async function createVersusGame(user, profile, expectedPlayers = 2, invites = []) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
   const { excluded, disabledDecks, loved, lovedOn } = readDeckFilter(user.uid);
@@ -105,6 +105,11 @@ export async function createVersusGame(user, profile) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     status: 'waiting',
+    // The game starts AUTOMATICALLY, for everyone at once, when this many
+    // players have joined (creator included). Tracked invites carry a unique
+    // link token each, so the waiting room shows exactly who's in.
+    expectedPlayers: Math.max(2, expectedPlayers),
+    invites: invites.map((i) => ({ token: i.token, name: i.name || '' })),
     players: [creator],
     round: 0,
     acted: [],
@@ -120,7 +125,7 @@ export async function createVersusGame(user, profile) {
 // Add the current user to a game if they're not already in it. New players can
 // only come in while the game is still waiting; once it's active it's locked to
 // its players (existing players may always re-enter).
-export async function joinVersusGame(gameId, user, profile) {
+export async function joinVersusGame(gameId, user, profile, inviteToken = null) {
   if (!user?.uid) throw new Error('Sign in to join.');
   const ref = doc(db, 'versusGames', gameId);
   const snap = await getDoc(ref);
@@ -142,26 +147,21 @@ export async function joinVersusGame(gameId, user, profile) {
     color: PLAYER_COLORS[order % PLAYER_COLORS.length],
     order,
   };
-  await updateDoc(ref, {
+  const update = {
     players: [...(data.players || []), player],
     [`stats.${user.uid}`]: { placed: 0, stories: 0 },
     updatedAt: serverTimestamp(),
-  });
-}
-
-// The creator opens play: waiting -> active. Only the creator may begin, and
-// only once at least one friend has joined.
-export async function beginVersusGame(gameId, user) {
-  if (!user?.uid) throw new Error('Sign in first.');
-  await runTransaction(db, async (tx) => {
-    const gSnap = await tx.get(gameRef(gameId));
-    if (!gSnap.exists()) throw new Error('Game not found.');
-    const g = gSnap.data();
-    if (g.createdBy !== user.uid) throw new Error('Only the person who created the game can begin it.');
-    if ((g.players || []).length < 2) throw new Error('You need at least one more player before you can begin.');
-    if (statusOf(g) !== 'waiting') throw new Error('This game has already begun.');
-    tx.update(gameRef(gameId), { status: 'active', updatedAt: serverTimestamp() });
-  });
+  };
+  // Tracked invite: mark this seat claimed so the waiting room shows who's in.
+  if (inviteToken) {
+    const invites = [...(data.invites || [])];
+    const i = invites.findIndex((x) => x.token === inviteToken && !x.claimedBy);
+    if (i >= 0) { invites[i] = { ...invites[i], claimedBy: user.uid }; update.invites = invites; }
+  }
+  // Roster complete → the game begins for everyone at this instant.
+  const expected = Math.max(2, data.expectedPlayers || 2);
+  if ((data.players || []).length + 1 >= expected) update.status = 'active';
+  await updateDoc(ref, update);
 }
 
 // One-shot summaries for the lobby list. For each remembered game id: its
