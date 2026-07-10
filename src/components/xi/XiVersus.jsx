@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import {
-  useVersusGame, createVersusGame, joinVersusGame, beginVersusGame,
+  useVersusGame, createVersusGame, joinVersusGame,
   useHand, ensureHand, placeCard, writeStory, useStories,
   listVersusGames, fetchGamesSummary, undoLastMove,
   setLastVersusGame, clearLastVersusGame,
@@ -63,7 +63,8 @@ export default function XiVersus() {
   useEffect(() => {
     if (!game || !user || authLoading) return;
     const inGame = (game.players || []).some((p) => p.uid === user.uid);
-    if (!inGame) joinVersusGame(gameId, user, profile).catch((e) => setJoinError(e.message || 'Could not join.'));
+    const token = new URLSearchParams(window.location.search).get('i');
+    if (!inGame) joinVersusGame(gameId, user, profile, token).catch((e) => setJoinError(e.message || 'Could not join.'));
   }, [game, user, authLoading, gameId, profile]);
 
   // Lobby: fetch a one-shot summary of each remembered game so the list can be
@@ -225,8 +226,6 @@ export default function XiVersus() {
   // Waiting room: the game isn't playable until the creator begins it. Older
   // docs have no status field — treat those as active.
   const waiting = (game.status || 'active') === 'waiting';
-  const isCreator = user?.uid === game.createdBy;
-  const creatorName = (players.find((p) => p.uid === game.createdBy) || {}).name || 'the host';
   const iActed = !!(user && acted.includes(user.uid));
   const iPlaced = !!(user && (game.placedBy || []).includes(user.uid)); // placed, owe a story
   // A move = place a card then tell its story, OR write a story on an existing
@@ -334,14 +333,6 @@ export default function XiVersus() {
     catch { window.prompt('Copy this invite link:', link); }
   };
 
-  // Begin the game (creator only, from the waiting room): waiting -> active.
-  const doBegin = async () => {
-    if (working) return;
-    setWorking(true);
-    try { await beginVersusGame(gameId, user); }
-    catch (e) { alert(e.message); }
-    finally { setWorking(false); }
-  };
 
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
   // While the game is waiting, the seeded board is display-only.
@@ -452,25 +443,24 @@ export default function XiVersus() {
       )}
 
       {waiting ? (
-        // Waiting room — the seeded board above is display-only until the
-        // creator begins. Inviting lives here (and only here).
+        // Waiting room — the seeded board above is display-only. The game
+        // starts automatically, for everyone at once, when the last expected
+        // player joins. Inviting lives here (and only here).
         <div className="xiv-waiting">
-          <div className="xiv-turn">Waiting for friends to join…</div>
-          <p className="xiv-waiting-names">
-            Here so far: {players.map((p) => p.name + (p.uid === user?.uid ? ' (you)' : '')).join(', ')}
-          </p>
-          <button className="xiv-btn" onClick={shareInvite}>{copied ? 'Invite link shared ✓' : 'Invite friends'}</button>
-          {isCreator ? (
-            players.length >= 2
-              ? (
-                <button className="xiv-btn xiv-begin" disabled={working} onClick={doBegin}>
-                  {working ? 'Beginning…' : 'Begin the game'}
-                </button>
-              )
-              : <p className="xiv-note">You can begin once at least one friend joins.</p>
+          <div className="xiv-turn">
+            Waiting for {Math.max(0, (game.expectedPlayers || 2) - players.length)} more…
+          </div>
+          {(game.invites || []).length > 0 ? (
+            <p className="xiv-waiting-names">
+              {(game.invites || []).map((inv) => `${inv.name || 'a friend'} ${inv.claimedBy ? '✓' : '…'}`).join(' · ')}
+            </p>
           ) : (
-            amInGame && <p className="xiv-note">Waiting for {creatorName} to begin.</p>
+            <p className="xiv-waiting-names">
+              Here so far: {players.map((p) => p.name + (p.uid === user?.uid ? ' (you)' : '')).join(', ')}
+            </p>
           )}
+          <button className="xiv-btn" onClick={shareInvite}>{copied ? 'Invite link shared ✓' : 'Invite friends'}</button>
+          {amInGame && <p className="xiv-note">The game starts for everyone the moment the last player joins.</p>}
           {!amInGame && (
             <p className="xiv-note">{user ? (joinError || 'Joining the game…') : 'Sign in above to join this game.'}</p>
           )}
