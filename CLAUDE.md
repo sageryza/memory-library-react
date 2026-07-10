@@ -83,3 +83,15 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   Treat that feedback as a **running queue to fold in later**, not as interrupts
   to drop everything for — UNLESS it directly contradicts what's being built, or
   is explicitly about prioritization. Keep a visible list of the open items.
+
+## Audio messages (forever)
+- **Long replies also become voice notes.** Whenever a reply is long — it explains
+  multiple things, answers several questions, or asks several important questions —
+  ALSO generate an audio version and send it as an mp3 file alongside the text.
+- **Format: male British voice at 1.2x speed.** Generate with OpenAI TTS (model
+  `gpt-4o-mini-tts`, voice `onyx`, instructions: "warm, natural male British accent
+  (RP), conversational"), using `OPENAI_API_KEY` from the environment (ask Sage for
+  a key if it is not set). Then speed it up with `ffmpeg -filter:a "atempo=1.2"`
+  and send the mp3 to Sage.
+- Adapt the text for listening: skip URLs and code, read numbers naturally, keep
+  the wording otherwise faithful to the written message.
