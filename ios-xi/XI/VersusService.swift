@@ -27,12 +27,24 @@ struct VersusGameState: Equatable {
     let placed: [VersusPlaced]
     let drawPileCount: Int
     let stats: [String: [String: Int]]
-    /// "waiting" until the creator begins the game; "active" once live.
+    /// "waiting" until everyone's in; "active" once live.
     /// Legacy docs without the field decode as "active".
     let status: String
     let createdBy: String
+    /// How many players the creator set up the game for — the game starts
+    /// automatically, for everyone at once, the moment this many have joined.
+    let expectedPlayers: Int
+    let invites: [VersusInvite]
 
     var isWaiting: Bool { status == "waiting" }
+}
+
+/// A tracked invite seat: a unique link token, the contact's name if one was
+/// picked, and who claimed it.
+struct VersusInvite: Equatable {
+    let token: String
+    let name: String
+    let claimedBy: String?
 }
 
 @MainActor
@@ -63,7 +75,11 @@ final class VersusService {
 
     // MARK: Create / join
 
-    func createGame() async throws -> String {
+    /// invites: one entry per tracked seat (unique link token + optional contact
+    /// name). expectedPlayers counts the creator. The game starts AUTOMATICALLY,
+    /// for everyone at the same instant, when that many players have joined.
+    func createGame(expectedPlayers: Int = 2,
+                    invites: [(token: String, name: String)] = []) async throws -> String {
         guard let uid = uid else { throw e("Sign in to start a Versus game.") }
         let id = generateId()
         let seeded = VersusModel.seedBoard(eventCount: XIDeck.events.count, twistCount: XIDeck.twists.count)
@@ -72,9 +88,11 @@ final class VersusService {
             "createdBy": uid,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
-            // Games open in a waiting room: nobody can play until the creator
-            // begins it with at least one friend joined — no head starts.
+            // Games open in a waiting room: nobody can play until everyone has
+            // joined — then it goes live for all players at once. No head starts.
             "status": "waiting",
+            "expectedPlayers": max(2, expectedPlayers),
+            "invites": invites.map { ["token": $0.token, "name": $0.name] },
             "players": [creator],
             "round": 0,
             "acted": [String](),
@@ -86,7 +104,7 @@ final class VersusService {
         return id
     }
 
-    func joinGame(_ gameId: String) async throws {
+    func joinGame(_ gameId: String, inviteToken: String? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to join.") }
         let name = currentName()
         // Transactional: two players joining at the same moment must not clobber
@@ -108,33 +126,26 @@ final class VersusService {
                 "uid": uid, "name": name,
                 "color": VersusModel.playerColors[order % VersusModel.playerColors.count], "order": order,
             ]
-            txn.updateData([
+            var update: [String: Any] = [
                 "players": players + [player],
                 "stats.\(uid)": ["placed": 0, "stories": 0],
                 "updatedAt": FieldValue.serverTimestamp(),
-            ], forDocument: self.gameRef(gameId))
-            return nil
-        }
-    }
-
-    /// Flip the waiting room live: creator-only, needs at least one friend
-    /// joined, and starts simultaneously for everyone — no head starts.
-    func beginGame(_ gameId: String) async throws {
-        guard let uid = uid else { throw e("Sign in first.") }
-        _ = try await db.runTransaction { txn, errPtr -> Any? in
-            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else {
-                errPtr?.pointee = self.e("Game not found."); return nil
+            ]
+            // Tracked invite: mark this seat claimed so the waiting room can
+            // show exactly who's in.
+            if let token = inviteToken, !token.isEmpty {
+                var invites = (g["invites"] as? [[String: Any]]) ?? []
+                if let i = invites.firstIndex(where: { ($0["token"] as? String) == token && $0["claimedBy"] == nil }) {
+                    invites[i]["claimedBy"] = uid
+                    update["invites"] = invites
+                }
             }
-            guard (g["createdBy"] as? String) == uid else {
-                errPtr?.pointee = self.e("Only the game's creator can begin it."); return nil
+            // Roster complete → the game begins for everyone at this instant.
+            let expected = max(2, g["expectedPlayers"] as? Int ?? 2)
+            if players.count + 1 >= expected {
+                update["status"] = "active"
             }
-            guard (g["status"] as? String ?? "active") == "waiting" else { return nil }   // already live
-            let players = (g["players"] as? [[String: Any]]) ?? []
-            guard players.count >= 2 else {
-                errPtr?.pointee = self.e("Wait for a friend to join first."); return nil
-            }
-            txn.updateData(["status": "active", "updatedAt": FieldValue.serverTimestamp()],
-                           forDocument: self.gameRef(gameId))
+            txn.updateData(update, forDocument: self.gameRef(gameId))
             return nil
         }
     }
@@ -434,7 +445,13 @@ final class VersusService {
             acted: d["acted"] as? [String] ?? [], placedBy: d["placedBy"] as? [String] ?? [],
             placed: placed, drawPileCount: ((d["drawPile"] as? [[String: Any]]) ?? []).count,
             stats: stats, status: d["status"] as? String ?? "active",
-            createdBy: d["createdBy"] as? String ?? ""
+            createdBy: d["createdBy"] as? String ?? "",
+            expectedPlayers: d["expectedPlayers"] as? Int ?? 2,
+            invites: ((d["invites"] as? [[String: Any]]) ?? []).map {
+                VersusInvite(token: $0["token"] as? String ?? "",
+                             name: $0["name"] as? String ?? "",
+                             claimedBy: $0["claimedBy"] as? String)
+            }
         )
     }
     static func decodeCardStatic(_ m: [String: Any]) -> HandCard? {

@@ -13,18 +13,23 @@ final class XIDeepLink: ObservableObject {
     @Published var pendingShareId: String?
     /// The game id from a `/versus/{id}` or `/v/{id}` link, awaiting handling.
     @Published var pendingVersusGameId: String?
+    /// The `?i=` invite token that came with a Versus link, if any — claims a
+    /// tracked invite seat when joining.
+    @Published var pendingVersusInviteToken: String?
 
-    /// Pull the (kind, id) out of a universal link. Returns nil for links we
-    /// don't own. kind is "share" or "versus".
-    static func parse(_ url: URL) -> (kind: String, id: String)? {
+    /// Pull the (kind, id, invite token) out of a universal link. Returns nil
+    /// for links we don't own. kind is "share" or "versus".
+    static func parse(_ url: URL) -> (kind: String, id: String, token: String?)? {
         guard let host = url.host, host.contains("incaseofamnesia.com") else { return nil }
         let parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
         guard parts.count >= 2 else { return nil }
         let id = parts[1].trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty else { return nil }
+        let token = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "i" }?.value
         switch parts[0] {
-        case "share", "x": return ("share", id)
-        case "versus", "v": return ("versus", id)
+        case "share", "x": return ("share", id, nil)
+        case "versus", "v": return ("versus", id, token)
         default: return nil
         }
     }
@@ -32,8 +37,13 @@ final class XIDeepLink: ObservableObject {
     /// Handle a universal-link URL; returns true if it was ours.
     @discardableResult
     func handle(_ url: URL) -> Bool {
-        guard let (kind, id) = Self.parse(url) else { return false }
-        if kind == "versus" { pendingVersusGameId = id } else { pendingShareId = id }
+        guard let (kind, id, token) = Self.parse(url) else { return false }
+        if kind == "versus" {
+            pendingVersusInviteToken = token
+            pendingVersusGameId = id
+        } else {
+            pendingShareId = id
+        }
         return true
     }
 }

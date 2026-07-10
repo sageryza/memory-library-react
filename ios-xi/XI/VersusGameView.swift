@@ -240,13 +240,27 @@ struct VersusGameView: View {
     @ViewBuilder
     private var waitingPanel: some View {
         if let g = game {
-            let others = g.players.filter { $0.uid != uid }
+            let missing = max(0, g.expectedPlayers - g.players.count)
             VStack(spacing: 14) {
-                Text(others.isEmpty
-                     ? "Waiting for friends to join…"
-                     : "\(others.map(\.name).joined(separator: ", ")) joined")
-                    .font(.system(.subheadline, design: .serif))
-                    .foregroundStyle(XITheme.ink)
+                // Who's in: tracked invites show each seat by name; otherwise
+                // just the joined players.
+                if !g.invites.isEmpty {
+                    VStack(spacing: 4) {
+                        ForEach(Array(g.invites.enumerated()), id: \.offset) { _, inv in
+                            let joined = inv.claimedBy != nil
+                            Text("\(inv.name.isEmpty ? "a friend" : inv.name)\(joined ? "  ✓" : "  …")")
+                                .font(.system(.subheadline, design: .serif))
+                                .foregroundStyle(joined ? XITheme.ink : XITheme.line)
+                        }
+                    }
+                } else {
+                    let others = g.players.filter { $0.uid != uid }
+                    Text(others.isEmpty
+                         ? "Waiting for \(missing) more \(missing == 1 ? "player" : "players")…"
+                         : "\(others.map(\.name).joined(separator: ", ")) joined — \(missing) more to go")
+                        .font(.system(.subheadline, design: .serif))
+                        .foregroundStyle(XITheme.ink)
+                }
                 // Inviting lives HERE — once the game begins it's locked to its
                 // players, so there's no share button anywhere else.
                 ShareLink(item: shareText) {
@@ -256,23 +270,8 @@ struct VersusGameView: View {
                         .background(XITheme.gold).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                if g.createdBy == uid {
-                    Button { run { try await VersusService.shared.beginGame(gameId) } } label: {
-                        Text(busy ? "starting…" : "begin the game")
-                            .font(.system(.body, design: .serif))
-                            .padding(.horizontal, 28).padding(.vertical, 10)
-                            .background(XITheme.white).foregroundStyle(XITheme.gold)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5)))
-                    }
-                    .opacity(others.isEmpty ? 0.5 : 1)   // tappable — explains itself if early
-                    Text("It starts for everyone at the same moment.")
-                        .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
-                } else {
-                    let creator = g.players.first { $0.uid == g.createdBy }
-                    Text("waiting for \(creator?.name ?? "the host") to begin the game")
-                        .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
-                }
+                Text("The game starts for everyone the moment the last player joins.")
+                    .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
             }
             .padding(.top, 8)
         }

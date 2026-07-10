@@ -23,6 +23,7 @@ struct VersusLobbyView: View {
     @State private var names: [String: String] = [:]   // gameId → other players' names
     @State private var namesLoaded: Set<String> = []    // games whose name fetch finished
     @State private var recents: [String] = VersusRecents.list()
+    @State private var showInvite = false
     @FocusState private var joinFocused: Bool
     @ObservedObject private var deepLink = XIDeepLink.shared
 
@@ -32,7 +33,7 @@ struct VersusLobbyView: View {
                 Text("a memory game with friends")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
 
-                Button(action: start) {
+                Button { showInvite = true } label: {
                     Text(busy ? "…" : "start a new game")
                         .font(.system(.body, design: .serif))
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
@@ -124,15 +125,27 @@ struct VersusLobbyView: View {
             }
         }
         .tint(XITheme.gold)
+        // "start a new game" opens the invite screen first — the game is
+        // created there, with its players set up before it exists.
+        .sheet(isPresented: $showInvite) {
+            VersusInviteView { id in
+                VersusRecents.remember(id)
+                recents = VersusRecents.list()
+                if !path.contains(id) { path.append(id) }
+            }
+        }
         // Load the other players' names for the "your games" list.
         .task { await loadNames() }
-        // A shared Versus link joins the game and opens it.
+        // A shared Versus link joins the game and opens it (claiming the
+        // tracked invite seat if the link carried a token).
         .task(id: deepLink.pendingVersusGameId) {
             guard let id = deepLink.pendingVersusGameId else { return }
+            let token = deepLink.pendingVersusInviteToken
             deepLink.pendingVersusGameId = nil
+            deepLink.pendingVersusInviteToken = nil
             busy = true; error = nil
             do {
-                try await VersusService.shared.joinGame(id)
+                try await VersusService.shared.joinGame(id, inviteToken: token)
                 VersusRecents.remember(id)
                 recents = VersusRecents.list()
                 if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
@@ -169,31 +182,21 @@ struct VersusLobbyView: View {
         recents = ordered + recents.filter { !known.contains($0) }
     }
 
-    private func start() {
-        busy = true; error = nil
-        Task {
-            do {
-                let id = try await VersusService.shared.createGame()
-                VersusRecents.remember(id)
-                recents = VersusRecents.list()
-                busy = false
-                path.append(id)
-            } catch { self.error = error.localizedDescription; busy = false }
-        }
-    }
-
     private func join(_ code: String) {
         var id = code.trimmingCharacters(in: .whitespaces)
-        // Accept a pasted "…/versus/{id}" link as well as a bare code.
+        var token: String?
+        // Accept a pasted "…/versus/{id}" link as well as a bare code — and
+        // claim its tracked invite seat if the link carried one.
         if id.contains("/"), let url = URL(string: id),
            let parsed = XIDeepLink.parse(url), parsed.kind == "versus" {
             id = parsed.id
+            token = parsed.token
         }
         guard !id.isEmpty else { return }
         busy = true; error = nil
         Task {
             do {
-                try await VersusService.shared.joinGame(id)
+                try await VersusService.shared.joinGame(id, inviteToken: token)
                 VersusRecents.remember(id)
                 recents = VersusRecents.list()
                 busy = false
