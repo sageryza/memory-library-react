@@ -1,6 +1,8 @@
 # Project notes
 
 ## Design rules (forever)
+- **NO GRADIENTS. Ever.** Sophie hates gradients — flat solid colors only, in
+  every UI. No LinearGradient, no CSS gradients.
 - **No pills.** Never use fully-rounded / pill-shaped buttons or chips. Buttons
   are rounded rectangles — use `border-radius: 6px`. (Circular icon buttons like
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
