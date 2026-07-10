@@ -9,8 +9,9 @@
 ## Communication
 - **Long messages = audio, always.** Any message longer than a few sentences
   gets delivered as a voice memo (OpenAI gpt-4o-mini-tts, voice "fable", male
-  British, brisk ~1.15x) so Sage can listen instead of read. Attach the audio
-  at the very END of the message — never the top or middle.
+  British, NORMAL speed — Sage reverted the sped-up experiment July 10) so she
+  can listen instead of read. Attach the audio at the very END of the message —
+  never the top or middle.
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
   (`https://…`), never bare text or a fragment the user has to assemble.
