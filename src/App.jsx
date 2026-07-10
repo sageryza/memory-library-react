@@ -57,7 +57,8 @@ const LIBRARY_HOME_HOSTS = [
 // a working page instead of an unmatched route.
 function VersusRedirect() {
   const { gameId } = useParams();
-  return <Navigate to={`/xi/versus/${gameId}`} replace />;
+  // Keep the query string — tracked invite links carry their seat token in ?i=.
+  return <Navigate to={`/xi/versus/${gameId}${window.location.search}`} replace />;
 }
 function ShareRedirect() {
   const { shareId } = useParams();
