@@ -143,18 +143,30 @@ struct VersusLobbyView: View {
     }
 
     private func loadNames() async {
+        var infos: [(id: String, s: VersusService.GameSummary)] = []
         for id in recents {
-            // Prune games whose document is gone (deleted / expired) so the list
-            // only shows games you can actually reopen.
-            guard await VersusService.shared.gameExists(id) else {
+            switch await VersusService.shared.gameSummary(id) {
+            case .none:
+                // Network error — unknown; leave the row as-is, never prune.
+                namesLoaded.insert(id)
+            case .some(.none):
+                // Doc is gone (deleted / expired) — prune from recents.
                 VersusRecents.forget(id)
                 recents.removeAll { $0 == id }
-                continue
+            case .some(.some(let s)):
+                if let n = s.others { names[id] = n }
+                namesLoaded.insert(id)
+                infos.append((id, s))
             }
-            if names[id] == nil,
-               let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
-            namesLoaded.insert(id)
         }
+        // Games waiting on YOUR move float to the top; then most recently
+        // active. Quiet, forgotten games sink naturally — no forget button.
+        let ordered = infos.sorted {
+            if $0.s.yourTurn != $1.s.yourTurn { return $0.s.yourTurn }
+            return $0.s.updatedAt > $1.s.updatedAt
+        }.map(\.id)
+        let known = Set(ordered)
+        recents = ordered + recents.filter { !known.contains($0) }
     }
 
     private func start() {

@@ -149,21 +149,19 @@ struct VersusGameView: View {
                         .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                 }
                 // Plain icons, no iOS 26 glass pill behind them (same opt-out
-                // as the constellation toolbar).
+                // as the constellation toolbar). No share button here — a
+                // started game is locked to its players; inviting happens in
+                // the waiting room only.
                 if #available(iOS 26.0, *) {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .topBarTrailing) {
                         // Instructions live behind the ⓘ, not on the board.
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
-                            .buttonBorderShape(.roundedRectangle)
-                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
                             .buttonBorderShape(.roundedRectangle)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 } else {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
-                            .buttonBorderShape(.roundedRectangle)
-                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }.tint(XITheme.gold)
                             .buttonBorderShape(.roundedRectangle)
                     }
                 }
@@ -179,6 +177,12 @@ struct VersusGameView: View {
                     Text("Game not found.").font(.system(.body, design: .serif)).foregroundStyle(.red).padding(.top, 40)
                 } else if game == nil {
                     ProgressView().tint(XITheme.gold).padding(.top, 40)
+                } else if game?.isWaiting == true {
+                    // Waiting room: the seeded board is visible but untouchable;
+                    // the game begins for everyone at once — no head starts.
+                    board
+                    waitingPanel
+                    if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
                 } else {
                     header
                     board
@@ -228,6 +232,49 @@ struct VersusGameView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
+        }
+    }
+
+    // MARK: waiting room
+
+    @ViewBuilder
+    private var waitingPanel: some View {
+        if let g = game {
+            let others = g.players.filter { $0.uid != uid }
+            VStack(spacing: 14) {
+                Text(others.isEmpty
+                     ? "Waiting for friends to join…"
+                     : "\(others.map(\.name).joined(separator: ", ")) joined")
+                    .font(.system(.subheadline, design: .serif))
+                    .foregroundStyle(XITheme.ink)
+                // Inviting lives HERE — once the game begins it's locked to its
+                // players, so there's no share button anywhere else.
+                ShareLink(item: shareText) {
+                    Text("invite a friend")
+                        .font(.system(.body, design: .serif))
+                        .padding(.horizontal, 28).padding(.vertical, 10)
+                        .background(XITheme.gold).foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                if g.createdBy == uid {
+                    Button { run { try await VersusService.shared.beginGame(gameId) } } label: {
+                        Text(busy ? "starting…" : "begin the game")
+                            .font(.system(.body, design: .serif))
+                            .padding(.horizontal, 28).padding(.vertical, 10)
+                            .background(XITheme.white).foregroundStyle(XITheme.gold)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5)))
+                    }
+                    .opacity(others.isEmpty ? 0.5 : 1)   // tappable — explains itself if early
+                    Text("It starts for everyone at the same moment.")
+                        .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
+                } else {
+                    let creator = g.players.first { $0.uid == g.createdBy }
+                    Text("waiting for \(creator?.name ?? "the host") to begin the game")
+                        .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
+                }
+            }
+            .padding(.top, 8)
         }
     }
 
@@ -386,6 +433,7 @@ struct VersusGameView: View {
     }
 
     private func tapPlaced(_ r: Int, _ c: Int, _ p: VersusPlaced) {
+        guard game?.isWaiting != true else { return }         // waiting room: view only
         if selectedCard != nil { selectedCard = nil; return } // placing — ignore filled cells
         let here = Anchor(r: r, c: c)
         guard let a = anchor else { anchor = here; return }
