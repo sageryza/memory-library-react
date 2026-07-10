@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// Warm, notebook-y palette + hand-drawn outline weights, so the screen reads as
+/// a journal rather than a dashboard.
+enum TowerStyle {
+    static let paper    = Color(red: 0.960, green: 0.945, blue: 0.900) // warm cream ground
+    static let card     = Color(red: 0.988, green: 0.980, blue: 0.962) // near-white, warm
+    static let ink      = Color(red: 0.20,  green: 0.17,  blue: 0.13)  // soft near-black
+    static let penGray  = Color(red: 0.52,  green: 0.50,  blue: 0.46)  // gray hand-drawn outline
+}
+
 /// The Towers screen: a grid of idea-tiles. Tap one to open that idea's
 /// trajectory — every time it was defined, redefined, or used across the
 /// journals. The bottom-nav icon for this screen is the custom turret.
@@ -14,7 +23,7 @@ struct TowersView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Towers")
                         .font(.largeTitle.weight(.semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(TowerStyle.ink)
                     Text("Ideas, traced as they evolved.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -35,7 +44,7 @@ struct TowersView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 40)
             }
-            .background(Color(white: 0.98).ignoresSafeArea())
+            .background(TowerStyle.paper.ignoresSafeArea())
         }
     }
 }
@@ -47,8 +56,10 @@ private struct TowerTile: View {
     var body: some View {
         VStack(spacing: 9) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                SketchRoundedRect(cornerRadius: 16, seed: sketchSeed(tower.name + "chip"), wobble: 1.3)
                     .fill(tower.tint.opacity(0.14))
+                SketchRoundedRect(cornerRadius: 16, seed: sketchSeed(tower.name + "chip"), wobble: 1.3)
+                    .stroke(tower.tint.opacity(0.5), style: .init(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
                 Image(systemName: tower.symbol)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(tower.tint)
@@ -57,7 +68,7 @@ private struct TowerTile: View {
 
             Text(tower.name)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(TowerStyle.ink)
                 .lineLimit(1).minimumScaleFactor(0.8)
             Text("\(tower.trajectory.count) stops")
                 .font(.caption2)
@@ -67,9 +78,12 @@ private struct TowerTile: View {
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+            ZStack {
+                SketchRoundedRect(cornerRadius: 18, seed: sketchSeed(tower.name), wobble: 1.8)
+                    .fill(TowerStyle.card)
+                SketchRoundedRect(cornerRadius: 18, seed: sketchSeed(tower.name), wobble: 1.8)
+                    .stroke(TowerStyle.penGray.opacity(0.7), style: .init(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            }
         )
     }
 }
@@ -116,13 +130,15 @@ struct TowerDetailView: View {
     private var header: some View {
         HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                SketchRoundedRect(cornerRadius: 16, seed: sketchSeed(tower.name + "hdr"), wobble: 1.3)
                     .fill(tower.tint.opacity(0.14))
-                    .frame(width: 56, height: 56)
+                SketchRoundedRect(cornerRadius: 16, seed: sketchSeed(tower.name + "hdr"), wobble: 1.3)
+                    .stroke(tower.tint.opacity(0.5), style: .init(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
                 Image(systemName: tower.symbol)
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(tower.tint)
             }
+            .frame(width: 56, height: 56)
             Text(tower.blurb)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -205,9 +221,13 @@ private struct TowerStationRow: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
+            ZStack {
+                SketchRoundedRect(cornerRadius: 14, seed: sketchSeed(entry.quote), wobble: 1.6)
+                    .fill(TowerStyle.card)
+                SketchRoundedRect(cornerRadius: 14, seed: sketchSeed(entry.quote), wobble: 1.6)
+                    .stroke(TowerStyle.penGray.opacity(entry.inCorpus ? 0.6 : 0.4),
+                            style: .init(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+            }
         )
         .opacity(entry.inCorpus ? 1 : 0.85)
     }
