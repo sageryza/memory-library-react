@@ -31,6 +31,10 @@
   gpt-image-1 edits) was run without ever surfacing the price.
 
 ## Working style
+- **Build only what I asked for — no extra features, buttons, or UI.** Don't add
+  reset buttons, legends, toggles, settings, "helpful" panels, or any control I
+  didn't request. If something extra seems genuinely useful, mention it and let
+  me decide — don't just add it. Match the scope of the request exactly.
 - **Claude may merge its own PRs.** Standing permission (July 2026): when a PR
   is ready, merge it without asking — then watch the post-merge workflows
   (deploys, TestFlight) and fix anything that breaks.
