@@ -14,7 +14,7 @@ struct RootView: View {
             screen(.timeline) { TimelineView() }
             screen(.journal)  { ContentView() }
             screen(.record)   { RecordPlaceholder() }
-            screen(.stickers)   { StickersPlaceholder() }
+            screen(.towers)     { TowersView() }
             screen(.setBuilder) { SetBuilderView() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
