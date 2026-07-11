@@ -6,7 +6,7 @@ import Combine
 /// loses the current page or unsaved transcription. The nav hides while the
 /// keyboard is up so it doesn't crowd typing.
 struct RootView: View {
-    @State private var selection: JournalTab = .journal
+    @EnvironmentObject private var router: AppRouter
     @StateObject private var keyboard = JournalKeyboardObserver()
 
     var body: some View {
@@ -21,7 +21,7 @@ struct RootView: View {
         .background(Color.white.ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !keyboard.visible {
-                JournalNavBar(selection: $selection)
+                JournalNavBar(selection: $router.tab)
                     .transition(.move(edge: .bottom))
             }
         }
@@ -32,8 +32,8 @@ struct RootView: View {
     @ViewBuilder
     private func screen<Content: View>(_ tab: JournalTab, @ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .opacity(selection == tab ? 1 : 0)
-            .allowsHitTesting(selection == tab)
+            .opacity(router.tab == tab ? 1 : 0)
+            .allowsHitTesting(router.tab == tab)
     }
 }
 
