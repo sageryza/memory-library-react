@@ -17,6 +17,13 @@ import { db } from '../firebase';
 // migration runs once even for accounts the buggy version already "migrated".
 const LOCAL_KEYS = ['memoryLibraryLocalData', 'memoryLibraryData', 'memories'];
 
+// Cheap pre-check so the app can skip the whole flow (and its overlay) when
+// this browser has nothing to migrate — the common case for signed-in users
+// opening links in fresh browser contexts, where localStorage starts empty.
+export function hasLocalMemoriesToMigrate() {
+  return readLocalMemories().length > 0;
+}
+
 function readLocalMemories() {
   for (const key of LOCAL_KEYS) {
     let raw;
