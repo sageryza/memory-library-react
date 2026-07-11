@@ -104,3 +104,13 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   clickable links, so the latest link is always the last thing in the message.
 - **Audio when warranted.** If the message is long AND important, also attach the
   voice-note version per the Audio messages rule (British male, 1.2x).
+
+## Voice memo archive (where the data lives)
+- Sage's 993 transcribed voice memos (2021-2026) — transcripts, categories,
+  titles, keywords, descriptions — live in a PRIVATE Claude artifact on her
+  account: https://claude.ai/code/artifact/adf1cb87-4d20-4a79-afdb-9bb721dc5b33
+  Fetch that page (WebFetch works with her login) and parse the JSON in the
+  `<script id="archive" type="application/json">` block. Do NOT commit the
+  transcripts to this repo — it is public.
+- The browsable search page is a separate artifact:
+  https://claude.ai/code/artifact/66e91d44-9565-41b3-a024-af796bf2909e
