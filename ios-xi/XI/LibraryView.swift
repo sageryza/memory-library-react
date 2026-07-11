@@ -669,40 +669,9 @@ struct MemoryPopup: View {
     }
 }
 
-/// Left-aligned wrapping layout: each chip takes exactly the width its text
-/// needs, flowing onto new rows — so long hashtags show in FULL (the pop-up is
-/// the one place with room for them; grid cards still abbreviate).
-private struct WrapLayout: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxW = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, widest: CGFloat = 0
-        for s in subviews {
-            let sz = s.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
-            if x > 0 && x + sz.width > maxW { x = 0; y += rowH + spacing; rowH = 0 }
-            x += sz.width + spacing
-            rowH = max(rowH, sz.height)
-            widest = max(widest, x - spacing)
-        }
-        return CGSize(width: maxW.isFinite ? maxW : widest, height: y + rowH)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let maxW = bounds.width
-        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0
-        for s in subviews {
-            let sz = s.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
-            if x > 0 && x + sz.width > maxW { x = 0; y += rowH + spacing; rowH = 0 }
-            s.place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + y),
-                    proposal: ProposedViewSize(width: sz.width, height: sz.height))
-            x += sz.width + spacing
-            rowH = max(rowH, sz.height)
-        }
-    }
-}
-
-/// Every hashtag, full text, wrapping onto as many lines as needed.
+/// Every hashtag, full text, wrapping onto as many lines as needed — the
+/// pop-up is the one place with room for them (grid cards still abbreviate).
+/// Reuses the filter panel's WrapLayout.
 private struct PopupTags: View {
     let tags: [String]
 
