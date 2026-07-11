@@ -46,6 +46,10 @@ struct TowersView: View {
             }
             .background(TowerStyle.paper.ignoresSafeArea())
         }
+        // The screen commits to a light paper look with hardcoded light cards,
+        // so pin light-mode color resolution — otherwise .primary/.secondary
+        // text flips to white in dark mode and vanishes on the light cards.
+        .environment(\.colorScheme, .light)
     }
 }
 
@@ -123,6 +127,7 @@ struct TowerDetailView: View {
             }
         }
         .background(Color(white: 0.98).ignoresSafeArea())
+        .environment(\.colorScheme, .light)   // light paper look — keep text dark in dark mode too
         .navigationTitle(tower.name)
         .navigationBarTitleDisplayMode(.inline)
     }
