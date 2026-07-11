@@ -130,7 +130,6 @@ struct LibraryView: View {
                 if let m = viewMem {
                     MemoryPopup(memory: m,
                                 onEdit: m.isCommons ? nil : { viewMem = nil; memSheet = .edit(m) },
-                                onTrash: m.isCommons ? nil : { Task { await store.trash(m.id) }; viewMem = nil },
                                 onRemoveFromCommons: !m.isCommons ? nil : {
                                     Task { await store.removeFromCommons(m.id) }; viewMem = nil
                                 },
@@ -411,7 +410,12 @@ struct LibraryView: View {
                                            selected: store.selectedIds.contains(m.id),
                                            activeTags: Set(store.tagFilters.map(\.tag)),
                                            onOpen: { open(m) },
-                                           onTag: { store.toggleTag($0) })
+                                           onTag: { store.toggleTag($0) },
+                                           onEdit: m.isCommons ? nil : { memSheet = .edit(m) },
+                                           onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) } },
+                                           onRemoveFromCommons: !m.isCommons ? nil : {
+                                               Task { await store.removeFromCommons(m.id) }
+                                           })
                             }
                         }
                     }
@@ -440,6 +444,18 @@ struct LibraryView: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XITheme.archiveBorder, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture { open(m) }
+            .contextMenu {
+                if !m.isCommons {
+                    Button { memSheet = .edit(m) } label: { Label("Edit", systemImage: "pencil") }
+                    Button(role: .destructive) { Task { await store.trash(m.id) } } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } else {
+                    Button(role: .destructive) { Task { await store.removeFromCommons(m.id) } } label: {
+                        Label("Remove from Commons", systemImage: "person.badge.minus")
+                    }
+                }
+            }
     }
 
     private func open(_ m: XIMemory) {
@@ -492,6 +508,11 @@ private struct MemoryCard: View {
     let activeTags: Set<String>
     var onOpen: () -> Void
     var onTag: (String) -> Void
+    /// Long-press menu actions — edit/delete for your memories, remove for
+    /// Commons ones (deleting moved here from the pop-up, per Sage).
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
+    var onRemoveFromCommons: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -528,6 +549,19 @@ private struct MemoryCard: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
+        .contextMenu {
+            if let onEdit {
+                Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
+            }
+            if let onDelete {
+                Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
+            }
+            if let onRemoveFromCommons {
+                Button(role: .destructive) { onRemoveFromCommons() } label: {
+                    Label("Remove from Commons", systemImage: "person.badge.minus")
+                }
+            }
+        }
     }
 }
 
@@ -555,26 +589,15 @@ private struct FlowTags: View {
 
 // MARK: - Detail
 
-/// Reports the pop-up's natural content height so the card hugs short
-/// memories instead of always standing full height.
-private struct PopupHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 /// The memory detail as a centered pop-up modal — dim behind, card in the
 /// middle; tap the dim or ✕ to close. (Her call: viewing a memory should be a
-/// pop-up, not a slide-up panel.)
+/// pop-up, not a slide-up panel. Deleting lives on the card's long-press
+/// menu, not in here.)
 struct MemoryPopup: View {
     let memory: XIMemory
     var onEdit: (() -> Void)? = nil
-    var onTrash: (() -> Void)? = nil
     var onRemoveFromCommons: (() -> Void)? = nil
     var onClose: () -> Void
-
-    @State private var contentH: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -591,59 +614,14 @@ struct MemoryPopup: View {
                         .tint(XITheme.line).accessibilityLabel("Close")
                 }
                 .padding(.horizontal, 18).padding(.top, 14)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        if memory.isCommons {
-                            HStack(spacing: 5) {
-                                Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
-                                Text("From \(memory.authorName) · the Commons")
-                                    .font(.system(.footnote, design: .serif).italic())
-                            }.foregroundStyle(XITheme.gold)
-                        }
-                        if !memory.title.isEmpty {
-                            Text(memory.title)
-                                .font(.system(.title3, design: .serif).weight(.semibold))
-                                .foregroundStyle(XITheme.archiveTitle)
-                        }
-                        Text(memory.content)
-                            .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if !memory.hashtags.isEmpty {
-                            PopupTags(tags: memory.hashtags)
-                        }
-                        if !memory.dateTime.isEmpty {
-                            Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
-                        }
-                        if let onTrash {
-                            HStack {
-                                Spacer()
-                                Button(role: .destructive) { onTrash() } label: {
-                                    Label("Delete memory", systemImage: "trash")
-                                        .font(.system(.footnote, design: .serif))
-                                        .foregroundStyle(.white)
-                                        .padding(.vertical, 8).padding(.horizontal, 14)
-                                        .background(XITheme.maroon)
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                                }
-                            }
-                        }
-                        if let onRemoveFromCommons {
-                            Button(role: .destructive) { onRemoveFromCommons() } label: {
-                                Label("Remove from Commons", systemImage: "person.badge.minus")
-                                    .font(.system(.body, design: .serif))
-                            }
-                            .tint(XITheme.maroon)
-                        }
-                    }
-                    .padding(18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(GeometryReader { g in
-                        Color.clear.preference(key: PopupHeightKey.self, value: g.size.height)
-                    })
+                // ViewThatFits sizes the card in ONE layout pass — short
+                // memories hug, long ones scroll inside the cap — so the text
+                // never shifts after the pop-up opens (the old measure-then-
+                // resize approach nudged it down a beat after appearing).
+                ViewThatFits(in: .vertical) {
+                    inner
+                    ScrollView { inner }
                 }
-                .onPreferenceChange(PopupHeightKey.self) { contentH = $0 }
-                // Hug short memories; long ones scroll inside a capped card.
-                .frame(height: contentH > 0 ? min(contentH, 430) : nil)
                 .frame(maxHeight: 430)
             }
             .frame(maxWidth: 360)
@@ -654,19 +632,84 @@ struct MemoryPopup: View {
             .padding(.horizontal, 26)
         }
     }
+
+    private var inner: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if memory.isCommons {
+                HStack(spacing: 5) {
+                    Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
+                    Text("From \(memory.authorName) · the Commons")
+                        .font(.system(.footnote, design: .serif).italic())
+                }.foregroundStyle(XITheme.gold)
+            }
+            if !memory.title.isEmpty {
+                Text(memory.title)
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .foregroundStyle(XITheme.archiveTitle)
+            }
+            Text(memory.content)
+                .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            if !memory.hashtags.isEmpty {
+                PopupTags(tags: memory.hashtags)
+            }
+            if !memory.dateTime.isEmpty {
+                Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
+            }
+            if let onRemoveFromCommons {
+                Button(role: .destructive) { onRemoveFromCommons() } label: {
+                    Label("Remove from Commons", systemImage: "person.badge.minus")
+                        .font(.system(.body, design: .serif))
+                }
+                .tint(XITheme.maroon)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 }
 
-/// Hashtag chips that wrap onto multiple lines inside the pop-up (a memory
-/// can carry many).
+/// Left-aligned wrapping layout: each chip takes exactly the width its text
+/// needs, flowing onto new rows — so long hashtags show in FULL (the pop-up is
+/// the one place with room for them; grid cards still abbreviate).
+private struct WrapLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxW = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, widest: CGFloat = 0
+        for s in subviews {
+            let sz = s.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
+            if x > 0 && x + sz.width > maxW { x = 0; y += rowH + spacing; rowH = 0 }
+            x += sz.width + spacing
+            rowH = max(rowH, sz.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: maxW.isFinite ? maxW : widest, height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let maxW = bounds.width
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0
+        for s in subviews {
+            let sz = s.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
+            if x > 0 && x + sz.width > maxW { x = 0; y += rowH + spacing; rowH = 0 }
+            s.place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + y),
+                    proposal: ProposedViewSize(width: sz.width, height: sz.height))
+            x += sz.width + spacing
+            rowH = max(rowH, sz.height)
+        }
+    }
+}
+
+/// Every hashtag, full text, wrapping onto as many lines as needed.
 private struct PopupTags: View {
     let tags: [String]
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 6, alignment: .leading)],
-                  alignment: .leading, spacing: 6) {
+        WrapLayout(spacing: 6) {
             ForEach(tags, id: \.self) { tag in
                 Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
-                    .lineLimit(1)
                     .padding(.vertical, 3).padding(.horizontal, 8)
                     .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
             }
