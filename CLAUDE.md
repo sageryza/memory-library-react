@@ -23,6 +23,19 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   making, but confirm with Sage when a call is close.)
 
 ## Communication
+- **TLDR + audio replies (Sophie's rule, July 2026).**
+  - **TLDR at the end of every reply, no matter what** — the only exception is
+    a really quick reply that fits in ONE iPhone screen (she has an iPhone 13).
+  - **Attach an audio version (voice memo)** — TTS via OpenAI `gpt-4o-mini-tts`
+    reading the message verbatim (strip markdown/URLs, keep the words) —
+    whenever the reply is longer than one iPhone-13 screen (she'd have to
+    scroll) OR says something important for her to know: answers to her
+    questions, questions for her, new findings, decisions she needs to make.
+  - **Skip the audio** when the reply just confirms work she asked for or is
+    technical detail with no new information ("built it — here's what
+    changed"). TLDR still required.
+  - Audio is the LAST thing in the message — after the TLDR and any
+    files/images.
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
   (`https://…`), never bare text or a fragment the user has to assemble.
