@@ -356,6 +356,18 @@ final class XIService {
         ]
         let ref = try? await db.collection("users").document(uid)
             .collection("memories").addDocument(data: doc)
+        // Titling is automatic for ALL memories: if none was typed, an AI title
+        // distilled from the text arrives in the background — same as memories
+        // saved from the games. A typed title is never overwritten.
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let ref, trimmedTitle.isEmpty, !trimmedContent.isEmpty {
+            Task {
+                if let ai = await self.generateTitle(from: trimmedContent) {
+                    try? await ref.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+                }
+            }
+        }
         return ref?.documentID
     }
 
@@ -363,14 +375,25 @@ final class XIService {
     func updateMemory(_ id: String, title: String, content: String,
                       hashtags: [String], additionalContext: String = "") async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        try? await db.collection("users").document(uid).collection("memories").document(id)
-            .updateData([
-                "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
-                "content": content.trimmingCharacters(in: .whitespacesAndNewlines),
-                "hashtags": hashtags,
-                "additionalContext": additionalContext.trimmingCharacters(in: .whitespacesAndNewlines),
-                "updatedAt": FieldValue.serverTimestamp(),
-            ])
+        let ref = db.collection("users").document(uid).collection("memories").document(id)
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? await ref.updateData([
+            "title": trimmedTitle,
+            "content": trimmedContent,
+            "hashtags": hashtags,
+            "additionalContext": additionalContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ])
+        // Saved without a title → an AI one arrives in the background (a typed
+        // title is never overwritten).
+        if trimmedTitle.isEmpty, !trimmedContent.isEmpty {
+            Task {
+                if let ai = await self.generateTitle(from: trimmedContent) {
+                    try? await ref.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+                }
+            }
+        }
     }
 
     /// Soft-delete a memory (moves it to trash — matches the web's `deletedAt`).
