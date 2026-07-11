@@ -26,12 +26,17 @@ struct BoardView: View {
     /// pairKeys of YOUR memories — cards whose board pairing has one get a
     /// small maroon dot (the web's memory tokens).
     @State private var memPairKeys: Set<String> = []
+    /// Curate choices shape the daily draw (your board reflects your curation,
+    /// like the web) — observed so deck/card toggles re-deal immediately.
+    @ObservedObject private var curate = CurateStore.shared
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
-    private var placed: [Placed] { BoardEngine.dailyBoard(viewDay) }
+    private var placed: [Placed] {
+        BoardEngine.dailyBoard(viewDay, allowedEv: curate.allowedEvents, allowedTw: curate.allowedTwists)
+    }
     private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
     private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
     private var byCell: [String: Placed] {

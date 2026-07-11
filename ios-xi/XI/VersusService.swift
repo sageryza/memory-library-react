@@ -82,7 +82,14 @@ final class VersusService {
                     invites: [(token: String, name: String)] = []) async throws -> String {
         guard let uid = uid else { throw e("Sign in to start a Versus game.") }
         let id = generateId()
-        let seeded = VersusModel.seedBoard(eventCount: XIDeck.events.count, twistCount: XIDeck.twists.count)
+        // The deck honors the creator's Curate removals + deck toggles (a
+        // curated game for everyone in it), falling back to the full pools when
+        // too few cards remain to seed and draw — matching the web.
+        let beAll = CurateStore.shared.allowedEvents
+        let bwAll = CurateStore.shared.allowedTwists
+        let seeded = VersusModel.seedBoard(
+            eventPool: beAll.count >= 6 ? beAll : Array(0..<XIDeck.events.count),
+            twistPool: bwAll.count >= 6 ? bwAll : Array(0..<XIDeck.twists.count))
         let creator: [String: Any] = ["uid": uid, "name": currentName(), "color": VersusModel.playerColors[0], "order": 0]
         try await gameRef(id).setData([
             "createdBy": uid,

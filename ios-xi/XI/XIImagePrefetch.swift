@@ -12,8 +12,12 @@ enum XIImagePrefetch {
         Task.detached(priority: .utility) {
             var imgs = Set<String>()
             let dn = BoardEngine.dayNumber()
-            // The whole daily board (covers the Daily screen).
-            for p in BoardEngine.dailyBoard(dn) {
+            // The whole daily board (covers the Daily screen) — the same
+            // curated draw BoardView shows.
+            let (allowedEv, allowedTw) = await MainActor.run {
+                (CurateStore.shared.allowedEvents, CurateStore.shared.allowedTwists)
+            }
+            for p in BoardEngine.dailyBoard(dn, allowedEv: allowedEv, allowedTw: allowedTw) {
                 let card = p.d == "be" ? XIDeck.events[p.i] : XIDeck.twists[p.i]
                 if let img = card.img { imgs.insert(img) }
             }

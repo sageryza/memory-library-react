@@ -11,8 +11,8 @@ struct TodayView: View {
     private let mauve = Color(red: 0.616, green: 0.420, blue: 0.478)   // lighter maroon / mauve #9D6C7A
 
     @ObservedObject private var curate = CurateStore.shared
-    private var events: [XICard] { curate.keep(XIDeck.events) }
-    private var twists: [XICard] { curate.keep(XIDeck.twists) }
+    private var events: [XICard] { curate.keep(XIDeck.events, role: "ev") }
+    private var twists: [XICard] { curate.keep(XIDeck.twists, role: "tw") }
 
     @State private var ev = 0
     @State private var tw = 0

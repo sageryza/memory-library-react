@@ -40,12 +40,14 @@ enum VersusModel {
     }
 
     /// Seed a fresh board: one event at the centre (2,2) plus its four twist
-    /// neighbours; the rest of the pools become the shuffled draw pile.
+    /// neighbours; the rest of the pools become the shuffled draw pile. The
+    /// pools are explicit index lists so a curated deck can omit removed cards
+    /// (the creator's Curate choices shape the whole game, like the web).
     /// (Seeding is random — the result is persisted to Firestore and shared, so
     /// it needn't be deterministic across platforms.)
-    static func seedBoard(eventCount: Int, twistCount: Int) -> (placed: [VersusPlaced], drawPile: [HandCard]) {
-        let evIdx = Array(0..<eventCount).shuffled()
-        let twIdx = Array(0..<twistCount).shuffled()
+    static func seedBoard(eventPool: [Int], twistPool: [Int]) -> (placed: [VersusPlaced], drawPile: [HandCard]) {
+        let evIdx = eventPool.shuffled()
+        let twIdx = twistPool.shuffled()
 
         let cr = 2, cc = 2
         var placed: [VersusPlaced] = [VersusPlaced(r: cr, c: cc, d: "be", i: evIdx[0], by: nil, color: nil)]

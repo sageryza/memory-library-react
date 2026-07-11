@@ -11,6 +11,9 @@ struct XICard: Decodable, Identifiable, Equatable {
     let id: String
     let cap: String
     let img: String?
+    /// Which of the five named decks the card comes from (midjourney / internet
+    /// / dreams / claude / chatgpt) — drives the Curate deck toggles.
+    let deck: String?
 }
 
 /// A placed card on the 5×5 board: row, col, deck ('be' event / 'bw' twist), index into the pool.
@@ -234,16 +237,23 @@ enum BoardEngine {
         }
     }
 
-    /// The deterministic board for a given day: 13 placed cards as a connected blob.
-    static func dailyBoard(_ dayNum: Int, targetCards: Int = 13) -> [Placed] {
+    /// The deterministic board for a given day: 13 placed cards as a connected
+    /// blob. Optional allowed-index lists (cards still in play after Curate
+    /// removals + deck toggles) narrow the draw; each axis falls back to its
+    /// full pool if too few cards remain to fill it — mirroring the web's
+    /// `dailyBoard(dayNum, pools, { allowedEv, allowedTw })`.
+    static func dailyBoard(_ dayNum: Int, targetCards: Int = 13,
+                           allowedEv: [Int]? = nil, allowedTw: [Int]? = nil) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
         var rng = Mulberry32(seed: seed)
         let cells = growCluster(&rng, targetCards)
-        let ne = XIDeck.eventCaps.count
-        let nt = XIDeck.twistCaps.count
-        let allowedEv = Array(0..<ne)
-        let allowedTw = Array(0..<nt)
-        return smartAssign(cells, XIDeck.eventCaps, XIDeck.twistCaps, &rng, allowedEv, allowedTw)
+        let evCells = cells.filter { Grid.cellKindIsEvent($0.0, $0.1) }.count
+        let twCells = cells.count - evCells
+        var ev = allowedEv ?? Array(0..<XIDeck.eventCaps.count)
+        var tw = allowedTw ?? Array(0..<XIDeck.twistCaps.count)
+        if ev.count < evCells { ev = Array(0..<XIDeck.eventCaps.count) }
+        if tw.count < twCells { tw = Array(0..<XIDeck.twistCaps.count) }
+        return smartAssign(cells, XIDeck.eventCaps, XIDeck.twistCaps, &rng, ev, tw)
     }
 
     // MARK: Day numbering
