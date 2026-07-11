@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, useDroppable } from '@dnd-kit/core'
-import { Library, Grid3x3, Eye, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Share2 } from 'lucide-react'
+import { Library, Grid3x3, Eye, EyeOff, Trash2, Lightbulb, Pin, MapPin, Star, Flag, X, Pencil, Undo2, Plus, SquarePlus, Copy, BookOpen, Map, Share2 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -134,10 +134,10 @@ function ConspiracyBoard({
   const [minimapDragStart, setMinimapDragStart] = useState(null)
   const minimapDragJustEnded = useRef(false)
   const [gridVisibleForPin, setGridVisibleForPin] = useState(null) // Pin ID for which grid is visible
-  const [showExpandArrow, setShowExpandArrow] = useState({ left: false, right: false, up: false, down: false })
   const [showZoomIndicator, setShowZoomIndicator] = useState(false) // Show zoom level briefly on change
 
-  // Dynamic canvas bounds - starts at 2x viewport, expandable by half viewport increments
+  // Dynamic canvas bounds - starts at 2x viewport; grows automatically to fit content
+  // (manual expand-arrows feature parked — see docs/parked/board-expand-arrows.md)
   // Store as { width, height, offsetX, offsetY } where offset is distance from left/top edge to origin
   const [canvasBounds, setCanvasBounds] = useState(() => {
     // Try to restore from sessionStorage first
@@ -218,9 +218,6 @@ function ConspiracyBoard({
 
   // Debounce timer for saving pan offset from wheel events
   const panSaveTimeoutRef = useRef(null)
-
-  // Timer for keeping expand arrows visible
-  const expandArrowTimeoutRef = useRef(null)
 
   // Undo/Redo system
   const MAX_UNDO_STATES = 50
@@ -373,38 +370,6 @@ function ConspiracyBoard({
     const offsetY = -minY  // Distance from top edge to origin
 
     return { width, height, offsetX, offsetY }
-  }, [])
-
-  // Expand canvas in a specific direction by half viewport
-  const expandCanvas = useCallback((direction) => {
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const halfWidth = viewportWidth / 2
-    const halfHeight = viewportHeight / 2
-
-    setCanvasBounds(prev => {
-      let newBounds = { ...prev }
-
-      switch (direction) {
-        case 'left':
-          newBounds.width += halfWidth
-          newBounds.offsetX += halfWidth // Push origin right to maintain positions
-          break
-        case 'right':
-          newBounds.width += halfWidth
-          break
-        case 'up':
-          newBounds.height += halfHeight
-          newBounds.offsetY += halfHeight // Push origin down to maintain positions
-          break
-        case 'down':
-          newBounds.height += halfHeight
-          break
-      }
-
-      saveCanvasBoundsToSession(newBounds)
-      return newBounds
-    })
   }, [])
 
   // Firebase sync logic - handles loading saved positions from database
@@ -1977,24 +1942,11 @@ const handleDragEnd = (event) => {
       const deltaX = (clientX - panStart.x) / zoomLevel
       const deltaY = (clientY - panStart.y) / zoomLevel
 
-      // Pan bounds use dynamic canvas bounds (starts at 2x viewport, expandable)
+      // Pan bounds use dynamic canvas bounds (starts at 2x viewport)
       const maxPanX = canvasBounds.offsetX
       const maxPanY = canvasBounds.offsetY
       const rawX = panStart.startPanX + deltaX
       const rawY = panStart.startPanY + deltaY
-
-      // Detect if user is trying to pan beyond limits
-      const tryingLeft = rawX > maxPanX
-      const tryingRight = rawX < -maxPanX
-      const tryingUp = rawY > maxPanY
-      const tryingDown = rawY < -maxPanY
-
-      setShowExpandArrow({
-        left: tryingLeft,
-        right: tryingRight,
-        up: tryingUp,
-        down: tryingDown
-      })
 
       const newOffset = {
         x: Math.max(-maxPanX, Math.min(maxPanX, rawX)),
@@ -2009,13 +1961,6 @@ const handleDragEnd = (event) => {
     if (isPanning) {
       setIsPanning(false)
       setPanStart(null)
-      // Keep expand arrows visible for 3 seconds after panning ends so user can tap them
-      if (expandArrowTimeoutRef.current) {
-        clearTimeout(expandArrowTimeoutRef.current)
-      }
-      expandArrowTimeoutRef.current = setTimeout(() => {
-        setShowExpandArrow({ left: false, right: false, up: false, down: false })
-      }, 3000)
       // Save pan offset to Firebase - use function to get latest state
       setPanOffset(currentPanOffset => {
         console.log('💾 Saving pan offset (drag):', currentPanOffset)
@@ -2192,29 +2137,6 @@ const handleDragEnd = (event) => {
       // Clamp to pan bounds using dynamic canvas bounds
       const maxPanX = canvasBounds.offsetX
       const maxPanY = canvasBounds.offsetY
-
-      // Detect if user is trying to scroll beyond limits
-      const tryingLeft = newOffset.x > maxPanX
-      const tryingRight = newOffset.x < -maxPanX
-      const tryingUp = newOffset.y > maxPanY
-      const tryingDown = newOffset.y < -maxPanY
-
-      // Show arrows when hitting edges, keep visible for 3 seconds
-      if (tryingLeft || tryingRight || tryingUp || tryingDown) {
-        setShowExpandArrow({
-          left: tryingLeft,
-          right: tryingRight,
-          up: tryingUp,
-          down: tryingDown
-        })
-        // Clear previous timeout and set new 3 second timeout
-        if (expandArrowTimeoutRef.current) {
-          clearTimeout(expandArrowTimeoutRef.current)
-        }
-        expandArrowTimeoutRef.current = setTimeout(() => {
-          setShowExpandArrow({ left: false, right: false, up: false, down: false })
-        }, 3000)
-      }
 
       const clampedOffset = {
         x: Math.max(-maxPanX, Math.min(maxPanX, newOffset.x)),
@@ -3608,80 +3530,6 @@ const handleDragEnd = (event) => {
               </div>
             )}
 
-            {/* Canvas expansion arrows - appear when user tries to pan past canvas edge */}
-            {(() => {
-              const sidebarWidth = isSidebarOpen ? 400 : 0
-
-              // Maroon rectangle with white arrow styling
-              const baseStyle = {
-                position: 'absolute',
-                background: '#800020', // Maroon
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 100,
-                color: 'white',
-                transition: 'opacity 0.2s',
-                borderRadius: '1px'
-              }
-
-              // Horizontal arrows (left/right) - slim rectangles
-              const horizontalStyle = {
-                ...baseStyle,
-                width: '20px',
-                height: '48px'
-              }
-
-              // Vertical arrows (up/down) - slim rectangles
-              const verticalStyle = {
-                ...baseStyle,
-                width: '48px',
-                height: '20px'
-              }
-
-              return (
-                <>
-                  {showExpandArrow.left && (
-                    <button
-                      style={{ ...horizontalStyle, left: 0, top: '50%', transform: 'translateY(-50%)' }}
-                      onClick={() => expandCanvas('left')}
-                      title="Expand canvas left"
-                    >
-                      <ChevronLeft size={16} color="white" />
-                    </button>
-                  )}
-                  {showExpandArrow.right && (
-                    <button
-                      style={{ ...horizontalStyle, right: sidebarWidth, top: '50%', transform: 'translateY(-50%)' }}
-                      onClick={() => expandCanvas('right')}
-                      title="Expand canvas right"
-                    >
-                      <ChevronRight size={16} color="white" />
-                    </button>
-                  )}
-                  {showExpandArrow.up && (
-                    <button
-                      style={{ ...verticalStyle, left: `calc(50% - ${sidebarWidth / 2}px)`, top: 0, transform: 'translateX(-50%)' }}
-                      onClick={() => expandCanvas('up')}
-                      title="Expand canvas up"
-                    >
-                      <ChevronUp size={16} color="white" />
-                    </button>
-                  )}
-                  {showExpandArrow.down && (
-                    <button
-                      style={{ ...verticalStyle, left: `calc(50% - ${sidebarWidth / 2}px)`, bottom: 0, transform: 'translateX(-50%)' }}
-                      onClick={() => expandCanvas('down')}
-                      title="Expand canvas down"
-                    >
-                      <ChevronDown size={16} color="white" />
-                    </button>
-                  )}
-                </>
-              )
-            })()}
           </div>
         </div>
         </div>
