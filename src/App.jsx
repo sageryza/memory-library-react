@@ -5,7 +5,7 @@ import { auth } from './firebase'
 import useAuth from './hooks/useAuth'
 import { useUserProfile } from './hooks/useUserProfile'
 import useMemories from './hooks/useMemories'
-import migrateLocalStorageToFirestore from './utils/migrateData'
+import migrateLocalStorageToFirestore, { hasLocalMemoriesToMigrate } from './utils/migrateData'
 import { runIdMigration } from './utils/migrateIds'
 import './utils/cleanupDuplicates' // Temporary: exposes window.scanDuplicates() and window.deleteDuplicates()
 import './utils/backfillBoardProvenance' // Temporary: exposes window.scanProvenance() and window.backfillProvenance()
@@ -244,6 +244,14 @@ function App() {
     let alreadyDone = false;
     try { alreadyDone = localStorage.getItem('xiMigratedV2:' + user.uid) === '1'; } catch { /* ignore */ }
     if (alreadyDone) { setHasMigrationRun(true); return; }
+    // Nothing local to migrate → nothing to do and nothing to show. (Links
+    // opened from Messages get fresh browser storage, so without this the
+    // "Migrating…" overlay reappeared on every open.)
+    if (!hasLocalMemoriesToMigrate()) {
+      try { localStorage.setItem('xiMigratedV2:' + user.uid, '1'); } catch { /* ignore */ }
+      setHasMigrationRun(true);
+      return;
+    }
 
     setMigrating(true);
     setHasMigrationRun(true);
