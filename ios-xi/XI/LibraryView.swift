@@ -609,7 +609,7 @@ struct MemoryPopup: View {
                             .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
                         if !memory.hashtags.isEmpty {
-                            FlowTags(tags: memory.hashtags)
+                            PopupTags(tags: memory.hashtags)
                         }
                         if !memory.dateTime.isEmpty {
                             Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
@@ -656,13 +656,12 @@ struct MemoryPopup: View {
     }
 }
 
-/// Hashtag chips that wrap onto multiple lines (a long memory can carry many).
-private struct FlowTags: View {
+/// Hashtag chips that wrap onto multiple lines inside the pop-up (a memory
+/// can carry many).
+private struct PopupTags: View {
     let tags: [String]
 
     var body: some View {
-        // A simple wrapping layout: chips in rows via LazyVGrid keeps it
-        // dependency-free and close enough to the web's wrap.
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 6, alignment: .leading)],
                   alignment: .leading, spacing: 6) {
             ForEach(tags, id: \.self) { tag in
