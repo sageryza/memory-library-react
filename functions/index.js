@@ -1676,6 +1676,26 @@ const CARDS_SYSTEM = [
   'Output ONLY the cards, one per line, lowercase, no numbering, no commentary.',
 ].join('\n');
 
+const TAGS_SYSTEM = [
+  'You tag a person\'s own memory with a few hashtags that capture its THEMES —',
+  'the underlying shape or recurring kind of life-moment — not just surface nouns.',
+  'Aim for the altitude of these:',
+  '#times-i-was-disappointed · #times-i-got-what-i-wanted · #small-kindnesses ·',
+  '#letting-go · #almost-said-it · #unexpected-turns · #quiet-pride · #near-misses',
+  'Give 3–5 tags: mostly thematic, with at most one concrete anchor (a place,',
+  'a kind of person, an object) if it truly matters. Lowercase; hyphenate',
+  'multi-word tags; each starts with #. Output ONLY the tags separated by spaces.',
+].join('\n');
+
+const OTHERS_SYSTEM = [
+  'You write short first-person memories for a memory game, as if written by',
+  'different ordinary people. You are given TWO prompt cards — an event and a',
+  'twist. Each memory must genuinely be about BOTH cards at once: a moment where',
+  'the event happened AND the twist was true of it. 1–2 sentences each, lowercase,',
+  'plain and human, each in a distinct voice — no names, no quotes, never generic.',
+  'Output ONLY the memories, one per line.',
+].join('\n');
+
 const textOf = (msg) => ((msg && msg.content && msg.content[0] && msg.content[0].text) || '');
 
 // Callable AI assist:
@@ -1723,6 +1743,37 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
       .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
       .filter(Boolean).slice(0, n);
     return { cards };
+  }
+
+  if (mode === 'others') {
+    const ev = String(data.event || '').trim().slice(0, 200);
+    const tw = String(data.twist || '').trim().slice(0, 200);
+    if (!ev || !tw) throw new HttpsError('invalid-argument', 'Need both cards.');
+    const n = Math.max(1, Math.min(5, Number(data.n) || 3));
+    const msg = await client.messages.create({
+      model: TITLE_MODEL,
+      max_tokens: 400,
+      system: OTHERS_SYSTEM,
+      messages: [{ role: 'user', content: `Event card: ${ev}\nTwist card: ${tw}\n\nWrite ${n} memories.` }],
+    });
+    const memories = textOf(msg).split('\n')
+      .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
+      .filter(Boolean).slice(0, n);
+    return { memories };
+  }
+
+  if (mode === 'tags') {
+    const text = String(data.text || '').trim().slice(0, 4000);
+    if (!text) throw new HttpsError('invalid-argument', 'No text to tag.');
+    const msg = await client.messages.create({
+      model: TITLE_MODEL,
+      max_tokens: 80,
+      system: TAGS_SYSTEM,
+      messages: [{ role: 'user', content: `Memory:\n\n${text}\n\nTags:` }],
+    });
+    const tags = textOf(msg).split(/[\s,]+/).map((t) => t.trim()).filter(Boolean)
+      .map((t) => (t.startsWith('#') ? t : `#${t}`)).slice(0, 6);
+    return { tags };
   }
 
   throw new HttpsError('invalid-argument', 'Unknown mode.');
@@ -2378,4 +2429,54 @@ exports.sidequestChatMessage = onDocumentCreated('sidequestParties/{partyId}/mes
     title: `${m.username || 'Your partner'} · Side Quest`,
     body: String(m.text || '').slice(0, 120),
   });
+});
+
+// ---------------------------------------------------------------------------
+// Shared-board rich links.
+//
+// /s/{id} serves a tiny page whose Open Graph image is the board's rendered
+// snapshot — so texting the link shows the WHOLE BOARD as a picture in the
+// message bubble. Humans get redirected to the live board at /share/{id};
+// crawlers (iMessage, WhatsApp, etc.) read the tags and stop. /s/{id}/og.jpg
+// streams the snapshot bytes stored on the share doc by the iOS app.
+exports.sharePreview = onRequest({ cors: true }, async (req, res) => {
+  const m = req.path.match(/^\/s\/([A-Za-z0-9_-]+)(\/og\.jpg)?\/?$/);
+  if (!m) { res.status(404).send('Not found'); return; }
+  const id = m[1];
+  const wantsImage = !!m[2];
+  const snap = await db.collection('sharedBoards').doc(id).get();
+  if (!snap.exists) { res.redirect(302, '/share/' + id); return; }
+  const d = snap.data();
+
+  if (wantsImage) {
+    if (!d.snapshotB64) { res.status(404).send('No snapshot'); return; }
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(Buffer.from(d.snapshotB64, 'base64'));
+    return;
+  }
+
+  const esc = (x) => String(x || '').replace(/[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const name = esc(d.name || 'A memory board');
+  const by = esc((d.sharedBy && d.sharedBy.firstName) || 'a friend');
+  const count = d.memoryCount || 0;
+  const img = d.snapshotB64 ? `https://incaseofamnesia.com/s/${id}/og.jpg` : '';
+  const target = `/share/${id}`;
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>${name}</title>
+<meta property="og:title" content="${name}">
+<meta property="og:description" content="${by} shared a memory board with you — ${count} ${count === 1 ? 'memory' : 'memories'}. Tap to open it.">
+${img ? `<meta property="og:image" content="${img}">` : ''}
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://incaseofamnesia.com/s/${id}">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0;url=${target}">
+</head><body>
+<p>Opening the board… <a href="${target}">Continue</a></p>
+<script>location.replace('${target}');</script>
+</body></html>`);
 });

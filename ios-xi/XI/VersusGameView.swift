@@ -54,10 +54,16 @@ struct VersusGameView: View {
             .sheet(item: $composing) { t in
                 StoryComposer(gameId: gameId, event: t.event, twist: t.twist) { selectedCard = nil; anchor = nil }
             }
-            .sheet(item: $reportingStory) { _ in
+            .sheet(item: $reportingStory) { story in
                 ReportSheet(
                     subjectLabel: "story",
-                    onSubmit: { _, _ in reportingStory = nil; reported = true },
+                    onSubmit: { reason, details in
+                        Task {
+                            try? await VersusService.shared.reportStory(
+                                gameId: gameId, story: story, reason: reason, details: details)
+                        }
+                        reportingStory = nil; reported = true
+                    },
                     onCancel: { reportingStory = nil }
                 )
             }
@@ -268,7 +274,7 @@ struct VersusGameView: View {
             Menu {
                 Button { reportingStory = s } label: { Label("Report story", systemImage: "flag") }
                 Button(role: .destructive) {
-                    withAnimation { moderation.block(s.byUid) }
+                    withAnimation { moderation.block(s.byUid, name: s.byName) }
                 } label: {
                     Label("Block \(s.byName)", systemImage: "hand.raised")
                 }

@@ -1781,10 +1781,23 @@ struct SettingsView: View {
     let onReload: () -> Void
     let onPageSelected: (Int) -> Void
     @State private var showingNotionImporter = false
-    
+    @State private var showingJournalUpload = false
+
     var body: some View {
         NavigationView {
             List {
+                Section {
+                    Button(action: {
+                        showingJournalUpload = true
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.up.doc.on.clipboard")
+                                .foregroundColor(.pink)
+                            Text("Send journals to Claude")
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
                 Section {
                     Button(action: {
                         isPresented = false  // Close settings first
@@ -1830,6 +1843,9 @@ struct SettingsView: View {
                 if let pdfURL = selectedPDF {
                     NotionImporterView(pdfURL: pdfURL, isPresented: $showingNotionImporter)
                 }
+            }
+            .sheet(isPresented: $showingJournalUpload) {
+                JournalUploadView()
             }
         }
     }

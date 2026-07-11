@@ -2,7 +2,6 @@
 
 .xiv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
 .xiv-logo,.xiv-logo-btn{font-variant:small-caps;letter-spacing:.06em;font-size:18px;color:#241d18;background:none;border:none;font-family:inherit;cursor:pointer;padding:0}
-.xiv-link{font-family:inherit;font-size:13px;background:#241d18;color:#f3ead9;border:none;border-radius:14px;padding:6px 12px;cursor:pointer}
 .xiv-top-right{display:flex;align-items:center;gap:8px}
 
 /* ⓘ how-to-play */
@@ -28,7 +27,7 @@
 .xiv-resume-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .xiv-resume-btn{flex:1;font-family:inherit;font-size:14px;background:rgba(36,29,24,.06);color:#241d18;border:none;border-radius:10px;padding:9px 12px;cursor:pointer;text-align:left}
 .xiv-resume-id{color:#8a7d6e;font-size:12px;letter-spacing:.06em}
-.xiv-resume-x{background:none;border:none;color:#a99; font-size:20px;line-height:1;cursor:pointer;padding:2px 6px}
+.xiv-resume-turn{float:right;font-variant:small-caps;letter-spacing:.06em;font-size:12px;color:#800020;font-weight:600}
 
 .xiv-skip{display:block;margin:6px auto 0;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
 .xiv-skip:disabled{opacity:.5}
@@ -58,6 +57,14 @@
 .xiv-dot{position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.45);z-index:2}
 
 .xiv-note{text-align:center;font-size:13px;line-height:1.4;color:#8a7d6e;padding:8px 20px 28px}
+
+/* Waiting room (status "waiting"): board above is display-only; invite +
+   begin controls live here. */
+.xiv-waiting{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 20px 14px;text-align:center}
+.xiv-waiting-names{margin:0;font-size:14px;color:#5b4f44}
+.xiv-waiting .xiv-btn{margin-top:10px}
+.xiv-waiting .xiv-note{padding-bottom:0}
+.xiv-btn.xiv-begin{background:#b8860b;color:#fff}
 
 /* "Text me when it's my turn" opt-in — pre-checked, shown on the lobby (Start
    applies it) and as an in-game banner for players who joined via a link. */

@@ -20,6 +20,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered manually (deferred) in main.jsx: on a first visit over a
+      // weak connection, the service worker's ~2MB precache download was
+      // competing with the page's own code for bandwidth — the app is
+      // interactive first, THEN the offline copy downloads.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'Membry',
@@ -50,7 +55,23 @@ export default defineConfig({
         // Drop stale precaches when a new service worker activates, so updates
         // don't get stuck behind old cached assets.
         cleanupOutdatedCaches: true,
+        // Page opens go to the NETWORK first: a fresh visit always gets the
+        // newest deploy (the HTML is ~1.4KB), and the cached copy is only the
+        // fallback when offline or the network stalls past 3s. Without this,
+        // the service worker served the stored app shell first, so people kept
+        // seeing versions from before the latest deploy until it updated in
+        // the background — stale-cache bug reports during rapid iteration.
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

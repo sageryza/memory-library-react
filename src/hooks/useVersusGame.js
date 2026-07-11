@@ -56,12 +56,6 @@ export function rememberVersusGame(id, label) {
     localStorage.setItem(GAMES_KEY, JSON.stringify(arr.slice(0, 12)));
   } catch { /* ignore */ }
 }
-export function forgetVersusGame(id) {
-  try {
-    localStorage.setItem(GAMES_KEY, JSON.stringify(listVersusGames().filter((g) => g.id !== id)));
-    if (getLastVersusGame() === id) clearLastVersusGame();
-  } catch { /* ignore */ }
-}
 
 // The last game you were actually viewing — so the Versus nav icon can drop you
 // straight back in instead of always showing the lobby.
@@ -83,9 +77,18 @@ const guestName = () => {
 };
 const playerName = (profile) => (profile?.firstName || profile?.displayName || guestName() || 'Player');
 
+// Games created before the waiting room have no status field — treat them as
+// already active (playable, but locked to their players like any started game).
+const statusOf = (g) => (g && g.status) || 'active';
+
+// Moves are blocked until the creator begins the game (waiting -> active).
+function assertStarted(g) {
+  if (statusOf(g) === 'waiting') throw new Error("The game hasn't started yet.");
+}
+
 // Create a new game seeded from the board deck; the creator is player 0. The
 // deck honors the creator's Curate removals (a curated game for everyone in it).
-export async function createVersusGame(user, profile) {
+export async function createVersusGame(user, profile, expectedPlayers = 2, invites = []) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
   const { excluded, disabledDecks, loved, lovedOn } = readDeckFilter(user.uid);
@@ -101,7 +104,12 @@ export async function createVersusGame(user, profile) {
     createdBy: user.uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    status: 'active',
+    status: 'waiting',
+    // The game starts AUTOMATICALLY, for everyone at once, when this many
+    // players have joined (creator included). Tracked invites carry a unique
+    // link token each, so the waiting room shows exactly who's in.
+    expectedPlayers: Math.max(2, expectedPlayers),
+    invites: invites.map((i) => ({ token: i.token, name: i.name || '' })),
     players: [creator],
     round: 0,
     acted: [],
@@ -114,15 +122,23 @@ export async function createVersusGame(user, profile) {
   return gameId;
 }
 
-// Add the current user to a game if they're not already in it.
-export async function joinVersusGame(gameId, user, profile) {
+// Add the current user to a game if they're not already in it. New players can
+// only come in while the game is still waiting; once it's active it's locked to
+// its players (existing players may always re-enter).
+export async function joinVersusGame(gameId, user, profile, inviteToken = null) {
   if (!user?.uid) throw new Error('Sign in to join.');
   const ref = doc(db, 'versusGames', gameId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('Game not found.');
   const data = snap.data();
+  if ((data.players || []).some((p) => p.uid === user.uid)) { // already joined
+    rememberVersusGame(gameId);
+    return;
+  }
+  if (statusOf(data) !== 'waiting') {
+    throw new Error("This game has already started — it's locked to its players.");
+  }
   rememberVersusGame(gameId);
-  if ((data.players || []).some((p) => p.uid === user.uid)) return; // already joined
 
   const order = (data.players || []).length;
   const player = {
@@ -131,11 +147,44 @@ export async function joinVersusGame(gameId, user, profile) {
     color: PLAYER_COLORS[order % PLAYER_COLORS.length],
     order,
   };
-  await updateDoc(ref, {
+  const update = {
     players: [...(data.players || []), player],
     [`stats.${user.uid}`]: { placed: 0, stories: 0 },
     updatedAt: serverTimestamp(),
+  };
+  // Tracked invite: mark this seat claimed so the waiting room shows who's in.
+  if (inviteToken) {
+    const invites = [...(data.invites || [])];
+    const i = invites.findIndex((x) => x.token === inviteToken && !x.claimedBy);
+    if (i >= 0) { invites[i] = { ...invites[i], claimedBy: user.uid }; update.invites = invites; }
+  }
+  // Roster complete → the game begins for everyone at this instant.
+  const expected = Math.max(2, data.expectedPlayers || 2);
+  if ((data.players || []).length + 1 >= expected) update.status = 'active';
+  await updateDoc(ref, update);
+}
+
+// One-shot summaries for the lobby list. For each remembered game id: its
+// status, the OTHER players' names, whether it's your move, and recency.
+// Docs that don't exist (or can't be read) are skipped.
+export async function fetchGamesSummary(ids, uid) {
+  const snaps = await Promise.all(
+    (ids || []).map((id) => getDoc(gameRef(id)).catch(() => null)),
+  );
+  const out = [];
+  snaps.forEach((snap, k) => {
+    if (!snap || !snap.exists()) return;
+    const g = snap.data();
+    const status = statusOf(g);
+    out.push({
+      id: ids[k],
+      status,
+      players: (g.players || []).filter((p) => p.uid !== uid).map((p) => p.name),
+      yourTurn: status === 'active' && !(g.acted || []).includes(uid),
+      updatedAtMillis: g.updatedAt?.toMillis?.() || 0,
+    });
   });
+  return out;
 }
 
 // Top up a player's hidden hand to HAND_SIZE from the shared draw pile.
@@ -165,6 +214,7 @@ export async function placeCard(gameId, user, card, r, c) {
     const gSnap = await tx.get(gameRef(gameId));
     if (!gSnap.exists()) throw new Error('Game not found.');
     const g = gSnap.data();
+    assertStarted(g);
     const players = g.players || [];
     if (!players.some((p) => p.uid === user.uid)) throw new Error('Join the game first.');
     if ((g.acted || []).includes(user.uid)) throw new Error('You’ve already gone this round — wait for the others.');
@@ -209,6 +259,7 @@ export async function undoLastMove(gameId, user) {
     const gSnap = await tx.get(gameRef(gameId));
     if (!gSnap.exists()) throw new Error('Game not found.');
     const g = gSnap.data();
+    assertStarted(g);
     const placed = g.placed || [];
     const last = placed[placed.length - 1];
     if (!last || last.by !== user.uid) throw new Error('Nothing of yours to undo.');
@@ -245,6 +296,7 @@ export async function skipTurn(gameId, user) {
     const gSnap = await tx.get(gameRef(gameId));
     if (!gSnap.exists()) return;
     const g = gSnap.data();
+    assertStarted(g);
     if (!(g.players || []).some((p) => p.uid === user.uid)) return;
     if ((g.acted || []).includes(user.uid)) return;
     tx.update(gameRef(gameId), withMoveComplete(g, user.uid, { updatedAt: serverTimestamp() }));
@@ -270,6 +322,7 @@ export async function writeStory(gameId, user, cells, text) {
     const gSnap = await tx.get(gameRef(gameId));
     if (!gSnap.exists()) throw new Error('Game not found.');
     const g = gSnap.data();
+    assertStarted(g);
     const players = g.players || [];
     if (!players.some((p) => p.uid === user.uid)) throw new Error('Join the game first.');
     if ((g.acted || []).includes(user.uid)) throw new Error('You’ve already gone this round — wait for the others.');
