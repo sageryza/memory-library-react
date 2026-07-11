@@ -49,6 +49,18 @@
 .entry hr.pb{border:0;border-top:1px dashed var(--ink);opacity:.3;height:0;margin:13px 22% 13px 0}
 .entry em{font-style:italic}
 .entry strong{font-weight:700}
+  /* Floating auto-scroll toggle, near the top — slow hands-free scroll. */
+  .autoscroll{
+    position:fixed; top:64px; right:14px; z-index:50;
+    width:40px; height:40px; border-radius:50%; padding:0;
+    background:var(--ink); color:var(--paper);
+    border:1px solid rgba(0,0,0,0.15); box-shadow:0 3px 10px rgba(90,30,34,0.32);
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; line-height:1; cursor:pointer;
+    -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent;
+  }
+  .autoscroll.on{ background:#7a4f9e; }   /* purple while it's scrolling */
+  .autoscroll:active{ transform:scale(0.94); }
 </style>
 </head>
 <body>
@@ -60,6 +72,37 @@
   <div class="railwrap"><div class="gutter" id="gutter"></div><div class="strip" id="strip"></div></div>
   <div class="reader" id="reader"><p class="hint">Tap a block to read its whole color segment. Tap a color above to read only that kind.</p></div>
 </div>
+<button class="autoscroll" id="autoscroll" aria-label="Auto-scroll" title="Auto-scroll">↓</button>
+<script>
+// Floating auto-scroll: tap to start a slow drift down whatever's scrollable
+// (the reader when it holds an entry, otherwise the band rail); tap to stop.
+(function(){
+  var btn=document.getElementById('autoscroll');
+  var reader=document.getElementById('reader');
+  var rail=document.querySelector('.railwrap');
+  var on=false, raf=null, acc=0, SPEED=0.6;
+  function target(){
+    if(reader && reader.scrollHeight - reader.clientHeight > 4) return reader;
+    return rail;
+  }
+  function step(){
+    if(!on) return;
+    var el=target();
+    if(!el){ stop(); return; }
+    acc+=SPEED;
+    var d=Math.floor(acc);
+    if(d>=1){ el.scrollTop+=d; acc-=d; }
+    if(el.scrollTop + el.clientHeight >= el.scrollHeight-1){ stop(); return; }
+    raf=requestAnimationFrame(step);
+  }
+  function start(){ on=true; acc=0; btn.classList.add('on'); btn.textContent='❚❚'; raf=requestAnimationFrame(step); }
+  function stop(){ on=false; if(raf) cancelAnimationFrame(raf); btn.classList.remove('on'); btn.textContent='↓'; }
+  btn.addEventListener('click', function(){ on ? stop() : start(); });
+  [reader, rail].forEach(function(el){
+    if(el) el.addEventListener('wheel', function(e){ if(on && e.deltaY<0) stop(); }, {passive:true});
+  });
+})();
+</script>
 <script>
 const LABELS={day:"day details",drawings:"drawings",dreams:"dreams",ideas:"ideas / making",abstract:"abstract",todos:"to-dos"};
 const ORDER=["day","drawings","ideas","abstract","dreams","todos"];
