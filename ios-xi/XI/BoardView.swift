@@ -23,6 +23,9 @@ struct BoardView: View {
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
+    /// pairKeys of YOUR memories — cards whose board pairing has one get a
+    /// small maroon dot (the web's memory tokens).
+    @State private var memPairKeys: Set<String> = []
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
@@ -104,10 +107,32 @@ struct BoardView: View {
             }
             .sheet(isPresented: $showHelp) { BoardHelpSheet() }
             .onChange(of: composing?.id) { newID in
-                if newID == nil { composedCells = [] }   // composer closed → clear the pair
+                if newID == nil {
+                    composedCells = []   // composer closed → clear the pair
+                    Task { await loadMemoryDots() }   // it may have added a memory
+                }
             }
+            .task { await loadMemoryDots() }
         }
         .tint(XITheme.gold)
+    }
+
+    private func loadMemoryDots() async {
+        let all = await XIService.shared.allMemories()
+        memPairKeys = Set(all.filter { !$0.isCommons && !$0.pairKey.isEmpty }.map(\.pairKey))
+    }
+
+    /// Does one of this card's on-board pairings carry a memory of yours?
+    private func hasMemory(_ r: Int, _ c: Int, card: XICard, isEvent: Bool) -> Bool {
+        for (dr, dc) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+            guard let n = byCell["\(r + dr),\(c + dc)"] else { continue }
+            let nIsEvent = n.d == "be"
+            guard nIsEvent != isEvent else { continue }
+            let nCard = nIsEvent ? XIDeck.events[n.i] : XIDeck.twists[n.i]
+            let key = isEvent ? "\(card.id)__\(nCard.id)" : "\(nCard.id)__\(card.id)"
+            if memPairKeys.contains(key) { return true }
+        }
+        return false
     }
 
 
@@ -146,7 +171,8 @@ struct BoardView: View {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
             let framed = selected == cell || composedCells.contains(cell)
-            CardCell(card: card, isEvent: isEvent)
+            CardCell(card: card, isEvent: isEvent,
+                     memoryDot: hasMemory(r, c, card: card, isEvent: isEvent))
                 .anchorPreference(key: FrameAnchorKey.self, value: .bounds) {
                     framed ? [$0] : []
                 }
@@ -179,6 +205,8 @@ struct BoardView: View {
 struct CardCell: View {
     let card: XICard
     let isEvent: Bool
+    /// A pairing of this card on this board carries one of your memories.
+    var memoryDot: Bool = false
 
     var body: some View {
         ZStack {
@@ -190,6 +218,13 @@ struct CardCell: View {
             RoundedRectangle(cornerRadius: 4)
                 .stroke(XITheme.line, lineWidth: 0.5)
         )
+        .overlay(alignment: .bottomLeading) {
+            if memoryDot {
+                Circle().fill(XITheme.maroon)
+                    .frame(width: 6, height: 6)
+                    .padding(4)
+            }
+        }
     }
 }
 

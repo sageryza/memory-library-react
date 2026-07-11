@@ -312,9 +312,13 @@ struct VersusGameView: View {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
             let framed = anchor == Anchor(r: r, c: c) || composedCells.contains(key)
+            let marks = visibleStories
+                .filter { $0.pairKey.components(separatedBy: "__").contains(card.id) }
+                .compactMap { st in game?.players.first { $0.uid == st.byUid }?.order }
             VersusCardCell(card: card, isEvent: isEvent,
                            ownerOrder: game?.players.first { $0.uid == p.by }?.order,
-                           anchored: false)
+                           anchored: false,
+                           storyMarks: marks)
                 .anchorPreference(key: VersusFrameKey.self, value: .bounds) {
                     framed ? [$0] : []
                 }
@@ -505,6 +509,9 @@ struct VersusCardCell: View {
     let isEvent: Bool
     let ownerOrder: Int?   // join order of the placer → their shape; nil if unowned
     let anchored: Bool
+    /// One mark per story written on a pairing this card belongs to — the
+    /// teller's gold shape, accruing like the web's story tokens (max 8 shown).
+    var storyMarks: [Int] = []
 
     var body: some View {
         ZStack {
@@ -523,6 +530,22 @@ struct VersusCardCell: View {
                     .padding(2.5)
                     .background(XITheme.white.opacity(0.9), in: Circle())
                     .padding(2)
+            }
+        }
+        // Stories live here — one tiny teller-shape per story on this card's
+        // pairings, collecting along the bottom edge.
+        .overlay(alignment: .bottomLeading) {
+            if !storyMarks.isEmpty {
+                HStack(spacing: 2) {
+                    ForEach(Array(storyMarks.prefix(8).enumerated()), id: \.offset) { _, order in
+                        Image(systemName: VersusGameView.playerSymbol(order))
+                            .font(.system(size: 6))
+                            .foregroundStyle(XITheme.gold)
+                    }
+                }
+                .padding(.horizontal, 3).padding(.vertical, 2)
+                .background(XITheme.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+                .padding(3)
             }
         }
     }
