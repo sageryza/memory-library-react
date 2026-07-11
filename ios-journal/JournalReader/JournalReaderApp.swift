@@ -10,11 +10,14 @@ import FirebaseCore
 
 @main
 struct JournalReaderApp: App {
+    @StateObject private var router = AppRouter()
+
     init() { Self.configureFirebase() }
 
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(router)
         }
     }
 

@@ -161,6 +161,7 @@ private struct TowerStationRow: View {
     let tint: Color
     let isFirst: Bool
     let isLast: Bool
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -196,7 +197,21 @@ private struct TowerStationRow: View {
                     .tracking(0.5)
                     .foregroundStyle(entry.inCorpus ? entry.kind.tint : Color(white: 0.6))
                 Spacer()
-                if let meta = metaLabel {
+                if let page = entry.page, entry.inCorpus {
+                    // Tap the page reference to open that journal page in context.
+                    Button {
+                        router.openJournal(page: page)
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text(metaLabel ?? "p\(page)")
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(tint)
+                    }
+                    .buttonStyle(.plain)
+                } else if let meta = metaLabel {
                     Text(meta)
                         .font(.caption2)
                         .foregroundStyle(.secondary)

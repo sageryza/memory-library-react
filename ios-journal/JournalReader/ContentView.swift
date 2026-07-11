@@ -138,6 +138,7 @@ struct ContentView: View {
     @State private var bookmarkHierarchy: [BookmarkItem] = []
     @FocusState private var isTextEditorFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var router: AppRouter
     
     // Category system
     @State private var categories: [Category] = [
@@ -415,6 +416,16 @@ struct ContentView: View {
                 // Save when app goes to background or becomes inactive
                 autoSaveTranscription()
             }
+        }
+        // A Towers entry asked to open a specific journal page: save the current
+        // page first, jump there (clamped to the PDF), then clear the request.
+        .onChange(of: router.journalTargetPage) { _, target in
+            guard let target, selectedPDF != nil else { return }
+            saveToPreviousPage()
+            let maxIndex = max(0, totalPages - 1)
+            let index = totalPages > 0 ? min(max(0, target - 1), maxIndex) : max(0, target - 1)
+            currentPage = index
+            router.journalTargetPage = nil
         }
     }
     
