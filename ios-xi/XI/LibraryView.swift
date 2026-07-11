@@ -412,9 +412,11 @@ struct LibraryView: View {
                                            onOpen: { open(m) },
                                            onTag: { store.toggleTag($0) },
                                            onEdit: m.isCommons ? nil : { memSheet = .edit(m) },
-                                           onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) } },
+                                           // Multi-statement closures: a bare `Task { … }` expression
+                                           // makes the optional-closure ternary ambiguous to infer.
+                                           onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) }; return },
                                            onRemoveFromCommons: !m.isCommons ? nil : {
-                                               Task { await store.removeFromCommons(m.id) }
+                                               Task { await store.removeFromCommons(m.id) }; return
                                            })
                             }
                         }
