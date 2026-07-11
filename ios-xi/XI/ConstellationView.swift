@@ -68,6 +68,10 @@ struct ConstellationView: View {
     @State private var zoomLevel: CGFloat = 1
     @State private var minimapJump: CGPoint?
     @AppStorage("xiShowMinimap") private var showMinimap = true
+    // Constellation mode: tap any card and its whole connected network renders
+    // as gold stars while everything else dims (the web's constellation view).
+    @State private var constellationMode = false
+    @State private var starNetwork: Set<String> = []
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
@@ -197,6 +201,14 @@ struct ConstellationView: View {
                             .disabled(offBoard.isEmpty)
                         Button { showMinimap.toggle() } label: {
                             Label(showMinimap ? "Hide minimap" : "Show minimap", systemImage: "map")
+                        }
+                        Button {
+                            constellationMode.toggle()
+                            starNetwork = []
+                            connectFrom = nil
+                        } label: {
+                            Label(constellationMode ? "Exit constellation mode" : "Constellation mode",
+                                  systemImage: constellationMode ? "star.slash" : "star")
                         }
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
                             .disabled(placed.isEmpty)
@@ -600,27 +612,58 @@ struct ConstellationView: View {
         ZStack {
             Color.white
             Canvas { ctx, _ in
-                // Hashtag matches → faint dashed "suggestions".
-                for (a, b) in stringPairs {
-                    var path = Path()
-                    path.move(to: a); path.addLine(to: b)
-                    ctx.stroke(path, with: .color(crimson.opacity(0.30)),
-                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                let starring = constellationMode && !starNetwork.isEmpty
+                // Hashtag matches → faint dashed "suggestions" (hidden while a
+                // constellation is lit — only its own strings matter then).
+                if !starring {
+                    for (a, b) in stringPairs {
+                        var path = Path()
+                        path.move(to: a); path.addLine(to: b)
+                        ctx.stroke(path, with: .color(crimson.opacity(0.30)),
+                                   style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                    }
                 }
-                // Hand-drawn strings → solid crimson (only between on-board items).
+                // Hand-drawn strings → solid crimson; while a constellation is
+                // lit, ITS strings turn gold and the rest fade.
                 for c in connections where isOnBoard(c.a) && isOnBoard(c.b) {
                     guard let pa = anchor(c.a), let pb = anchor(c.b) else { continue }
                     var path = Path()
                     path.move(to: pa); path.addLine(to: pb)
-                    ctx.stroke(path, with: .color(crimson),
-                               style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    if starring {
+                        let inNet = starNetwork.contains(c.a) && starNetwork.contains(c.b)
+                        ctx.stroke(path, with: .color(inNet ? XITheme.gold : crimson.opacity(0.12)),
+                                   style: StrokeStyle(lineWidth: inNet ? 2.5 : 1.5, lineCap: .round))
+                    } else {
+                        ctx.stroke(path, with: .color(crimson),
+                                   style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    }
                 }
             }
-            .onTapGesture { connectFrom = nil }   // tap empty space cancels connecting
+            .onTapGesture {
+                connectFrom = nil            // tap empty space cancels connecting
+                starNetwork = []             // …and dims the lit constellation
+            }
             ForEach(boardMemories) { m in
+                if constellationMode && starNetwork.contains(m.id) {
+                    // Its constellation is lit: the card becomes a gold star.
+                    VStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(XITheme.gold)
+                            .shadow(color: XITheme.gold.opacity(0.7), radius: 10)
+                        Text(m.title.isEmpty ? String(m.content.prefix(24)) : m.title)
+                            .font(.system(size: 10, design: .serif))
+                            .foregroundStyle(slate)
+                            .lineLimit(1)
+                            .frame(maxWidth: 120)
+                    }
+                    .position(positions[m.id] ?? center)
+                    .onTapGesture { tapItem(m.id) }
+                } else {
                 PinCard(memory: m, width: Self.cardW, height: Self.cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
+                    .opacity(constellationMode && !starNetwork.isEmpty ? 0.25 : 1)
                     .overlay(connectGlow(m.id))
                     .position(positions[m.id] ?? center)
                     .onTapGesture { tapItem(m.id) }
@@ -631,10 +674,12 @@ struct ConstellationView: View {
                             Label("Remove from board", systemImage: "pin.slash")
                         }
                     }
+                }
             }
             // Standalone concept pins.
             ForEach(pins) { p in
                 PinMarker(text: p.text, crimson: crimson, slate: slate, beige: beige, border: beigeBorder)
+                    .opacity(constellationMode && !starNetwork.isEmpty && !starNetwork.contains(p.id) ? 0.25 : 1)
                     .overlay(connectGlow(p.id))
                     .position(positions[p.id] ?? center)
                     .onTapGesture { tapItem(p.id) }
@@ -644,10 +689,13 @@ struct ConstellationView: View {
                         Button(role: .destructive) { deletePin(p) } label: { Label("Delete pin", systemImage: "trash") }
                     }
             }
-            // Tappable insight markers at each string's midpoint.
-            ForEach(placedConnections) { c in
-                if let mid = midpoint(c) {
-                    connectionTag(c).position(mid).onTapGesture { editingConn = c }
+            // Tappable insight markers at each string's midpoint (hidden while
+            // a constellation is lit — stars and strings only).
+            if !(constellationMode && !starNetwork.isEmpty) {
+                ForEach(placedConnections) { c in
+                    if let mid = midpoint(c) {
+                        connectionTag(c).position(mid).onTapGesture { editingConn = c }
+                    }
                 }
             }
         }
@@ -656,12 +704,32 @@ struct ConstellationView: View {
     /// Tap-to-connect: first tap picks the source (it glows); second tap on
     /// another item draws/removes the string; tapping the source again cancels.
     private func tapItem(_ id: String) {
+        if constellationMode {
+            // Light up the whole connected network this item belongs to.
+            starNetwork = network(from: id)
+            return
+        }
         if let from = connectFrom {
             if from != id { toggleConnection(from, id) }
             connectFrom = nil
         } else {
             connectFrom = id
         }
+    }
+
+    /// Everything reachable from an item along on-board strings (the item's
+    /// constellation) — breadth-first over the connections.
+    private func network(from start: String) -> Set<String> {
+        var seen: Set<String> = [start]
+        var queue = [start]
+        let conns = placedConnections
+        while let cur = queue.popLast() {
+            for c in conns {
+                let next: String? = c.a == cur ? c.b : (c.b == cur ? c.a : nil)
+                if let n = next, !seen.contains(n) { seen.insert(n); queue.append(n) }
+            }
+        }
+        return seen
     }
 
     /// A pulsing glow around the item chosen to connect from ("emanating light").
