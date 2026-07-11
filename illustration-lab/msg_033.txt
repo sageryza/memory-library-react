@@ -1,0 +1,11 @@
+Good news, I checked, and the app is already set up for most of this.
+
+It already has a PDF importer. So you can pull a big scan PDF straight from your phone's Files app, which completely sidesteps the upload limit in this chat. The app reads it directly.
+
+Where does it go right now? Into the app's local storage on your phone, not Firebase. And honestly, for reading the scan next to the timeline on your phone, local is the right place. It's instant, it works offline, and there's no storage limit to worry about.
+
+Would Firebase work? Yes. Firebase is already configured in the app, and it handles large PDFs fine. But the app doesn't push PDFs there yet, so that would need a small addition. You'd only want that if you need the PDF synced across devices, or visible to the web version.
+
+The real bonus is that the app already tracks PDFs by name and page number. That's exactly the hook I need to tie each timeline band to a real scan page. So the plumbing you were worried about mostly already exists.
+
+My recommendation: import the scan locally in the app for now, and link the bands to its pages. Reach for Firebase only if you later want it synced across devices.

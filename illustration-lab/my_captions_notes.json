@@ -1,0 +1,811 @@
+{
+ "_note": "Claude's personal captions. n = pick number (1-based into capsheets/index.json). sure=true means include in training with this caption.",
+ "1": {
+  "sure": false,
+  "caption": "winding striped ribbon or worm with a banner tail"
+ },
+ "2": {
+  "sure": false,
+  "caption": "tray with many small blobs floating above it"
+ },
+ "3": {
+  "sure": false,
+  "caption": "three small bottles with crossed caps and dots"
+ },
+ "4": {
+  "sure": false,
+  "caption": "two framed panels with arm-and-disc contraptions"
+ },
+ "5": {
+  "sure": true,
+  "caption": "a doodle equation: square plus dotted cracker plus cup equals a potted flower"
+ },
+ "6": {
+  "sure": false,
+  "caption": "round sliced thing with wedges and a server across it (pizza or citrus slice)"
+ },
+ "7": {
+  "sure": false,
+  "caption": "a tied bundle of sticks beside a small dotted card"
+ },
+ "8": {
+  "sure": false,
+  "caption": "loose strips above a long empty boat-shaped tray"
+ },
+ "9": {
+  "sure": false,
+  "caption": "two blobby creatures with eyes on a square mat"
+ },
+ "10": {
+  "sure": false,
+  "caption": "a pin, a pair of glasses, and a tiny crumpled thing"
+ },
+ "11": {
+  "sure": true,
+  "caption": "a heart-shaped box with little hearts floating around it"
+ },
+ "12": {
+  "sure": true,
+  "caption": "a simple balance scale with a dotted disc on each side"
+ },
+ "13": {
+  "sure": false,
+  "caption": "a pole stacked with three flat discs"
+ },
+ "14": {
+  "sure": true,
+  "caption": "four dotted tiles with dashed arrows between them"
+ },
+ "15": {
+  "sure": true,
+  "caption": "a row of dotted dominoes leaning mid-fall"
+ },
+ "16": {
+  "sure": false,
+  "caption": "crumpled box shape on a stand"
+ },
+ "17": {
+  "sure": false,
+  "caption": "messy spoon, hot-dog-with-hearts, and notebook"
+ },
+ "18": {
+  "sure": true,
+  "caption": "a hand holding up three fanned cards"
+ },
+ "19": {
+  "sure": true,
+  "caption": "two reaching hands about to touch"
+ },
+ "20": {
+  "sure": false,
+  "caption": "a brain-like shell and a small ghost figure"
+ },
+ "21": {
+  "sure": false,
+  "caption": "tiny three-panel comic with stick figures and arrows"
+ },
+ "22": {
+  "sure": true,
+  "caption": "little people riding in a wagon with a pull handle"
+ },
+ "23": {
+  "sure": false,
+  "caption": "a smiley balloon on a long string above reaching hands"
+ },
+ "24": {
+  "sure": false,
+  "caption": "two overlapping circles with little chair shapes inside"
+ },
+ "25": {
+  "sure": true,
+  "caption": "a drooping flower whose dark bloom is shaped like an open hand"
+ },
+ "26": {
+  "sure": true,
+  "caption": "a thin vine with spiky leaf clusters"
+ },
+ "27": {
+  "sure": false,
+  "caption": "cloud of tiny stick figures with food thought-bubbles"
+ },
+ "28": {
+  "sure": true,
+  "caption": "two round berries joined by one arched stem, one with a smiley face"
+ },
+ "29": {
+  "sure": false,
+  "caption": "two blob ghosts, a hand with a ring, and a note"
+ },
+ "30": {
+  "sure": true,
+  "caption": "a hand reaching into a bowl of cereal"
+ },
+ "31": {
+  "sure": false,
+  "caption": "a small walnut-brain equals a leafy clump"
+ },
+ "32": {
+  "sure": true,
+  "caption": "a dish of heart-shaped treats and two gummy bears"
+ },
+ "33": {
+  "sure": false,
+  "caption": "a lidded jar with a doodled label"
+ },
+ "34": {
+  "sure": true,
+  "caption": "an open hand wearing a ring"
+ },
+ "35": {
+  "sure": false,
+  "caption": "a mound with button eyes and a spoon shape"
+ },
+ "36": {
+  "sure": true,
+  "caption": "a tall bottle with a smiling face label beside two little cups"
+ },
+ "37": {
+  "sure": true,
+  "caption": "two hands gripping each other"
+ },
+ "38": {
+  "sure": false,
+  "caption": "a rectangle with a wavy line and an egg shape in the middle"
+ },
+ "39": {
+  "sure": false,
+  "caption": "pizza slices with hearts and a smiling face"
+ },
+ "40": {
+  "sure": false,
+  "caption": "busy shelf diagram of cups, pot, and carton with plus signs"
+ },
+ "41": {
+  "sure": false,
+  "caption": "three small squares with doodled faces and food inside"
+ },
+ "42": {
+  "sure": true,
+  "caption": "a set of hand-drawn chess pieces: pawns, knight, rook and queen"
+ },
+ "43": {
+  "sure": true,
+  "caption": "an open first aid kit with a cross on the lid and little supplies inside"
+ },
+ "44": {
+  "sure": false,
+  "caption": "a face with flowing hair holding a curved shape"
+ },
+ "45": {
+  "sure": true,
+  "caption": "a few stacked rectangular bricks"
+ },
+ "46": {
+  "sure": true,
+  "caption": "a classical column on a pedestal"
+ },
+ "47": {
+  "sure": false,
+  "caption": "an open box filled with thin square wafers standing on edge"
+ },
+ "48": {
+  "sure": false,
+  "caption": "a small lantern-like object sitting on a table corner"
+ },
+ "49": {
+  "sure": true,
+  "caption": "a mobile with three little fish hanging from a bar"
+ },
+ "50": {
+  "sure": true,
+  "caption": "a boot with a smiling flower growing out of it"
+ },
+ "51": {
+  "sure": false,
+  "caption": "a thick-pen spoon scattering seeds beside a loop shape"
+ },
+ "52": {
+  "sure": true,
+  "caption": "three little stacks of folded napkins"
+ },
+ "53": {
+  "sure": true,
+  "caption": "two empty picture frames side by side"
+ },
+ "54": {
+  "sure": false,
+  "caption": "a spiky-haired person sprawled with limbs flying"
+ },
+ "55": {
+  "sure": false,
+  "caption": "hands under a pot pouring long drips"
+ },
+ "56": {
+  "sure": false,
+  "caption": "a standing rabbit-like creature with tall split ears"
+ },
+ "57": {
+  "sure": false,
+  "caption": "cut pepper rings and pointing fingers"
+ },
+ "58": {
+  "sure": false,
+  "caption": "a bottle beside a hollow blob outline"
+ },
+ "59": {
+  "sure": true,
+  "caption": "three little bunny shapes with dot eyes"
+ },
+ "60": {
+  "sure": true,
+  "caption": "a round layer cake with a few forks beside it"
+ },
+ "61": {
+  "sure": true,
+  "caption": "a swooping paper bird with a tag reading PULL TAB TO OPEN"
+ },
+ "62": {
+  "sure": true,
+  "caption": "a little rabbit riding on a turtle's patterned shell"
+ },
+ "63": {
+  "sure": false,
+  "caption": "three rows of bricks with small hands reaching up"
+ },
+ "64": {
+  "sure": true,
+  "caption": "a flying saucer hovering over scattered ovals"
+ },
+ "65": {
+  "sure": true,
+  "caption": "a four-pointed star with little flecks around it"
+ },
+ "66": {
+  "sure": true,
+  "caption": "a smooth four-pointed star"
+ },
+ "67": {
+  "sure": true,
+  "caption": "a hand fitting a puzzle piece into three joined pieces"
+ },
+ "68": {
+  "sure": true,
+  "caption": "three little stacks of folded napkins"
+ },
+ "69": {
+  "sure": false,
+  "caption": "two thought bubbles with stick figures joined to a circle"
+ },
+ "70": {
+  "sure": false,
+  "caption": "two worn shoes and two flat pebbles"
+ },
+ "71": {
+  "sure": false,
+  "caption": "several hands gripping lines hanging from a bar"
+ },
+ "72": {
+  "sure": true,
+  "caption": "a hand holding a cup with a long bendy straw"
+ },
+ "73": {
+  "sure": false,
+  "caption": "a hand-held sign beside three dark squares"
+ },
+ "74": {
+  "sure": false,
+  "caption": "a pen on a hand and two small tags"
+ },
+ "75": {
+  "sure": true,
+  "caption": "two hands sprinkling little bits into a wide dish"
+ },
+ "76": {
+  "sure": false,
+  "caption": "a large round face with heavy line markings"
+ },
+ "77": {
+  "sure": true,
+  "caption": "a cat lying sprawled flat on its back"
+ },
+ "78": {
+  "sure": true,
+  "caption": "a four-pointed star with little flecks around it"
+ },
+ "79": {
+  "sure": true,
+  "caption": "a smooth four-pointed star"
+ },
+ "80": {
+  "sure": true,
+  "caption": "a hand fitting a puzzle piece into three joined pieces"
+ },
+ "81": {
+  "sure": true,
+  "caption": "a long-haired person floating with arms spread"
+ },
+ "82": {
+  "sure": true,
+  "caption": "a tiny person standing at the end of a very long line"
+ },
+ "83": {
+  "sure": true,
+  "caption": "three little stacks of folded napkins"
+ },
+ "84": {
+  "sure": false,
+  "caption": "round frames holding stump-like swirls and a scattered circle"
+ },
+ "85": {
+  "sure": true,
+  "caption": "a marshmallow on a long thin stick"
+ },
+ "86": {
+  "sure": false,
+  "caption": "a row of tiny stick figures flying kites and pinwheels"
+ },
+ "87": {
+  "sure": true,
+  "caption": "a handwritten letter page with wavy lines of text"
+ },
+ "88": {
+  "sure": true,
+  "caption": "one hand passing a sealed envelope to another hand"
+ },
+ "89": {
+  "sure": true,
+  "caption": "a star with an arrow pointing to a small heart"
+ },
+ "90": {
+  "sure": false,
+  "caption": "a few sweeping curved lines"
+ },
+ "91": {
+  "sure": false,
+  "caption": "a round swirl bun wearing a wide flat hat"
+ },
+ "92": {
+  "sure": true,
+  "caption": "a lidded tin with a scribbled label and an arrow pointing at it"
+ },
+ "93": {
+  "sure": true,
+  "caption": "a jar packed with little beans and swirls"
+ },
+ "94": {
+  "sure": true,
+  "caption": "three little round pots in a row"
+ },
+ "95": {
+  "sure": true,
+  "caption": "two muffins drawn inside a wobbly frame"
+ },
+ "96": {
+  "sure": true,
+  "caption": "a tall two-petaled flower on a thin stem"
+ },
+ "97": {
+  "sure": true,
+  "caption": "a long tray holding little pots and utensils"
+ },
+ "98": {
+  "sure": true,
+  "caption": "a person holding up a tray of drinks"
+ },
+ "99": {
+  "sure": true,
+  "caption": "three little houses along a dashed road"
+ },
+ "100": {
+  "sure": true,
+  "caption": "a fork stuck into a pile of folded layers"
+ },
+ "101": {
+  "sure": true,
+  "caption": "three small shapes hanging from a string"
+ },
+ "102": {
+  "sure": false,
+  "caption": "a strip with two dotted circles between two blank panels"
+ },
+ "103": {
+  "sure": true,
+  "caption": "two leaves on a shared stem"
+ },
+ "104": {
+  "sure": true,
+  "caption": "a round compass with N, E, S and W marked"
+ },
+ "105": {
+  "sure": true,
+  "caption": "a square slab sitting on an oval plate"
+ },
+ "106": {
+  "sure": false,
+  "caption": "a wedge on a plate and a banana with a little arrow"
+ },
+ "107": {
+  "sure": true,
+  "caption": "a large wobbly square dotted like a die"
+ },
+ "108": {
+  "sure": true,
+  "caption": "two little cake slices on plates"
+ },
+ "109": {
+  "sure": false,
+  "caption": "a leaning stack of flat slabs over a case"
+ },
+ "110": {
+  "sure": false,
+  "caption": "a person at a counter saying HELLO while bits scatter"
+ },
+ "111": {
+  "sure": false,
+  "caption": "two long zigzag-striped shapes side by side"
+ },
+ "112": {
+  "sure": true,
+  "caption": "three little cake slices on plates"
+ },
+ "113": {
+  "sure": true,
+  "caption": "a small rectangle radiating little dashes"
+ },
+ "114": {
+  "sure": true,
+  "caption": "chopsticks lifting noodles out of a tall cup"
+ },
+ "115": {
+  "sure": true,
+  "caption": "a kite with bow-tied tail rising out of a little bag"
+ },
+ "116": {
+  "sure": true,
+  "caption": "a balloon tied to a messy pile of papers"
+ },
+ "117": {
+  "sure": true,
+  "caption": "a speckled bowl of porridge on a little mat"
+ },
+ "118": {
+  "sure": false,
+  "caption": "a tiny scene of a person at a counter with scattered bits"
+ },
+ "119": {
+  "sure": false,
+  "caption": "a busy scene of signs and stick figures"
+ },
+ "120": {
+  "sure": false,
+  "caption": "patterned horses with riders, heavily scribbled"
+ },
+ "121": {
+  "sure": true,
+  "caption": "a pot with hearts inside cooking over a small fire"
+ },
+ "122": {
+  "sure": true,
+  "caption": "three tall boxes leaning together like dominoes"
+ },
+ "123": {
+  "sure": true,
+  "caption": "a spatula lifting a stack of pancakes on a plate"
+ },
+ "124": {
+  "sure": true,
+  "caption": "a tiny person kicking a ball along a line"
+ },
+ "125": {
+  "sure": true,
+  "caption": "a narrow bottle with one tall thin stem"
+ },
+ "126": {
+  "sure": false,
+  "caption": "a thin-pen spoon scattering seeds beside a loop"
+ },
+ "127": {
+  "sure": false,
+  "caption": "a box and a ball with doodled faces and tiny utensils"
+ },
+ "128": {
+  "sure": true,
+  "caption": "a row of four hand-drawn hearts"
+ },
+ "129": {
+  "sure": false,
+  "caption": "a thick-pen bug shape beside a wavy legged line"
+ },
+ "130": {
+  "sure": false,
+  "caption": "little bricks, stacked cards and a sorting sheet"
+ },
+ "131": {
+  "sure": true,
+  "caption": "four oval balloons with tiny knots"
+ },
+ "132": {
+  "sure": true,
+  "caption": "a hand gripping a bunch of bananas"
+ },
+ "133": {
+  "sure": true,
+  "caption": "a hand gripping a bunch of bananas"
+ },
+ "134": {
+  "sure": true,
+  "caption": "a playground slide with little hearts floating beside it"
+ },
+ "135": {
+  "sure": true,
+  "caption": "a striped pouch with a big looped handle"
+ },
+ "136": {
+  "sure": true,
+  "caption": "a shirt pocket with a pencil tucked in, on a square of fabric"
+ },
+ "137": {
+  "sure": false,
+  "caption": "a page of zigzag scribbles with a tiny key"
+ },
+ "138": {
+  "sure": false,
+  "caption": "a small compact opened like a clamshell"
+ },
+ "139": {
+  "sure": true,
+  "caption": "a tied pouch bag with small pieces inside"
+ },
+ "140": {
+  "sure": true,
+  "caption": "a pair of scissors"
+ },
+ "141": {
+  "sure": false,
+  "caption": "a scribbled oval pan poked by a long thin fork"
+ },
+ "142": {
+  "sure": false,
+  "caption": "a winding strap with little clasps along it"
+ },
+ "143": {
+  "sure": true,
+  "caption": "a tall tapered cylinder cup"
+ },
+ "144": {
+  "sure": true,
+  "caption": "two little lidded jars side by side"
+ },
+ "145": {
+  "sure": false,
+  "caption": "small ring-bound pads with circles on their covers"
+ },
+ "146": {
+  "sure": true,
+  "caption": "three little receipts with lines of writing"
+ },
+ "147": {
+  "sure": false,
+  "caption": "a rectangle over a small square over a circle, like a hanging medal"
+ },
+ "148": {
+  "sure": true,
+  "caption": "a fork and knife laid on a rectangular tray"
+ },
+ "149": {
+  "sure": false,
+  "caption": "a wide card with a tiny framed hand and a few dots"
+ },
+ "150": {
+  "sure": true,
+  "caption": "a wobbly A-frame triangle with cross bars"
+ },
+ "151": {
+  "sure": false,
+  "caption": "a teardrop shape with a wavy line down its middle"
+ },
+ "152": {
+  "sure": false,
+  "caption": "a low box with two dots and wire arms like reading glasses"
+ },
+ "153": {
+  "sure": true,
+  "caption": "a tall ladder with two wide rungs"
+ },
+ "154": {
+  "sure": false,
+  "caption": "a thick curved claw-like shape"
+ },
+ "155": {
+  "sure": true,
+  "caption": "two round doodle faces, one wide-eyed and one small smiling"
+ },
+ "156": {
+  "sure": true,
+  "caption": "four overlapping circles like a clover"
+ },
+ "157": {
+  "sure": true,
+  "caption": "nested hearts around a tiny plate of food"
+ },
+ "158": {
+  "sure": false,
+  "caption": "two thick pincer shapes side by side"
+ },
+ "159": {
+  "sure": true,
+  "caption": "a spool of thread, a needle and little scraps"
+ },
+ "160": {
+  "sure": true,
+  "caption": "three little coffee beans"
+ },
+ "161": {
+  "sure": true,
+  "caption": "a little gift bag with a stamped square and a rounded handle"
+ },
+ "162": {
+  "sure": true,
+  "caption": "an open envelope with a letter tucked inside"
+ },
+ "163": {
+  "sure": false,
+  "caption": "two plain circles side by side"
+ },
+ "164": {
+  "sure": false,
+  "caption": "a thick-pen blobby face"
+ },
+ "165": {
+  "sure": true,
+  "caption": "two open hands reaching down side by side"
+ },
+ "166": {
+  "sure": true,
+  "caption": "a simple figure with arms flung wide"
+ },
+ "167": {
+  "sure": false,
+  "caption": "a big card with little stamp squares on its lower half"
+ },
+ "168": {
+  "sure": true,
+  "caption": "an A-frame house with little windows"
+ },
+ "169": {
+  "sure": true,
+  "caption": "spools of thread going into an open envelope"
+ },
+ "170": {
+  "sure": true,
+  "caption": "a tall jar with a wavy-edged label"
+ },
+ "171": {
+  "sure": true,
+  "caption": "an artist's palette with two brushes poked through"
+ },
+ "172": {
+  "sure": false,
+  "caption": "a framed wobbly letter-S squiggle"
+ },
+ "173": {
+  "sure": false,
+  "caption": "a flat card with a splayed burst at its end"
+ },
+ "174": {
+  "sure": true,
+  "caption": "a framed drawing of a pill bottle with little pills"
+ },
+ "175": {
+  "sure": true,
+  "caption": "a framed drawing of a pill bottle with little pills"
+ },
+ "176": {
+  "sure": false,
+  "caption": "a tilted slab with little feet poking out of its side"
+ },
+ "177": {
+  "sure": false,
+  "caption": "a tall card with a single squiggle inside"
+ },
+ "178": {
+  "sure": true,
+  "caption": "a boxy hutch with an open top"
+ },
+ "179": {
+  "sure": true,
+  "caption": "a simple building front with a door and windows"
+ },
+ "180": {
+  "sure": false,
+  "caption": "two plain rectangles side by side"
+ },
+ "181": {
+  "sure": true,
+  "caption": "two overlapping envelopes with dashed flaps"
+ },
+ "182": {
+  "sure": false,
+  "caption": "a round cage-like lantern with loops at top and bottom"
+ },
+ "183": {
+  "sure": true,
+  "caption": "three band-aids in a row"
+ },
+ "184": {
+  "sure": false,
+  "caption": "three tall narrow loops in a row"
+ },
+ "185": {
+  "sure": true,
+  "caption": "a wheeled rack with three little pennants hanging from its rail"
+ },
+ "186": {
+  "sure": true,
+  "caption": "a matchbox slid open showing tiny pieces inside"
+ },
+ "187": {
+  "sure": true,
+  "caption": "a matchbox slid open showing tiny pieces inside"
+ },
+ "188": {
+  "sure": true,
+  "caption": "a framed doodle of tiny arms hugging a heart"
+ },
+ "189": {
+  "sure": true,
+  "caption": "a rounded bean shape with tiny arms hugging a heart"
+ },
+ "190": {
+  "sure": true,
+  "caption": "a rounded bean shape with tiny arms hugging a heart"
+ },
+ "191": {
+  "sure": true,
+  "caption": "an open box with its lid up and a little mark on the front"
+ },
+ "192": {
+  "sure": true,
+  "caption": "a little teapot with an extra-long spout"
+ },
+ "193": {
+  "sure": true,
+  "caption": "a pair of pants with little hands tucked in the pockets"
+ },
+ "194": {
+  "sure": true,
+  "caption": "a torn pouch spilling seeds, with a little tag on a string"
+ },
+ "195": {
+  "sure": false,
+  "caption": "a tumbling figure with a hat and boots"
+ },
+ "196": {
+  "sure": false,
+  "caption": "a thought bubble holding a dark dot and two arrows"
+ },
+ "197": {
+  "sure": true,
+  "caption": "little cards arranged in a circle with arrows between them"
+ },
+ "198": {
+  "sure": false,
+  "caption": "a tall page with three sprout-like shapes down the middle"
+ },
+ "199": {
+  "sure": false,
+  "caption": "a medicine bottle, a small tray and a cup"
+ },
+ "200": {
+  "sure": true,
+  "caption": "a heart-shaped tray with a bunny doodle and a small bottle inside"
+ },
+ "201": {
+  "sure": false,
+  "caption": "a tiny hand moving little pots onto a long tray, with an arrow"
+ },
+ "202": {
+  "sure": false,
+  "caption": "a reaching arm and a hand beside a little boot with a sprout"
+ }
+}

@@ -1,0 +1,1 @@
+{"name":"psdtest","private":true,"dependencies":{"@napi-rs/canvas":"^1.0.2","ag-psd":"^31.0.1"}}

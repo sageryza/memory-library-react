@@ -1,0 +1,5 @@
+Honest answer, no, I didn't. I stripped the star marks that carry bold and italic, so the words are all there, but which words you emphasized is gone. And that's a real loss, because you italicize a lot for voice and stress, like when you write "so hungry" with the so emphasized. Right now the timeline can't tell a stressed word from a plain one.
+
+The good news is it's completely recoverable. The emphasis still lives in the original Notion. And since the timeline is a web page, I could re-run the banding and actually render your italics and bold as real slanted and bold text in the bands, instead of throwing the marks away. Same exact words, but your emphasis kept and visible.
+
+I can redo September and the earlier months that way. It's the same process, and all my band recipes are saved, so it's mostly just re-running it with keep emphasis turned on. Just say the word.

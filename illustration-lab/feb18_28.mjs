@@ -1,0 +1,25 @@
+import { appendEntries } from "./band_util.mjs";
+
+const E = [
+{ page:69, type:"day", date:"Feb 18", text:`February 18th
+Walked all the way down wilshire to get here and it was sunny, and everything was loud. Couldn't pick which place to visit but then I chose Amandine and the 17 min walk meant I had to stick with it, through it is loud, and warm - a din from the dessert cooler, and two annoying women who didn't get dessert ("next time") said the older one in the tan loose tapered pants that could sum to just be "pants." Black turtle neck with a necklace. I've got my PWC handbook, which is an excuse for writing what I as forced to observe - the printing - the 499 other copies was an excuse so that I could make it myself - just exactly as I wanted - to look like a passport (so no one could notice (accidental undercover) The music (Bohemian Rhapsody…) is like a little kid, or a dog, that joins in with the adults just to be part of something - it just adds to the din - of people talking, and the freezer being unnecessary, almost unbelievably, loud - this particular mechanism takes a lot of power because it exchanges the cooling effect for the heat because he wanted to feel what it would be like inside the sun. (dressing x glue v')` },
+{ page:70, type:"day", date:"Feb 18", text:`Tried on a kid sized carhart at the gap. I wasn't making it up - they're out of Purely Elizabeth at the big whole foods - thought I'd be thorough (hats + program - charms - stickers - waste of time) and check Bristol Farms but didn't. I write my dreams now, as part of the daily three program - what I did - any, and colors or other. Because this as opposed to others, is my 'current' diary. Uneventful -` },
+{ page:70, type:"dreams", date:"Feb 18", text:`I dreamt I was staying in the house - in my room and I wondered when I'd leave. I was sad that Sandy was leaving that day, and that's when I would leave. I was giving away shoes, and put a pair of (pic) leopard print sandals (size 9) with Sandy's cause they didn't fit me as a weird sort of joke when he asked me about them. Last night I tried: Argan shampoo with Tea Tree conditioner and dreamt that I had finally figured out how to make my hair straight though it maintained its whispy quality. And I noticed it had also grown quite a bit longer. I consulted Sandy about the new procedure and he was relatively interested.` },
+{ page:70, type:"day", date:"Feb 18", text:`Talked to Jonathan on facetime last night, and we "had dinner" together and then he got in bed and fell asleep, and I worked on illustrating my journals` },
+
+{ page:71, type:"day", date:"Feb 27", text:`February 27th
+"Kissing you is like disneyland, but there's not wait time."` },
+{ page:71, type:"abstract", date:"Feb 27", text:`The other day I thought: about examples - even if you're not having interesting thoughts, you can still have examples, and they can remind you of (the principles) ex. ritual (mission: write all the thoughts down so I don't have to have them anymore Opposite? probs (missing)` },
+{ page:72, type:"day", date:"Feb 27", text:`7:15
+J went to his house and cried because he was sad his brother used to not be there. I spent the last ~ hour trying to find something that seemed worthy of writing in my journal. I talked to 6 different Indian dudes, all named Varoon ~ and they each find a new way for me to be confused. (pic)
+Mommy and I went on a walk and looked at houses, and talked about how much better we are than anyone else.` },
+{ page:72, type:"day", date:"Feb 27", text:`We went into all the weird offshoots even the numbers were weird: some of them started with 10, 20, 30 etc. I saw houses I've never seen before and yesterday I saw vegetables I'd never seen before. She wanted to look at the houses, she kept stopping to peek through the gates etc. At some point, i stopped trying to control her just like Robert said "no" to Frankie not making eye contact cause I said` },
+{ page:73, type:"abstract", date:"Feb 27", text:`the trees at his house would be worried, and would grow bale gray skins and be worried, would look at each other, wondering if they were enough, and wondering if the trees who they sought reassurance from could fully understand the depth of their sentiment. J said I was smarter than him because I knew that the leaf picture he sent me had meta lines. I think I'm smarter because I developed a system for why his photo is interesting to him - his, because it "fucks with your mindegories" (pic: I'm so worried, barely have time to grow leaves (but my trunk is strong with intelligence) (pic: meta lines) (pic: long lemons, long picture, wood grain, slats of shadow, falling across the cutting board, echo)` },
+{ page:73, type:"todos", date:"Feb 27", text:`(missing but please type it later, pics to pic(k): puzzle slowly gathering pieces, maybe: my screenshot on his phone, the metal pipe actually being plastic, idk, more I think)` },
+
+{ page:74, type:"day", date:"Feb 28", text:`February 28th
+"something about the way that I'm walking is weirding me out"` },
+];
+
+const total = appendEntries(E);
+console.log("appended", E.length, "-> total", total);

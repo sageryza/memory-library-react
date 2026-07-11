@@ -1,0 +1,20 @@
+Create a new 2x2 grid of nine original black-line drawings that closely match the raw drawing style in the reference images. Use ONLY the user's reference sketches as style guidance; do not use or imitate any previous generated image. Image A is the hanging fish mobile sketch. Image B is the loose puzzle-piece sketch. Image C is the open box/kit sketch. Image D is the grouped chess/game-piece sketch. Image E is the hand dropping small pieces into a bowl/tray sketch. Image F is the simple wheeled dome/creature toy sketch. Image G is the tray of standing figures with a pull cord sketch.
+
+Make one square page with a rough hand-drawn 2x2 grid. In each cell, draw one new strange object or tiny object-group in the same spirit as the references: simple invention sketch, toy sketch, mechanism sketch, or odd household-object sketch. The drawings should feel like quick marker sketches on paper, not like clean doodles or clipart.
+
+Important style rules:
+
+* Match the user's line quality: wobbly, blunt, uneven, slightly shaky black lines with inconsistent thickness.
+* Keep the forms extremely simple, sparse, awkward, and direct.
+* Let proportions be clumsy and imperfect.
+* The grid lines should also be hand-drawn, a little crooked, with uneven spacing.
+* Keep lots of blank white or off-white paper visible.
+* No shading, no color, no polished icon design, no smooth symmetry, no cute decorative embellishment.
+* Make the page feel like a photographed or scanned sketch page.
+* Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
+
+For the four cells, draw exactly these four scenes, one per cell, in the raw reference sketch style, no caption text:
+1) A sea lion beached on the wet sand of the PCH, frothing at the mouth and swinging its head slowly side to side.
+2) A tiny glass of milk on a bakery counter, a cookie dipped into it for one careful sip, negotiated triumphantly.
+3) Two people in matching pink at their own imagined wedding, one laying tulips while the other yanks begonias up by the roots, both laughing.
+4) A little toy train chugging in a circle where each car is a giant friend's Big Head, all hooked together and rolling along.

@@ -1,0 +1,13 @@
+Here are your answers.
+
+First — yes, the "what to draw" pass finished. Twenty-two moments, saved to disc, and I've listed them all in the message so you can see them. It's a curated list, not rendered images yet.
+
+Second — the drawings you missed: I'm resending all eight below, the three New Yorker cartoons plus the five hybrid-style tests. And yes, everything is auto-saved to disc and committed as we go, so nothing is ever lost.
+
+Third — the captions. Really good to know the new models handle text perfectly. So the new plan for the New Yorker set: I'll just describe the scene, say "New Yorker cartoon," and let the model both pick its own punchline and render the caption itself. No more compositing on my end. Banked.
+
+And the big one — your grid-of-nine revelation. It worked, and it's already done. I took your exact original grid prompt, plus your seven reference sketches, and swapped in nine of these ideas, in two versions. Version A, where ChatGPT distills, just gave each cell the verbatim journal sentence and let the model interpret. Version B, where I distill, gave each cell my explicit description of what to draw.
+
+The result is clear: Version B is the winner. It produced a full, legible three-by-three where all nine ideas read clearly — it even hand-lettered the word "wishes" — and the style is spot-on. Version A is charming, but the model merged and dropped ideas down to about six cells. So the takeaway: handing it explicit per-cell descriptions gives the complete grid; handing it raw sentences lets it wander. Both nailed your marker style.
+
+To wrap up: the should-draw list is done and shown; the eight missed drawings and both grid versions are below; and captions will now be the model's job. The draft pull request link is in the chat.

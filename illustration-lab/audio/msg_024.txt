@@ -1,0 +1,13 @@
+Done and pushed. Here's what changed and the rule I banked:
+
+February 2nd, the "plants business" — autopro: ideas becomes abstract. It's a joke, not a real plan, like you said.
+
+February 3rd, "depicted the trip": drawings becomes ideas. It describes a drawing — and one that lived in a different journal — not an actual drawing here.
+
+February 2nd, "pinching towers": drawings becomes abstract. This was the second drawings band; on reading it, it's not a drawing at all, just vivid plant-observation, so your rule applies here too. I'm flagging it since you didn't rule on this one directly — say the word if you'd rather it be a day, or something else.
+
+February now has zero drawings bands. I wrote your rule into the project notes so every future month follows it: drawings equals only actual drawings in the journal, confirmed against the PDF — never descriptions or references. And jokey non-plans go to abstract or todos, not ideas.
+
+Two things worth noting for later. One: I applied these by content and reasoning, but the true test for any drawings band is the scanned PDF, which I can't see yet — so a proper drawings pass is really a "check against the PDF" job. Two: March through December still use the old chat's categorization, so the same drawings-versus-description mislabels could be lurking there; I can sweep those when you want.
+
+To wrap up: I retyped the three February bands per your calls, February now has zero drawings, I flagged the bonus "pinching towers" fix for your veto, and saved the drawings-equals-actual-drawings-only rule to the project notes. The old chat's March through December categories are still unswept. The draft pull request link is in the chat.

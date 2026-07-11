@@ -1,0 +1,11 @@
+import { createRequire } from 'module';
+const require = createRequire('/home/user/memory-library-react/');
+const { initializeApp } = require('firebase/app');
+const { getAuth, signInAnonymously, onAuthStateChanged } = require('firebase/auth');
+const { getFunctions, httpsCallable } = require('firebase/functions');
+const cfg = { apiKey:'AIzaSyCA04ReaTAoNDUgUCuBS-ti0Jkfl-16h_s', authDomain:'membry-df528.firebaseapp.com', projectId:'membry-df528', storageBucket:'membry-df528.firebasestorage.app', messagingSenderId:'513384339473', appId:'1:513384339473:web:8f46c5915a949c93a8b9b0' };
+const app = initializeApp(cfg); const auth = getAuth(app);
+await new Promise((res,rej)=>{ onAuthStateChanged(auth,u=>u&&res()); signInAnonymously(auth).catch(rej); });
+const call = httpsCallable(getFunctions(app,'us-central1'),'sagediagram',{timeout:60000});
+const r = await call({ mode:'list' });
+for (const it of r.data.items.slice(0, 4)) console.log(it.url);

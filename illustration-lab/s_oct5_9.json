@@ -1,0 +1,6 @@
+[{"date":"Oct 5","start":329318,"end":345168,"parts":[
+ {"type":"abstract","until":"OCT 6TH"},
+ {"type":"day","date":"Oct 6","until":"OCT 7TH"},
+ {"type":"day","date":"Oct 7","until":"OCT 9TH"},
+ {"type":"abstract","date":"Oct 9","until":null}
+]}]

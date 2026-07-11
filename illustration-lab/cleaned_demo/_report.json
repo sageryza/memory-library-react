@@ -1,0 +1,16 @@
+{
+  "total": 65,
+  "drawings": 59,
+  "uniqueDrawings": 56,
+  "duplicatesRemoved": 3,
+  "textLayers": 6,
+  "solidOrBlank": 0,
+  "dupClusters": [
+    [
+      "01-Layer 2.png",
+      "35-Rectangle 1.png",
+      "36-Rectangle 1.png",
+      "49-Layer 63.png"
+    ]
+  ]
+}

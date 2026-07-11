@@ -1,0 +1,11 @@
+All three are above and committed to the repo.
+
+That's the full set of currently-ready moments drawn. Here are the natural next steps whenever you want them.
+
+One — find more moments. Re-run the should-draw pass over the newly-banded pages: summer twenty twenty-four, January, and the rest, since these twenty-two predate that work.
+
+Two — finish the jokes. Do the remaining five or so jokes on the gpt-image-2 grid too.
+
+Three — upscale favourites. Re-render any single panel you love at high quality, or on its own.
+
+Just point me at one.

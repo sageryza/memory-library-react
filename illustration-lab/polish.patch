@@ -1,0 +1,245 @@
+diff --git a/ios/Miracles/BookView.swift b/ios/Miracles/BookView.swift
+index ad19424..7c9e732 100644
+--- a/ios/Miracles/BookView.swift
++++ b/ios/Miracles/BookView.swift
+@@ -5,27 +5,31 @@ struct BookView: View {
+     @State private var distill = true
+ 
+     private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
++    private let pageMargin: CGFloat = 22
++    private var neighborShift: CGFloat { pageMargin + 16 } // enough to bleed off-screen
+ 
+     var body: some View {
+         ZStack {
+             Theme.paper.ignoresSafeArea() // cream all around
+ 
+-            VStack(spacing: 14) {
+-                // The current page: a white sheet on the cream, with a thin
+-                // sliver of the page behind peeking out on the side(s) that have
+-                // more pages — so you can feel where you are in the book.
+-                pageContent
+-                    .background { pageSheet }
+-                    .background { if store.index < store.pages.count - 1 { pageSheet.offset(x: 8) } }
+-                    .background { if store.index > 0 { pageSheet.offset(x: -8) } }
+-                    .padding(.horizontal, 22)
++            // The current page, centered — with a neighbor page bleeding off the
++            // screen edge on the side(s) that have more pages, so it reads like a
++            // real book with more just out of view.
++            pageContent
++                .background { pageSheet }
++                .background { if store.canTurnForward { pageSheet.offset(x: neighborShift) } }
++                .background { if store.index > 0 { pageSheet.offset(x: -neighborShift) } }
++                .frame(maxWidth: 560)
++                .padding(.horizontal, pageMargin)
++                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+ 
+-                nav
+-                    .padding(.horizontal, 26)
++            // Faint turn arrows on either side (replaces the old nav row).
++            HStack {
++                turnArrow("arrowtriangle.backward.fill", enabled: store.index > 0) { store.turnBack() }
++                Spacer()
++                turnArrow("arrowtriangle.forward.fill", enabled: store.canTurnForward) { store.turnForward() }
+             }
+-            .frame(maxWidth: 540)
+-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+-            .padding(.top, 14)
++            .padding(.horizontal, 4)
+         }
+     }
+ 
+@@ -33,7 +37,7 @@ struct BookView: View {
+     private var pageSheet: some View {
+         RoundedRectangle(cornerRadius: 5)
+             .fill(Color.white)
+-            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.line.opacity(0.5), lineWidth: 1))
++            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.line.opacity(0.6), lineWidth: 1))
+             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+     }
+ 
+@@ -42,14 +46,14 @@ struct BookView: View {
+             // Date — right-aligned, like the physical book: a printed "DATE:"
+             // label (no line under it) then the handwritten date, with the
+             // underline only beneath the handwritten date.
+-            HStack(alignment: .firstTextBaseline, spacing: 6) {
++            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                 Spacer()
+                 Text("DATE:")
+-                    .font(.custom(Theme.serif, size: 15))
++                    .font(.custom(Theme.serif, size: 12))
+                     .tracking(1)
+                     .foregroundStyle(Theme.muted)
+                 Text(store.page.date, format: .dateTime.month(.wide).day())
+-                    .font(.custom(Theme.handwriting, size: 27))
++                    .font(.custom(Theme.handwriting, size: 22))
+                     .foregroundStyle(Theme.dateInk)
+                     .padding(.bottom, 2)
+                     .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.dateUnderline), alignment: .bottom)
+@@ -64,18 +68,16 @@ struct BookView: View {
+         .padding(20)
+     }
+ 
+-    private var nav: some View {
+-        HStack {
+-            Button("‹ back") { store.turnBack() }
+-                .disabled(store.index == 0)
+-            Spacer()
+-            Text("\(store.index + 1) / \(store.pages.count)")
+-                .font(.custom(Theme.serif, size: 15)).foregroundStyle(Theme.muted)
+-            Spacer()
+-            Button("turn page ›") { store.turnForward() }
+-                .disabled(!store.canTurnForward)
++    // Faint filled triangle to turn a page; invisible + inert at the ends.
++    private func turnArrow(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
++        Button(action: action) {
++            Image(systemName: symbol)
++                .font(.system(size: 22))
++                .foregroundStyle(Theme.muted.opacity(enabled ? 0.45 : 0))
++                .frame(width: 30, height: 64)
++                .contentShape(Rectangle())
+         }
+-        .font(.custom(Theme.serif, size: 18))
+-        .tint(Theme.serifInk)
++        .buttonStyle(.plain)
++        .allowsHitTesting(enabled)
+     }
+ }
+diff --git a/ios/Miracles/BoxView.swift b/ios/Miracles/BoxView.swift
+index 5339f16..273052e 100644
+--- a/ios/Miracles/BoxView.swift
++++ b/ios/Miracles/BoxView.swift
+@@ -32,14 +32,20 @@ struct BoxView: View {
+ 
+                 if drawing { ProgressView().tint(Theme.gold) }
+ 
+-                // Edit controls hide once you've locked in a drawing.
++                // Controls hide once you've locked in a drawing (tap to bring back).
+                 if !box.selected {
+-                    VStack {
+-                        Spacer()
+-                        HStack {
++                    // Keep ✓ — top-right, only once there's a drawing to keep.
++                    if box.url != nil {
++                        VStack {
++                            HStack { Spacer(); keepButton }
+                             Spacer()
+-                            controls
+                         }
++                        .padding(5)
++                    }
++                    // Draw / redraw + pick arrows — bottom-right.
++                    VStack {
++                        Spacer()
++                        HStack { Spacer(); controls }
+                     }
+                     .padding(5)
+                 }
+@@ -108,48 +114,56 @@ struct BoxView: View {
+         .frame(height: lineHeight * 3)
+     }
+ 
++    // Show the draw button only once there's something to draw — text typed,
++    // or an existing drawing to redraw.
++    private var canDraw: Bool {
++        box.url != nil || !box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
++    }
++
+     private var controls: some View {
+         HStack(spacing: 4) {
+             if box.canUndo {
+                 arrow("arrowtriangle.backward.fill") { store.step(-1, boxID: box.id) }
+             }
+ 
+-            Button(action: draw) {
+-                HStack(spacing: 4) {
+-                    Text(box.url == nil ? "draw" : "redraw")
+-                    Image(systemName: "sparkles")
++            if canDraw {
++                Button(action: draw) {
++                    HStack(spacing: 4) {
++                        Text(box.url == nil ? "draw" : "redraw")
++                        Image(systemName: "sparkles")
++                    }
++                    .lineLimit(1)
++                    .fixedSize()                    // never wrap "redraw" to letters
++                    .font(.custom(Theme.serif, size: 15))
++                    .foregroundStyle(Theme.serifInk)
++                    .padding(.horizontal, 9)
++                    .padding(.vertical, 3)
++                    .background(.white.opacity(0.85))
++                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
++                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                 }
+-                .font(.custom(Theme.serif, size: 15))
+-                .foregroundStyle(Theme.serifInk)
+-                .padding(.horizontal, 9)
+-                .padding(.vertical, 3)
+-                .background(.white.opacity(0.85))
+-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
+-                .clipShape(RoundedRectangle(cornerRadius: 6))
++                .buttonStyle(.plain)
++                .disabled(drawing)
+             }
+-            .buttonStyle(.plain)
+-            .disabled(box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing)
+-            .opacity(box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+ 
+             if box.canRedo {
+                 arrow("arrowtriangle.forward.fill") { store.step(1, boxID: box.id) }
+             }
++        }
++    }
+ 
+-            // Keep this one: locks the drawing in and hides these controls.
+-            if box.url != nil {
+-                Button { store.setSelected(true, boxID: box.id) } label: {
+-                    Image(systemName: "checkmark")
+-                        .font(.system(size: 13, weight: .bold))
+-                        .foregroundStyle(Theme.gold)
+-                        .padding(.horizontal, 7)
+-                        .padding(.vertical, 4)
+-                        .background(.white.opacity(0.85))
+-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
+-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+-                }
+-                .buttonStyle(.plain)
+-            }
++    // Keep the shown drawing: locks it in and hides the edit controls.
++    private var keepButton: some View {
++        Button { store.setSelected(true, boxID: box.id) } label: {
++            Image(systemName: "checkmark")
++                .font(.system(size: 12, weight: .bold))
++                .foregroundStyle(Theme.gold)
++                .frame(width: 24, height: 24)
++                .background(.white.opacity(0.85))
++                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
++                .clipShape(RoundedRectangle(cornerRadius: 6))
+         }
++        .buttonStyle(.plain)
+     }
+ 
+     // Small filled arrow — no circle, deliberately unobtrusive.
+diff --git a/ios/Miracles/Theme.swift b/ios/Miracles/Theme.swift
+index 1cddf72..2d41e94 100644
+--- a/ios/Miracles/Theme.swift
++++ b/ios/Miracles/Theme.swift
+@@ -5,15 +5,15 @@ enum Theme {
+     static let card = Color(red: 1.0, green: 0.992, blue: 0.973)    // #fffdf8
+     static let gold = Color(red: 0.831, green: 0.686, blue: 0.216)  // #d4af37
+     static let ink = Color(red: 0.18, green: 0.165, blue: 0.149)
+-    static let line = Color(red: 0.847, green: 0.804, blue: 0.706)  // #d8cdb4
++    static let line = Color(red: 0.78, green: 0.78, blue: 0.78)      // box borders — gray
+     static let muted = Color(red: 0.70, green: 0.655, blue: 0.55)
+ 
+     // Soft browns from the web preview: dates (#5a5043), captions (#463f35).
+     static let dateInk = Color(red: 0.353, green: 0.314, blue: 0.263)
+     static let captionInk = Color(red: 0.275, green: 0.247, blue: 0.208)
+-    // The tan ruled writing line (#e3d8bf) and the date underline (#ddd0b3).
+-    static let ruled = Color(red: 0.890, green: 0.847, blue: 0.749)
+-    static let dateUnderline = Color(red: 0.867, green: 0.816, blue: 0.702)
++    // Ruled caption lines + date underline — gray (was tan).
++    static let ruled = Color(red: 0.84, green: 0.84, blue: 0.84)
++    static let dateUnderline = Color(red: 0.80, green: 0.80, blue: 0.80)
+     // Serif UI text color (#6b531f-ish brown the web buttons use).
+     static let serifInk = Color(red: 0.54, green: 0.43, blue: 0.23)
+ 

@@ -1,0 +1,7 @@
+Sure. When I say formatting, I mean only Notion's own markup, never your actual writing.
+
+So: the little stars Notion uses for bold and italic, the hashtags in front of a heading, the layout tags for columns and synced blocks, the long image links, which I turned into a simple "pic" marker so you know a drawing was there, the color tags that tint text, the gray divider lines, and the three dashes you used as page breaks. I used those dashes to decide where one band ends and the next begins, and then removed the dashes themselves. I also cleaned up backslashes that Notion adds in front of brackets and other punctuation.
+
+What I kept is everything you actually wrote. Every word, your punctuation, your spelling, your typos, your own pic notes, your arrows, the missing markers, all of it, exactly as is.
+
+The one honest tradeoff: flattening the spacing also flattens your layouts. So when you'd arranged a note like a little diagram, with things in columns and arrows between them, it becomes a straight run of lines instead. All the words are still there, but the way they were arranged on the page is not. And a drawing shows up as the word pic in parentheses, not the actual picture.
