@@ -34,6 +34,13 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   - **Skip the audio** when the reply just confirms work she asked for or is
     technical detail with no new information ("built it — here's what
     changed"). TLDR still required.
+  - **Answer questions FIRST.** If Sophie's message contains a question, answer
+    it at the top of the reply, before doing or reporting on any tasks from the
+    same message.
+  - **Small question → short answer.** When Sophie asks a quick or small
+    question, reply with just the answer — no suggestions about what to do
+    next, no updates on work already done, no recaps. Save those for when she
+    asks for them.
   - Audio is the LAST thing in the message — after the TLDR and any
     files/images.
 - **Always use clickable links.** Whenever you mention a URL — app pages,
