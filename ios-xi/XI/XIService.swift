@@ -294,9 +294,27 @@ final class XIService {
         return (updated, targets.count)
     }
 
-    /// Cache of AI-written "others" memories per card pair, so re-drawing the
-    /// same pair (or shuffling back to it) never refetches.
-    private var othersCache: [String: [String]] = [:]
+    /// Cache of AI-written "others" memories per card pair — persisted to
+    /// UserDefaults so the same pair shows the SAME texts instantly, across
+    /// launches (they're presented as what other people wrote, so they must
+    /// not reshuffle every time the app opens).
+    private var othersCache: [String: [String]] = {
+        (UserDefaults.standard.dictionary(forKey: "xi.others.v1") as? [String: [String]]) ?? [:]
+    }()
+
+    /// Synchronous cache lookup so Today can render others instantly (no
+    /// clear-then-refetch flash) when the pair was seen before.
+    func cachedOthers(_ pairKey: String) -> [String]? { othersCache[pairKey] }
+
+    private func persistOthersCache() {
+        // Keep the store bounded — beyond ~150 pairs drop arbitrary old entries.
+        if othersCache.count > 150 {
+            for key in othersCache.keys.shuffled().prefix(othersCache.count - 120) {
+                othersCache.removeValue(forKey: key)
+            }
+        }
+        UserDefaults.standard.set(othersCache, forKey: "xi.others.v1")
+    }
 
     /// Ask `aiAssist` (Claude Haiku) for a few short memories that genuinely
     /// combine BOTH cards — shown as what other people wrote for this pair.
@@ -309,6 +327,7 @@ final class XIService {
             guard let data = res.data as? [String: Any],
                   let memories = data["memories"] as? [String], !memories.isEmpty else { return nil }
             othersCache[pairKey] = memories
+            persistOthersCache()
             return memories
         } catch {
             return nil

@@ -5,13 +5,21 @@ import SwiftUI
 /// manual Libraries (incl. locked), simplify view, sort, and bulk select-edit.
 /// Which memory sheet the archive is showing.
 enum MemSheet: Identifiable {
-    case add, view(XIMemory), edit(XIMemory)
+    case add, edit(XIMemory)
     var id: String {
         switch self {
         case .add: return "add"
-        case .view(let m): return "view-\(m.id)"
         case .edit(let m): return "edit-\(m.id)"
         }
+    }
+}
+
+/// Reports the filter dropdown's natural content height so the dropdown can
+/// hug it (and cap it above the nav bar).
+private struct FilterPanelHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
@@ -20,7 +28,11 @@ struct LibraryView: View {
     @StateObject private var store = ArchiveStore()
 
     @State private var memSheet: MemSheet?
+    /// The memory open in the centered pop-up modal (her call: viewing a
+    /// memory is a pop-up, not a slide-up sheet).
+    @State private var viewMem: XIMemory?
     @State private var filtersExpanded = false
+    @State private var filterPanelH: CGFloat = 0
     @State private var showLibraries = false
     @State private var showAddTag = false
     @State private var addTagText = ""
@@ -51,21 +63,36 @@ struct LibraryView: View {
                         content
                     }
                     if filtersExpanded {
-                        ScrollView {
-                            LibraryFilterPanel(store: store)
-                                // A tap on the panel itself does nothing (absorbs),
-                                // so only taps on the grid area close the dropdown.
-                                .contentShape(Rectangle())
-                                .onTapGesture {}
-                                .padding(.bottom, kb.height)
+                        GeometryReader { geo in
+                            ZStack(alignment: .top) {
+                                // Tap ANYWHERE outside the panel to close it —
+                                // this catcher spans the whole grid area, and the
+                                // panel above only covers its own (measured)
+                                // height, so taps beside/below it fall through
+                                // here instead of into a dead scroll region.
+                                Color.black.opacity(0.001)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded = false } }
+                                ScrollView {
+                                    LibraryFilterPanel(store: store)
+                                        // A tap on the panel itself does nothing (absorbs).
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {}
+                                        .padding(.bottom, kb.height)
+                                        .background(GeometryReader { g in
+                                            Color.clear.preference(key: FilterPanelHeightKey.self, value: g.size.height)
+                                        })
+                                }
+                                .onPreferenceChange(FilterPanelHeightKey.self) { filterPanelH = $0 }
+                                // The dropdown is exactly as tall as its content,
+                                // hard-capped to end above the nav bar — long tag
+                                // clouds scroll INSIDE the card, which visibly
+                                // stops before the nav instead of running under it.
+                                .frame(height: filterPanelH > 0 ? min(filterPanelH, geo.size.height - 14) : nil,
+                                       alignment: .top)
+                                .frame(maxHeight: geo.size.height - 14, alignment: .top)
+                            }
                         }
-                        // Tap anywhere outside the panel (the visible grid) to
-                        // close the dropdown — one tap closes, the next interacts.
-                        .background(
-                            Color.black.opacity(0.001)
-                                .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded = false } }
-                        )
-                        .padding(.bottom, 14)   // dropdown stops above the nav
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
@@ -95,19 +122,23 @@ struct LibraryView: View {
                     MemoryEditorSheet(existing: m) { t, c, h, x in
                         Task { await store.editMemory(m.id, title: t, content: c, hashtagsText: h, context: x) }
                     }
-                case .view(let m):
-                    if m.isCommons {
-                        MemoryDetailSheet(memory: m,
-                                          onRemoveFromCommons: {
-                                              Task { await store.removeFromCommons(m.id) }; memSheet = nil
-                                          })
-                    } else {
-                        MemoryDetailSheet(memory: m,
-                                          onEdit: { memSheet = .edit(m) },
-                                          onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
-                    }
                 }
             }
+            // Viewing a memory: a centered pop-up modal over the grid (not a
+            // slide-up sheet) — tap the dim, or ✕, to close.
+            .overlay {
+                if let m = viewMem {
+                    MemoryPopup(memory: m,
+                                onEdit: m.isCommons ? nil : { viewMem = nil; memSheet = .edit(m) },
+                                onTrash: m.isCommons ? nil : { Task { await store.trash(m.id) }; viewMem = nil },
+                                onRemoveFromCommons: !m.isCommons ? nil : {
+                                    Task { await store.removeFromCommons(m.id) }; viewMem = nil
+                                },
+                                onClose: { viewMem = nil })
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: viewMem?.id)
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
             .alert("Add hashtag", isPresented: $showAddTag) {
@@ -415,7 +446,7 @@ struct LibraryView: View {
         if store.selectMode {
             guard !m.isCommons else { return }   // Commons memories aren't yours to bulk-edit
             store.toggleSelected(m.id)
-        } else { memSheet = .view(m) }
+        } else { viewMem = m }
     }
 
     // MARK: masonry (pack cards into the shortest column so there are no gaps)
@@ -523,6 +554,126 @@ private struct FlowTags: View {
 }
 
 // MARK: - Detail
+
+/// Reports the pop-up's natural content height so the card hugs short
+/// memories instead of always standing full height.
+private struct PopupHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// The memory detail as a centered pop-up modal — dim behind, card in the
+/// middle; tap the dim or ✕ to close. (Her call: viewing a memory should be a
+/// pop-up, not a slide-up panel.)
+struct MemoryPopup: View {
+    let memory: XIMemory
+    var onEdit: (() -> Void)? = nil
+    var onTrash: (() -> Void)? = nil
+    var onRemoveFromCommons: (() -> Void)? = nil
+    var onClose: () -> Void
+
+    @State private var contentH: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+                .onTapGesture { onClose() }
+            VStack(spacing: 0) {
+                HStack {
+                    if let onEdit {
+                        Button("edit") { onEdit() }
+                            .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    }
+                    Spacer()
+                    Button { onClose() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Close")
+                }
+                .padding(.horizontal, 18).padding(.top, 14)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if memory.isCommons {
+                            HStack(spacing: 5) {
+                                Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
+                                Text("From \(memory.authorName) · the Commons")
+                                    .font(.system(.footnote, design: .serif).italic())
+                            }.foregroundStyle(XITheme.gold)
+                        }
+                        if !memory.title.isEmpty {
+                            Text(memory.title)
+                                .font(.system(.title3, design: .serif).weight(.semibold))
+                                .foregroundStyle(XITheme.archiveTitle)
+                        }
+                        Text(memory.content)
+                            .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !memory.hashtags.isEmpty {
+                            FlowTags(tags: memory.hashtags)
+                        }
+                        if !memory.dateTime.isEmpty {
+                            Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
+                        }
+                        if let onTrash {
+                            HStack {
+                                Spacer()
+                                Button(role: .destructive) { onTrash() } label: {
+                                    Label("Delete memory", systemImage: "trash")
+                                        .font(.system(.footnote, design: .serif))
+                                        .foregroundStyle(.white)
+                                        .padding(.vertical, 8).padding(.horizontal, 14)
+                                        .background(XITheme.maroon)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                            }
+                        }
+                        if let onRemoveFromCommons {
+                            Button(role: .destructive) { onRemoveFromCommons() } label: {
+                                Label("Remove from Commons", systemImage: "person.badge.minus")
+                                    .font(.system(.body, design: .serif))
+                            }
+                            .tint(XITheme.maroon)
+                        }
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(GeometryReader { g in
+                        Color.clear.preference(key: PopupHeightKey.self, value: g.size.height)
+                    })
+                }
+                .onPreferenceChange(PopupHeightKey.self) { contentH = $0 }
+                // Hug short memories; long ones scroll inside a capped card.
+                .frame(height: contentH > 0 ? min(contentH, 430) : nil)
+                .frame(maxHeight: 430)
+            }
+            .frame(maxWidth: 360)
+            .background(XITheme.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.28), radius: 20, y: 8)
+            .padding(.horizontal, 26)
+        }
+    }
+}
+
+/// Hashtag chips that wrap onto multiple lines (a long memory can carry many).
+private struct FlowTags: View {
+    let tags: [String]
+
+    var body: some View {
+        // A simple wrapping layout: chips in rows via LazyVGrid keeps it
+        // dependency-free and close enough to the web's wrap.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 6, alignment: .leading)],
+                  alignment: .leading, spacing: 6) {
+            ForEach(tags, id: \.self) { tag in
+                Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
+                    .lineLimit(1)
+                    .padding(.vertical, 3).padding(.horizontal, 8)
+                    .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+}
 
 struct MemoryDetailSheet: View {
     @Environment(\.dismiss) private var dismiss

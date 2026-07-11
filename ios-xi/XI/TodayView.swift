@@ -11,9 +11,11 @@ struct TodayView: View {
     private let mauve = Color(red: 0.616, green: 0.420, blue: 0.478)   // lighter maroon / mauve #9D6C7A
 
     @ObservedObject private var curate = CurateStore.shared
-    private var events: [XICard] { curate.keep(XIDeck.events, role: "ev") }
-    private var twists: [XICard] { curate.keep(XIDeck.twists, role: "tw") }
 
+    /// Full-pool indices. Cards of the Day is the COMMUNITY feature — the
+    /// whole world gets the same starting pair each day, so the day's deal
+    /// deliberately ignores curation. Curate choices apply when YOU redraw
+    /// (the walk skips removed cards and disabled decks, like the web).
     @State private var ev = 0
     @State private var tw = 0
     @State private var flip = "tw"
@@ -31,12 +33,8 @@ struct TodayView: View {
     @State private var showSettings = false
     @FocusState private var writing: Bool
 
-    // Guard against a fully curated-away deck (would index [-1] and crash) by
-    // falling back to the uncurated deck.
-    private var safeEvents: [XICard] { events.isEmpty ? XIDeck.events : events }
-    private var safeTwists: [XICard] { twists.isEmpty ? XIDeck.twists : twists }
-    private var event: XICard { isToday ? safeEvents[min(ev, safeEvents.count - 1)] : pairForDay(viewDay).0 }
-    private var twist: XICard { isToday ? safeTwists[min(tw, safeTwists.count - 1)] : pairForDay(viewDay).1 }
+    private var event: XICard { isToday ? XIDeck.events[min(max(0, ev), XIDeck.events.count - 1)] : pairForDay(viewDay).0 }
+    private var twist: XICard { isToday ? XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
 
     /// Deterministic daily pairing (same walk the gallery used): event forward,
@@ -56,6 +54,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 cardRow
+                if isToday { piggyBar }
                 composer.id("composer")
                 collected
                 others
@@ -96,9 +95,20 @@ struct TodayView: View {
         .task { startIfNeeded(); await loadTotal() }
         .task(id: pairKey) { await reload() }
         .task(id: pairKey) {
+            // Seen this pair before → its texts render instantly (and are the
+            // SAME as last time — they're "what others wrote", so they must
+            // not reshuffle). Only a brand-new pair goes to the AI, behind
+            // fixed-size placeholders so nothing jumps when it lands.
+            if let hit = XIService.shared.cachedOthers(pairKey) {
+                othersTexts = hit
+                othersLoading = false
+                return
+            }
             othersTexts = []
+            othersLoading = true
             othersTexts = await XIService.shared.generateOthers(
                 pairKey: pairKey, eventCap: event.cap, twistCap: twist.cap) ?? []
+            othersLoading = false
         }
     }
 
@@ -162,6 +172,34 @@ struct TodayView: View {
             TodayCard(card: event, isEvent: true)
             TodayCard(card: twist, isEvent: false)
         }
+    }
+
+    // MARK: piggy bank
+
+    /// The piggy-bank bar: a golden thermometer that fills as you collect
+    /// memories today — full at five. It sits under the cards and above the
+    /// text box so it's visible while you type.
+    private var piggyBar: some View {
+        let goal = 5
+        let frac = min(1.0, Double(totalCount) / Double(goal))
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 5).fill(XITheme.cream)
+                if frac > 0 {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(LinearGradient(colors: [Color(red: 0.949, green: 0.800, blue: 0.451),
+                                                      Color(red: 0.788, green: 0.596, blue: 0.196)],
+                                             startPoint: .top, endPoint: .bottom))
+                        .frame(width: max(10, geo.size.width * frac))
+                        .shadow(color: frac >= 1 ? XITheme.gold.opacity(0.6) : .clear, radius: 4)
+                }
+            }
+        }
+        .frame(height: 10)
+        .overlay(RoundedRectangle(cornerRadius: 5).stroke(XITheme.line, lineWidth: 0.5))
+        .animation(.easeOut(duration: 0.5), value: totalCount)
+        .padding(.top, 12)
+        .accessibilityLabel("\(min(totalCount, goal)) of \(goal) memories collected today")
     }
 
     // MARK: composer
@@ -254,6 +292,7 @@ struct TodayView: View {
     // AI is unavailable, the section simply doesn't appear.)
 
     @State private var othersTexts: [String] = []
+    @State private var othersLoading = false
 
     @ViewBuilder
     private var others: some View {
@@ -278,6 +317,31 @@ struct TodayView: View {
                 }
             }
             .padding(.top, 18).padding(.bottom, 30)
+        } else if othersLoading {
+            // Placeholder cards while the AI writes a new pair's memories: the
+            // authors are already known (deterministic per pair), and the text
+            // area is blocked out at roughly its final size so the screen
+            // doesn't shove around when the words arrive.
+            let authors = XIRobots.authors(for: pairKey, count: 3)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(0..<3, id: \.self) { i in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(authors[i])
+                            .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
+                        RoundedRectangle(cornerRadius: 3).fill(XITheme.line.opacity(0.25))
+                            .frame(height: 9)
+                        RoundedRectangle(cornerRadius: 3).fill(XITheme.line.opacity(0.25))
+                            .frame(height: 9)
+                            .padding(.trailing, 70)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 13).padding(.vertical, 11)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+            }
+            .padding(.top, 18).padding(.bottom, 30)
         }
     }
 
@@ -286,19 +350,39 @@ struct TodayView: View {
     private func startIfNeeded() {
         guard !started else { return }
         started = true
-        ev = 0
-        tw = max(0, twists.count - 1)
+        // The day's shared pair — the same deterministic walk pairForDay uses,
+        // over the FULL pools, so everyone in the world starts on these cards.
+        let ne = XIDeck.events.count, nt = XIDeck.twists.count
+        guard ne > 0, nt > 0 else { return }
+        let dn = BoardEngine.dayNumber()
+        ev = ((dn % ne) + ne) % ne
+        tw = ((((nt - 1 - dn) % nt) + nt) % nt)
+    }
+
+    /// The next in-play index walking `step` through a pool, skipping cards
+    /// your Curate choices removed (✕, disabled decks) — the web's stepI.
+    private func stepIndex(_ i: Int, poolSize: Int, allowed: [Int], step: Int) -> Int {
+        guard poolSize > 0 else { return 0 }
+        // Everything curated away → walk the full pool rather than deal nothing.
+        let inPlay = allowed.isEmpty ? nil : Set(allowed)
+        var j = i
+        for _ in 0..<poolSize {
+            j = (j + step + poolSize) % poolSize
+            if inPlay?.contains(j) ?? true { return j }
+        }
+        return (i + step + poolSize) % poolSize
     }
 
     private func newCards() {
         // Redraws ONE card per tap, alternating twist then event — her explicit
         // preference (reverted from redrawing the pair).
         hist.append((ev, tw))
-        let ne = safeEvents.count, nt = safeTwists.count
         if flip == "tw" {
-            tw = (tw - 1 + nt) % nt; flip = "ev"
+            tw = stepIndex(tw, poolSize: XIDeck.twists.count, allowed: curate.allowedTwists, step: -1)
+            flip = "ev"
         } else {
-            ev = (ev + 1) % ne; flip = "tw"
+            ev = stepIndex(ev, poolSize: XIDeck.events.count, allowed: curate.allowedEvents, step: 1)
+            flip = "tw"
         }
         text = ""
     }
