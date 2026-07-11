@@ -130,8 +130,21 @@ struct LibraryView: View {
                     }
                 }
             } message: { Text("Paste a board share link to add its memories to your Commons.") }
-            .alert("Add to your Commons?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), presenting: pendingImport) { p in
-                Button("Add to Commons") {
+            .alert("Import this board?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), presenting: pendingImport) { p in
+                Button("Import board") {
+                    Task {
+                        if let r = await store.confirmImportAsBoard(p.shareId) {
+                            let mems = r.added > 0
+                                ? "\(r.added) \(r.added == 1 ? "memory" : "memories") added to your Commons."
+                                : "Its memories were already in your Commons."
+                            importMsg = "Imported \u{201C}\(r.boardName)\u{201D} — find it on the board screen. \(mems)"
+                        } else {
+                            importMsg = "Couldn't import that board."
+                        }
+                    }
+                    pendingImport = nil
+                }
+                Button("Just the memories") {
                     Task {
                         let n = await store.confirmImportToCommons(p.shareId)
                         importMsg = n > 0 ? "Added \(n) \(n == 1 ? "memory" : "memories") from \(p.sharer) to your Commons." : "Nothing new to add."
@@ -140,7 +153,7 @@ struct LibraryView: View {
                 }
                 Button("Not now", role: .cancel) { pendingImport = nil }
             } message: { p in
-                Text("\(p.count) \(p.count == 1 ? "memory" : "memories") from \(p.sharer). They'll live in your Commons, not mixed into your own library.")
+                Text("\(p.count) \(p.count == 1 ? "memory" : "memories") from \(p.sharer). Import board recreates their whole board — layout, strings, pins — as \u{201C}\(p.sharer)'s board\u{201D}; either way the memories live in your Commons, not mixed into your own library.")
             }
             .alert("Import", isPresented: Binding(get: { importMsg != nil }, set: { if !$0 { importMsg = nil } })) {
                 Button("OK", role: .cancel) { importMsg = nil }

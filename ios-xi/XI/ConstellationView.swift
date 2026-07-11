@@ -266,6 +266,16 @@ struct ConstellationView: View {
             boardsList = await XIService.shared.listBoards()
             loaded = true
         }
+        // A shared board was just imported (it's now the active board) — swap
+        // to it even if this screen is already loaded and on screen.
+        .onReceive(NotificationCenter.default.publisher(for: XIService.boardImportedNotification)) { _ in
+            guard loaded else { return }
+            Task {
+                await XIService.shared.saveBoard(currentBoard())   // never lose the board you're leaving
+                apply(await XIService.shared.loadActiveBoard())
+                boardsList = await XIService.shared.listBoards()
+            }
+        }
     }
 
     // MARK: boards (multiple named canvases)

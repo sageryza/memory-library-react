@@ -149,6 +149,16 @@ final class ArchiveStore: ObservableObject {
         return n
     }
 
+    /// Import the WHOLE board: memories to the Commons plus a recreated board
+    /// (layout, strings, pins) named after the sharer, made active. Returns the
+    /// new board's name and how many memories were newly added.
+    func confirmImportAsBoard(_ shareId: String) async -> (boardName: String, added: Int)? {
+        guard let r = await XIService.shared.importSharedBoardAsBoard(shareId) else { return nil }
+        if r.added > 0 { await reloadCommons() }
+        NotificationCenter.default.post(name: XIService.boardImportedNotification, object: r.board.id)
+        return (r.board.name, r.added)
+    }
+
     // MARK: filtering
 
     /// Memory ids hidden because they live in a locked library (and we're not

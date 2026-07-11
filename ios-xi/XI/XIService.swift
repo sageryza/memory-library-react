@@ -517,16 +517,26 @@ final class XIService {
     @discardableResult
     func addToCommons(title: String, content: String, hashtags: [String],
                       authorName: String, sourceType: String, sourceId: String) async -> Bool {
-        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        (await addToCommonsReturningId(title: title, content: content, hashtags: hashtags,
+                                       authorName: authorName, sourceType: sourceType,
+                                       sourceId: sourceId))?.isNew ?? false
+    }
+
+    /// Same as addToCommons, but also returns the Commons doc id — the existing
+    /// doc's on a de-dupe hit — so an imported board can place the memory.
+    func addToCommonsReturningId(title: String, content: String, hashtags: [String],
+                                 authorName: String, sourceType: String,
+                                 sourceId: String) async -> (id: String, isNew: Bool)? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
         let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let author = authorName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if c.isEmpty && t.isEmpty { return false }
+        if c.isEmpty && t.isEmpty { return nil }
         let col = db.collection("users").document(uid).collection("commons")
         // De-dupe: same author + same content already in the Commons.
         if let dupe = try? await col.whereField("content", isEqualTo: c).getDocuments(),
-           dupe.documents.contains(where: { ($0.data()["authorName"] as? String ?? "") == author }) {
-            return false
+           let hit = dupe.documents.first(where: { ($0.data()["authorName"] as? String ?? "") == author }) {
+            return (hit.documentID, false)
         }
         let now = Date()
         let doc: [String: Any] = [
@@ -540,8 +550,8 @@ final class XIService {
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
         ]
-        _ = try? await col.addDocument(data: doc)
-        return true
+        guard let ref = try? await col.addDocument(data: doc) else { return nil }
+        return (ref.documentID, true)
     }
 
     /// Remove a memory from the Commons (hard delete — it isn't yours to trash).
@@ -895,6 +905,10 @@ final class XIService {
 
     // MARK: Shared boards (link-based, cross-compatible with the web)
 
+    /// Posted after a shared board is imported as a new (now active) board, so
+    /// the boards screen reloads even if it's already on screen.
+    static let boardImportedNotification = Notification.Name("xiBoardImported")
+
     /// Publish the current board as a `sharedBoards/{shareId}` snapshot that the
     /// web viewer at /share/{id} can open. Returns the share id.
     /// snapshotJpeg: a rendered picture of the whole board — served by the
@@ -1010,6 +1024,70 @@ final class XIService {
             if added { count += 1 }
         }
         return count
+    }
+
+    /// Import a shared board WHOLE: its memories land in your Commons
+    /// (attributed to the sharer, de-duped like every Commons import), and a
+    /// new board named after them recreates the canvas — positions, strings
+    /// with their insights, and concept pins intact. The new board becomes the
+    /// active one. Returns the board and how many memories were newly added.
+    func importSharedBoardAsBoard(_ shareId: String) async -> (board: XIBoardData, added: Int)? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        guard let snap = try? await db.collection("sharedBoards").document(shareId).getDocument(),
+              let data = snap.data() else { return nil }
+        let sharerRaw = ((data["sharedBy"] as? [String: Any])?["firstName"] as? String) ?? ""
+        let sharer = sharerRaw.isEmpty ? "A friend" : sharerRaw
+        let dropped = (data["droppedMemories"] as? [[String: Any]]) ?? []
+
+        // Memories → Commons, remembering shared-id → commons-id so the
+        // layout and strings can follow the cards.
+        var idMap: [String: String] = [:]
+        var added = 0
+        for m in dropped {
+            guard let oldId = m["id"] as? String else { continue }
+            let title = m["title"] as? String ?? ""
+            let content = (m["description"] as? String) ?? (m["content"] as? String) ?? ""
+            let tags = (m["tags"] as? [String]) ?? (m["hashtags"] as? [String]) ?? []
+            guard let r = await addToCommonsReturningId(title: title, content: content,
+                                                        hashtags: tags, authorName: sharer,
+                                                        sourceType: "sharedBoard", sourceId: shareId)
+            else { continue }
+            idMap[oldId] = r.id
+            if r.isNew { added += 1 }
+        }
+
+        // Recreate the canvas on a fresh board.
+        var positions: [String: CGPoint] = [:]
+        var placed: [String] = []
+        for m in dropped {
+            guard let oldId = m["id"] as? String, let newId = idMap[oldId] else { continue }
+            let x = (m["x"] as? Double) ?? 0
+            let y = (m["y"] as? Double) ?? 0
+            positions[newId] = CGPoint(x: x, y: y)
+            placed.append(newId)
+        }
+        var pins: [(id: String, text: String)] = []
+        for p in (data["standalonePins"] as? [[String: Any]]) ?? [] {
+            guard let pid = p["id"] as? String else { continue }
+            pins.append((pid, p["text"] as? String ?? ""))
+            if let x = p["x"] as? Double, let y = p["y"] as? Double {
+                positions[pid] = CGPoint(x: x, y: y)
+            }
+        }
+        let conns: [(String, String, String)] = ((data["connections"] as? [[String: Any]]) ?? [])
+            .compactMap { c in
+                guard let f = c["from"] as? String, let t = c["to"] as? String,
+                      let nf = idMap[f], let nt = idMap[t] else { return nil }
+                return (nf, nt, c["insight"] as? String ?? "")
+            }
+
+        let ref = boardsRef(uid).document()
+        let board = XIBoardData(id: ref.documentID, name: "\(sharer)'s board",
+                                positions: positions, placed: placed,
+                                pins: pins, connections: conns)
+        try? await ref.setData(encodeBoard(board))
+        try? await activePointerRef(uid).setData(["boardId": ref.documentID])
+        return (board, added)
     }
 
     private func sharerFirstName(uid: String) async -> String {
