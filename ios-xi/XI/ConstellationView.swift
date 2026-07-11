@@ -63,6 +63,11 @@ struct ConstellationView: View {
     @State private var showAllBoards = false
     @State private var showRenameBoard = false
     @State private var renameText = ""
+    // Minimap: the visible slice of the canvas, current zoom, jump requests.
+    @State private var viewport: CGRect = .zero
+    @State private var zoomLevel: CGFloat = 1
+    @State private var minimapJump: CGPoint?
+    @AppStorage("xiShowMinimap") private var showMinimap = true
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
@@ -98,11 +103,22 @@ struct ConstellationView: View {
                                    cardSize: CGSize(width: Self.cardW, height: Self.cardH),
                                    initialCenter: Self.boardCenter,
                                    onCardMoveBegan: recordUndo,
-                                   onCardMoved: savePositions) {
+                                   onCardMoved: savePositions,
+                                   onViewportChange: { viewport = $0; zoomLevel = $1 },
+                                   jumpTo: $minimapJump) {
                     board.frame(width: Self.canvasSize(placed.count).width,
                                 height: Self.canvasSize(placed.count).height)
                 }
                 if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
+                if showMinimap && loaded && !(placed.isEmpty && pins.isEmpty) {
+                    BoardMinimap(canvasSize: Self.canvasSize(placed.count),
+                                 memoryDots: placed.compactMap { positions[$0] },
+                                 pinDots: pins.compactMap { positions[$0.id] },
+                                 viewport: viewport, zoom: zoomLevel,
+                                 onJump: { minimapJump = $0 })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(12)
+                }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
@@ -179,6 +195,9 @@ struct ConstellationView: View {
                         Button { showConstellations = true } label: { Label("My constellations", systemImage: "square.stack") }
                         Button { scatterAll() } label: { Label("Scatter all", systemImage: "sparkles") }
                             .disabled(offBoard.isEmpty)
+                        Button { showMinimap.toggle() } label: {
+                            Label(showMinimap ? "Hide minimap" : "Show minimap", systemImage: "map")
+                        }
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
                             .disabled(placed.isEmpty)
                     } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
@@ -859,6 +878,11 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let initialCenter: CGPoint
     let onCardMoveBegan: () -> Void
     let onCardMoved: () -> Void
+    /// Reports the visible rect (content coordinates) + zoom for the minimap.
+    var onViewportChange: (CGRect, CGFloat) -> Void = { _, _ in }
+    /// Set to a content point to center the view there (minimap tap/drag);
+    /// cleared automatically once applied.
+    @Binding var jumpTo: CGPoint?
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -894,6 +918,14 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     func updateUIView(_ scroll: UIScrollView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.host.rootView = content()
+        if let p = jumpTo {
+            var off = CGPoint(x: p.x * scroll.zoomScale - scroll.bounds.width / 2,
+                              y: p.y * scroll.zoomScale - scroll.bounds.height / 2)
+            off.x = max(0, min(off.x, scroll.contentSize.width - scroll.bounds.width))
+            off.y = max(0, min(off.y, scroll.contentSize.height - scroll.bounds.height))
+            scroll.setContentOffset(off, animated: false)
+            DispatchQueue.main.async { self.jumpTo = nil }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -911,6 +943,17 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { host.view }
+
+        func scrollViewDidScroll(_ s: UIScrollView) { reportViewport(s) }
+        func scrollViewDidZoom(_ s: UIScrollView) { reportViewport(s) }
+        private func reportViewport(_ s: UIScrollView) {
+            let z = s.zoomScale
+            guard z > 0 else { return }
+            let rect = CGRect(x: s.contentOffset.x / z, y: s.contentOffset.y / z,
+                              width: s.bounds.width / z, height: s.bounds.height / z)
+            let cb = parent.onViewportChange
+            DispatchQueue.main.async { cb(rect, z) }
+        }
 
         /// Topmost card whose frame contains a point in the (unscaled) board space.
         private func card(at p: CGPoint) -> String? {
