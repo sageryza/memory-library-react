@@ -98,7 +98,7 @@ struct TowerDetailView: View {
     @State private var tab: TowerTab = .trajectory
 
     private var entries: [TowerEntry] {
-        tab == .examples ? tower.examples : tower.trajectory
+        tab == .all ? tower.allMentions : tower.trajectory
     }
 
     var body: some View {
