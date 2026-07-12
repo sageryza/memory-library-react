@@ -1,0 +1,222 @@
+[
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_dreaming.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_dreaming_cap.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_golddog.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_golddog_cap.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_grid_img2.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_plants.webp"
+  },
+  {
+    "set": "jokes_newyorker",
+    "setLabel": "New Yorker cartoons",
+    "file": "jokes_newyorker/ny_plants_cap.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/bigheadtrain_low_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/bigheadtrain_low_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/compassbirds_low_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/compassbirds_low_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/glasssock_low_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/glasssock_low_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/golddog_low_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/golddog_low_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/hoodiegirl_medium_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/hoodiegirl_medium_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/milkcookie_low_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/milkcookie_low_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/plantheist_high_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/plantheist_high_B.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/wishesshop_medium_A.webp"
+  },
+  {
+    "set": "style_test",
+    "setLabel": "Hybrid pastel style test",
+    "file": "style_test/wishesshop_medium_B.webp"
+  },
+  {
+    "set": "grid_ideas",
+    "setLabel": "Grid-of-nine (ChatGPT vs I distill)",
+    "file": "grid_ideas/gridA_chatgpt_distills.webp"
+  },
+  {
+    "set": "grid_ideas",
+    "setLabel": "Grid-of-nine (ChatGPT vs I distill)",
+    "file": "grid_ideas/gridB_i_distill.webp"
+  },
+  {
+    "set": "hybrid_grid",
+    "setLabel": "Hybrid grid combos",
+    "file": "hybrid_grid/1_describe_tiles_med.webp"
+  },
+  {
+    "set": "hybrid_grid",
+    "setLabel": "Hybrid grid combos",
+    "file": "hybrid_grid/2_infer_tiles_med.webp"
+  },
+  {
+    "set": "hybrid_grid",
+    "setLabel": "Hybrid grid combos",
+    "file": "hybrid_grid/3_describe_grids_med.webp"
+  },
+  {
+    "set": "hybrid_grid",
+    "setLabel": "Hybrid grid combos",
+    "file": "hybrid_grid/4_infer_grids_med.webp"
+  },
+  {
+    "set": "hybrid_grid",
+    "setLabel": "Hybrid grid combos",
+    "file": "hybrid_grid/5_describe_tiles_high.webp"
+  },
+  {
+    "set": "infer_true",
+    "setLabel": "Infer-style (cards vs tiles)",
+    "file": "infer_true/infer_cards_med.webp"
+  },
+  {
+    "set": "infer_true",
+    "setLabel": "Infer-style (cards vs tiles)",
+    "file": "infer_true/infer_tiles_med.webp"
+  },
+  {
+    "set": "infer_15hf",
+    "setLabel": "gpt-image-1.5 high-fidelity",
+    "file": "infer_15hf/img15hf_cards_med.webp"
+  },
+  {
+    "set": "infer_15hf",
+    "setLabel": "gpt-image-1.5 high-fidelity",
+    "file": "infer_15hf/img15hf_tiles_med.webp"
+  },
+  {
+    "set": "should_draw_grids",
+    "setLabel": "Should-draw moments — pastel grids",
+    "file": "should_draw_grids/grid1_moments_1-9.webp"
+  },
+  {
+    "set": "should_draw_grids",
+    "setLabel": "Should-draw moments — pastel grids",
+    "file": "should_draw_grids/grid2_moments_10-18.webp"
+  },
+  {
+    "set": "should_draw_grids",
+    "setLabel": "Should-draw moments — pastel grids",
+    "file": "should_draw_grids/grid3_moments_19-22.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker1_img15_high.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker1_img15_medium.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker1_img2_high.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker1_img2_medium.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker1_moments_1-9.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker2_moments_10-18.webp"
+  },
+  {
+    "set": "should_draw_marker",
+    "setLabel": "Should-draw moments — marker style",
+    "file": "should_draw_marker/marker3_moments_19-22.webp"
+  }
+]
