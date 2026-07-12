@@ -12,28 +12,10 @@ struct TimelineView: View {
     // behind the web view while it loads.
     private static let paper = Color(red: 0.929, green: 0.894, blue: 0.816)
 
-    /// 0 = the handwritten-journal timeline; 1 = the voice memos (dreams +
-    /// spoken journals) slotted into the journal by date.
-    @State private var mode = 0
-
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("View", selection: $mode) {
-                Text("Journal").tag(0)
-                Text("Voice notes").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-
-            if mode == 0 {
-                TimelineWebView()
-                    .background(Self.paper)
-            } else {
-                VoiceEntriesView()
-            }
-        }
+        TimelineWebView()
+            .background(Self.paper)
+            .ignoresSafeArea(edges: .top)
     }
 }
 
