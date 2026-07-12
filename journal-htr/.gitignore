@@ -9,3 +9,5 @@ service-account*.json
 *_calibrated.txt
 nov_blocks.json
 output/
+clean-set/
+*.mjs.local
