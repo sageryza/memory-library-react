@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Towers</title>
+<style>
+  :root{
+    --paper:#f5f0e4; --card:#fdfbf5; --ink:#2e2620; --muted:#8a8172; --pen:rgba(120,105,80,.6);
+    --def:#6a5ca6; --redef:#2878c4; --men:#8c8c8c; --exa:#3a8a52; --img:#c88a3a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;}
+  body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 16px 60px;}
+  h1{font-size:28px;font-weight:600;margin:6px 6px 2px;letter-spacing:-.01em;}
+  .sub{font-size:14px;color:var(--muted);margin:0 6px 18px;}
+  /* grid */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media (max-width:360px){.grid{grid-template-columns:repeat(2,1fr);}}
+  .tile{position:relative;padding:14px 8px 12px;text-align:center;cursor:pointer;}
+  .tile .chip{position:relative;height:70px;display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:8px;}
+  .tile .tname{position:relative;font-size:14px;font-weight:600;line-height:1.15;}
+  .tile .tcount{position:relative;font-size:11px;color:var(--muted);margin-top:3px;}
+  /* detail */
+  .back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);
+    font-size:15px;padding:6px 4px;margin:2px 0 8px;cursor:pointer;font-family:inherit;}
+  .dhead{display:flex;gap:14px;align-items:center;margin:2px 4px 10px;}
+  .dicon{position:relative;width:58px;height:58px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:30px;}
+  .dname{font-size:20px;font-weight:600;line-height:1.1;}
+  .dblurb{font-size:13.5px;color:var(--muted);margin-top:3px;}
+  .seg{display:flex;background:#e7e0cf;border-radius:9px;padding:2px;margin:6px 4px 16px;font-size:13.5px;}
+  .seg button{flex:1;border:none;background:none;font-family:inherit;color:var(--muted);padding:7px;border-radius:7px;cursor:pointer;}
+  .seg button.on{background:var(--card);font-weight:600;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .traj{padding:0 4px;}
+  .row{display:flex;gap:12px;align-items:stretch;}
+  .rail{width:12px;flex:0 0 12px;display:flex;flex-direction:column;align-items:center;}
+  .rail .ln{width:2px;flex:1;}
+  .rail .node{width:11px;height:11px;border-radius:50%;border:2px solid var(--paper);flex:0 0 auto;}
+  .card{position:relative;flex:1;padding:13px 14px;margin-bottom:11px;min-width:0;}
+  .cin{position:relative;}
+  .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .badge{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+  .chiplink{font-size:11px;color:var(--muted);background:none;border:none;font-family:inherit;
+    display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:2px 3px;border-radius:6px;}
+  .quote{font-size:15px;line-height:1.42;}
+  .gloss{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .sk{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;}
+  .hide{display:none;}
+  .load{color:var(--muted);font-size:14px;padding:30px 6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="gridView">
+    <h1>Towers</h1>
+    <p class="sub">Ideas, traced as they evolved.</p>
+    <div class="grid" id="grid"><div class="load">Loading…</div></div>
+  </div>
+  <div id="detailView" class="hide"></div>
+</div>
+
+<script>
+const KIND = { definition:{c:'var(--def)',l:'defined'}, redefinition:{c:'var(--redef)',l:'redefined'},
+  mention:{c:'var(--men)',l:'mentioned'}, example:{c:'var(--exa)',l:'example'}, imagery:{c:'var(--img)',l:'imagery'} };
+
+// ---- hand-drawn wobbly rounded-rect outline (deterministic per seed) ----
+function seedOf(s){let h=2166136261>>>0;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
+function wobble(w,h,r,seed,wob){
+  let s=seed||0x9e3779b9;
+  const nx=()=>{s^=s<<13;s>>>=0;s^=s>>>7;s^=s<<17;s>>>=0;return (s%100000)/100000;};
+  const jit=()=>(nx()*2-1)*wob;
+  const inset=wob+1,x0=inset,y0=inset,x1=w-inset,y1=h-inset;
+  r=Math.min(r,Math.min(x1-x0,y1-y0)/2);
+  const cx=(x0+x1)/2,cy=(y0+y1)/2,raw=[],E=5,C=4;
+  const edge=(a,b)=>{for(let i=0;i<E;i++){const t=i/E;raw.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}};
+  const arc=(c,a0,a1)=>{for(let i=0;i<C;i++){const a=(a0+(a1-a0)*i/C)*Math.PI/180;raw.push([c[0]+r*Math.cos(a),c[1]+r*Math.sin(a)]);}};
+  edge([x0+r,y0],[x1-r,y0]);arc([x1-r,y0+r],-90,0);
+  edge([x1,y0+r],[x1,y1-r]);arc([x1-r,y1-r],0,90);
+  edge([x1-r,y1],[x0+r,y1]);arc([x0+r,y1-r],90,180);
+  edge([x0,y1-r],[x0,y0+r]);arc([x0+r,y0+r],180,270);
+  const pts=raw.map(p=>{const dx=p[0]-cx,dy=p[1]-cy,len=Math.max(1,Math.hypot(dx,dy)),j=jit();return[p[0]+dx/len*j,p[1]+dy/len*j];});
+  const last=pts[pts.length-1];let d=`M ${(last[0]+pts[0][0])/2} ${(last[1]+pts[0][1])/2} `;
+  for(let i=0;i<pts.length;i++){const c=pts[i],n=pts[(i+1)%pts.length];d+=`Q ${c[0]} ${c[1]} ${(c[0]+n[0])/2} ${(c[1]+n[1])/2} `;}
+  return d+'Z';
+}
+function paint(el){
+  const w=el.clientWidth,h=el.clientHeight; if(!w||!h) return;
+  const r=+el.dataset.r||14, fill=el.dataset.fill||'var(--card)', stroke=el.dataset.stroke||'var(--pen)', wob=+el.dataset.wob||1.6;
+  const seed=seedOf(el.dataset.seed||'x');
+  const d=wobble(w,h,r,seed,wob);
+  el.querySelector(':scope > .sk')?.remove();
+  el.insertAdjacentHTML('afterbegin',
+    `<svg class="sk" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`);
+}
+function paintAll(root){ requestAnimationFrame(()=>root.querySelectorAll('[data-sk]').forEach(paint)); }
+
+// ---- native bridge: tap a page → open the Timeline in the app ----
+function openTimeline(page){
+  const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openTimeline;
+  if(h) h.postMessage(page);
+}
+const inApp = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openTimeline);
+
+let TOWERS=[];
+const gridView=document.getElementById('gridView'), detailView=document.getElementById('detailView');
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderGrid(){
+  const g=document.getElementById('grid');
+  g.innerHTML = TOWERS.map((t,i)=>`
+    <div class="tile" data-sk data-fill="var(--card)" data-r="18" data-wob="1.8" data-seed="tile${t.key}" onclick="openTower(${i})">
+      <div class="chip" data-sk data-fill="${t.tint}22" data-stroke="${t.tint}" data-r="16" data-wob="1.3" data-seed="chip${t.key}">${t.icon}</div>
+      <div class="tname">${esc(t.name)}</div>
+      <div class="tcount">${t.trajectory.length} stops</div>
+    </div>`).join('');
+  paintAll(g);
+}
+
+let curTower=null, curTab='trajectory';
+function openTower(i){ curTower=TOWERS[i]; curTab='trajectory'; renderDetail(); gridView.classList.add('hide'); detailView.classList.remove('hide'); window.scrollTo(0,0); }
+function backToGrid(){ detailView.classList.add('hide'); gridView.classList.remove('hide'); }
+
+function stationRow(e,idx,total){
+  const k=KIND[e.kind]||KIND.mention;
+  const meta = [e.date, e.page!=null?('p'+e.page):null].filter(Boolean).join(' · ');
+  const link = e.page!=null
+    ? `<button class="chiplink" style="color:${curTower.tint}" onclick="openTimeline(${e.page})">${esc(meta)} ↗</button>`
+    : `<span class="chiplink">${esc(meta)}</span>`;
+  return `<div class="row">
+    <div class="rail">
+      <div class="ln" style="background:${idx===0?'transparent':curTower.tint+'40'}"></div>
+      <div class="node" style="background:${k.c}"></div>
+      <div class="ln" style="background:${idx===total-1?'transparent':curTower.tint+'40'}"></div>
+    </div>
+    <div class="card" data-sk data-fill="var(--card)" data-stroke="var(--pen)" data-r="14" data-wob="1.5" data-seed="c${curTower.key}${e.page}${idx}">
+      <div class="cin">
+        <div class="meta"><span class="badge" style="color:${k.c}">${k.l}</span>${link}</div>
+        <div class="quote">“${esc(e.quote)}”</div>
+        ${e.note?`<div class="gloss">${esc(e.note)}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderDetail(){
+  const t=curTower;
+  const list = curTab==='all' ? t.allMentions : t.trajectory;
+  detailView.innerHTML = `
+    <button class="back" onclick="backToGrid()">‹ Towers</button>
+    <div class="dhead">
+      <div class="dicon" data-sk data-fill="${t.tint}22" data-stroke="${t.tint}" data-r="16" data-wob="1.3" data-seed="dh${t.key}">${t.icon}</div>
+      <div><div class="dname">${esc(t.name)}</div><div class="dblurb">${esc(t.blurb)}</div></div>
+    </div>
+    <div class="seg">
+      <button class="${curTab==='trajectory'?'on':''}" onclick="setTab('trajectory')">Trajectory</button>
+      <button class="${curTab==='all'?'on':''}" onclick="setTab('all')">All mentions · ${t.allMentions.length}</button>
+    </div>
+    <div class="traj">${list.map((e,i)=>stationRow(e,i,list.length)).join('')}</div>`;
+  paintAll(detailView);
+}
+function setTab(tab){ curTab=tab; renderDetail(); }
+
+// expose for inline handlers
+Object.assign(window,{openTower,backToGrid,setTab,openTimeline});
+
+fetch('towers.json',{cache:'no-cache'})
+  .then(r=>r.json())
+  .then(d=>{ TOWERS=d.towers||[]; renderGrid(); })
+  .catch(()=>{ document.getElementById('grid').innerHTML='<div class="load">Couldn’t load towers. Check your connection.</div>'; });
+
+let rt; addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{ if(!gridView.classList.contains('hide')) renderGrid(); else renderDetail(); },150);});
+</script>
+</body>
+</html>
