@@ -84,8 +84,13 @@ final class JournalUploader: ObservableObject {
         }
     }
 
-    /// Merge new records into the existing manifest (so re-runs accumulate) and
-    /// re-upload it at the fixed token. Newest record per filename wins.
+    /// Merge new records into the existing manifest (so re-runs accumulate).
+    /// Newest record per filename wins. NOTE: we no longer force a fixed
+    /// download token via customMetadata — Firebase Storage started rejecting
+    /// client-set `firebaseStorageDownloadTokens` with a 400, which made the
+    /// whole send look failed even though every PDF had uploaded fine. The
+    /// extraction pipeline lists the folder with authenticated calls instead,
+    /// so the manifest is a convenience, not a requirement.
     private func writeManifest(_ newRecords: [JournalScanRecord]) async throws {
         let ref = storage.reference(withPath: "\(JournalUploadConfig.folder)/manifest.json")
         var all: [String: JournalScanRecord] = [:]
@@ -98,10 +103,7 @@ final class JournalUploader: ObservableObject {
         let body = try JSONEncoder().encode(merged)
         let meta = StorageMetadata()
         meta.contentType = "application/json"
-        meta.customMetadata = ["firebaseStorageDownloadTokens": JournalUploadConfig.manifestToken]
         _ = try await ref.putDataAsync(body, metadata: meta)
-        // Show the real download URL (works regardless of whether the fixed
-        // token stuck); the pipeline's `--pull` tries the predictable one first.
         manifestURL = (try? await ref.downloadURL())?.absoluteString
         append("📄 index updated — \(merged.count) scan(s) total")
     }
