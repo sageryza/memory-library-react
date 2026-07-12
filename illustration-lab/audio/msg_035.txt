@@ -1,0 +1,7 @@
+All three changes are live and verified. Here's where things landed.
+
+The web gallery now labels every tile with model and quality, it has no date, and it pauses its autoscroll the moment you tap a picture. The deploy is confirmed live.
+
+Your forty-four renders are in that web gallery, tagged with accurate model and quality metadata.
+
+And the app's My Creations gallery is a separate store, on the membry project. The ball's in your court on whether you want the forty-four pushed there too. To do it, I'll need that project's admin key and your device's gallery id.
