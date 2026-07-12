@@ -200,7 +200,7 @@ private struct TowerStationRow: View {
                 if let page = entry.page, entry.inCorpus {
                     // Tap the page reference to open that journal page in context.
                     Button {
-                        router.openJournal(page: page)
+                        router.openTimeline(page: page)
                     } label: {
                         HStack(spacing: 3) {
                             Text(metaLabel ?? "p\(page)")
