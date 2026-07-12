@@ -66,7 +66,7 @@ struct VoiceEntriesView: View {
                     } header: {
                         Text(section.0)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(white: 0.40))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 16).padding(.vertical, 6)
                             .background(Self.paper.opacity(0.98))
@@ -140,12 +140,12 @@ private struct VoiceRow: View {
                             .padding(.horizontal, 8).padding(.vertical, 2)
                             .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(tint))
                         Text(VoiceDate.pretty(entry.date))
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color(white: 0.32))
                         if let dur = entry.dur {
                             Text(VoiceDate.duration(dur))
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color(white: 0.32))
                         }
                     }
                 }
@@ -171,7 +171,7 @@ private struct VoiceRow: View {
             } else if let d = entry.desc, !d.isEmpty {
                 Text(d)
                     .font(.system(size: 14))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(white: 0.28))
                     .lineLimit(2)
                     .padding(.leading, 50)
             }
