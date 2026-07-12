@@ -2,221 +2,309 @@
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_dreaming.webp"
+    "file": "jokes_newyorker/ny_dreaming.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_dreaming_cap.webp"
+    "file": "jokes_newyorker/ny_dreaming_cap.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_golddog.webp"
+    "file": "jokes_newyorker/ny_golddog.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_golddog_cap.webp"
+    "file": "jokes_newyorker/ny_golddog_cap.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_grid_img2.webp"
+    "file": "jokes_newyorker/ny_grid_img2.webp",
+    "model": "gpt-image-2",
+    "quality": "high"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_plants.webp"
+    "file": "jokes_newyorker/ny_plants.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "jokes_newyorker",
     "setLabel": "New Yorker cartoons",
-    "file": "jokes_newyorker/ny_plants_cap.webp"
+    "file": "jokes_newyorker/ny_plants_cap.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/bigheadtrain_low_A.webp"
+    "file": "style_test/bigheadtrain_low_A.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/bigheadtrain_low_B.webp"
+    "file": "style_test/bigheadtrain_low_B.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/compassbirds_low_A.webp"
+    "file": "style_test/compassbirds_low_A.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/compassbirds_low_B.webp"
+    "file": "style_test/compassbirds_low_B.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/glasssock_low_A.webp"
+    "file": "style_test/glasssock_low_A.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/glasssock_low_B.webp"
+    "file": "style_test/glasssock_low_B.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/golddog_low_A.webp"
+    "file": "style_test/golddog_low_A.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/golddog_low_B.webp"
+    "file": "style_test/golddog_low_B.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/hoodiegirl_medium_A.webp"
+    "file": "style_test/hoodiegirl_medium_A.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/hoodiegirl_medium_B.webp"
+    "file": "style_test/hoodiegirl_medium_B.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/milkcookie_low_A.webp"
+    "file": "style_test/milkcookie_low_A.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/milkcookie_low_B.webp"
+    "file": "style_test/milkcookie_low_B.webp",
+    "model": "gpt-image-1",
+    "quality": "low"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/plantheist_high_A.webp"
+    "file": "style_test/plantheist_high_A.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/plantheist_high_B.webp"
+    "file": "style_test/plantheist_high_B.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/wishesshop_medium_A.webp"
+    "file": "style_test/wishesshop_medium_A.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "style_test",
     "setLabel": "Hybrid pastel style test",
-    "file": "style_test/wishesshop_medium_B.webp"
+    "file": "style_test/wishesshop_medium_B.webp",
+    "model": "gpt-image-1",
+    "quality": "medium"
   },
   {
     "set": "grid_ideas",
     "setLabel": "Grid-of-nine (ChatGPT vs I distill)",
-    "file": "grid_ideas/gridA_chatgpt_distills.webp"
+    "file": "grid_ideas/gridA_chatgpt_distills.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "grid_ideas",
     "setLabel": "Grid-of-nine (ChatGPT vs I distill)",
-    "file": "grid_ideas/gridB_i_distill.webp"
+    "file": "grid_ideas/gridB_i_distill.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "hybrid_grid",
     "setLabel": "Hybrid grid combos",
-    "file": "hybrid_grid/1_describe_tiles_med.webp"
+    "file": "hybrid_grid/1_describe_tiles_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "hybrid_grid",
     "setLabel": "Hybrid grid combos",
-    "file": "hybrid_grid/2_infer_tiles_med.webp"
+    "file": "hybrid_grid/2_infer_tiles_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "hybrid_grid",
     "setLabel": "Hybrid grid combos",
-    "file": "hybrid_grid/3_describe_grids_med.webp"
+    "file": "hybrid_grid/3_describe_grids_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "hybrid_grid",
     "setLabel": "Hybrid grid combos",
-    "file": "hybrid_grid/4_infer_grids_med.webp"
+    "file": "hybrid_grid/4_infer_grids_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "hybrid_grid",
     "setLabel": "Hybrid grid combos",
-    "file": "hybrid_grid/5_describe_tiles_high.webp"
+    "file": "hybrid_grid/5_describe_tiles_high.webp",
+    "model": "gpt-image-2",
+    "quality": "high"
   },
   {
     "set": "infer_true",
     "setLabel": "Infer-style (cards vs tiles)",
-    "file": "infer_true/infer_cards_med.webp"
+    "file": "infer_true/infer_cards_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "infer_true",
     "setLabel": "Infer-style (cards vs tiles)",
-    "file": "infer_true/infer_tiles_med.webp"
+    "file": "infer_true/infer_tiles_med.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "infer_15hf",
     "setLabel": "gpt-image-1.5 high-fidelity",
-    "file": "infer_15hf/img15hf_cards_med.webp"
+    "file": "infer_15hf/img15hf_cards_med.webp",
+    "model": "gpt-image-1.5",
+    "quality": "medium"
   },
   {
     "set": "infer_15hf",
     "setLabel": "gpt-image-1.5 high-fidelity",
-    "file": "infer_15hf/img15hf_tiles_med.webp"
+    "file": "infer_15hf/img15hf_tiles_med.webp",
+    "model": "gpt-image-1.5",
+    "quality": "medium"
   },
   {
     "set": "should_draw_grids",
     "setLabel": "Should-draw moments — pastel grids",
-    "file": "should_draw_grids/grid1_moments_1-9.webp"
+    "file": "should_draw_grids/grid1_moments_1-9.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "should_draw_grids",
     "setLabel": "Should-draw moments — pastel grids",
-    "file": "should_draw_grids/grid2_moments_10-18.webp"
+    "file": "should_draw_grids/grid2_moments_10-18.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "should_draw_grids",
     "setLabel": "Should-draw moments — pastel grids",
-    "file": "should_draw_grids/grid3_moments_19-22.webp"
+    "file": "should_draw_grids/grid3_moments_19-22.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker1_img15_high.webp"
+    "file": "should_draw_marker/marker1_img15_high.webp",
+    "model": "gpt-image-1.5",
+    "quality": "high"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker1_img15_medium.webp"
+    "file": "should_draw_marker/marker1_img15_medium.webp",
+    "model": "gpt-image-1.5",
+    "quality": "medium"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker1_img2_high.webp"
+    "file": "should_draw_marker/marker1_img2_high.webp",
+    "model": "gpt-image-2",
+    "quality": "high"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker1_img2_medium.webp"
+    "file": "should_draw_marker/marker1_img2_medium.webp",
+    "model": "gpt-image-2",
+    "quality": "medium"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker1_moments_1-9.webp"
+    "file": "should_draw_marker/marker1_moments_1-9.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker2_moments_10-18.webp"
+    "file": "should_draw_marker/marker2_moments_10-18.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   },
   {
     "set": "should_draw_marker",
     "setLabel": "Should-draw moments — marker style",
-    "file": "should_draw_marker/marker3_moments_19-22.webp"
+    "file": "should_draw_marker/marker3_moments_19-22.webp",
+    "model": "gpt-image-1",
+    "quality": "high"
   }
 ]
