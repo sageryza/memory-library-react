@@ -22,13 +22,21 @@ committed to this repo as PNGs.
 - **Remaining months: June, July, August, September, October, November.**
   Sage stopped journaling after that, so this is a one-time backfill — once
   those six are done, the project is finished.
-- **Blocker to hand to Sage first**: the Firebase manifest URL baked into
-  `fetch_and_extract.py` (`MANIFEST_URL`) currently returns **403 Permission
-  denied**, so either no new scans are uploaded yet or the Storage
-  token/rules changed. Ask Sage to either (a) re-send the journals from the
-  JournalReader iOS app ("Send journals to Claude" — it uploads the PDFs and
-  rewrites `journal-scans/manifest.json` in Firebase Storage), or (b) just
-  paste direct links (Dropbox `?dl=1` works) and use input mode 2 below.
+- **Blocker to hand to Sage first (VERIFIED July 10, late evening)**: the
+  cloud folder is EMPTY. An authenticated listing of
+  `journal-scans/` in the real bucket (`membry-df528.firebasestorage.app`,
+  the same one JournalReader writes to; anonymous auth passes the Storage
+  rules) returned zero objects — no PDFs, no manifest. Sage believed she had
+  uploaded the journals, so her upload silently failed or never finished
+  (the PDFs are ~40MB each; the app must stay open until it completes). She
+  needs to either (a) re-send from the JournalReader iOS app ("Send journals
+  to Claude") and watch for the completion state, or (b) paste direct links
+  (Dropbox `?dl=1` works) and use input mode 2 below. To re-check the bucket
+  yourself: anonymous sign-in via
+  `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=<apiKey from
+  src/firebase.js>`, then GET
+  `https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o?prefix=journal-scans%2F`
+  with header `Authorization: Firebase <idToken>`.
 
 ## How the pipeline works (two tools, one job each)
 

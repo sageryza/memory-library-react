@@ -31,18 +31,23 @@ struct XIShell: View {
     @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
-        screen
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(XITheme.paper.ignoresSafeArea())
-            // The nav is ALWAYS in the safe area — and the shell ignores the
-            // keyboard's safe area, so the bar is bolted to the bottom of the
-            // screen no matter what: the keyboard slides OVER it rather than
-            // pushing it up. (Without this, SwiftUI treats the keyboard as
-            // eating the bottom inset and lifts the bar on top of it.)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                XiNavBar(selection: $tab)
-            }
-            .ignoresSafeArea(.keyboard, edges: .bottom)
+        // The nav is a real LAYOUT SIBLING below the screens, not a
+        // safeAreaInset: an inset added outside each screen's NavigationStack
+        // doesn't reliably reach the content inside it, so screens laid
+        // themselves out to the SCREEN bottom and slid behind the (opaque)
+        // bar — the Library's filter dropdown "stopping above the nav" kept
+        // measuring from the wrong bottom. As a sibling, every screen's
+        // height ends exactly at the bar's top, no propagation involved.
+        VStack(spacing: 0) {
+            screen
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            XiNavBar(selection: $tab)
+        }
+        .background(XITheme.paper.ignoresSafeArea())
+        // Ignoring the keyboard's safe area keeps the bar bolted to the
+        // bottom of the screen: the keyboard slides OVER it rather than
+        // pushing it up.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
             // A shared-board link jumps to the Library, which offers to add it to
             // your Commons; a Versus link jumps to the Versus tab, which joins.
             .onChange(of: deepLink.pendingShareId) { id in
