@@ -11,9 +11,19 @@ final class AppRouter: ObservableObject {
     /// to `.journal`) to jump there; the reader consumes it and resets to nil.
     @Published var journalTargetPage: Int? = nil
 
+    /// A journal page the Timeline should scroll to and open. Set it (and switch
+    /// to `.timeline`); the timeline web view consumes it and resets to nil.
+    @Published var timelineTargetPage: Int? = nil
+
     /// Jump the Journal reader to `page` and bring that tab forward.
     func openJournal(page: Int) {
         journalTargetPage = page
         tab = .journal
+    }
+
+    /// Open the Timeline and land on `page` (centered, its text shown).
+    func openTimeline(page: Int) {
+        timelineTargetPage = page
+        tab = .timeline
     }
 }

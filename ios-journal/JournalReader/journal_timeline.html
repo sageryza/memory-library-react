@@ -1486,6 +1486,19 @@ function openOne(i){
   reader.innerHTML=sections.slice(a,b+1).map((s,k)=>entryHTML(s,a+k)).join('');
   reader.scrollTop=0;
 }
+// Called from the native app (Towers → tap a page) to land on a journal page:
+// clear any filter, center that page's band in the strip, and open its text.
+window.focusPage=function(page){
+  const i=sections.findIndex(s=>s.page===page);
+  if(i<0) return;
+  activeColors.clear(); render();                 // un-collapse so the band is visible
+  const el=segEls[i], rw=document.querySelector('.railwrap');
+  if(el && rw){
+    const rwR=rw.getBoundingClientRect(), elR=el.getBoundingClientRect();
+    rw.scrollTop += (elR.top-rwR.top) - rw.clientHeight/2 + el.offsetHeight/2;  // center it
+  }
+  openOne(i);
+};
 </script>
 </body>
 </html>
