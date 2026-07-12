@@ -1,0 +1,9 @@
+Good question, and I owe you a correction — I was wrong earlier when I said the app just wraps the website. They're actually two separate galleries on two separate Firebase projects.
+
+The web gallery — the one I put your forty-four in, the one with the little autoscroll play button — is a raw listing of everything the ImageForge server has saved. That's project deckfactory. It shows everything, including the images from the movies chat.
+
+The gallery inside your Deck Factory app — the "My Creations" one — is native to the app, and it reads a different Firebase project called membry. Images only land there when something explicitly posts them, stamped with your device's id. So it's a curated, per-device feed, not the raw bucket.
+
+That's the difference, and it's why your forty-four show up on the web right now but are separate from what's in the app. If you want them inside the app's My Creations gallery too, I need two things I don't have: the membry admin key, and your device's gallery id. Say the word and I'll walk you through grabbing them.
+
+Now, the changes you asked for — those are on the web gallery, deploying right now. Every tile is labeled with model and quality, like "ChatGPT two, medium," pulled from real data I tagged onto all forty-four — not guesses, I read it straight from the render scripts. The date is gone. And tapping any picture now pauses the autoscroll and freezes the page, so it stops moving while you look. I also wrote that in as a permanent rule for every app.
