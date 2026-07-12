@@ -2,11 +2,16 @@ import fitz, base64, io, json, os, re, requests
 import numpy as np, cv2
 from PIL import Image
 
+# The January one-off ran with a hardcoded PDF at import time; batch_month.py
+# (and any other importer) now sets `E.doc = fitz.open(path)` itself, so only
+# open the default when it actually exists (running this file directly).
 PDF = "jan/january 3 '26 -.pdf"
 KEY = os.environ["OPENAI_API_KEY"]
-doc = fitz.open(PDF)
-os.makedirs("jan/cutouts", exist_ok=True)
-os.makedirs("jan/overlays", exist_ok=True)
+doc = None
+if os.path.exists(PDF):
+    doc = fitz.open(PDF)
+    os.makedirs("jan/cutouts", exist_ok=True)
+    os.makedirs("jan/overlays", exist_ok=True)
 
 def hires(i, dpi=220):
     pix = doc[i].get_pixmap(dpi=dpi)

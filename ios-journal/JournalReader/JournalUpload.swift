@@ -4,21 +4,17 @@ import FirebaseAuth
 import FirebaseStorage
 
 /// One-time backfill helper: pick your journal scans (PDFs) and push them to
-/// Firebase Storage so the extraction pipeline can pull them. Nothing runs on
-/// every launch — you tap this when you have new scans to send. The app is a
-/// dumb uploader: it drops each PDF under `journal-scans/` and rewrites a small
-/// `manifest.json` index (at a fixed, known download token) listing every scan
-/// it has ever sent, with size + download URL. The pipeline reads that index,
-/// figures out months, compares sizes, dedupes, and extracts.
+/// Firebase Storage so the extraction pipeline can pull them.
 ///
-/// The manifest's fixed token makes it fetchable at a predictable URL:
-///   https://firebasestorage.googleapis.com/v0/b/<bucket>/o/journal-scans%2Fmanifest.json?alt=media&token=<MANIFEST_TOKEN>
+/// The PDFs upload over a BACKGROUND URLSession, so you can leave the app (or
+/// even let iOS kill it) and the transfer keeps going — the system relaunches
+/// the app when it finishes. The Firebase SDK can't do background sessions,
+/// so the PDFs go straight to the Storage REST endpoint with the signed-in
+/// user's token; only the small manifest index still goes through the SDK.
 enum JournalUploadConfig {
-    /// Baked-in download token for manifest.json so the pipeline can always
-    /// find it without any credentials. (Not a secret — just a stable address;
-    /// the scans themselves keep their own random tokens.)
-    static let manifestToken = "5a7c1e93-8b2d-4f60-a1c9-6e3d0f24b8a1"
     static let folder = "journal-scans"
+    static let bucket = "membry-df528.firebasestorage.app"
+    static let sessionID = "com.sageryza.journal.bg-upload"
 }
 
 struct JournalScanRecord: Codable {
@@ -29,15 +25,40 @@ struct JournalScanRecord: Codable {
     var uploadedAt: Double
 }
 
-@MainActor
-final class JournalUploader: ObservableObject {
+/// Stores the system's background-session completion handler so uploads that
+/// finish after the app was relaunched still get reported to iOS.
+final class JournalAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        JournalUploader.shared.backgroundCompletionHandler = completionHandler
+    }
+}
+
+final class JournalUploader: NSObject, ObservableObject, URLSessionDataDelegate {
     enum Phase: Equatable { case idle, working, done, failed(String) }
+
+    static let shared = JournalUploader()
 
     @Published var phase: Phase = .idle
     @Published var statusLines: [String] = []
     @Published var manifestURL: String?
 
+    var backgroundCompletionHandler: (() -> Void)?
+
     private lazy var storage = Storage.storage()
+    private lazy var session: URLSession = {
+        let cfg = URLSessionConfiguration.background(withIdentifier: JournalUploadConfig.sessionID)
+        cfg.sessionSendsLaunchEvents = true    // relaunch the app when done
+        cfg.isDiscretionary = false            // start now, not when iOS feels like it
+        return URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
+    }()
+
+    // Delegate-side state (touched off the main thread).
+    private var responseBuffers: [Int: Data] = [:]
+    private var pendingRecords: [JournalScanRecord] = []
+    private var remaining = 0
+    private var failures = 0
 
     /// Best-effort month guess from the filename (the pipeline does the
     /// authoritative parse; this is just to make the index readable).
@@ -52,46 +73,115 @@ final class JournalUploader: ObservableObject {
         guard !urls.isEmpty else { return }
         phase = .working
         statusLines = []
-        Task {
-            do {
-                if Auth.auth().currentUser == nil {
-                    try await Auth.auth().signInAnonymously()
-                }
-                var records: [JournalScanRecord] = []
-                for url in urls {
-                    let name = url.lastPathComponent
-                    let scoped = url.startAccessingSecurityScopedResource()
-                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                    guard let data = try? Data(contentsOf: url) else {
-                        append("⚠︎ couldn’t read \(name) — skipped"); continue
-                    }
-                    append("↑ uploading \(name) (\(data.count / 1_000_000) MB)…")
-                    let ref = storage.reference(withPath: "\(JournalUploadConfig.folder)/\(name)")
-                    let meta = StorageMetadata(); meta.contentType = "application/pdf"
-                    _ = try await ref.putDataAsync(data, metadata: meta)
-                    let dl = try await ref.downloadURL()
-                    records.append(JournalScanRecord(
-                        month: monthGuess(name), name: name, size: data.count,
-                        url: dl.absoluteString, uploadedAt: Date().timeIntervalSince1970))
-                    append("✓ sent \(name)")
-                }
-                try await writeManifest(records)
-                phase = .done
-            } catch {
-                append("✗ \(error.localizedDescription)")
-                phase = .failed(error.localizedDescription)
+        pendingRecords = []
+        failures = 0
+        Task { @MainActor in
+            if Auth.auth().currentUser == nil {
+                try? await Auth.auth().signInAnonymously()
             }
+            guard let user = Auth.auth().currentUser,
+                  let token = try? await user.getIDToken() else {
+                phase = .failed("Couldn't sign in — check your connection and try again.")
+                return
+            }
+            // Background uploads read from a file that must outlive the file
+            // picker's security scope, so stage each PDF in our own caches.
+            let staging = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            var queued = 0
+            for url in urls {
+                let name = url.lastPathComponent
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                let dest = staging.appendingPathComponent(name)
+                try? FileManager.default.removeItem(at: dest)
+                do { try FileManager.default.copyItem(at: url, to: dest) } catch {
+                    append("⚠︎ couldn’t read \(name) — skipped"); continue
+                }
+                let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int).flatMap { $0 } ?? 0
+
+                var comps = URLComponents(string: "https://firebasestorage.googleapis.com/v0/b/\(JournalUploadConfig.bucket)/o")!
+                comps.queryItems = [URLQueryItem(name: "name", value: "\(JournalUploadConfig.folder)/\(name)")]
+                var req = URLRequest(url: comps.url!)
+                req.httpMethod = "POST"
+                req.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
+                req.setValue("Firebase \(token)", forHTTPHeaderField: "Authorization")
+
+                let task = session.uploadTask(with: req, fromFile: dest)
+                task.taskDescription = "\(name)|\(size)"
+                task.resume()
+                queued += 1
+                append("↑ uploading \(name) (\(size / 1_000_000) MB) — you can leave the app, it keeps going")
+            }
+            remaining = queued
+            if queued == 0 { phase = .failed("Nothing could be read to upload.") }
         }
     }
 
-    /// Merge new records into the existing manifest (so re-runs accumulate).
-    /// Newest record per filename wins. NOTE: we no longer force a fixed
-    /// download token via customMetadata — Firebase Storage started rejecting
-    /// client-set `firebaseStorageDownloadTokens` with a 400, which made the
-    /// whole send look failed even though every PDF had uploaded fine. The
-    /// extraction pipeline lists the folder with authenticated calls instead,
-    /// so the manifest is a convenience, not a requirement.
+    // MARK: URLSession delegate (background queue)
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        responseBuffers[dataTask.taskIdentifier, default: Data()].append(data)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let parts = (task.taskDescription ?? "?|0").split(separator: "|")
+        let name = String(parts.first ?? "?")
+        let size = Int(parts.last ?? "0") ?? 0
+        let body = responseBuffers.removeValue(forKey: task.taskIdentifier)
+        let code = (task.response as? HTTPURLResponse)?.statusCode
+
+        DispatchQueue.main.async {
+            if let error {
+                self.failures += 1
+                self.append("✗ \(name): \(error.localizedDescription)")
+            } else if let code, !(200..<300).contains(code) {
+                self.failures += 1
+                self.append("✗ \(name): the server said \(code)")
+            } else {
+                // The upload response is the object's metadata — pull the
+                // download token out of it to build a shareable URL.
+                var dl = ""
+                if let body,
+                   let meta = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+                   let tok = (meta["downloadTokens"] as? String)?.split(separator: ",").first {
+                    let enc = "\(JournalUploadConfig.folder)/\(name)"
+                        .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+                    dl = "https://firebasestorage.googleapis.com/v0/b/\(JournalUploadConfig.bucket)/o/\(enc)?alt=media&token=\(tok)"
+                }
+                self.pendingRecords.append(JournalScanRecord(
+                    month: self.monthGuess(name), name: name, size: size,
+                    url: dl, uploadedAt: Date().timeIntervalSince1970))
+                self.append("✓ sent \(name)")
+            }
+            self.remaining -= 1
+            if self.remaining <= 0 { self.finishBatch() }
+        }
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        DispatchQueue.main.async {
+            self.backgroundCompletionHandler?()
+            self.backgroundCompletionHandler = nil
+        }
+    }
+
+    private func finishBatch() {
+        let records = pendingRecords
+        let failed = failures
+        Task { @MainActor in
+            try? await writeManifest(records)   // best-effort: the index is a convenience
+            phase = failed > 0
+                ? .failed("\(failed) upload\(failed == 1 ? "" : "s") failed — tap Choose to retry them.")
+                : .done
+        }
+    }
+
+    /// Merge new records into the existing manifest (so re-runs accumulate);
+    /// newest record per filename wins. No forced download token — Firebase
+    /// rejects client-set tokens with a 400 now (that was the "unknown 400"),
+    /// and the pipeline lists the folder with authenticated calls anyway.
     private func writeManifest(_ newRecords: [JournalScanRecord]) async throws {
+        guard !newRecords.isEmpty else { return }
         let ref = storage.reference(withPath: "\(JournalUploadConfig.folder)/manifest.json")
         var all: [String: JournalScanRecord] = [:]
         if let existing = try? await ref.data(maxSize: 5 * 1024 * 1024),
@@ -108,12 +198,15 @@ final class JournalUploader: ObservableObject {
         append("📄 index updated — \(merged.count) scan(s) total")
     }
 
-    private func append(_ s: String) { statusLines.append(s) }
+    private func append(_ s: String) {
+        if Thread.isMainThread { statusLines.append(s) }
+        else { DispatchQueue.main.async { self.statusLines.append(s) } }
+    }
 }
 
 struct JournalUploadView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var uploader = JournalUploader()
+    @ObservedObject private var uploader = JournalUploader.shared
     @State private var picking = false
 
     private let accent = Color(red: 1.0, green: 0.7, blue: 0.8)
@@ -128,8 +221,8 @@ struct JournalUploadView: View {
                 Text("Send journals to Claude")
                     .font(.title2.weight(.semibold))
                 Text("Pick your scanned journal PDFs. They upload to your private "
-                     + "cloud so the drawing-extraction pipeline can pull them. "
-                     + "You only do this when you have new scans — not every launch.")
+                     + "cloud in the background — you can leave the app and the "
+                     + "transfer keeps going on its own.")
                     .font(.subheadline)
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
@@ -178,6 +271,12 @@ struct JournalUploadView: View {
                         }
                     }
                     .padding(.horizontal, 28)
+                }
+
+                if case .failed(let why) = uploader.phase {
+                    Text(why)
+                        .font(.caption).foregroundColor(.red)
+                        .multilineTextAlignment(.center).padding(.horizontal, 28)
                 }
 
                 Spacer()
