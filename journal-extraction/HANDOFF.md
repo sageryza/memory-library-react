@@ -114,12 +114,19 @@ drawings / todos). Tap a band to read that page's transcribed text. Each
 entry in the HTML is a JS object like
 `{page: 28, type: "dreams", lines: 17, date: "Feb 5", text: "…"}`.
 
-The job Sage wants next: transcribe the newly uploaded scans (starting with
-the September compilation) and extend that banded corpus — same entry shape,
-new date ranges — so the timeline covers more of her journals. She has NOT
-yet specified UI details (one long timeline vs. per-journal timelines, etc.)
-— ask her before inventing anything. Costs: vision transcription of ~90
-pages will exceed the $3 ask-first line — estimate and ASK before running.
+IMPORTANT correction from Sage (July 11): the September material is ALREADY
+transcribed and already banded — do NOT re-transcribe it. The actual job is
+ALIGNMENT: nobody has yet verified which scanned PDF pages correspond to
+which existing banded entries. Slot the scan into its correct spot — match
+the PDF's pages against the existing transcription (spot-reading a page with
+vision and searching the banded text for it is cheap), establish the
+page↔entry mapping, and wire it up so the timeline's bands correspond to the
+right scan pages. Her hand-sorted date ordering in the compilation is what
+makes the matching tractable. Where the already-banded text lives beyond the
+bundled journal_timeline.html (Jan 31–Feb 17 corpus), ask Sage — she has the
+transcriptions. Only transcription of genuinely UN-transcribed journals
+would trigger the cost rule (estimate + ask above $3); spot-check alignment
+reads are pennies.
 
 ## What "done" looks like
 
