@@ -44,13 +44,29 @@ exact text out of the transcript is genuinely fragile:
   few-shot reader (one run cratered to ~12% mean from corrupted examples while a
   cleanly-aligned page in the same run still scored 68%).
 
-**Takeaway:** don't hand-roll the aligner. Line/page alignment with layout
+**Outlier filter (a good heuristic):** pages hold similar amounts of text, so the
+`---` blocks cluster tightly (November: median 234 words, middle-half 209–270).
+Merged multi-page blocks (up to 1102 words) and stub/"(missing)" blocks (~55
+words) stick out as obvious outliers. Dropping the 16 outliers leaves 56 clean
+~one-page blocks — usable directly as page truth, no fragile slicing. It doesn't
+*fully* solve assignment (a page whose own block was an outlier gets force-matched
+to a surviving block, and a monotonic-order guard over the resulting gaps is
+touchy), but it's the right first pass and it's exactly the cleanup Transkribus
+ground-truth wants.
+
+**Verified result:** calibrating on 5 hand-verified clean pairs and testing on 4
+held-out clean pages: **63% mean word recovery (52–77%)** — consistent every run.
+Whenever a page is correctly paired the reader is solid; every low score traced
+to a *pairing* error, never the reading.
+
+**Takeaway:** don't hand-roll the full aligner. Line/page alignment with layout
 detection + human-in-the-loop correction is exactly what **Transkribus
 Text-Image Matching** is built for. Practical split:
 - **In-house reader now:** calibrate on a *handful of hand-verified clean pairs*
-  (not the auto-sliced set) → proofread-ready first-pass drafts of new months.
-- **Trained model later:** feed the page-level `---` blocks into Transkribus TIM,
-  correct the few straddlers there, train a PyLaia model.
+  → proofread-ready first-pass drafts of new months (~63% and climbing with more
+  clean examples).
+- **Trained model later:** apply the outlier filter, feed the clean page-level
+  `---` blocks into Transkribus TIM, correct the few straddlers there, train PyLaia.
 
 ## Notes
 - Private inputs (the scan PDF, page PNGs, the transcript text, and any Firebase
