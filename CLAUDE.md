@@ -5,6 +5,11 @@
   are rounded rectangles — use `border-radius: 6px`. (Circular icon buttons like
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
   buttons.)
+- **Lock background scroll when an image is open.** Tapping/clicking a picture
+  (lightbox, enlarged view, any overlay) must freeze the page behind it — set
+  `document.body.style.overflow='hidden'` on open, restore on close. The page
+  must never scroll or jump while you're looking at an image. Applies to every
+  app and every gallery (web + iOS).
 
 ## Journal timeline — banding categories
 The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
