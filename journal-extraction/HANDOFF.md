@@ -86,6 +86,41 @@ journal, all in gpt-4o detection calls).
    calling a month done. Costs: ~$0.35/month in gpt-4o calls — fine to run
    without asking; anything pricier, ask first.
 
+## Update — July 11, late evening (PT)
+
+- **November: extracted, then deleted on Sage's word.** Her Nov 4–Dec 2 scan
+  uploaded fine (the "unknown 400" was only the manifest-index write; fixed
+  in JournalReader, which now also uploads over a BACKGROUND URLSession so
+  she doesn't have to keep the app open). The pipeline pulled 20 drawings —
+  but Sage already had November's drawings from an earlier pass, so the
+  cutouts were removed from the repo to avoid confusion. If November ever
+  needs re-running, the PDF is still in the bucket and `_det_cache.json`
+  logic makes re-runs cheap.
+- **She is now uploading MORE journals that are NOT for drawing extraction.**
+  They're for the TRANSCRIPTION / timeline side (see below). One is named
+  roughly "September big boy": four separate September-2024 journals that
+  got intermixed (she wrote in them on different days), which she hand-sorted
+  into ONE date-ordered compilation — all of September plus a little of
+  October, in the right order. She sorted it specifically so uploads map
+  cleanly onto the timeline.
+
+## The NEXT project: corresponding scans to the app's banded timeline
+
+JournalReader's Timeline tab renders `ios-journal/JournalReader/
+journal_timeline.html` in a web view: one fully-transcribed journal
+(Jan 31 – Feb 17, 2025) as ~104 vertical colored bands — band height ≈ how
+much was written, color = kind of content (day / dreams / ideas / abstract /
+drawings / todos). Tap a band to read that page's transcribed text. Each
+entry in the HTML is a JS object like
+`{page: 28, type: "dreams", lines: 17, date: "Feb 5", text: "…"}`.
+
+The job Sage wants next: transcribe the newly uploaded scans (starting with
+the September compilation) and extend that banded corpus — same entry shape,
+new date ranges — so the timeline covers more of her journals. She has NOT
+yet specified UI details (one long timeline vs. per-journal timelines, etc.)
+— ask her before inventing anything. Costs: vision transcription of ~90
+pages will exceed the $3 ask-first line — estimate and ASK before running.
+
 ## What "done" looks like
 
 All six remaining months extracted, reviewed, and committed alongside
