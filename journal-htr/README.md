@@ -22,19 +22,35 @@ scanned page image to its transcript block**, which we automate:
 The aligned pairs then feed **Transkribus Text-Image Matching** (auto line
 alignment, no manual pairing) to train a custom HTR model on her hand.
 
-## First result (November, 2-example calibration, no training)
-Scored as % of the true words recovered on a held-out November page:
+## Results & the real bottleneck
 
-- Cold GPT-4o, no examples: **~58%**
-- Calibrated with just **2** of her own example pages: **~67%**
+**The reader works.** On pages whose text is correctly isolated, the calibrated
+few-shot GPT-4o reader recovers **~65–75%** of the true words (cold, no examples:
+~58%). That's a usable first-pass draft to proofread, and it already beats
+HandwritingOCR.com (~60%, no personalization). It's the floor — a trained
+Transkribus model goes further.
 
-+9 points from two examples and zero training cost — the floor, not the ceiling.
-A model trained on all of November's 87 transcribed pages (or a Transkribus
-PyLaia model) is where it gets genuinely clean. For reference, HandwritingOCR.com
-gave her ~60% with no personalization.
+**The hard part is page-boundary alignment, not reading.** The `---` dividers
+are close but not strictly one-per-page (72 blocks vs 87 pages; some blocks hold
+two pages, a few mark missing/skipped content). Reliably slicing each *page's*
+exact text out of the transcript is genuinely fragile:
 
-November reconciliation: 72 `---` text blocks vs 87 scanned pages — the ~15-page
-gap is drawing-only / near-blank pages (43 `(pic)` markers in the month).
+- **Block-level matching is reliable** — a page's rough OCR fingerprints the
+  right *block* well (`match_page_to_block.py`).
+- **Exact page-boundary slicing is not** — three scripted approaches (word-LCS,
+  contiguous sliding-window, block-anchored refine) all mis-sliced a meaningful
+  fraction of pages, especially confusing *adjacent* pages that share a block.
+  Worse, when a mis-sliced page becomes a calibration example, it *poisons* the
+  few-shot reader (one run cratered to ~12% mean from corrupted examples while a
+  cleanly-aligned page in the same run still scored 68%).
+
+**Takeaway:** don't hand-roll the aligner. Line/page alignment with layout
+detection + human-in-the-loop correction is exactly what **Transkribus
+Text-Image Matching** is built for. Practical split:
+- **In-house reader now:** calibrate on a *handful of hand-verified clean pairs*
+  (not the auto-sliced set) → proofread-ready first-pass drafts of new months.
+- **Trained model later:** feed the page-level `---` blocks into Transkribus TIM,
+  correct the few straddlers there, train a PyLaia model.
 
 ## Notes
 - Private inputs (the scan PDF, page PNGs, the transcript text, and any Firebase
