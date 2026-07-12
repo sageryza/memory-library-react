@@ -1400,7 +1400,7 @@ const sections=[
 const PX_PER_LINE=2.6, MIN_H=16;
 const strip=document.getElementById('strip'),gutter=document.getElementById('gutter'),
       reader=document.getElementById('reader'),legendEl=document.getElementById('legend');
-let activeColor=null;
+const activeColors=new Set();
 
 ORDER.forEach(type=>{
   const k=document.createElement('span');k.className='key';k.dataset.type=type;
@@ -1408,9 +1408,9 @@ ORDER.forEach(type=>{
   k.onclick=()=>toggleColor(type);legendEl.appendChild(k);
 });
 const resetK=document.createElement('span');resetK.className='key reset';resetK.textContent='show all';
-resetK.onclick=()=>{activeColor=null;render();reader.innerHTML=hint();};legendEl.appendChild(resetK);
+resetK.onclick=()=>{activeColors.clear();render();reader.innerHTML=hint();};legendEl.appendChild(resetK);
 
-function hint(){return '<p class="hint">Tap a block to read its whole color segment. Tap a color above to read only that kind.</p>';}
+function hint(){return '<p class="hint">Tap a block to read it. Tap one or more colors above to filter — pick several to read them interwoven.</p>';}
 
 let y=0,lastPage=null;const segEls=[];
 sections.forEach((s,i)=>{
@@ -1429,23 +1429,50 @@ sections.forEach((s,i)=>{
 });
 
 function toggleColor(type){
-  activeColor=(activeColor===type)?null:type;render();
-  if(activeColor)readColor(activeColor);else reader.innerHTML=hint();
+  if(activeColors.has(type)) activeColors.delete(type); else activeColors.add(type);
+  render();
+  updateReader(true);   // keep your place when adding/removing a color
 }
 function render(){
+  const filtering=activeColors.size>0;
   [...legendEl.querySelectorAll('.key')].forEach(k=>{
     if(!k.dataset.type)return;
-    k.classList.toggle('active',k.dataset.type===activeColor);
-    k.classList.toggle('dim',activeColor&&k.dataset.type!==activeColor);
+    const on=activeColors.has(k.dataset.type);
+    k.classList.toggle('active',on);
+    k.classList.toggle('dim',filtering&&!on);
   });
-  segEls.forEach((el,i)=>{el.classList.toggle('hidden',activeColor&&sections[i].type!==activeColor);el.classList.remove('sel');});
-  gutter.style.opacity = activeColor ? '0' : '1';   // page numbers stop mapping once the bands collapse
+  // Collapse the strip to the selected type(s); several stay interwoven in order.
+  segEls.forEach((el,i)=>{el.classList.toggle('hidden',filtering&&!activeColors.has(sections[i].type));el.classList.remove('sel');});
+  gutter.style.opacity = filtering ? '0' : '1';   // page numbers stop mapping once the bands collapse
 }
-function entryHTML(s){
+function entryHTML(s,i){
   const dot=`<span class="dot" style="background:var(--${s.type})"></span>`;
   const paras=s.text.split('\n').filter(t=>t.trim());
   const body=paras.map(t=>t.trim()==='@@PB@@'?'<hr class="pb">':`<p${s.draw?' class="nodraw"':''}>${t}</p>`).join('');
-  return `<div class="entry"><p class="meta">${dot} ${s.date?s.date+" · ":""}page ${s.page} · ${LABELS[s.type]}</p>${body}</div>`;
+  return `<div class="entry" data-idx="${i}"><p class="meta">${dot} ${s.date?s.date+" · ":""}page ${s.page} · ${LABELS[s.type]}</p>${body}</div>`;
+}
+// Which entry sits at the top of the reader right now (its section index), so a
+// filter change can hold that spot instead of snapping back to the top.
+function anchorIdx(){
+  const rTop=reader.getBoundingClientRect().top;
+  for(const el of reader.querySelectorAll('.entry')){
+    if(el.getBoundingClientRect().bottom > rTop+4) return +el.dataset.idx;
+  }
+  return null;
+}
+function restoreAnchor(idx){
+  if(idx==null){reader.scrollTop=0;return;}
+  const kids=[...reader.querySelectorAll('.entry')];
+  const target=kids.find(el=>+el.dataset.idx>=idx) || kids[kids.length-1];
+  if(!target){reader.scrollTop=0;return;}
+  reader.scrollTop += target.getBoundingClientRect().top - reader.getBoundingClientRect().top;
+}
+// Reader = every entry of the selected type(s), interwoven in journal order.
+function updateReader(preserve){
+  const anchor = preserve ? anchorIdx() : null;
+  if(activeColors.size===0){ reader.innerHTML=hint(); return; }
+  reader.innerHTML = sections.map((s,i)=> activeColors.has(s.type) ? entryHTML(s,i) : '').join('');
+  restoreAnchor(anchor);
 }
 function runBounds(i){
   let a=i,b=i;const t=sections[i].type;
@@ -1456,10 +1483,9 @@ function runBounds(i){
 function openOne(i){
   const [a,b]=runBounds(i);
   segEls.forEach((el,j)=>el.classList.toggle('sel', j>=a && j<=b));
-  reader.innerHTML=sections.slice(a,b+1).map(entryHTML).join('');
+  reader.innerHTML=sections.slice(a,b+1).map((s,k)=>entryHTML(s,a+k)).join('');
   reader.scrollTop=0;
 }
-function readColor(type){reader.innerHTML=sections.filter(s=>s.type===type).map(entryHTML).join('');reader.scrollTop=0;}
 </script>
 </body>
 </html>
