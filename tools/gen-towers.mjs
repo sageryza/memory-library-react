@@ -1,11 +1,13 @@
 // Regenerate the Towers data by mining every tower's instances from
 // journal_timeline.html across the full journal. Writes public/towers/towers.json
 // (read by the hosted Towers web page). Curated Trajectory = hand-picked defining
-// moments; All-mentions = every instance. Run from ios-journal/:
+// moments; All-mentions = every instance. Run from the repo root:
 //   node tools/gen-towers.mjs
+// (Kept OUT of ios-journal/ on purpose, so tower-content edits never trigger an
+// app build — only the Firebase Hosting deploy.)
 import fs from 'fs';
-const HTML = fs.readFileSync(new URL('../JournalReader/journal_timeline.html', import.meta.url), 'utf8');
-const OUTJSON = new URL('../../public/towers/towers.json', import.meta.url);
+const HTML = fs.readFileSync(new URL('../ios-journal/JournalReader/journal_timeline.html', import.meta.url), 'utf8');
+const OUTJSON = new URL('../public/towers/towers.json', import.meta.url);
 
 const re = /\{page:(\d+),type:"([^"]+)",(.*?)text:(?:`([\s\S]*?)`|"((?:[^"\\]|\\.)*)")\}/g;
 let m, secs = [];
@@ -48,6 +50,14 @@ const CFG = [
   ['nonAction', /non-?action|fourth quarter/i, 'Non-Action', 'The task you can’t do because it isn’t an action.', '⏸️', [0.40,0.45,0.52]],
   ['innieOutie', /\binnie|\boutie|severance/i, 'Innie / Outie', 'Her Severance-style model of the self at work.', '👥', [0.30,0.34,0.62]],
   ['patternManip', /pattern manipulation/i, 'Pattern Manipulation', 'Proactive and retroactive pattern manipulation.', '🪄', [0.50,0.34,0.58]],
+  ['collectingPatterns', /collecting patterns|pattern collector|superficial pattern/i, 'Collecting Patterns', 'The mind’s pattern-collecting habit — which becomes a physical “pattern collector.”', '🧲', [0.30,0.50,0.42]],
+  ['metaphorMachine', /metaphor machine|conceptual art|synthetic art/i, 'The Metaphor Machine', 'A machine that molds an object into its meaning.', '🏭', [0.34,0.38,0.60]],
+  ['systemsOfMovement', /systems? of movement|\bSOMs?\b/i, 'Systems of Movement', 'SOMs — the moves you can make on a thought: translate, iterate, crop…', '🔀', [0.26,0.44,0.64]],
+  ['petitOntologie', /petit ontologie/i, 'Le Petit Ontologie', 'A small, temporary logic invented to justify a given situation.', '⚖️', [0.46,0.36,0.58]],
+  ['memoryLibrary', /memory library/i, 'The Memory Library', 'The overarching project — a library of memories in coin envelopes.', '🏛️', [0.50,0.40,0.30]],
+  ['duplicitousEnvelope', /duplicitous envelope/i, 'The Duplicitous Envelope', 'An envelope that is two things at once.', '✉️', [0.62,0.48,0.24]],
+  ['narrativeTherapy', /narrative therapy/i, 'Narrative Therapy', 'She made it all up — a narrative therapy she designed for herself.', '🪶', [0.66,0.40,0.50]],
+  ['twoSidesCoin', /two sides of the same coin/i, 'Two Sides of the Same Coin', 'Two ideas that are secretly the same.', '☯️', [0.40,0.44,0.52]],
 ];
 const spread = (list, n) => {
   if (list.length <= n) return list.map((_, i) => i);
@@ -190,6 +200,65 @@ const CURATED = {
     { page: 514,  kind: 'definition',   note: '“Going back in time: step one — retroactive pattern manipulation.”' },
     { page: 923,  kind: 'mention',      note: 'Rationalizing why she notices people nodding.' },
   ],
+  collectingPatterns: [
+    { page: 13,   kind: 'definition',   note: 'Obsession as a process gone wrong: collecting patterns.' },
+    { page: 15,   kind: 'mention',      note: 'A normal process you can deliberately induce.' },
+    { page: 320,  kind: 'redefinition', note: 'Becomes a made object — the Pattern Collector.' },
+    { page: 364,  kind: 'mention',      note: 'Each matchbox a different pattern to collect.' },
+    { page: 451,  kind: 'mention',      note: 'THE PATTERN COLLECTOR.' },
+    { page: 529,  kind: 'redefinition', note: 'One of the brain’s main systems of movement.' },
+    { page: 1190, kind: 'mention',      note: 'Step one of the updated version.' },
+  ],
+  metaphorMachine: [
+    { page: 9,    kind: 'definition',   note: 'What gets accepted into the metaphor machine.' },
+    { page: 30,   kind: 'definition',   note: 'Its basic function: mold an object to extract its meaning.' },
+    { page: 20,   kind: 'redefinition', note: 'Conceptual art — running the machine backwards from a concept.' },
+    { page: 84,   kind: 'mention',      note: 'Put things in; imagine what they have in common.' },
+    { page: 131,  kind: 'redefinition', note: 'Use it to “disappear a thought” by comparing it to what it’s like.' },
+    { page: 376,  kind: 'mention',      note: 'The machine is itself a metaphor for automatic processes.' },
+    { page: 410,  kind: 'mention',      note: 'A matchbox version instead of the conveyor belt.' },
+    { page: 1206, kind: 'mention',      note: 'Still asking: what goes in the metaphor machine?' },
+  ],
+  systemsOfMovement: [
+    { page: 24,   kind: 'definition',   note: 'Game theory: a specific “system of movement” for yourself.' },
+    { page: 33,   kind: 'mention',      note: 'Translation is a deceptively useful SOM.' },
+    { page: 37,   kind: 'definition',   note: 'Iteration — the last system of movement.' },
+    { page: 105,  kind: 'mention',      note: 'Cropping is a system of movement.' },
+    { page: 482,  kind: 'mention',      note: 'Games — different systems.' },
+    { page: 851,  kind: 'redefinition', note: 'An oscillating system — a common SOM.' },
+    { page: 966,  kind: 'definition',   note: 'SOM: what phenomenon is this part of? what’s another example?' },
+  ],
+  petitOntologie: [
+    { page: 1024, kind: 'definition',   note: 'un petit ontologie — a book, an equation.' },
+    { page: 1036, kind: 'mention',      note: 'Le Petit Ontologie.' },
+    { page: 1039, kind: 'redefinition', note: 'Plug the petit ontologies into the logical extension.' },
+    { page: 1047, kind: 'definition',   note: 'Un Petit Ontologie (game).' },
+    { page: 1059, kind: 'redefinition', note: 'Its rules start with this journal — constant new shortcuts.' },
+    { page: 1131, kind: 'mention',      note: 'Imaginary ontologies, petit ontologies.' },
+  ],
+  memoryLibrary: [
+    { page: 149,  kind: 'definition',   note: 'Filling the memory library with coin envelopes.' },
+    { page: 316,  kind: 'mention',      note: 'Restart the project inside the bigger multi-project book.' },
+    { page: 318,  kind: 'mention',      note: 'The memories that “help me.”' },
+    { page: 366,  kind: 'redefinition', note: 'Xi cards → memories you didn’t know you had → a memory constellation.' },
+    { page: 875,  kind: 'mention',      note: 'Post the memory library on reddit.' },
+  ],
+  duplicitousEnvelope: [
+    { page: 563,  kind: 'definition',   note: 'First: criteria list + the duplicitous envelope.' },
+    { page: 960,  kind: 'mention',      note: '“the secret is, it’s a duplicitous envelope.”' },
+    { page: 1217, kind: 'redefinition', note: 'Another version — strangeness/unnaturalness in common.' },
+    { page: 1219, kind: 'mention',      note: 'On the concept poster.' },
+  ],
+  narrativeTherapy: [
+    { page: 208,  kind: 'definition',   note: 'Reorganizing your memory — narrative therapy.' },
+    { page: 504,  kind: 'mention',      note: 'The evolving narrative-therapy tool.' },
+    { page: 987,  kind: 'definition',   note: '“I designed it — I made up everything.”' },
+  ],
+  twoSidesCoin: [
+    { page: 563,  kind: 'definition',   note: 'Competing patterns & ambiguous events — two sides of the same coin.' },
+    { page: 1025, kind: 'mention',      note: 'On the concept poster.' },
+    { page: 1219, kind: 'mention',      note: 'Listed again on the poster.' },
+  ],
 };
 
 const towers = [];
@@ -231,7 +300,7 @@ towers.splice(2, 0, {
   ],
 });
 
-fs.mkdirSync(new URL('../../public/towers/', import.meta.url), { recursive: true });
+fs.mkdirSync(new URL('../public/towers/', import.meta.url), { recursive: true });
 fs.writeFileSync(OUTJSON, JSON.stringify({ note: 'Auto-generated by ios-journal/tools/gen-towers.mjs — do not edit by hand.', towers }, null, 1));
 const total = towers.reduce((n, t) => n + t.trajectory.length + t.allMentions.length, 0);
 console.log('wrote towers.json —', total, 'entries across', towers.length, 'towers');
