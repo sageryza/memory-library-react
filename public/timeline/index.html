@@ -31,11 +31,16 @@
   .railwrap{flex:0 0 auto;display:flex;overflow-y:auto;padding:18px 0 40px;}
   .gutter{width:34px;flex:0 0 34px;position:relative;}
   .pagenum{position:absolute;right:8px;font-style:italic;font-size:10.5px;color:rgba(90,30,34,0.45);transform:translateY(-0.4em);}
-  .strip{width:80px;flex:0 0 80px;border:1px solid rgba(90,30,34,0.22);border-radius:3px;overflow:visible;align-self:flex-start;}  /* visible so a selected band's outer ring isn't clipped */
+  .strip{width:80px;flex:0 0 80px;border:1px solid rgba(90,30,34,0.22);border-radius:3px;overflow:hidden;align-self:flex-start;}
   .seg{width:100%;cursor:pointer;transition:opacity .18s, filter .18s;}
   .seg + .seg{border-top:1px solid rgba(90,30,34,0.07);}
   .seg.page-edge{border-top:1px solid rgba(90,30,34,0.28);}
-  .seg.sel{position:relative;z-index:1;box-shadow:0 0 0 2px rgba(84,80,74,0.75);}  /* gray ring around the block, not inside it */
+  /* Selection = a gray outline drawn ON the block's edges (sides on every band of
+     the run, top/bottom only on the ends) so it's one clean rectangle aligned to
+     the strip, not a floating ring. box-sizing:border-box keeps heights unchanged. */
+  .seg.sel{border-left:2px solid rgba(84,80,74,0.9);border-right:2px solid rgba(84,80,74,0.9);}
+  .seg.sel-top{border-top:2px solid rgba(84,80,74,0.9);}
+  .seg.sel-bot{border-bottom:2px solid rgba(84,80,74,0.9);}
   .seg.hidden{display:none;}   /* filtered: other bands collapse away, leaving a solid clickable strip of the picked color */
   .reader{flex:1 1 auto;overflow-y:auto;padding:20px 22px 60px;min-width:0;border-left:1px solid rgba(90,30,34,0.12);}
   .reader .hint{font-style:italic;color:rgba(90,30,34,0.5);font-size:15px;margin-top:6px;}
@@ -128,19 +133,15 @@
   vbot.onclick=function(){ if(playing){ speed=Math.min(2,+(speed+0.1).toFixed(1)); showSpd(); } else start(1); };
   vmid.onclick=function(){ playing? stop() : start(dir||1); };
   paint();
-  // Tapping the reading area toggles the scroll: pause while it's playing,
-  // resume when it's stopped (the reader has no other tap action). Taps on the
-  // band rail only pause while playing — when stopped they fall through to the
-  // normal tap-to-read band selection.
-  [reader, rail].forEach(function(el){
-    if(!el) return;
-    el.addEventListener('click', function(e){
-      if(e.target.closest('button')) return;
-      if(playing){ stop(); e.stopPropagation(); e.preventDefault(); }
-      else if(el===reader){ start(dir||1); e.stopPropagation(); e.preventDefault(); }
-    }, true);
-    el.addEventListener('wheel', function(){ if(playing) stop(); }, {passive:true});
-  });
+  // Only the reading area toggles the scroll: tap the text to pause while it's
+  // playing, tap again to resume. The band rail is intentionally left alone so
+  // you can pick a segment while it keeps scrolling — a band tap never stops it.
+  reader.addEventListener('click', function(e){
+    if(e.target.closest('button')) return;
+    if(playing){ stop(); } else { start(dir||1); }
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+  reader.addEventListener('wheel', function(){ if(playing) stop(); }, {passive:true});
 })();
 </script>
 <script>
@@ -1482,7 +1483,7 @@ function render(){
     k.classList.toggle('dim',filtering&&!on);
   });
   // Collapse the strip to the selected type(s); several stay interwoven in order.
-  segEls.forEach((el,i)=>{el.classList.toggle('hidden',filtering&&!activeColors.has(sections[i].type));el.classList.remove('sel');});
+  segEls.forEach((el,i)=>{el.classList.toggle('hidden',filtering&&!activeColors.has(sections[i].type));el.classList.remove('sel','sel-top','sel-bot');});
   gutter.style.opacity = filtering ? '0' : '1';   // page numbers stop mapping once the bands collapse
 }
 function entryHTML(s,i){
@@ -1522,7 +1523,12 @@ function runBounds(i){
 }
 function openOne(i){
   const [a,b]=runBounds(i);
-  segEls.forEach((el,j)=>el.classList.toggle('sel', j>=a && j<=b));
+  segEls.forEach((el,j)=>{
+    const on=j>=a && j<=b;
+    el.classList.toggle('sel', on);
+    el.classList.toggle('sel-top', on && j===a);
+    el.classList.toggle('sel-bot', on && j===b);
+  });
   reader.innerHTML=sections.slice(a,b+1).map((s,k)=>entryHTML(s,a+k)).join('');
   reader.scrollTop=0;
 }
