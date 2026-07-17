@@ -29,6 +29,33 @@ function makeRng(seed) {
 
 const keyOf = (r, c) => r + ',' + c;
 
+// Grow a connected, crossword-like cluster of `targetCards` cells out from the
+// centre, bounded to a `side`×`side` box — some cells stay blank (crossword),
+// it never sprawls wider than `side`, and it varies by day. Deterministic for
+// a given rand. Kept in lockstep with the iOS BoardEngine.growCluster.
+function growCluster(rand, targetCards, side) {
+  const start = Math.floor(side / 2);
+  const inBox = (r, c) => r >= 0 && r < side && c >= 0 && c < side;
+  const taken = new Set([keyOf(start, start)]);
+  const cells = [[start, start]];
+  let guard = 0;
+  while (cells.length < targetCards && guard++ < 500) {
+    const frontier = [];
+    for (const [r, c] of cells) {
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const a = r + dr; const b = c + dc;
+        if (inBox(a, b) && !taken.has(keyOf(a, b))) frontier.push([a, b]);
+      }
+    }
+    if (!frontier.length) break;
+    const [r, c] = frontier[Math.floor(rand() * frontier.length)];
+    if (taken.has(keyOf(r, c))) continue;
+    taken.add(keyOf(r, c));
+    cells.push([r, c]);
+  }
+  return cells;
+}
+
 // Breadth-first ordering of the cluster from the centre — used so the greedy
 // card assignment always extends from already-placed neighbours.
 function bfsOrder(cells) {
@@ -130,12 +157,10 @@ function randomAssign(cells, allowedEv, allowedTw, rand) {
 // `opts.random` forces the random baseline even when captions are available.
 export function dailyBoard(dayNum, pools = {}, opts = {}) {
   const rand = makeRng((dayNum + 1) * 0x9E3779B1);
-  // A SOLID 4×4 of 16 cards (bigger cards than the old grown cluster, which
-  // sprawled up to 5 wide). Kept identical to the iOS engine so the shared
-  // community board matches across platforms.
-  const SIDE = 4;
-  const cells = [];
-  for (let r = 0; r < SIDE; r += 1) for (let c = 0; c < SIDE; c += 1) cells.push([r, c]);
+  // A crossword bounded to a 4×4 box: ~12 of the 16 cells filled, the rest left
+  // blank and varying by day, so cards stay big and never sprawl wider than 4.
+  // Kept identical to the iOS engine so the shared community board matches.
+  const cells = growCluster(rand, 12, 4);
 
   const evCaps = pools.events;
   const twCaps = pools.twists;

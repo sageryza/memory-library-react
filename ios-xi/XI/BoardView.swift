@@ -37,8 +37,10 @@ struct BoardView: View {
     private var placed: [Placed] {
         BoardEngine.dailyBoard(viewDay, allowedEv: curate.allowedEvents, allowedTw: curate.allowedTwists)
     }
-    private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
-    private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
+    // Fixed square grid so cards stay a consistent (big) size and the un-filled
+    // cells render as blanks — a crossword, not a solid block.
+    private var rows: Int { BoardEngine.dailySide }
+    private var cols: Int { BoardEngine.dailySide }
     private var byCell: [String: Placed] {
         Dictionary(uniqueKeysWithValues: placed.map { ("\($0.r),\($0.c)", $0) })
     }

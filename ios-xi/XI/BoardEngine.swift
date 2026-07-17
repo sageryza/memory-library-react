@@ -105,16 +105,23 @@ func xiShuffle<T>(_ arr: [T], _ rng: inout Mulberry32) -> [T] {
 enum BoardEngine {
     private static func keyOf(_ r: Int, _ c: Int) -> String { "\(r),\(c)" }
 
-    private static func growCluster(_ rng: inout Mulberry32, _ targetCards: Int) -> [(Int, Int)] {
-        var taken: Set<String> = [keyOf(2, 2)]
-        var cells: [(Int, Int)] = [(2, 2)]
+    /// Grow a connected, crossword-like cluster of `targetCards` cells out from
+    /// the centre, bounded to a `side`×`side` box — so the board is a crossword
+    /// (some cells left blank, different each day) that never sprawls wider than
+    /// `side` and keeps the cards big.
+    private static func growCluster(_ rng: inout Mulberry32, _ targetCards: Int, side: Int) -> [(Int, Int)] {
+        let start = side / 2
+        func inBox(_ r: Int, _ c: Int) -> Bool { r >= 0 && r < side && c >= 0 && c < side }
+        var taken: Set<String> = [keyOf(start, start)]
+        var cells: [(Int, Int)] = [(start, start)]
         var guardN = 0
         while cells.count < targetCards && guardN < 500 {
             guardN += 1
             var frontier: [(Int, Int)] = []
             for (r, c) in cells {
-                for (a, b) in Grid.neighbors(r, c) where !taken.contains(keyOf(a, b)) {
-                    frontier.append((a, b))
+                for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                    let (a, b) = (r + dr, c + dc)
+                    if inBox(a, b) && !taken.contains(keyOf(a, b)) { frontier.append((a, b)) }
                 }
             }
             if frontier.isEmpty { break }
@@ -244,12 +251,12 @@ enum BoardEngine {
     /// few cards remain to fill it — mirroring the web's
     /// `dailyBoard(dayNum, pools, { allowedEv, allowedTw })`.
     static let dailySide = 4
+    static let dailyTargetCards = 12   // of 16 cells; the rest stay blank (crossword)
     static func dailyBoard(_ dayNum: Int,
                            allowedEv: [Int]? = nil, allowedTw: [Int]? = nil) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
         var rng = Mulberry32(seed: seed)
-        var cells: [(Int, Int)] = []
-        for r in 0..<dailySide { for c in 0..<dailySide { cells.append((r, c)) } }
+        let cells = growCluster(&rng, dailyTargetCards, side: dailySide)
         let evCells = cells.filter { Grid.cellKindIsEvent($0.0, $0.1) }.count
         let twCells = cells.count - evCells
         var ev = allowedEv ?? Array(0..<XIDeck.eventCaps.count)
