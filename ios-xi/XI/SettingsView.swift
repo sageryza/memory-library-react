@@ -40,6 +40,22 @@ struct SettingsView: View {
                         Label("Delete account", systemImage: "trash")
                     }
                 }
+                Section {
+                    Picker(selection: Binding(
+                        get: { SharePrefs.shared.mode ?? SharePrefs.Mode.none },
+                        set: { SharePrefs.shared.set($0) }
+                    )) {
+                        Text("Share all new memories").tag(SharePrefs.Mode.all)
+                        Text("Ask me for each memory").tag(SharePrefs.Mode.ask)
+                        Text("Keep everything private").tag(SharePrefs.Mode.none)
+                    } label: {
+                        Label("Public sharing", systemImage: "person.2")
+                    }
+                } header: {
+                    Text("Sharing")
+                } footer: {
+                    Text("Shared memories appear, first name only, to people who draw the same cards — after an automatic safety check. Changing this never shares older memories; those stay as they are.")
+                }
                 Section("Memories") {
                     Button {
                         titling = true

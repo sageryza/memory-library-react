@@ -24,7 +24,10 @@ struct XIMemory: Identifiable {
     /// Non-empty only for Commons memories — the friend who wrote it. Your own
     /// memories leave this blank.
     var authorName: String = ""
+    /// "public" once shared to the others feed (via the AI screen); else private.
+    var visibility: String = "private"
     var isCommons: Bool { !authorName.isEmpty }
+    var isPublic: Bool { visibility == "public" }
 }
 
 /// A saved board arrangement — the placed memories, their positions, the
@@ -216,7 +219,12 @@ final class XIService {
 
     // MARK: Save
 
-    func saveMemory(event: XICard, twist: XICard, text: String, boardDay: Int, mode: String = "board") async throws {
+    /// Saves a memory; returns its document id. When `share` is true the memory
+    /// is also submitted to the public "others" feed — in the background,
+    /// through the publishMemory Cloud Function's AI safety screen.
+    @discardableResult
+    func saveMemory(event: XICard, twist: XICard, text: String, boardDay: Int,
+                    mode: String = "board", share: Bool = false) async throws -> String {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "XI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not signed in."])
         }
@@ -234,6 +242,7 @@ final class XIService {
             "hashtags": tags,
             "source": "xi",
             "mode": mode,
+            "visibility": "private",   // publishMemory flips it after screening
             "event": ["id": event.id, "cap": evCap],
             "twist": ["id": twist.id, "cap": twCap],
             "pairKey": "\(event.id)__\(twist.id)",
@@ -254,6 +263,74 @@ final class XIService {
                 try? await ref.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
             }
         }
+        if share {
+            let id = ref.documentID
+            Task { await self.setMemoryVisibility(id, isPublic: true) }
+        }
+        return ref.documentID
+    }
+
+    // MARK: Public "others" feed
+
+    /// One real person's shared memory for a card pair.
+    struct PublicOther: Identifiable, Equatable {
+        let id: String
+        let byUid: String
+        let byName: String
+        let content: String
+        let ts: Double
+    }
+
+    /// Publish (after the server's AI screen) or unpublish a memory. Returns
+    /// true when the final state matches the request — false means the screen
+    /// kept it private.
+    @discardableResult
+    func setMemoryVisibility(_ memoryId: String, isPublic: Bool) async -> Bool {
+        do {
+            let res = try await functions.httpsCallable("publishMemory")
+                .call(["memoryId": memoryId, "visibility": isPublic ? "public" : "private"])
+            let ok = (res.data as? [String: Any])?["ok"] as? Bool ?? false
+            return ok
+        } catch { return false }
+    }
+
+    /// Flag a public memory for review (write-only reports collection).
+    func reportPublicMemory(_ other: PublicOther, reason: String, details: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "XI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Sign in to report."])
+        }
+        try await db.collection("xiReports").addDocument(data: [
+            "kind": "publicMemory",
+            "publicId": other.id,
+            "reportedUid": other.byUid,
+            "reportedName": other.byName,
+            "text": other.content,
+            "reason": reason,
+            "details": details.trimmingCharacters(in: .whitespacesAndNewlines),
+            "reporterUid": uid,
+            "status": "pending",
+            "ts": FieldValue.serverTimestamp(),
+        ])
+    }
+
+    /// Real shared memories for a pair — everyone's but yours, newest first.
+    /// (No orderBy in the query so no composite index is needed.)
+    func publicOthers(pairKey: String) async -> [PublicOther] {
+        guard !pairKey.isEmpty else { return [] }
+        let me = Auth.auth().currentUser?.uid
+        let docs = await retryingDocuments(
+            db.collection("publicMemories").whereField("pairKey", isEqualTo: pairKey))
+        return docs.compactMap { doc -> PublicOther? in
+            let d = doc.data()
+            let content = d["content"] as? String ?? ""
+            guard !content.isEmpty else { return nil }
+            let by = d["byUid"] as? String ?? ""
+            if let me, by == me { return nil }
+            return PublicOther(id: doc.documentID, byUid: by,
+                               byName: d["byName"] as? String ?? "anonymous",
+                               content: content, ts: d["ts"] as? Double ?? 0)
+        }
+        .sorted { $0.ts > $1.ts }
     }
 
     private lazy var functions = Functions.functions()
@@ -514,7 +591,8 @@ final class XIService {
             dateTime: dt,
             timestamp: timestamp,
             additionalContext: d["additionalContext"] as? String ?? "",
-            authorName: d["authorName"] as? String ?? ""
+            authorName: d["authorName"] as? String ?? "",
+            visibility: d["visibility"] as? String ?? "private"
         )
     }
 

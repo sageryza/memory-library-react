@@ -133,7 +133,14 @@ struct LibraryView: View {
                                 onRemoveFromCommons: !m.isCommons ? nil : {
                                     Task { await store.removeFromCommons(m.id) }; viewMem = nil
                                 },
-                                onClose: { viewMem = nil })
+                                onClose: { viewMem = nil },
+                                onSetVisibility: m.isCommons ? nil : { makePublic in
+                                    Task {
+                                        _ = await XIService.shared.setMemoryVisibility(m.id, isPublic: makePublic)
+                                        await store.reloadMemories()
+                                        viewMem = nil
+                                    }
+                                })
                         .transition(.opacity)
                 }
             }
@@ -601,6 +608,12 @@ struct MemoryPopup: View {
     var onRemoveFromCommons: (() -> Void)? = nil
     var onClose: () -> Void
 
+    /// Per-memory public/private control (own memories only) — flips through
+    /// the publishMemory screen; nil hides the row (Commons/board contexts).
+    var onSetVisibility: ((Bool) -> Void)? = nil
+    @State private var isPublic = false
+    @State private var visibilityBusy = false
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.35).ignoresSafeArea()
@@ -657,6 +670,27 @@ struct MemoryPopup: View {
             }
             if !memory.dateTime.isEmpty {
                 Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
+            }
+            if let onSetVisibility {
+                Toggle(isOn: Binding(
+                    get: { isPublic },
+                    set: { newValue in
+                        isPublic = newValue
+                        visibilityBusy = true
+                        onSetVisibility(newValue)
+                    }
+                )) {
+                    HStack(spacing: 6) {
+                        Image(systemName: isPublic ? "person.2.fill" : "lock")
+                            .font(.system(size: 12))
+                        Text(isPublic ? "shared with others who draw these cards" : "private — just for you")
+                            .font(.system(size: 13, design: .serif))
+                    }
+                    .foregroundStyle(isPublic ? XITheme.gold : XITheme.line)
+                }
+                .tint(XITheme.gold)
+                .disabled(visibilityBusy)
+                .onAppear { isPublic = memory.isPublic }
             }
             if let onRemoveFromCommons {
                 Button(role: .destructive) { onRemoveFromCommons() } label: {

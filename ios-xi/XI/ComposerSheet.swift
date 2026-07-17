@@ -13,6 +13,13 @@ struct ComposerSheet: View {
     @State private var existing: [XIMemory] = []
     @FocusState private var writing: Bool
 
+    // Public sharing: per-memory toggle in "ask" mode; one-time prompt around
+    // the 3rd memory (same flow as the Today composer).
+    @ObservedObject private var sharePrefs = SharePrefs.shared
+    @State private var shareThisOne = false
+    @State private var showSharePrompt = false
+    @State private var lastSavedId: String?
+
     private var prompt: String {
         "times i \(pairing.event.cap.lowercased()), \(pairing.twist.cap.lowercased())"
     }
@@ -48,6 +55,10 @@ struct ComposerSheet: View {
             .background(XITheme.white)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
+
+            if sharePrefs.mode == .ask {
+                ShareToggleRow(isOn: $shareThisOne)
+            }
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
@@ -90,6 +101,7 @@ struct ComposerSheet: View {
         }
         .presentationDetents([.medium, .large])
         .task { existing = await XIService.shared.memories(pairKey: pairKey) }
+        .sharePrompt(isPresented: $showSharePrompt, savedMemoryId: lastSavedId)
     }
 
     private func cardImage(_ card: XICard, isEvent: Bool) -> some View {
@@ -108,12 +120,19 @@ struct ComposerSheet: View {
         saving = true; error = nil
         Task {
             do {
-                try await XIService.shared.saveMemory(
-                    event: pairing.event, twist: pairing.twist, text: t, boardDay: boardDay
+                let id = try await XIService.shared.saveMemory(
+                    event: pairing.event, twist: pairing.twist, text: t, boardDay: boardDay,
+                    share: sharePrefs.shareForSave(askToggle: shareThisOne)
                 )
                 text = ""
+                shareThisOne = false
                 existing = await XIService.shared.memories(pairKey: pairKey)
                 saving = false
+                let total = await XIService.shared.allMemories().count
+                if sharePrefs.shouldPrompt(totalMemories: total) {
+                    lastSavedId = id
+                    showSharePrompt = true
+                }
             } catch {
                 self.error = error.localizedDescription
                 saving = false

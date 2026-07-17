@@ -33,6 +33,16 @@ struct TodayView: View {
     @State private var showSettings = false
     @FocusState private var writing: Bool
 
+    // Public sharing (Sage's spec): one-time prompt around the 3rd memory;
+    // in "ask" mode a per-memory toggle appears, defaulted to private.
+    @ObservedObject private var sharePrefs = SharePrefs.shared
+    @StateObject private var moderation = Moderation()
+    @State private var shareThisOne = false
+    @State private var showSharePrompt = false
+    @State private var lastSavedId: String?
+    @State private var realOthers: [XIService.PublicOther] = []
+    @State private var reportingOther: XIService.PublicOther?
+
     private var event: XICard { isToday ? XIDeck.events[min(max(0, ev), XIDeck.events.count - 1)] : pairForDay(viewDay).0 }
     private var twist: XICard { isToday ? XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
@@ -104,6 +114,17 @@ struct TodayView: View {
         }
         .task { startIfNeeded(); await loadTotal() }
         .task(id: pairKey) { await reload() }
+        .task(id: pairKey) { realOthers = await XIService.shared.publicOthers(pairKey: pairKey) }
+        .sharePrompt(isPresented: $showSharePrompt, savedMemoryId: lastSavedId)
+        .sheet(item: $reportingOther) { other in
+            ReportSheet(
+                subjectLabel: "memory",
+                onSubmit: { reason, details in
+                    Task { try? await XIService.shared.reportPublicMemory(other, reason: reason, details: details) }
+                    reportingOther = nil
+                },
+                onCancel: { reportingOther = nil })
+        }
         .task(id: pairKey) {
             // Seen this pair before → its texts render instantly (and are the
             // SAME as last time — they're "what others wrote", so they must
@@ -236,6 +257,9 @@ struct TodayView: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(writing ? XITheme.gold : soft.opacity(0.7), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
+            if sharePrefs.mode == .ask {
+                ShareToggleRow(isOn: $shareThisOne)
+            }
             HStack(alignment: .center, spacing: 10) {
                 // Never says zero: before your first memory of the day it shows
                 // just the day's overall count; after, "1 memory collected / N".
@@ -304,8 +328,60 @@ struct TodayView: View {
     @State private var othersTexts: [String] = []
     @State private var othersLoading = false
 
+    /// Real shared memories, minus anyone you've blocked.
+    private var visibleRealOthers: [XIService.PublicOther] {
+        realOthers.filter { !moderation.isBlocked($0.byUid) }
+    }
+
     @ViewBuilder
     private var others: some View {
+        // REAL people first, newest first — with report/block on each.
+        if !visibleRealOthers.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(visibleRealOthers) { other in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(other.byName)
+                                .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
+                            Spacer()
+                            Menu {
+                                Button { reportingOther = other } label: {
+                                    Label("Report memory", systemImage: "flag")
+                                }
+                                Button(role: .destructive) {
+                                    withAnimation { moderation.block(other.byUid, name: other.byName) }
+                                } label: {
+                                    Label("Block \(other.byName)", systemImage: "hand.raised")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis").font(.caption).foregroundStyle(XITheme.line)
+                                    .padding(.horizontal, 4)
+                            }
+                        }
+                        Text(other.content)
+                            .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 13).padding(.vertical, 11)
+                    .background(XITheme.white)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+            }
+            .padding(.top, 18)
+        }
+        // AI placeholders pinned BELOW the real ones; gone entirely once a
+        // pair has 5 real memories (Sage's transition rule).
+        if visibleRealOthers.count < 5 {
+            aiOthers
+        } else {
+            Color.clear.frame(height: 30)
+        }
+    }
+
+    @ViewBuilder
+    private var aiOthers: some View {
         if !othersTexts.isEmpty {
             let authors = XIRobots.authors(for: pairKey, count: othersTexts.count)
             // Styled exactly like your own collected memories, with the writer's
@@ -424,12 +500,19 @@ struct TodayView: View {
         do {
             // Stamp the memory with the day actually being VIEWED, so writing on
             // a past day's pair doesn't get misattributed to today.
-            try await XIService.shared.saveMemory(event: event, twist: twist, text: trimmed,
-                                                  boardDay: viewDay, mode: "daily")
+            let id = try await XIService.shared.saveMemory(
+                event: event, twist: twist, text: trimmed,
+                boardDay: viewDay, mode: "daily",
+                share: sharePrefs.shareForSave(askToggle: shareThisOne))
             text = ""
             writing = false
+            shareThisOne = false
             await reload()
             await loadTotal()
+            if sharePrefs.shouldPrompt(totalMemories: totalCount) {
+                lastSavedId = id
+                showSharePrompt = true
+            }
         } catch {
             saveError = error.localizedDescription
         }
