@@ -29,28 +29,6 @@ function makeRng(seed) {
 
 const keyOf = (r, c) => r + ',' + c;
 
-// Grow a connected, crossword-like cluster of `targetCards` cells out from the
-// centre, choosing random frontier cells. Deterministic for a given rand.
-function growCluster(rand, targetCards) {
-  const taken = new Set([keyOf(2, 2)]);
-  const cells = [[2, 2]];
-  let guard = 0;
-  while (cells.length < targetCards && guard++ < 500) {
-    const frontier = [];
-    for (const [r, c] of cells) {
-      for (const [a, b] of neighbors(r, c)) {
-        if (!taken.has(keyOf(a, b))) frontier.push([a, b]);
-      }
-    }
-    if (!frontier.length) break;
-    const [r, c] = frontier[Math.floor(rand() * frontier.length)];
-    if (taken.has(keyOf(r, c))) continue;
-    taken.add(keyOf(r, c));
-    cells.push([r, c]);
-  }
-  return cells;
-}
-
 // Breadth-first ordering of the cluster from the centre — used so the greedy
 // card assignment always extends from already-placed neighbours.
 function bfsOrder(cells) {
@@ -151,9 +129,13 @@ function randomAssign(cells, allowedEv, allowedTw, rand) {
 // affinity-aware layout, or just sizes ({ be, bw }) for the random baseline.
 // `opts.random` forces the random baseline even when captions are available.
 export function dailyBoard(dayNum, pools = {}, opts = {}) {
-  const targetCards = opts.targetCards || 13;
   const rand = makeRng((dayNum + 1) * 0x9E3779B1);
-  const cells = growCluster(rand, targetCards);
+  // A SOLID 4×4 of 16 cards (bigger cards than the old grown cluster, which
+  // sprawled up to 5 wide). Kept identical to the iOS engine so the shared
+  // community board matches across platforms.
+  const SIDE = 4;
+  const cells = [];
+  for (let r = 0; r < SIDE; r += 1) for (let c = 0; c < SIDE; c += 1) cells.push([r, c]);
 
   const evCaps = pools.events;
   const twCaps = pools.twists;

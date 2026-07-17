@@ -237,16 +237,19 @@ enum BoardEngine {
         }
     }
 
-    /// The deterministic board for a given day: 13 placed cards as a connected
-    /// blob. Optional allowed-index lists (cards still in play after Curate
-    /// removals + deck toggles) narrow the draw; each axis falls back to its
-    /// full pool if too few cards remain to fill it — mirroring the web's
+    /// The deterministic board for a given day: a SOLID 4×4 of 16 cards (bigger
+    /// cards than the old grown cluster, which sprawled up to 5 wide). Optional
+    /// allowed-index lists (cards still in play after Curate removals + deck
+    /// toggles) narrow the draw; each axis falls back to its full pool if too
+    /// few cards remain to fill it — mirroring the web's
     /// `dailyBoard(dayNum, pools, { allowedEv, allowedTw })`.
-    static func dailyBoard(_ dayNum: Int, targetCards: Int = 13,
+    static let dailySide = 4
+    static func dailyBoard(_ dayNum: Int,
                            allowedEv: [Int]? = nil, allowedTw: [Int]? = nil) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
         var rng = Mulberry32(seed: seed)
-        let cells = growCluster(&rng, targetCards)
+        var cells: [(Int, Int)] = []
+        for r in 0..<dailySide { for c in 0..<dailySide { cells.append((r, c)) } }
         let evCells = cells.filter { Grid.cellKindIsEvent($0.0, $0.1) }.count
         let twCells = cells.count - evCells
         var ev = allowedEv ?? Array(0..<XIDeck.eventCaps.count)
