@@ -211,15 +211,15 @@ struct VersusLobbyView: View {
 /// mid-play), then blurred. Shown before you've started so the empty state hints
 /// at what Versus feels like rather than being a bare "start a game" button.
 private struct VersusPreview: View {
-    /// An exact clone of a real mid-play game (from Sage's screenshot) — same
-    /// cells, same cards, same single owner badge. Nothing invented.
+    /// A blurred mock laid out like a real mid-play game — midjourney cards
+    /// only (the default deck), so the preview matches what a new game deals.
     private static let layout: [(r: Int, c: Int, cap: String, owner: Int?)] = [
-        (1, 2, "HAD TO MAKE NEW FRIENDS", nil),
-        (2, 1, "DID MY BEST", nil),
-        (2, 2, "FOUGHT OFF A FRIGHTENING MONSTER", nil),
-        (2, 3, "HIDING IN PLAIN SIGHT", nil),
-        (3, 2, "SPOKE WITH SOMEONE WHO WAS UNDER THE INFLUENCE", nil),
-        (4, 2, "STOLE THE SHOW", 1),
+        (1, 2, "TOOK A GAMBLE", nil),
+        (2, 1, "NOTHING TO DO BUT WAIT", nil),
+        (2, 2, "WON THE HEART OF THE CROWD", nil),
+        (2, 3, "TOOK BAD ADVICE", nil),
+        (3, 2, "STOOD UP FOR THE CROWD", nil),
+        (4, 2, "HAD A LITTLE TOO MUCH FUN", 1),
     ]
 
     private static func card(_ cap: String) -> XICard? {

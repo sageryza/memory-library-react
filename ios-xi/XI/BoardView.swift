@@ -51,7 +51,7 @@ struct BoardView: View {
                 board
                     .frame(maxWidth: min(520, CGFloat(cols) * 130))
                 if !isToday {
-                    Text("Past board — view only. Tap › to come back to today.")
+                    Text("A past day's board — tap two cards to add a memory, or › to return to today.")
                         .font(.system(.footnote, design: .serif))
                         .foregroundStyle(XITheme.line)
                         .multilineTextAlignment(.center)
@@ -192,7 +192,8 @@ struct BoardView: View {
     }
 
     private func tap(_ r: Int, _ c: Int, card: XICard, isEvent: Bool) {
-        guard isToday else { return } // past boards are read-only
+        // Past days are playable too — a memory written here is stamped with the
+        // day being viewed (ComposerSheet gets boardDay: viewDay).
         let here = Cell(r: r, c: c)
         guard let sel = selected else { selected = here; return }
         if sel == here { selected = nil; return }

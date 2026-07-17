@@ -65,7 +65,9 @@ final class CurateStore: ObservableObject {
         }
         excluded = loadSet(exKey, migratingFrom: "xi.excluded.v1")
         loved = loadSet(loKey, migratingFrom: "xi.loved.v1")
-        disabledDecks = Set(d.stringArray(forKey: ddKey) ?? [])
+        // Fresh installs start on the midjourney deck only — the other four are
+        // opt-in from Curate. A stored choice (local or synced) always wins.
+        disabledDecks = Set(d.stringArray(forKey: ddKey) ?? ["internet", "dreams", "claude", "chatgpt"])
         lovedOn = d.bool(forKey: lonKey)
 
         // Adopt the shared curation doc whenever a user signs in, once per uid.

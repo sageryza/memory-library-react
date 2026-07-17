@@ -157,10 +157,12 @@ function randomAssign(cells, allowedEv, allowedTw, rand) {
 // `opts.random` forces the random baseline even when captions are available.
 export function dailyBoard(dayNum, pools = {}, opts = {}) {
   const rand = makeRng((dayNum + 1) * 0x9E3779B1);
-  // A crossword bounded to a 4×4 box: ~12 of the 16 cells filled, the rest left
-  // blank and varying by day, so cards stay big and never sprawl wider than 4.
-  // Kept identical to the iOS engine so the shared community board matches.
-  const cells = growCluster(rand, 12, 4);
+  // A crossword bounded to a 4×4 box: the fill count varies (10–13 of 16) so
+  // the blank pattern shifts noticeably day to day; cards stay big and never
+  // sprawl wider than 4. Kept identical to the iOS engine (draw the target
+  // from rand FIRST, then grow) so the shared community board matches.
+  const target = 10 + Math.floor(rand() * 4);
+  const cells = growCluster(rand, target, 4);
 
   const evCaps = pools.events;
   const twCaps = pools.twists;

@@ -251,12 +251,14 @@ enum BoardEngine {
     /// few cards remain to fill it — mirroring the web's
     /// `dailyBoard(dayNum, pools, { allowedEv, allowedTw })`.
     static let dailySide = 4
-    static let dailyTargetCards = 12   // of 16 cells; the rest stay blank (crossword)
     static func dailyBoard(_ dayNum: Int,
                            allowedEv: [Int]? = nil, allowedTw: [Int]? = nil) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
         var rng = Mulberry32(seed: seed)
-        let cells = growCluster(&rng, dailyTargetCards, side: dailySide)
+        // Vary how many of the 16 cells fill (10–13) so the blank pattern shifts
+        // noticeably day to day instead of always leaving the same corners.
+        let target = 10 + Int(rng.next() * 4)
+        let cells = growCluster(&rng, target, side: dailySide)
         let evCells = cells.filter { Grid.cellKindIsEvent($0.0, $0.1) }.count
         let twCells = cells.count - evCells
         var ev = allowedEv ?? Array(0..<XIDeck.eventCaps.count)
