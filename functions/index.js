@@ -2480,3 +2480,86 @@ ${img ? `<meta property="og:image" content="${img}">` : ''}
 <script>location.replace('${target}');</script>
 </body></html>`);
 });
+
+// ---------------------------------------------------------------------------
+// XI: publishMemory — the gate between a private memory and the public
+// "others" feed. Clients can NEVER write publicMemories directly (rules block
+// it); this function re-reads the memory server-side, runs an AI safety/PII
+// screen, and only then copies it out. visibility "private" unpublishes.
+
+const SCREEN_MODEL = 'claude-haiku-4-5';
+const SCREEN_SYSTEM = 'You are a content-safety screen for a memory-sharing app. '
+  + 'Decide if a short personal memory is safe to show publicly to strangers. '
+  + 'REJECT if it contains: harassment or hate; any sexual content involving minors; '
+  + 'explicit sexual detail; credible threats or glorification of violence; '
+  + 'encouragement of self-harm; identifying personal information about anyone '
+  + '(full names paired with identifying details, phone numbers, street addresses, '
+  + 'emails, handles); or spam/advertising. Mild profanity, dark themes, grief, '
+  + 'and ordinary life details are FINE — this is a place for real memories. '
+  + 'Reply with exactly one word: ALLOW or REJECT.';
+
+exports.publishMemory = onCall({ cors: true, timeoutSeconds: 60 }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const uid = req.auth.uid;
+  const memoryId = String((req.data && req.data.memoryId) || '');
+  const makePublic = req.data && req.data.visibility === 'public';
+  const anonymous = !!(req.data && req.data.anonymous);
+  if (!memoryId) throw new HttpsError('invalid-argument', 'memoryId required.');
+
+  const memRef = db.doc(`users/${uid}/memories/${memoryId}`);
+  const pubRef = db.doc(`publicMemories/${uid}_${memoryId}`);
+  const snap = await memRef.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Memory not found.');
+  const m = snap.data();
+
+  if (!makePublic) {
+    await pubRef.delete().catch(() => {});
+    await memRef.set({ visibility: 'private' }, { merge: true });
+    return { ok: true, visibility: 'private' };
+  }
+
+  const text = String(m.content || '').trim();
+  if (!text) throw new HttpsError('failed-precondition', 'Nothing to share.');
+  const key = await loadAnthropicKey();
+  if (!key) throw new HttpsError('failed-precondition', 'AI screening is not configured.');
+  const client = new Anthropic({ apiKey: key });
+  const msg = await client.messages.create({
+    model: SCREEN_MODEL,
+    max_tokens: 5,
+    system: SCREEN_SYSTEM,
+    messages: [{ role: 'user', content: text.slice(0, 4000) }],
+  });
+  const verdict = textOf(msg).trim().toUpperCase();
+  if (verdict !== 'ALLOW') {
+    // Quietly keep it private — the app tells the user it stayed private.
+    await memRef.set({ visibility: 'private', screenedOut: true }, { merge: true });
+    return { ok: false, reason: 'screen' };
+  }
+
+  // Attribution: first name from the profile (or Auth), unless anonymous.
+  let firstName = 'anonymous';
+  if (!anonymous) {
+    try {
+      const prof = await db.doc(`users/${uid}/profile/current`).get();
+      firstName = String((prof.exists && prof.data().firstName) || '').trim();
+    } catch (e) { /* fall through */ }
+    if (!firstName) {
+      try {
+        const { getAuth } = require('firebase-admin/auth');
+        const u = await getAuth().getUser(uid);
+        firstName = ((u.displayName || '').split(' ')[0]) || 'anonymous';
+      } catch (e) { firstName = 'anonymous'; }
+    }
+  }
+
+  await pubRef.set({
+    pairKey: String(m.pairKey || ''),
+    content: text.slice(0, 2000),
+    byUid: uid,
+    byName: firstName,
+    ts: Date.now(),
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  await memRef.set({ visibility: 'public' }, { merge: true });
+  return { ok: true, visibility: 'public' };
+});

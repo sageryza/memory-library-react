@@ -106,6 +106,28 @@ service cloud.firestore {
       }
     }
 
+    // Public memories — the XI "others" feed. Written ONLY by the
+    // publishMemory Cloud Function (Admin SDK bypasses rules) after an AI
+    // safety screen; clients read, and an owner may delete their own copy.
+    match /publicMemories/{pubId} {
+      allow read: if true;
+      allow create, update: if false;
+      allow delete: if isAuthenticated() && resource.data.byUid == request.auth.uid;
+    }
+
+    // XI moderation reports (Versus stories + public memories) — write-only
+    // from clients, reviewed in the console. versusReports previously had NO
+    // rule at all, so report submissions were silently denied.
+    match /versusReports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+    match /xiReports/{reportId} {
+      allow create: if isAuthenticated()
+                    && request.resource.data.reporterUid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
     // Shared boards - link-based sharing
     match /sharedBoards/{shareId} {
       // Anyone with the link can read
