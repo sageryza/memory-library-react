@@ -126,24 +126,7 @@ struct LibraryView: View {
             }
             // Viewing a memory: a centered pop-up modal over the grid (not a
             // slide-up sheet) — tap the dim, or ✕, to close.
-            .overlay {
-                if let m = viewMem {
-                    MemoryPopup(memory: m,
-                                onEdit: m.isCommons ? nil : { viewMem = nil; memSheet = .edit(m) },
-                                onRemoveFromCommons: !m.isCommons ? nil : {
-                                    Task { await store.removeFromCommons(m.id) }; viewMem = nil
-                                },
-                                onClose: { viewMem = nil },
-                                onSetVisibility: m.isCommons ? nil : { makePublic in
-                                    Task {
-                                        _ = await XIService.shared.setMemoryVisibility(m.id, isPublic: makePublic)
-                                        await store.reloadMemories()
-                                        viewMem = nil
-                                    }
-                                })
-                        .transition(.opacity)
-                }
-            }
+            .overlay { popupOverlay }
             .animation(.easeInOut(duration: 0.18), value: viewMem?.id)
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
@@ -472,6 +455,28 @@ struct LibraryView: View {
             guard !m.isCommons else { return }   // Commons memories aren't yours to bulk-edit
             store.toggleSelected(m.id)
         } else { viewMem = m }
+    }
+
+    // Extracted from body — inlining this pushed the type-checker over its
+    // expression-complexity limit.
+    @ViewBuilder
+    private var popupOverlay: some View {
+        if let m = viewMem {
+            MemoryPopup(memory: m,
+                        onEdit: m.isCommons ? nil : { viewMem = nil; memSheet = .edit(m) },
+                        onRemoveFromCommons: !m.isCommons ? nil : {
+                            Task { await store.removeFromCommons(m.id) }; viewMem = nil
+                        },
+                        onClose: { viewMem = nil },
+                        onSetVisibility: m.isCommons ? nil : { makePublic in
+                            Task {
+                                _ = await XIService.shared.setMemoryVisibility(m.id, isPublic: makePublic)
+                                await store.reloadMemories()
+                                viewMem = nil
+                            }
+                        })
+                .transition(.opacity)
+        }
     }
 
     // MARK: masonry (pack cards into the shortest column so there are no gaps)
