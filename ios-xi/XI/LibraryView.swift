@@ -469,11 +469,14 @@ struct LibraryView: View {
                         },
                         onClose: { viewMem = nil },
                         onSetVisibility: m.isCommons ? nil : { makePublic in
+                            // Multi-statement on purpose: a bare `Task { … }` expression
+                            // makes the optional-closure ternary ambiguous to infer.
                             Task {
                                 _ = await XIService.shared.setMemoryVisibility(m.id, isPublic: makePublic)
                                 await store.reloadMemories()
                                 viewMem = nil
                             }
+                            return
                         })
                 .transition(.opacity)
         }
