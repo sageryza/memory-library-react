@@ -12,10 +12,10 @@ struct TodayView: View {
 
     @ObservedObject private var curate = CurateStore.shared
 
-    /// Full-pool indices. Cards of the Day is the COMMUNITY feature — the
-    /// whole world gets the same starting pair each day, so the day's deal
-    /// deliberately ignores curation. Curate choices apply when YOU redraw
-    /// (the walk skips removed cards and disabled decks, like the web).
+    /// Full-pool indices. The daily pair — like the Board of the Day, redraws,
+    /// and new Versus games — honors your Curate picks: the deterministic walk
+    /// draws only from the decks/cards you've kept, so curating shapes the
+    /// whole app (set midjourney-only → everything is midjourney).
     @State private var ev = 0
     @State private var tw = 0
     @State private var flip = "tw"
@@ -37,12 +37,22 @@ struct TodayView: View {
     private var twist: XICard { isToday ? XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
 
-    /// Deterministic daily pairing (same walk the gallery used): event forward,
-    /// twist backward.
+    /// The full-pool indices for a day's pair, drawn only from your CURATED
+    /// pools (event forward from the front, twist backward from the end).
+    /// Falls back to the full pool per axis if curation left it empty.
+    private func dayPairIndices(_ dn: Int) -> (Int, Int) {
+        let ae = curate.allowedEvents, at = curate.allowedTwists
+        let evPool = ae.isEmpty ? Array(0..<XIDeck.events.count) : ae
+        let twPool = at.isEmpty ? Array(0..<XIDeck.twists.count) : at
+        guard !evPool.isEmpty, !twPool.isEmpty else { return (0, 0) }
+        let ei = evPool[((dn % evPool.count) + evPool.count) % evPool.count]
+        let ti = twPool[((((twPool.count - 1 - dn) % twPool.count) + twPool.count) % twPool.count)]
+        return (ei, ti)
+    }
+
+    /// Deterministic daily pairing, honoring curation.
     private func pairForDay(_ dn: Int) -> (XICard, XICard) {
-        let ne = XIDeck.events.count, nt = XIDeck.twists.count
-        let ei = ((dn % ne) + ne) % ne
-        let ti = ((((nt - 1 - dn) % nt) + nt) % nt)
+        let (ei, ti) = dayPairIndices(dn)
         return (XIDeck.events[ei], XIDeck.twists[ti])
     }
 
@@ -350,13 +360,9 @@ struct TodayView: View {
     private func startIfNeeded() {
         guard !started else { return }
         started = true
-        // The day's shared pair — the same deterministic walk pairForDay uses,
-        // over the FULL pools, so everyone in the world starts on these cards.
-        let ne = XIDeck.events.count, nt = XIDeck.twists.count
-        guard ne > 0, nt > 0 else { return }
-        let dn = BoardEngine.dayNumber()
-        ev = ((dn % ne) + ne) % ne
-        tw = ((((nt - 1 - dn) % nt) + nt) % nt)
+        // The day's pair, drawn from your curated pools (same walk pairForDay uses).
+        guard !XIDeck.events.isEmpty, !XIDeck.twists.isEmpty else { return }
+        (ev, tw) = dayPairIndices(BoardEngine.dayNumber())
     }
 
     /// The next in-play index walking `step` through a pool, skipping cards
