@@ -73,7 +73,7 @@
 </header>
 <div class="stage">
   <div class="railwrap"><div class="strip" id="strip"><div id="selbox"></div></div></div>
-  <div class="reader" id="reader"><p class="hint">Tap a block to read its whole color segment. Tap a color above to read only that kind.</p></div>
+  <div class="reader" id="reader"></div>
 </div>
 <div class="float">
   <div class="vseg">
@@ -1449,7 +1449,7 @@ ORDER.forEach(type=>{
 const resetK=document.createElement('span');resetK.className='key reset';resetK.textContent='show all';
 resetK.onclick=()=>{activeColors.clear();render();reader.innerHTML=hint();};legendEl.appendChild(resetK);
 
-function hint(){return '<p class="hint">Tap a block to read it. Tap one or more colors above to filter — pick several to read them interwoven.</p>';}
+function hint(){return '';}
 
 const segEls=[];
 sections.forEach((s,i)=>{
