@@ -23,26 +23,12 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   making, but confirm with Sage when a call is close.)
 
 ## Communication
-- **TLDR + audio replies (Sophie's rule, July 2026).**
-  - **TLDR at the end of every reply, no matter what** — the only exception is
-    a really quick reply that fits in ONE iPhone screen (she has an iPhone 13).
-  - **Attach an audio version (voice memo)** — TTS via OpenAI `gpt-4o-mini-tts`
-    reading the message verbatim (strip markdown/URLs, keep the words) —
-    whenever the reply is longer than one iPhone-13 screen (she'd have to
-    scroll) OR says something important for her to know: answers to her
-    questions, questions for her, new findings, decisions she needs to make.
-  - **Skip the audio** when the reply just confirms work she asked for or is
-    technical detail with no new information ("built it — here's what
-    changed"). TLDR still required.
-  - **Answer questions FIRST.** If Sophie's message contains a question, answer
-    it at the top of the reply, before doing or reporting on any tasks from the
-    same message.
-  - **Small question → short answer.** When Sophie asks a quick or small
-    question, reply with just the answer — no suggestions about what to do
-    next, no updates on work already done, no recaps. Save those for when she
-    asks for them.
-  - Audio is the LAST thing in the message — after the TLDR and any
-    files/images.
+- **Answer questions FIRST.** If Sophie's message contains a question, answer
+  it at the top of the reply, before doing or reporting on any tasks from the
+  same message.
+- **Small question → short answer.** When Sophie asks a quick or small
+  question, reply with just the answer — no suggestions about what to do next,
+  no updates on work already done, no recaps. Save those for when she asks.
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
   (`https://…`), never bare text or a fragment the user has to assemble.
@@ -50,13 +36,8 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   test, give the live URL(s) to test it on as full clickable links — the deployed
   app page for the feature (e.g. `https://incaseofamnesia.com/xi`), plus the PR
   link. Don't make the user hunt for where to look.
-- **Message order is fixed: body → TL;DR → clickable links → audio LAST.** The
-  short TL;DR comes after the body; then the things to click (app pages, PR); then
-  any attached audio/file goes at the *very bottom*, below the links — never above
-  the text. Images likewise go at the END of the message.
-- **Audio recordings: British male voice (`fable`), 1.2× speed** — `illustration-lab/tts.mjs`
-  now defaults to both (a non-1.0 speed routes through `tts-1-hd`). Proactively attach
-  an audio version for long / multi-question replies; skip it for short ones.
+- **Delivered files/images go at the END of the message**, below any clickable
+  links — never above the text.
 - **Copy-paste / handoff messages = one code block.** When the user asks for a
   message to copy-paste, forward, or hand off to another chat, put the ENTIRE
   message inside a single fenced code block so it copies in one tap — no
