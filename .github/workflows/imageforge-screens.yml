@@ -61,24 +61,26 @@ jobs:
             -derivedDataPath ../dd \
             CODE_SIGNING_ALLOWED=NO | tail -40
 
-      - name: Install and launch the app
+      - name: Install the app
         run: |
           APP=$(find dd/Build/Products -maxdepth 2 -name "ImageForge.app" | head -1)
           echo "app: $APP"
           xcrun simctl install "${{ steps.sim.outputs.udid }}" "$APP"
-          xcrun simctl launch "${{ steps.sim.outputs.udid }}" com.sageryza.imageforge || true
-          sleep 6
 
-      - name: Walk every screen via deep links and screenshot each
+      - name: Relaunch per screen (FORGE_SCREEN env) and screenshot each
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
+          BID=com.sageryza.imageforge
           mkdir -p screens
-          # home + gallery + every Tool rawValue (RootView.handleDeepLink)
+          # home + gallery + every Tool rawValue (RootView.go). Relaunching with
+          # SIMCTL_CHILD_FORGE_SCREEN navigates straight there on appear — no
+          # deep-link confirmation dialog to block it.
           SCREENS="home gallery movie story writing chats dreams sticker coloring storybook greeting instagram ads test"
           i=0
           for s in $SCREENS; do
             i=$((i+1))
-            xcrun simctl openurl "$UDID" "deckfactory://$s" || true
+            xcrun simctl terminate "$UDID" "$BID" >/dev/null 2>&1 || true
+            SIMCTL_CHILD_FORGE_SCREEN="$s" xcrun simctl launch "$UDID" "$BID" || true
             # webview screens (story/writing/chats) fetch live content — give them room
             sleep 7
             n=$(printf '%02d' "$i")
