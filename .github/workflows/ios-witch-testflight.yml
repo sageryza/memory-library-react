@@ -1,0 +1,71 @@
+name: Secretly a Witch TestFlight
+
+# Builds the Secretly a Witch app (the SecretlyAWitch target in the PUBLIC
+# sageryza/imageforge repo's ios/ project — a native shell around the deployed
+# /witch web app) from here, reusing this repo's App Store Connect secrets.
+# Mirrors imageforge-testflight.yml, minus the icon-inject and project-patch
+# steps: the witch target commits its own icon and bakes its display name /
+# compliance / orientations into project.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      imageforge_ref:
+        description: "sageryza/imageforge branch/ref to build"
+        default: "main"
+        required: false
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: 5XR23N2CBH
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "180"
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
+    steps:
+      # The Fastfile builds from $GITHUB_WORKSPACE/ios (a reserved var), so
+      # imageforge is checked out AT the workspace root and tooling in a subdir.
+      - name: Checkout ImageForge (public) at workspace root
+        uses: actions/checkout@v4
+        with:
+          repository: sageryza/imageforge
+          ref: ${{ inputs.imageforge_ref || 'main' }}
+
+      - name: Checkout tooling (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: tools
+
+      - name: Select newest Xcode (need 26+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Selecting $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')
+          if [ "$MAJOR" -lt 26 ]; then
+            echo "::error::App Store needs Xcode 26+, but newest on this runner is $MAJOR"
+            exit 1
+          fi
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Revoke stale signing certificates
+        run: python3 tools/ci/revoke_stale_certs.py
+
+      # NOTE: the App Store Connect *app record* (com.sageryza.secretlyawitch /
+      # "Secretly a Witch") must be created once by hand in App Store Connect,
+      # and the ASC API key must be granted access to the new app (the key is
+      # app-scoped). The App *ID* / bundle id auto-registers here during
+      # -allowProvisioningUpdates signing.
+
+      - name: Build & upload to TestFlight
+        working-directory: ios
+        run: fastlane witch
