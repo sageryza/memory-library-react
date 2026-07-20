@@ -11,6 +11,12 @@ service firebase.storage {
     match /journal-scans/{path=**} {
       allow read, write: if request.auth != null;
     }
+    // Voice memos (dreams + journals) the JournalReader app plays back. Uploaded
+    // out-of-band by the owner's admin script; the app only ever reads them.
+    match /memo-audio/{path=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

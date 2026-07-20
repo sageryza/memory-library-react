@@ -84,3 +84,34 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   Treat that feedback as a **running queue to fold in later**, not as interrupts
   to drop everything for — UNLESS it directly contradicts what's being built, or
   is explicitly about prioritization. Keep a visible list of the open items.
+
+## Audio messages (forever)
+- **Long replies also become voice notes.** Whenever a reply is long — it explains
+  multiple things, answers several questions, or asks several important questions —
+  ALSO generate an audio version and send it as an mp3 file alongside the text.
+- **Format: male British voice at 1.2x speed.** Generate with OpenAI TTS (model
+  `gpt-4o-mini-tts`, voice `onyx`, instructions: "warm, natural male British accent
+  (RP), conversational"), using `OPENAI_API_KEY` from the environment (ask Sage for
+  a key if it is not set). Then speed it up with `ffmpeg -filter:a "atempo=1.2"`
+  and send the mp3 to Sage.
+- Adapt the text for listening: skip URLs and code, read numbers naturally, keep
+  the wording otherwise faithful to the written message.
+
+## Reply format (forever)
+- **TLDR first.** Start every substantive reply with a 1-3 line TLDR that answers
+  the question(s) directly, before any detail.
+- **Current link(s) at the very bottom.** End every reply with the working link(s)
+  for whatever is being built — the live page/artifact and the open PR — as full
+  clickable links, so the latest link is always the last thing in the message.
+- **Audio when warranted.** If the message is long AND important, also attach the
+  voice-note version per the Audio messages rule (British male, 1.2x).
+
+## Voice memo archive (where the data lives)
+- Sage's 993 transcribed voice memos (2021-2026) — transcripts, categories,
+  titles, keywords, descriptions — live in a PRIVATE Claude artifact on her
+  account: https://claude.ai/code/artifact/adf1cb87-4d20-4a79-afdb-9bb721dc5b33
+  Fetch that page (WebFetch works with her login) and parse the JSON in the
+  `<script id="archive" type="application/json">` block. Do NOT commit the
+  transcripts to this repo — it is public.
+- The browsable search page is a separate artifact:
+  https://claude.ai/code/artifact/66e91d44-9565-41b3-a024-af796bf2909e
