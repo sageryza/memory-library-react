@@ -62,18 +62,22 @@ jobs:
           echo "app: $APP"
           xcrun simctl install "${{ steps.sim.outputs.device }}" "$APP"
 
-      - name: Capture each tab
+      - name: Capture screens
         run: |
           DEV="${{ steps.sim.outputs.device }}"
           mkdir -p shots
           xcrun simctl ui "$DEV" appearance light || true
-          for TAB in home school book shop; do
+          # name|tab|shot-section (shot blank = top of tab)
+          SHOTS="home|home| school|school| shop|shop| book|book| dream|home|dream-card"
+          for ENTRY in $SHOTS; do
+            NAME="${ENTRY%%|*}"; REST="${ENTRY#*|}"; TAB="${REST%%|*}"; SHOT="${REST#*|}"
+            [ "$SHOT" = "$TAB" ] && SHOT=""
             xcrun simctl terminate "$DEV" com.sageryza.secretlyawitch 2>/dev/null || true
-            SIMCTL_CHILD_WITCH_TAB=$TAB xcrun simctl launch "$DEV" com.sageryza.secretlyawitch
+            SIMCTL_CHILD_WITCH_TAB=$TAB SIMCTL_CHILD_WITCH_SHOT=$SHOT xcrun simctl launch "$DEV" com.sageryza.secretlyawitch
             # Give the WKWebView time to load the live page + its images.
             sleep 16
-            xcrun simctl io "$DEV" screenshot "shots/witch-$TAB.png"
-            echo "captured $TAB"
+            xcrun simctl io "$DEV" screenshot "shots/witch-$NAME.png"
+            echo "captured $NAME (tab=$TAB shot=$SHOT)"
           done
           ls -la shots
 
