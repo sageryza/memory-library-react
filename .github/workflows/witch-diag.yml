@@ -1,0 +1,15 @@
+name: Witch build diagnostic
+on:
+  push:
+    branches: [witch-diag]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pyjwt cryptography
+      - run: python3 scripts/asc_build_state.py
