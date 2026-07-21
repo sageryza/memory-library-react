@@ -43,3 +43,23 @@ for b in builds["data"]:
     print(f"  build {a.get('version')}  processingState={a.get('processingState')}  "
           f"betaState={detail_state}  expired={a.get('expired')}  "
           f"uploaded={a.get('uploadedDate')}  compliance={a.get('usesNonExemptEncryption')}")
+
+# ── Beta groups + testers for the app ──
+print("---- beta groups ----")
+groups = get(f"/v1/apps/{app_id}/betaGroups")
+if not groups["data"]:
+    print("NO beta groups exist for this app (no internal testing group yet).")
+for g in groups["data"]:
+    ga = g["attributes"]
+    gid = g["id"]
+    print(f"  group '{ga.get('name')}'  internal={ga.get('isInternalGroup')}  "
+          f"autoDistribute={ga.get('hasAccessToAllBuilds')}")
+    try:
+        testers = get(f"/v1/betaGroups/{gid}/betaTesters")
+        for t in testers["data"]:
+            ta = t["attributes"]
+            print(f"      tester: {ta.get('firstName')} {ta.get('lastName')} <{ta.get('email')}>  state={ta.get('state')}")
+        if not testers["data"]:
+            print("      (no testers in this group)")
+    except Exception as e:
+        print("      tester query failed:", e)
