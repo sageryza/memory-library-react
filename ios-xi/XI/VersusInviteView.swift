@@ -13,21 +13,45 @@ struct VersusInviteView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var slots: [InviteSlot] = [InviteSlot()]
-    @State private var pickingIndex: Int?
     @State private var busy = false
     @State private var error: String?
     // The per-person text queue: after the game is created, each picked contact
     // gets their own pre-addressed Messages sheet with their unique link.
-    @State private var sendQueue: [(recipient: String, body: String)] = []
-    @State private var composing: (recipient: String, body: String)?
+    @State private var sendQueue: [PendingText] = []
     @State private var createdGameId: String?
-    @State private var groupShareLink: String?
+    // ONE sheet drives the whole flow (contact picker → composer(s) → share).
+    // Multiple isPresented sheets stacked on a view that's itself inside a
+    // sheet silently dropped presentations — the game got created but the
+    // Messages draft never appeared. An item-driven sheet can't desync.
+    @State private var sheet: ActiveSheet?
+    // What to do once the current sheet has fully animated away — presenting
+    // the next composer mid-dismissal is exactly the race that dropped it.
+    @State private var afterDismiss: (() -> Void)?
 
     struct InviteSlot: Identifiable, Equatable {
         let id = UUID()
         var name: String = ""
         var phone: String = ""
         var isFilled: Bool { !name.isEmpty }
+    }
+
+    struct PendingText: Identifiable {
+        let id = UUID()
+        let recipient: String
+        let body: String
+    }
+
+    enum ActiveSheet: Identifiable {
+        case picker(Int)          // choosing a contact for slot i
+        case compose(PendingText) // one friend's pre-addressed Messages draft
+        case share(String)        // the group-chat link, via the share sheet
+        var id: String {
+            switch self {
+            case .picker(let i): return "picker-\(i)"
+            case .compose(let t): return "compose-\(t.id)"
+            case .share: return "share"
+            }
+        }
     }
 
     private static let maxFriends = 4
@@ -115,30 +139,42 @@ struct VersusInviteView: View {
             }
         }
         .tint(XITheme.gold)
-        .sheet(isPresented: Binding(get: { pickingIndex != nil }, set: { if !$0 { pickingIndex = nil } })) {
-            ContactPicker { name, phone in
-                if let i = pickingIndex, slots.indices.contains(i) {
-                    slots[i].name = name
-                    slots[i].phone = phone
+        .sheet(item: $sheet, onDismiss: {
+            if let action = afterDismiss {
+                afterDismiss = nil
+                action()
+            } else if !sendQueue.isEmpty {
+                // A composer was swiped away without its delegate firing —
+                // keep the queue moving rather than stranding the flow.
+                advanceQueue()
+            }
+        }) { s in
+            switch s {
+            case .picker(let i):
+                ContactPicker { name, phone in
+                    if slots.indices.contains(i) {
+                        slots[i].name = name
+                        slots[i].phone = phone
+                    }
+                    sheet = nil
                 }
-                pickingIndex = nil
-            }
-        }
-        .sheet(isPresented: Binding(get: { composing != nil }, set: { if !$0 { advanceQueue() } })) {
-            if let c = composing {
-                MessageComposer(recipient: c.recipient, body: c.body) { advanceQueue() }
-            }
-        }
-        .sheet(isPresented: Binding(get: { groupShareLink != nil }, set: { if !$0 { finish() } })) {
-            if let link = groupShareLink {
-                ActivitySheet(items: ["Build a memory board with me in XI: \(link)"]) { finish() }
+            case .compose(let t):
+                MessageComposer(recipient: t.recipient, body: t.body) {
+                    afterDismiss = { advanceQueue() }
+                    sheet = nil
+                }
+            case .share(let link):
+                ActivitySheet(items: ["Build a memory board with me in XI: \(link)"]) {
+                    afterDismiss = { finish() }
+                    sheet = nil
+                }
             }
         }
     }
 
     private func personCircle(_ slot: InviteSlot, index: Int) -> some View {
         VStack(spacing: 6) {
-            Button { pickingIndex = index } label: {
+            Button { sheet = .picker(index) } label: {
                 Image(systemName: slot.isFilled ? "person.fill" : "person")
                     .font(.system(size: 30))
                     .foregroundStyle(slot.isFilled ? .white : XITheme.gold)
@@ -177,11 +213,18 @@ struct VersusInviteView: View {
             // text silently.)
             sendQueue = zip(slots, invites).compactMap { slot, inv in
                 guard slot.isFilled else { return nil }
-                return (recipient: slot.phone,
-                        body: "Build a memory board with me in XI: \(link(id, token: inv.token))")
+                return PendingText(recipient: slot.phone,
+                                   body: "Build a memory board with me in XI: \(link(id, token: inv.token))")
             }
             busy = false
-            advanceQueue()
+            // A device that can't text would silently skip every composer —
+            // fall back to the share sheet instead of doing nothing at all.
+            if MessageComposer.canSend() {
+                advanceQueue()
+            } else {
+                sendQueue = []
+                sheet = .share(link(id, token: nil))
+            }
         } catch { self.error = error.localizedDescription; busy = false }
     }
 
@@ -192,7 +235,7 @@ struct VersusInviteView: View {
             let id = try await VersusService.shared.createGame(expectedPlayers: slots.count + 1)
             createdGameId = id
             busy = false
-            groupShareLink = link(id, token: nil)
+            sheet = .share(link(id, token: nil))
         } catch { self.error = error.localizedDescription; busy = false }
     }
 
@@ -209,15 +252,13 @@ struct VersusInviteView: View {
 
     private func advanceQueue() {
         if sendQueue.isEmpty {
-            composing = nil
             if createdGameId != nil { finish() }
         } else {
-            composing = sendQueue.removeFirst()
+            sheet = .compose(sendQueue.removeFirst())
         }
     }
 
     private func finish() {
-        groupShareLink = nil
         if let id = createdGameId {
             createdGameId = nil
             dismiss()
