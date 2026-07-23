@@ -39,7 +39,8 @@ struct CardArt: View {
     @MainActor
     private func load() async {
         image = nil
-        guard let img = card.img, let url = URL(string: XITheme.cardArtBase + img) else { return }
+        guard let img = card.img,
+              let url = URL(string: img.hasPrefix("http") ? img : XITheme.cardArtBase + img) else { return }
         let req = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
         // Cache hit first, synchronously — no caption flash for art we have.
         if let cached = URLCache.shared.cachedResponse(for: req),

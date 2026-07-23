@@ -29,14 +29,54 @@ struct Placed: Equatable {
 enum XIDeck {
     private struct DeckFile: Decodable { let events: [XICard]; let twists: [XICard] }
 
-    static let deck: ([XICard], [XICard]) = loadDeck()
-    static var events: [XICard] { deck.0 }
-    static var twists: [XICard] { deck.1 }
+    /// Bundled deck + any cached shared extras, applied synchronously on first
+    /// access so every consumer sees complete pools from the start. Extras
+    /// arriving later (XIDeckExtras.refresh) APPEND live — indices of existing
+    /// cards never move, so in-flight games and role keys stay valid.
+    private static var store: (ev: [XICard], tw: [XICard]) = {
+        let file = loadDeck()
+        var ev = file.0, tw = file.1
+        let cached = XIDeckExtras.cached()
+        for e in cached.added where !appliedExtraIds.contains(e.id) {
+            appliedExtraIds.insert(e.id)
+            ev.append(XICard(id: "board-event-\(e.id)", cap: e.cap, img: e.img, deck: "midjourney"))
+            tw.append(XICard(id: "board-twist-\(e.id)", cap: e.cap, img: e.img, deck: "midjourney"))
+        }
+        hiddenBases = Set(cached.removed)
+        return (ev, tw)
+    }()
+    static var events: [XICard] { store.ev }
+    static var twists: [XICard] { store.tw }
+
+    private static var appliedExtraIds = Set<String>()
+    /// Base ids removed-for-everyone: never dealt, still resolvable (old
+    /// memories keep their art). See XIDeckExtras.
+    private(set) static var hiddenBases = Set<String>()
+
+    static func isHidden(_ c: XICard) -> Bool {
+        guard !hiddenBases.isEmpty else { return false }
+        let base = c.id.replacingOccurrences(
+            of: #"^board-(event|twist)-"#, with: "", options: .regularExpression)
+        return hiddenBases.contains(base)
+    }
+
+    /// Apply freshly-fetched extras: append unseen cards, update hides, and
+    /// tell listeners (CurateStore rebuilds its id index) — main thread only.
+    static func applyExtras(_ s: XIDeckExtras.State) {
+        for e in s.added where !appliedExtraIds.contains(e.id) {
+            appliedExtraIds.insert(e.id)
+            store.ev.append(XICard(id: "board-event-\(e.id)", cap: e.cap, img: e.img, deck: "midjourney"))
+            store.tw.append(XICard(id: "board-twist-\(e.id)", cap: e.cap, img: e.img, deck: "midjourney"))
+        }
+        hiddenBases = Set(s.removed)
+        NotificationCenter.default.post(name: XIDeckExtras.changed, object: nil)
+    }
+
     /// Sparse non-BASE scores: EVENTCAP -> [TWISTCAP: score].
     static let affinity: [String: [String: Int]] = loadAffinity()
 
-    static let eventCaps: [String] = deck.0.map { $0.cap }
-    static let twistCaps: [String] = deck.1.map { $0.cap }
+    static var eventCaps: [String] { store.ev.map { $0.cap } }
+    static var twistCaps: [String] { store.tw.map { $0.cap } }
 
     static func loadJSON(_ name: String) -> Data {
         guard let url = Bundle.main.url(forResource: name, withExtension: "json"),

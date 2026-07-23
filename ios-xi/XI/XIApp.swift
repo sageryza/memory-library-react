@@ -4,7 +4,13 @@ import GoogleSignIn
 
 @main
 struct XIApp: App {
-    init() { Self.configureFirebase(); XIImagePrefetch.warm() }
+    init() {
+        Self.configureFirebase()
+        XIImagePrefetch.warm()
+        // Shared deck extras: cached ones applied synchronously on first pool
+        // access; fetch fresh ones (Sage's latest adds/removes) in background.
+        Task { await XIDeckExtras.refresh() }
+    }
 
     var body: some Scene {
         WindowGroup {
