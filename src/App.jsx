@@ -20,6 +20,7 @@ import SmsConsent from './components/SmsConsent'
 // Login, Archive) stay eager so the first paint is immediate.
 const ConspiracyBoard = lazy(() => import('./components/conspiracy-board/ConspiracyBoard'))
 const XiDeckManager = lazy(() => import('./components/xi/XiDeckManager'))
+const XiStories = lazy(() => import('./components/xi/XiStories'))
 const Libraries = lazy(() => import('./components/libraries/Libraries'))
 const ChronologyV2 = lazy(() => import('./components/ChronologyV2'))
 const GroupDreamJournal = lazy(() => import('./components/dream-journal/GroupDreamJournal'))
@@ -428,6 +429,10 @@ function App() {
           <Route
             path="/xi/deck-manager"
             element={<Suspense fallback={<LoadingSpinner />}><XiDeckManager /></Suspense>}
+          />
+          <Route
+            path="/xi/stories"
+            element={<Suspense fallback={<LoadingSpinner />}><XiStories /></Suspense>}
           />
           <Route
             path="/xi/versus/:gameId"

@@ -24,13 +24,19 @@ final class SharePrefs: ObservableObject {
     static let shared = SharePrefs()
 
     @Published private(set) var mode: Mode?
+    /// "Stories I tell": Versus stories publish to the public library by
+    /// default — people have stories they tell. Off = keep them private.
+    /// Synced as xiSettings/state.versusPublic (absent means ON).
+    @Published private(set) var versusPublic: Bool
 
     private let key = "xi.shareMode.v1"
+    private let vpKey = "xi.versusPublic.v1"
     private var hydratedFor: String?
     private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
         mode = UserDefaults.standard.string(forKey: key).flatMap(Mode.init)
+        versusPublic = (UserDefaults.standard.object(forKey: vpKey) as? Bool) ?? true
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let uid = user?.uid else { return }
             Task { @MainActor in await self?.hydrate(uid: uid) }
@@ -45,11 +51,15 @@ final class SharePrefs: ObservableObject {
     private func hydrate(uid: String) async {
         guard hydratedFor != uid else { return }
         hydratedFor = uid
-        guard let snap = try? await stateRef(uid).getDocument(),
-              let raw = snap.data()?["shareMode"] as? String,
-              let m = Mode(rawValue: raw) else { return }
-        mode = m
-        UserDefaults.standard.set(raw, forKey: key)
+        guard let snap = try? await stateRef(uid).getDocument(), let data = snap.data() else { return }
+        if let raw = data["shareMode"] as? String, let m = Mode(rawValue: raw) {
+            mode = m
+            UserDefaults.standard.set(raw, forKey: key)
+        }
+        if let vp = data["versusPublic"] as? Bool {
+            versusPublic = vp
+            UserDefaults.standard.set(vp, forKey: vpKey)
+        }
     }
 
     func set(_ m: Mode) {
@@ -57,6 +67,13 @@ final class SharePrefs: ObservableObject {
         UserDefaults.standard.set(m.rawValue, forKey: key)
         guard let uid = Auth.auth().currentUser?.uid else { return }
         Task { try? await stateRef(uid).setData(["shareMode": m.rawValue], merge: true) }
+    }
+
+    func setVersusPublic(_ on: Bool) {
+        versusPublic = on
+        UserDefaults.standard.set(on, forKey: vpKey)
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        Task { try? await stateRef(uid).setData(["versusPublic": on], merge: true) }
     }
 
     /// Show the one-time prompt after this save? (Never answered, and the

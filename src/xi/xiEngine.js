@@ -68,13 +68,27 @@ export function initXi(root, ctx) {
   const todayKey = () => new Date().toISOString().slice(0, 10);
   // Deterministic daily pair (for the gallery). Event and twist pools can differ
   // in length (split decks), so index each by its own length to stay in bounds.
-  function pairForDay(dn) { const ne = POOL.ev.length, nt = POOL.tw.length; const ei = ((dn % ne) + ne) % ne; const ti = (((nt - 1 - (dn % nt)) % nt) + nt) % nt; return [{ d: 'ev', i: ei }, { d: 'tw', i: ti }]; }
+  function pairForDay(dn) { const nt = POOL.tw.length; const ti = (((nt - 1 - (dn % nt)) % nt) + nt) % nt; return [{ d: 'ev', i: anchorIndex(dn) }, { d: 'tw', i: ti }]; }
+  // THE card of the day: ONE shared event card, the same for everyone in the
+  // world that day — deterministic over the bundled midjourney cards (their
+  // pool indices 0..85 on every client) minus globally-removed ones, and
+  // untouched by personal curation. Only the twist is yours to redraw/curate.
+  const BUNDLED_MJ = 86;
+  function anchorIndex(dn) {
+    const cands = [];
+    for (let i = 0; i < Math.min(BUNDLED_MJ, POOL.ev.length); i += 1) {
+      const c = POOL.ev[i];
+      if (c && c.deck === 'midjourney' && !c.hidden) cands.push(i);
+    }
+    if (!cands.length) return 0;
+    return cands[((dn % cands.length) + cands.length) % cands.length];
+  }
 
   let S = { shown: [], hist: [], flip: 'tw' };
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
   // Start the two slots at opposite ends of the (shared) deck — event from the
   // front, twist from the back — so you're never comparing a card with itself.
-  function topPair() { return [{ d: 'ev', i: nextI('ev', poolLen('ev') - 1) }, { d: 'tw', i: prevI('tw', 0) }]; }
+  function topPair() { return [{ d: 'ev', i: anchorIndex(dayNum()) }, { d: 'tw', i: prevI('tw', 0) }]; }
   // Step a slot in its travel direction: events forward, twists backward.
   function stepI(d, i) { return d === 'ev' ? nextI(d, i) : prevI(d, i); }
   // If a currently-shown card has just been removed in Curate, swap it for the
@@ -82,7 +96,7 @@ export function initXi(root, ctx) {
   // if anything changed.
   function sanitizeShown() {
     let changed = false;
-    S.shown = S.shown.map((r) => { if (isOff(r.d, r.i) && !allOff(r.d)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
+    S.shown = S.shown.map((r) => { if (r.d === 'ev') return r; if (isOff(r.d, r.i) && !allOff(r.d)) { changed = true; return { d: r.d, i: stepI(r.d, r.i) }; } return r; });
     return changed;
   }
   async function savePair() { await st.set('xi2_pair', { day: todayKey(), sig: deckSig(), shown: S.shown }); }
@@ -103,6 +117,11 @@ export function initXi(root, ctx) {
     const p = await st.get('xi2_pair');
     if (p && p.shown && p.shown.length && p.sig === deckSig()) { S.shown = p.shown; }
     else { S.shown = topPair(); await savePair(); }
+    // Pin the event slot to today's shared card (a stored pair may be
+    // yesterday's, or predate the one-card-of-the-day change).
+    const a = anchorIndex(dayNum());
+    const ke = S.shown.findIndex((r) => r.d === 'ev');
+    if (ke >= 0 && S.shown[ke].i !== a) { S.shown[ke] = { d: 'ev', i: a }; await savePair(); }
     if (sanitizeShown()) await savePair();
   }
 
@@ -110,7 +129,8 @@ export function initXi(root, ctx) {
   function renderCenter() {
     const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
     $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">' + SUNRISE + '<span>New cards</span></button><button class="nothing" id="nothingBtn">I got nothing</button>';
-    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const d = S.flip; const k = S.shown.findIndex((r) => r.d === d); if (k >= 0) { S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; } else { S.shown.push({ d, i: d === 'ev' ? nextI('ev', poolLen('ev') - 1) : prevI('tw', 0) }); } S.flip = (S.flip === 'tw' ? 'ev' : 'tw'); await savePair(); renderCenter(); softUpdateToday(); };
+    // Only the twist redraws — the event card is THE card of the day.
+    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const k = S.shown.findIndex((r) => r.d === 'tw'); if (k >= 0) { S.shown[k] = { d: 'tw', i: stepI('tw', S.shown[k].i) }; } else { S.shown.push({ d: 'tw', i: prevI('tw', 0) }); } await savePair(); renderCenter(); softUpdateToday(); };
     $('#nothingBtn').onclick = gotNothing;
     const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
   }

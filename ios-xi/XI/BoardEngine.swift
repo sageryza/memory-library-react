@@ -36,6 +36,7 @@ enum XIDeck {
     private static var store: (ev: [XICard], tw: [XICard]) = {
         let file = loadDeck()
         var ev = file.0, tw = file.1
+        bundledMidjourneyCount = ev.prefix(while: { $0.deck == "midjourney" }).count
         let cached = XIDeckExtras.cached()
         for e in cached.added where !appliedExtraIds.contains(e.id) {
             appliedExtraIds.insert(e.id)
@@ -58,6 +59,25 @@ enum XIDeck {
         let base = c.id.replacingOccurrences(
             of: #"^board-(event|twist)-"#, with: "", options: .regularExpression)
         return hiddenBases.contains(base)
+    }
+
+    /// Bundled (pre-extras) midjourney card count — the anchor rotation for
+    /// THE card of the day runs over exactly these, so every client agrees.
+    /// Midjourney is first in pool order, so this is a stable prefix length
+    /// (86, matching the web's BUNDLED_MJ).
+    private(set) static var bundledMidjourneyCount = 0
+
+    /// THE card of the day: one shared event card, the same for everyone in
+    /// the world that day — bundled midjourney cards minus globally-removed
+    /// ones, untouched by personal curation. Only the twist is personal.
+    static func anchorIndex(day dn: Int) -> Int {
+        var cands: [Int] = []
+        for i in 0..<min(bundledMidjourneyCount, events.count) where
+            events[i].deck == "midjourney" && !isHidden(events[i]) {
+            cands.append(i)
+        }
+        guard !cands.isEmpty else { return 0 }
+        return cands[((dn % cands.count) + cands.count) % cands.count]
     }
 
     /// Apply freshly-fetched extras: append unseen cards, update hides, and

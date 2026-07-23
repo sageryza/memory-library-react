@@ -1,0 +1,39 @@
+.xis {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+  font-family: 'Crimson Text', serif;
+  color: #2b2620;
+}
+.xis-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.xis-sub { color: #8a8172; margin: 0 0 16px; }
+.xis-card {
+  background: #fff;
+  border: 1px solid #e4ddcf;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.xis-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.xis-by { color: #b08d2f; font-size: 0.85rem; }
+.xis-act {
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: #8a8172;
+  background: none;
+  border: 1px solid #d9d2c4;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.xis-act:disabled { opacity: 0.5; cursor: default; }
+.xis-text { line-height: 1.45; }

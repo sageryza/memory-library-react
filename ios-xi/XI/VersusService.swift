@@ -392,6 +392,13 @@ final class VersusService {
                     try? await memRef.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
                 }
             }
+            // "Stories I tell": Versus stories are public by default — people
+            // have stories they tell. Publishing routes through the
+            // publishMemory AI safety screen; Settings can turn this off.
+            if SharePrefs.shared.versusPublic {
+                let mid = memRef.documentID
+                Task { await XIService.shared.setMemoryVisibility(mid, isPublic: true) }
+            }
         }
     }
 
