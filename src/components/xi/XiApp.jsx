@@ -4,6 +4,7 @@ import { dailyDeck, boardDeck, DECKS } from '../../xi/decks';
 import { initXi } from '../../xi/xiEngine';
 import { makeXiStorage } from '../../xi/xiStorage';
 import { useGeneratedCards } from '../../hooks/useGeneratedCards';
+import useDeckExtras from '../../hooks/useDeckExtras';
 import useAuth from '../../hooks/useAuth';
 import { XI_MARKUP } from './xiMarkup';
 import XiNavBar from './XiNavBar';
@@ -50,6 +51,9 @@ export default function XiApp({ memories = [], addMemory, userId }) {
   // (so they get a single, immediate init with no extra wait), and it changes
   // once when a generated deck loads or the user adds cards.
   const genSig = genCards.map((c) => c.id).join(',');
+  // Shared deck extras (Sage's remote additions/removals for everyone) — the
+  // pools mutate in place; this signature re-inits the engine when they change.
+  const extrasSig = useDeckExtras();
 
   useEffect(() => {
     const root = rootRef.current;
@@ -96,7 +100,7 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     return () => { engineRef.current = null; };
     // Re-inits when the generated deck loads/changes; reads live memories via ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [genSig]);
+  }, [genSig, extrasSig]);
 
   // Drive the engine screen from the URL (nav taps change ?s=).
   useEffect(() => {

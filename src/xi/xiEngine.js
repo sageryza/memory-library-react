@@ -52,6 +52,7 @@ export function initXi(root, ctx) {
     const key = ekey(d, i);
     if (excluded.has(key)) return true;
     const c = POOL[d][i];
+    if (c && c.hidden) return true;   // removed-for-everyone (deck extras)
     const sourceOn = c && !disabledDecks.has(c.deck) && !RETIRED_DECKS.has(c.deck);
     const lovedInPlay = lovedOn && loved.has(key);
     return !(sourceOn || lovedInPlay);

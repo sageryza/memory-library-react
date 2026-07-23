@@ -19,6 +19,7 @@ import SmsConsent from './components/SmsConsent'
 // download — you only fetch them when you open them. Landing screens (Home,
 // Login, Archive) stay eager so the first paint is immediate.
 const ConspiracyBoard = lazy(() => import('./components/conspiracy-board/ConspiracyBoard'))
+const XiDeckManager = lazy(() => import('./components/xi/XiDeckManager'))
 const Libraries = lazy(() => import('./components/libraries/Libraries'))
 const ChronologyV2 = lazy(() => import('./components/ChronologyV2'))
 const GroupDreamJournal = lazy(() => import('./components/dream-journal/GroupDreamJournal'))
@@ -423,6 +424,10 @@ function App() {
           <Route
             path="/xi/versus"
             element={<Suspense fallback={<LoadingSpinner />}><XiVersus /></Suspense>}
+          />
+          <Route
+            path="/xi/deck-manager"
+            element={<Suspense fallback={<LoadingSpinner />}><XiDeckManager /></Suspense>}
           />
           <Route
             path="/xi/versus/:gameId"

@@ -197,6 +197,18 @@ service cloud.firestore {
       }
     }
 
+    // XI shared deck extras — cards Sage adds to (or removes from) the
+    // midjourney deck for EVERYONE, read by web and iOS at launch.
+    //   added   : append-only [{id, cap, img, ts}] — never reorder or delete
+    //             entries (pool indices must stay stable across clients).
+    //   removed : [cardId] hidden everywhere (bundled or added) — reversible.
+    match /xi/deckExtras {
+      allow read: if true;
+      allow write: if isAuthenticated()
+                   && request.auth.token.email == 'sageryza@gmail.com'
+                   && request.auth.token.email_verified == true;
+    }
+
     // XI Versus — async multiplayer games (link-based, collaborative).
     match /versusGames/{gameId} {
       // Anyone with the link can watch / join.
