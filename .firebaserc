@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "membry-df528"
+  },
+  "targets": {
+    "membry-df528": {
+      "hosting": {
+        "main": ["membry-df528"],
+        "shouldimakethis": ["shouldimakethis"]
+      }
+    }
   }
 }

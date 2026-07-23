@@ -376,5 +376,109 @@ service cloud.firestore {
                       && (resource.data.authorId == request.auth.uid || isGroupOwner());
       }
     }
+
+    // ─── ShouldiMakeThis.com (shouldimakethis.web.app, code in shouldimakethis/) ───
+    // Preorder-validation site. The catalog is hardcoded in the app; Firestore
+    // holds only interactions. Aggregate counts on simtProducts/{pid} are
+    // maintained ONLY by Cloud Functions (functions/simt.js) — clients write
+    // just their own per-user docs in the subcollections. pid is a catalog id
+    // ("1".."40") or a simtSubmissions doc id (approved submissions collect
+    // interactions the same way).
+    function isSimtAdmin() {
+      return isAuthenticated()
+          && request.auth.token.email == 'sageryza@gmail.com'
+          && request.auth.token.email_verified == true;
+    }
+
+    match /simtProducts/{pid} {
+      // Aggregates are public; nothing writes them from the client.
+      allow read: if true;
+      allow write: if false;
+
+      match /simtVotes/{uid} {
+        allow create, update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['dir', 'uid', 'pid', 'at'])
+                      && request.resource.data.dir in ['up', 'down']
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.pid == pid;
+        // Voting the same direction again clears it.
+        allow delete: if isOwner(uid);
+      }
+
+      match /simtHearts/{uid} {
+        allow create, update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['uid', 'pid', 'at'])
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.pid == pid;
+        allow delete: if isOwner(uid);
+      }
+
+      match /simtPreorders/{uid} {
+        allow create, update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['uid', 'pid', 'variant', 'at'])
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.pid == pid
+                      && (request.resource.data.variant == null
+                          || (request.resource.data.variant is string
+                              && request.resource.data.variant.size() <= 80));
+        allow delete: if isOwner(uid);
+      }
+
+      match /simtInvestments/{uid} {
+        // One doc per user per product; repeat investments accumulate into
+        // `amount`. No deletes — this is the demand signal the site exists
+        // to collect.
+        allow create, update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['uid', 'pid', 'amount', 'pay', 'at'])
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.pid == pid
+                      && request.resource.data.amount is number
+                      && request.resource.data.amount > 0
+                      && request.resource.data.amount <= 100000
+                      && request.resource.data.pay in ['now', 'later'];
+        allow delete: if false;
+      }
+    }
+
+    // Collection-group reads so the app can load "everything I've interacted
+    // with" in one query per type (filtered on uid — the equality filter is
+    // what makes the rule provable for the query).
+    match /{path=**}/simtVotes/{uid} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+    match /{path=**}/simtHearts/{uid} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+    match /{path=**}/simtPreorders/{uid} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+    match /{path=**}/simtInvestments/{uid} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // User-submitted items. Born pending; the public only ever sees approved
+    // ones; approve/reject happens on /results (admin = verified owner email).
+    match /simtSubmissions/{subId} {
+      allow read: if resource.data.status == 'approved'
+                  || (isAuthenticated() && resource.data.uid == request.auth.uid)
+                  || isSimtAdmin();
+      allow create: if isAuthenticated()
+                    && request.resource.data.keys().hasOnly(['uid', 'title', 'retail', 'cost', 'goal', 'desc', 'cat', 'img', 'status', 'at'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() >= 1
+                    && request.resource.data.title.size() <= 100
+                    && request.resource.data.desc is string
+                    && request.resource.data.desc.size() <= 1000
+                    && request.resource.data.cat is string
+                    && request.resource.data.cat.size() <= 24
+                    && request.resource.data.img is string
+                    && request.resource.data.img.size() <= 600
+                    && request.resource.data.retail is number
+                    && request.resource.data.cost is number
+                    && request.resource.data.goal is number;
+      allow update, delete: if isSimtAdmin();
+    }
   }
 }
