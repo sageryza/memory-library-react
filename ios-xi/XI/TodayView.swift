@@ -18,7 +18,6 @@ struct TodayView: View {
     /// whole app (set midjourney-only → everything is midjourney).
     @State private var ev = 0
     @State private var tw = 0
-    @State private var flip = "tw"
     @State private var hist: [(Int, Int)] = []
     /// Which day's pair is showing — ‹ › browse past days like Board of the Day.
     @State private var viewDay = BoardEngine.dayNumber()
@@ -47,15 +46,15 @@ struct TodayView: View {
     private var twist: XICard { isToday ? XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] : pairForDay(viewDay).1 }
     private var pairKey: String { "\(event.id)__\(twist.id)" }
 
-    /// The full-pool indices for a day's pair, drawn only from your CURATED
-    /// pools (event forward from the front, twist backward from the end).
-    /// Falls back to the full pool per axis if curation left it empty.
+    /// A day's pair: the event is THE card of the day — one shared card,
+    /// identical for everyone in the world (XIDeck.anchorIndex), untouched by
+    /// personal curation. The twist walks YOUR curated pool backward from the
+    /// end, falling back to the full non-retired pool if curation emptied it.
     private func dayPairIndices(_ dn: Int) -> (Int, Int) {
-        let ae = curate.allowedEvents, at = curate.allowedTwists
-        let evPool = ae.isEmpty ? CurateStore.liveIndices(XIDeck.events) : ae
+        let at = curate.allowedTwists
         let twPool = at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at
-        guard !evPool.isEmpty, !twPool.isEmpty else { return (0, 0) }
-        let ei = evPool[((dn % evPool.count) + evPool.count) % evPool.count]
+        guard !twPool.isEmpty else { return (XIDeck.anchorIndex(day: dn), 0) }
+        let ei = XIDeck.anchorIndex(day: dn)
         let ti = twPool[((((twPool.count - 1 - dn) % twPool.count) + twPool.count) % twPool.count)]
         return (ei, ti)
     }
@@ -154,7 +153,7 @@ struct TodayView: View {
                 // No lower bound past day 1; arrows never wipe in-progress text.
                 Button { viewDay -= 1 } label: { Image(systemName: "chevron.left") }
                     .disabled(viewDay <= 1)
-                Text("CARDS OF THE DAY")
+                Text("CARD OF THE DAY")
                     .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                 Button { if !isToday { viewDay += 1 } } label: { Image(systemName: "chevron.right") }
                     .disabled(isToday)
@@ -460,27 +459,18 @@ struct TodayView: View {
     }
 
     private func newCards() {
-        // Redraws ONE card per tap, alternating twist then event — her explicit
-        // preference (reverted from redrawing the pair).
+        // Only the twist redraws — the event is THE card of the day, the one
+        // card everyone in the world shares (July 2026, "card of the day").
         hist.append((ev, tw))
-        if flip == "tw" {
-            let at = curate.allowedTwists
-            tw = stepIndex(tw, poolSize: XIDeck.twists.count,
-                           allowed: at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at, step: -1)
-            flip = "ev"
-        } else {
-            let ae = curate.allowedEvents
-            ev = stepIndex(ev, poolSize: XIDeck.events.count,
-                           allowed: ae.isEmpty ? CurateStore.liveIndices(XIDeck.events) : ae, step: 1)
-            flip = "tw"
-        }
+        let at = curate.allowedTwists
+        tw = stepIndex(tw, poolSize: XIDeck.twists.count,
+                       allowed: at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at, step: -1)
         text = ""
     }
 
     private func undo() {
         guard let last = hist.popLast() else { return }
         ev = last.0; tw = last.1
-        flip = (flip == "tw") ? "ev" : "tw"
     }
 
     private func reload() async {
