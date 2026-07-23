@@ -2432,8 +2432,6 @@ exports.sidequestChatMessage = onDocumentCreated('sidequestParties/{partyId}/mes
 });
 
 // ---------------------------------------------------------------------------
-<<<<<<< HEAD
-=======
 // Shared-board rich links.
 //
 // /s/{id} serves a tiny page whose Open Graph image is the board's rendered
@@ -2484,7 +2482,6 @@ ${img ? `<meta property="og:image" content="${img}">` : ''}
 });
 
 // ---------------------------------------------------------------------------
->>>>>>> origin/main
 // XI: publishMemory — the gate between a private memory and the public
 // "others" feed. Clients can NEVER write publicMemories directly (rules block
 // it); this function re-reads the memory server-side, runs an AI safety/PII
