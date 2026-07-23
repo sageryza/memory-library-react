@@ -36,7 +36,15 @@ final class CurateStore: ObservableObject {
     /// others stay in the pools so old memories/hearts keep resolving, but
     /// they never deal, and Curate doesn't show them or their toggles.
     /// Individually ♥-loved cards still ride the loved-deck switch.
-    static let retiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
+    ///
+    /// EXCEPT for the curator's own account — five-deck curation was Sage's
+    /// personal feature, so signing in as her un-retires everything.
+    static let curatorEmails: Set<String> = ["sageryza@gmail.com"]
+    static var curatorUnlocked: Bool {
+        Auth.auth().currentUser?.email.map { curatorEmails.contains($0) } ?? false
+    }
+    private static let allRetiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
+    static var retiredDecks: Set<String> { curatorUnlocked ? [] : allRetiredDecks }
     static var activeDecks: [XIDeckDef] { decks.filter { !retiredDecks.contains($0.id) } }
     static let splitDecks: Set<String> = Set(decks.filter(\.split).map(\.id))
 

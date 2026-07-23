@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged, signInAnonymously, linkWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase';
+import { setCuratorUnlocked, CURATOR_EMAILS } from '../xi/decks';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -8,6 +9,8 @@ export const useAuth = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // The XI deck retirement is for everyone except the curator's account.
+      setCuratorUnlocked(!!(user?.email && CURATOR_EMAILS.includes(user.email)));
       setUser(user);
       setLoading(false);
     });

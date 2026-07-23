@@ -49,7 +49,16 @@ export const DEFAULT_DISABLED_DECKS = ['internet', 'dreams', 'claude', 'chatgpt'
 // stay in the pools so archived memories, hearts, and role-key indices keep
 // resolving, but they never deal and Curate never shows them. Individually
 // ♥-loved cards still ride the loved-deck switch.
+//
+// EXCEPT for Sage's own account: five-deck curation was her personal feature,
+// so signing in as the curator un-retires everything (see useAuth).
 export const RETIRED_DECKS = new Set(['internet', 'dreams', 'claude', 'chatgpt']);
+const ALL_RETIRED = ['internet', 'dreams', 'claude', 'chatgpt'];
+export const CURATOR_EMAILS = ['sageryza@gmail.com'];
+export function setCuratorUnlocked(on) {
+  RETIRED_DECKS.clear();
+  if (!on) for (const d of ALL_RETIRED) RETIRED_DECKS.add(d);
+}
 
 const trial = rawTrial.cards || [];
 const SOURCES = {
