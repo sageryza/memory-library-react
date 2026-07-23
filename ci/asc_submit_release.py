@@ -35,6 +35,18 @@ def main():
     app_id = d["data"][0]["id"]
     print(f"app {bundle} -> {app_id}")
 
+    # RESUBMIT=true: pull an in-queue submission back (loses the queue spot)
+    # so a newer build can be attached and submitted in its place.
+    if os.environ.get("RESUBMIT", "").lower() == "true":
+        st, d = api("GET", f"/reviewSubmissions?filter[app]={app_id}&filter[state]="
+                           "WAITING_FOR_REVIEW,IN_REVIEW&limit=5", tok)
+        for sub in (d.get("data") or []) if st == 200 else []:
+            st2, _ = api("PATCH", f"/reviewSubmissions/{sub['id']}", tok, {
+                "data": {"type": "reviewSubmissions", "id": sub["id"],
+                         "attributes": {"canceled": True}}})
+            print(f"canceled in-queue submission {sub['id']} "
+                  f"(was {sub['attributes'].get('state')}): {st2}")
+
     # 1. The appStoreVersion for this version string (create if missing).
     st, d = api("GET", f"/apps/{app_id}/appStoreVersions?limit=10"
                        "&fields[appStoreVersions]=versionString,appVersionState,platform", tok)
