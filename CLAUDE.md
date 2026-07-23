@@ -23,20 +23,12 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   making, but confirm with Sage when a call is close.)
 
 ## Communication
-<<<<<<< HEAD
-- **Long messages = audio, always.** Any message longer than a few sentences
-  gets delivered as a voice memo (OpenAI gpt-4o-mini-tts, voice "fable", male
-  British, NORMAL speed — Sage reverted the sped-up experiment July 10) so she
-  can listen instead of read. Attach the audio at the very END of the message —
-  never the top or middle.
-=======
 - **Answer questions FIRST.** If Sophie's message contains a question, answer
   it at the top of the reply, before doing or reporting on any tasks from the
   same message.
 - **Small question → short answer.** When Sophie asks a quick or small
   question, reply with just the answer — no suggestions about what to do next,
   no updates on work already done, no recaps. Save those for when she asks.
->>>>>>> origin/main
 - **Always use clickable links.** Whenever you mention a URL — app pages,
   dashboards, docs, external tools — write it as a full clickable link
   (`https://…`), never bare text or a fragment the user has to assemble.

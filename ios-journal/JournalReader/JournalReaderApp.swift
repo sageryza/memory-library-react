@@ -10,13 +10,7 @@ import FirebaseCore
 
 @main
 struct JournalReaderApp: App {
-<<<<<<< HEAD
-    // Receives the background-URLSession relaunch callback so journal uploads
-    // finish (and report) even after iOS terminates the app mid-transfer.
-    @UIApplicationDelegateAdaptor(JournalAppDelegate.self) var appDelegate
-=======
     @StateObject private var router = AppRouter()
->>>>>>> origin/main
 
     init() { Self.configureFirebase() }
 

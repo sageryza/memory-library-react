@@ -11,10 +11,7 @@ struct SignInView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var appleNonce: String?
-<<<<<<< HEAD
     @State private var showPassword = false
-=======
->>>>>>> origin/main
 
     var body: some View {
         VStack(spacing: 18) {
@@ -91,11 +88,7 @@ struct SignInView: View {
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 46)
-<<<<<<< HEAD
             .clipShape(RoundedRectangle(cornerRadius: 6))
-=======
-            .clipShape(RoundedRectangle(cornerRadius: 8))
->>>>>>> origin/main
             .disabled(busy)
 
             Button(action: googleSignIn) {
