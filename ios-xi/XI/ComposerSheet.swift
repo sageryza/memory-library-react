@@ -11,9 +11,17 @@ struct ComposerSheet: View {
     @State private var saving = false
     @State private var error: String?
     @State private var existing: [XIMemory] = []
+    @FocusState private var writing: Bool
+
+    // Public sharing: per-memory toggle in "ask" mode; one-time prompt around
+    // the 3rd memory (same flow as the Today composer).
+    @ObservedObject private var sharePrefs = SharePrefs.shared
+    @State private var shareThisOne = false
+    @State private var showSharePrompt = false
+    @State private var lastSavedId: String?
 
     private var prompt: String {
-        "times i \(pairing.event.cap.lowercased()) \(pairing.twist.cap.lowercased())"
+        "times i \(pairing.event.cap.lowercased()), \(pairing.twist.cap.lowercased())"
     }
     private var pairKey: String { "\(pairing.event.id)__\(pairing.twist.id)" }
 
@@ -31,13 +39,26 @@ struct ComposerSheet: View {
                 .foregroundStyle(XITheme.ink)
                 .padding(.horizontal, 8)
 
-            TextEditor(text: $text)
-                .font(.system(.body, design: .serif))
-                .frame(height: 120)
-                .padding(8)
-                .scrollContentBackground(.hidden)
-                .background(XITheme.white)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("A memory that's both of these…")
+                        .font(.system(.body, design: .serif)).foregroundStyle(XITheme.line)
+                        .padding(.top, 16).padding(.leading, 13)
+                }
+                TextEditor(text: $text)
+                    .font(.system(.body, design: .serif))
+                    .focused($writing)
+                    .frame(height: 120)
+                    .padding(8)
+                    .scrollContentBackground(.hidden)
+            }
+            .background(XITheme.white)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
+
+            if sharePrefs.mode == .ask {
+                ShareToggleRow(isOn: $shareThisOne)
+            }
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
@@ -70,25 +91,25 @@ struct ComposerSheet: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .background(XITheme.paper)
+        .background(XITheme.paper.onTapGesture { writing = false })
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { writing = false }
+                    .font(.system(.body, design: .serif)).tint(XITheme.gold)
+            }
+        }
         .presentationDetents([.medium, .large])
         .task { existing = await XIService.shared.memories(pairKey: pairKey) }
+        .sharePrompt(isPresented: $showSharePrompt, savedMemoryId: lastSavedId)
     }
 
     private func cardImage(_ card: XICard, isEvent: Bool) -> some View {
         ZStack {
             (isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().blendMode(.multiply)
-                } placeholder: { Color.clear }
-                .padding(2)
-            } else {
-                Text(card.cap).font(.system(size: 11, design: .serif)).multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink).padding(4)
-            }
+            CardArt(card: card, capSize: 11, pad: 2)
         }
-        .frame(width: 116, height: 116)
+        .frame(width: 132, height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }
@@ -99,12 +120,19 @@ struct ComposerSheet: View {
         saving = true; error = nil
         Task {
             do {
-                try await XIService.shared.saveMemory(
-                    event: pairing.event, twist: pairing.twist, text: t, boardDay: boardDay
+                let id = try await XIService.shared.saveMemory(
+                    event: pairing.event, twist: pairing.twist, text: t, boardDay: boardDay,
+                    share: sharePrefs.shareForSave(askToggle: shareThisOne)
                 )
                 text = ""
+                shareThisOne = false
                 existing = await XIService.shared.memories(pairKey: pairKey)
                 saving = false
+                let total = await XIService.shared.allMemories().count
+                if sharePrefs.shouldPrompt(totalMemories: total) {
+                    lastSavedId = id
+                    showSharePrompt = true
+                }
             } catch {
                 self.error = error.localizedDescription
                 saving = false

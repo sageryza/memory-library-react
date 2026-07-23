@@ -11,6 +11,10 @@ struct SignInView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var appleNonce: String?
+<<<<<<< HEAD
+    @State private var showPassword = false
+=======
+>>>>>>> origin/main
 
     var body: some View {
         VStack(spacing: 18) {
@@ -28,14 +32,30 @@ struct SignInView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(XITheme.white)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
 
-                SecureField("password", text: $password)
+                HStack(spacing: 8) {
+                    Group {
+                        if showPassword {
+                            TextField("password", text: $password)
+                        } else {
+                            SecureField("password", text: $password)
+                        }
+                    }
                     .textContentType(.password)
-                    .padding(12)
-                    .background(XITheme.white)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                    Button { showPassword.toggle() } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .foregroundStyle(XITheme.line)
+                    }
+                    .accessibilityLabel(showPassword ? "Hide password" : "Show password")
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(XITheme.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
             }
             .font(.system(.body, design: .serif))
             .padding(.top, 6)
@@ -50,7 +70,7 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(XITheme.gold).foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .disabled(busy || email.isEmpty || password.isEmpty)
 
@@ -71,7 +91,11 @@ struct SignInView: View {
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 46)
+<<<<<<< HEAD
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+=======
             .clipShape(RoundedRectangle(cornerRadius: 8))
+>>>>>>> origin/main
             .disabled(busy)
 
             Button(action: googleSignIn) {
@@ -83,8 +107,8 @@ struct SignInView: View {
                 .padding(.vertical, 12)
                 .foregroundStyle(XITheme.ink)
                 .background(XITheme.white)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
             }
             .disabled(busy)
 

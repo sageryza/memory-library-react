@@ -8,6 +8,9 @@ enum VersusRecents {
         l.insert(id, at: 0)
         UserDefaults.standard.set(Array(l.prefix(12)), forKey: key)
     }
+    static func forget(_ id: String) {
+        UserDefaults.standard.set(list().filter { $0 != id }, forKey: key)
+    }
 }
 
 struct VersusLobbyView: View {
@@ -17,31 +20,38 @@ struct VersusLobbyView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var path: [String] = []
+    @State private var names: [String: String] = [:]   // gameId → other players' names
+    @State private var namesLoaded: Set<String> = []    // games whose name fetch finished
+    @State private var recents: [String] = VersusRecents.list()
+    @State private var showInvite = false
+    @FocusState private var joinFocused: Bool
+    @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 22) {
-                Text("Versus")
-                    .font(.system(.largeTitle, design: .serif).weight(.semibold)).tracking(4)
-                    .foregroundStyle(XITheme.ink)
                 Text("a memory game with friends")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
 
-                Button(action: start) {
+                Button { showInvite = true } label: {
                     Text(busy ? "…" : "start a new game")
                         .font(.system(.body, design: .serif))
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                         .background(XITheme.gold).foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .disabled(busy)
 
                 HStack(spacing: 8) {
-                    TextField("game code", text: $joinCode)
+                    // Until universal links are validated by Apple, pasting the
+                    // invite link (or its code) is the fallback way in.
+                    TextField("paste invite link", text: $joinCode)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .font(.system(.body, design: .serif))
+                        .focused($joinFocused)
                         .padding(12)
                         .background(XITheme.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
                     Button("join") { join(joinCode) }
                         .font(.system(.body, design: .serif)).tint(XITheme.gold)
@@ -49,28 +59,38 @@ struct VersusLobbyView: View {
                 }
 
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+                if busy {
+                    // Joining from a tapped invite (or starting a game) — show it.
+                    ProgressView().tint(XITheme.gold)
+                }
 
-                if !VersusRecents.list().isEmpty {
+                if !recents.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("your games").font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.gold)
-                        ForEach(VersusRecents.list(), id: \.self) { id in
+                        ForEach(recents, id: \.self) { id in
                             Button { path.append(id) } label: {
                                 HStack {
-                                    Text(id).font(.system(.body, design: .serif, weight: .medium))
+                                    // A game no one else has joined yet has no name to
+                                    // show — say what it is, not a raw code. While the
+                                    // name is still loading, stay neutral.
+                                    Text(names[id] ?? (namesLoaded.contains(id) ? "waiting for a friend" : "…"))
+                                        .font(.system(.body, design: .serif, weight: .medium))
                                     Spacer()
                                     Image(systemName: "chevron.right").font(.caption)
                                 }
                                 .foregroundStyle(XITheme.ink)
                                 .padding(.vertical, 8).padding(.horizontal, 12)
                                 .background(XITheme.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
                             }
                         }
                     }
                     .padding(.top, 4)
-                } else {
-                    VersusPreview().padding(.top, 6)
                 }
+                // Always show the blurred preview of a game in progress, whether or
+                // not you have games — it hints at what Versus feels like.
+                VersusPreview().padding(.top, 6)
 
                 Spacer()
             }
@@ -78,33 +98,107 @@ struct VersusLobbyView: View {
             .frame(maxWidth: 460)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
+            // Tapping anywhere outside the join field dismisses the keyboard.
+            .onTapGesture { joinFocused = false }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // App-wide title convention: ALL-CAPS typewriter, navInk; logo
+                // top-left with the iOS 26 glass pill suppressed.
+                ToolbarItem(placement: .principal) {
+                    Text("VERSUS")
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { joinFocused = false }
+                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                }
+            }
             .navigationDestination(for: String.self) { gameId in
                 VersusGameView(gameId: gameId, auth: auth)
             }
         }
         .tint(XITheme.gold)
-    }
-
-    private func start() {
-        busy = true; error = nil
-        Task {
-            do {
-                let id = try await VersusService.shared.createGame()
+        // "start a new game" opens the invite screen first — the game is
+        // created there, with its players set up before it exists.
+        .sheet(isPresented: $showInvite) {
+            VersusInviteView { id in
                 VersusRecents.remember(id)
+                recents = VersusRecents.list()
+                if !path.contains(id) { path.append(id) }
+            }
+        }
+        // Load the other players' names for the "your games" list.
+        .task { await loadNames() }
+        // A shared Versus link joins the game and opens it (claiming the
+        // tracked invite seat if the link carried a token).
+        .task(id: deepLink.pendingVersusGameId) {
+            guard let id = deepLink.pendingVersusGameId else { return }
+            let token = deepLink.pendingVersusInviteToken
+            deepLink.pendingVersusGameId = nil
+            deepLink.pendingVersusInviteToken = nil
+            busy = true; error = nil
+            do {
+                try await VersusService.shared.joinGame(id, inviteToken: token)
+                VersusRecents.remember(id)
+                recents = VersusRecents.list()
+                if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }
                 busy = false
-                path.append(id)
+                if !path.contains(id) { path.append(id) }
             } catch { self.error = error.localizedDescription; busy = false }
         }
     }
 
+    private func loadNames() async {
+        var infos: [(id: String, s: VersusService.GameSummary)] = []
+        for id in recents {
+            switch await VersusService.shared.gameSummary(id) {
+            case .none:
+                // Network error — unknown; leave the row as-is, never prune.
+                namesLoaded.insert(id)
+            case .some(.none):
+                // Doc is gone (deleted / expired) — prune from recents.
+                VersusRecents.forget(id)
+                recents.removeAll { $0 == id }
+            case .some(.some(let s)):
+                if let n = s.others { names[id] = n }
+                namesLoaded.insert(id)
+                infos.append((id, s))
+            }
+        }
+        // Games waiting on YOUR move float to the top; then most recently
+        // active. Quiet, forgotten games sink naturally — no forget button.
+        let ordered = infos.sorted {
+            if $0.s.yourTurn != $1.s.yourTurn { return $0.s.yourTurn }
+            return $0.s.updatedAt > $1.s.updatedAt
+        }.map(\.id)
+        let known = Set(ordered)
+        recents = ordered + recents.filter { !known.contains($0) }
+    }
+
     private func join(_ code: String) {
-        let id = code.trimmingCharacters(in: .whitespaces)
+        var id = code.trimmingCharacters(in: .whitespaces)
+        var token: String?
+        // Accept a pasted "…/versus/{id}" link as well as a bare code — and
+        // claim its tracked invite seat if the link carried one.
+        if id.contains("/"), let url = URL(string: id),
+           let parsed = XIDeepLink.parse(url), parsed.kind == "versus" {
+            id = parsed.id
+            token = parsed.token
+        }
         guard !id.isEmpty else { return }
         busy = true; error = nil
         Task {
             do {
-                try await VersusService.shared.joinGame(id)
+                try await VersusService.shared.joinGame(id, inviteToken: token)
                 VersusRecents.remember(id)
+                recents = VersusRecents.list()
                 busy = false
                 path.append(id)
             } catch { self.error = error.localizedDescription; busy = false }
@@ -112,70 +206,53 @@ struct VersusLobbyView: View {
     }
 }
 
-/// A blurred, non-interactive mock of a game in progress — shown before you've
-/// started anything so the empty state hints at what Versus feels like rather
-/// than being a bare "start a game" button.
+/// A blurred, non-interactive mock of a game in progress — the REAL board (actual
+/// card art, mostly filled, a few cells marked with players' gold shapes as if
+/// mid-play), then blurred. Shown before you've started so the empty state hints
+/// at what Versus feels like rather than being a bare "start a game" button.
 private struct VersusPreview: View {
-    // A little checkerboard with a scatter of "placed" cards in two players'
-    // colours, plus a couple of ghosted story rows.
-    private let filled: Set<Int> = [0, 2, 5, 7, 8, 12, 13, 15, 18, 20, 22]
-    private let owners: [Int: Color] = [
-        5: Color(xiHex: "#800020"), 7: Color(xiHex: "#2c6e6e"),
-        12: Color(xiHex: "#800020"), 13: Color(xiHex: "#2c6e6e"), 18: Color(xiHex: "#800020"),
+    /// A blurred mock laid out like a real mid-play game — midjourney cards
+    /// only (the default deck), so the preview matches what a new game deals.
+    private static let layout: [(r: Int, c: Int, cap: String, owner: Int?)] = [
+        (1, 2, "TOOK A GAMBLE", nil),
+        (2, 1, "NOTHING TO DO BUT WAIT", nil),
+        (2, 2, "WON THE HEART OF THE CROWD", nil),
+        (2, 3, "TOOK BAD ADVICE", nil),
+        (3, 2, "STOOD UP FOR THE CROWD", nil),
+        (4, 2, "HAD A LITTLE TOO MUCH FUN", 1),
     ]
 
+    private static func card(_ cap: String) -> XICard? {
+        XIDeck.events.first { $0.cap.caseInsensitiveCompare(cap) == .orderedSame }
+            ?? XIDeck.twists.first { $0.cap.caseInsensitiveCompare(cap) == .orderedSame }
+    }
+
     var body: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 4) {
-                ForEach(0..<5, id: \.self) { r in
-                    HStack(spacing: 4) {
-                        ForEach(0..<5, id: \.self) { c in
-                            let idx = r * 5 + c
-                            let isEvent = (r + c) % 2 == 0
+        // Same geometry as the real game board: 5pt gaps, empty cells showing,
+        // plain background — just blurred.
+        VStack(spacing: 5) {
+            ForEach(0..<5, id: \.self) { r in
+                HStack(spacing: 5) {
+                    ForEach(0..<5, id: \.self) { c in
+                        if let cell = Self.layout.first(where: { $0.r == r && $0.c == c }),
+                           let card = Self.card(cell.cap) {
+                            VersusCardCell(card: card, isEvent: (r + c) % 2 == 0,
+                                           ownerOrder: cell.owner, anchored: false)
+                        } else {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(filled.contains(idx)
-                                      ? (isEvent ? XITheme.cream : XITheme.white)
-                                      : Color.black.opacity(0.03))
+                                .fill(Color.black.opacity(0.025))
                                 .aspectRatio(1, contentMode: .fit)
-                                .overlay(RoundedRectangle(cornerRadius: 4)
-                                    .stroke(owners[idx] ?? XITheme.line,
-                                            lineWidth: owners[idx] != nil ? 2 : 0.5))
                         }
                     }
                 }
             }
-            .frame(maxWidth: 240)
-
-            fakeStory("#800020", "Ana", "the summer everything felt possible")
-            fakeStory("#2c6e6e", "You", "times i said too much and meant all of it")
         }
-        .padding(14)
-        .background(XITheme.white.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(XITheme.line.opacity(0.5), lineWidth: 0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .blur(radius: 3)
-        .opacity(0.6)
-        .overlay(
-            Text("this is what a game looks like")
-                .font(.system(.footnote, design: .serif).italic())
-                .foregroundStyle(XITheme.gold)
-        )
+        // The real board runs to 16pt screen margins; the lobby pads 24 — pull
+        // back out so the preview matches the game's true width.
+        .padding(.horizontal, -8)
+        .blur(radius: 2.4)
+        .opacity(0.8)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    private func fakeStory(_ hex: String, _ who: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Circle().fill(Color(xiHex: hex)).frame(width: 8, height: 8).padding(.top, 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(who).font(.system(.caption2, design: .serif, weight: .medium)).foregroundStyle(XITheme.ink)
-                Text(text).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.ink)
-            }
-            Spacer()
-        }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(XITheme.white)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
     }
 }

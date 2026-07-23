@@ -30,16 +30,21 @@ function makeRng(seed) {
 const keyOf = (r, c) => r + ',' + c;
 
 // Grow a connected, crossword-like cluster of `targetCards` cells out from the
-// centre, choosing random frontier cells. Deterministic for a given rand.
-function growCluster(rand, targetCards) {
-  const taken = new Set([keyOf(2, 2)]);
-  const cells = [[2, 2]];
+// centre, bounded to a `side`×`side` box — some cells stay blank (crossword),
+// it never sprawls wider than `side`, and it varies by day. Deterministic for
+// a given rand. Kept in lockstep with the iOS BoardEngine.growCluster.
+function growCluster(rand, targetCards, side) {
+  const start = Math.floor(side / 2);
+  const inBox = (r, c) => r >= 0 && r < side && c >= 0 && c < side;
+  const taken = new Set([keyOf(start, start)]);
+  const cells = [[start, start]];
   let guard = 0;
   while (cells.length < targetCards && guard++ < 500) {
     const frontier = [];
     for (const [r, c] of cells) {
-      for (const [a, b] of neighbors(r, c)) {
-        if (!taken.has(keyOf(a, b))) frontier.push([a, b]);
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const a = r + dr; const b = c + dc;
+        if (inBox(a, b) && !taken.has(keyOf(a, b))) frontier.push([a, b]);
       }
     }
     if (!frontier.length) break;
@@ -151,9 +156,13 @@ function randomAssign(cells, allowedEv, allowedTw, rand) {
 // affinity-aware layout, or just sizes ({ be, bw }) for the random baseline.
 // `opts.random` forces the random baseline even when captions are available.
 export function dailyBoard(dayNum, pools = {}, opts = {}) {
-  const targetCards = opts.targetCards || 13;
   const rand = makeRng((dayNum + 1) * 0x9E3779B1);
-  const cells = growCluster(rand, targetCards);
+  // A crossword bounded to a 4×4 box: the fill count varies (10–13 of 16) so
+  // the blank pattern shifts noticeably day to day; cards stay big and never
+  // sprawl wider than 4. Kept identical to the iOS engine (draw the target
+  // from rand FIRST, then grow) so the shared community board matches.
+  const target = 10 + Math.floor(rand() * 4);
+  const cells = growCluster(rand, target, 4);
 
   const evCaps = pools.events;
   const twCaps = pools.twists;

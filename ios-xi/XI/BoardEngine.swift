@@ -11,6 +11,9 @@ struct XICard: Decodable, Identifiable, Equatable {
     let id: String
     let cap: String
     let img: String?
+    /// Which of the five named decks the card comes from (midjourney / internet
+    /// / dreams / claude / chatgpt) — drives the Curate deck toggles.
+    let deck: String?
 }
 
 /// A placed card on the 5×5 board: row, col, deck ('be' event / 'bw' twist), index into the pool.
@@ -102,16 +105,23 @@ func xiShuffle<T>(_ arr: [T], _ rng: inout Mulberry32) -> [T] {
 enum BoardEngine {
     private static func keyOf(_ r: Int, _ c: Int) -> String { "\(r),\(c)" }
 
-    private static func growCluster(_ rng: inout Mulberry32, _ targetCards: Int) -> [(Int, Int)] {
-        var taken: Set<String> = [keyOf(2, 2)]
-        var cells: [(Int, Int)] = [(2, 2)]
+    /// Grow a connected, crossword-like cluster of `targetCards` cells out from
+    /// the centre, bounded to a `side`×`side` box — so the board is a crossword
+    /// (some cells left blank, different each day) that never sprawls wider than
+    /// `side` and keeps the cards big.
+    private static func growCluster(_ rng: inout Mulberry32, _ targetCards: Int, side: Int) -> [(Int, Int)] {
+        let start = side / 2
+        func inBox(_ r: Int, _ c: Int) -> Bool { r >= 0 && r < side && c >= 0 && c < side }
+        var taken: Set<String> = [keyOf(start, start)]
+        var cells: [(Int, Int)] = [(start, start)]
         var guardN = 0
         while cells.count < targetCards && guardN < 500 {
             guardN += 1
             var frontier: [(Int, Int)] = []
             for (r, c) in cells {
-                for (a, b) in Grid.neighbors(r, c) where !taken.contains(keyOf(a, b)) {
-                    frontier.append((a, b))
+                for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                    let (a, b) = (r + dr, c + dc)
+                    if inBox(a, b) && !taken.contains(keyOf(a, b)) { frontier.append((a, b)) }
                 }
             }
             if frontier.isEmpty { break }
@@ -234,16 +244,28 @@ enum BoardEngine {
         }
     }
 
-    /// The deterministic board for a given day: 13 placed cards as a connected blob.
-    static func dailyBoard(_ dayNum: Int, targetCards: Int = 13) -> [Placed] {
+    /// The deterministic board for a given day: a SOLID 4×4 of 16 cards (bigger
+    /// cards than the old grown cluster, which sprawled up to 5 wide). Optional
+    /// allowed-index lists (cards still in play after Curate removals + deck
+    /// toggles) narrow the draw; each axis falls back to its full pool if too
+    /// few cards remain to fill it — mirroring the web's
+    /// `dailyBoard(dayNum, pools, { allowedEv, allowedTw })`.
+    static let dailySide = 4
+    static func dailyBoard(_ dayNum: Int,
+                           allowedEv: [Int]? = nil, allowedTw: [Int]? = nil) -> [Placed] {
         let seed = UInt32(truncatingIfNeeded: Int64(dayNum + 1) &* 0x9E3779B1)
         var rng = Mulberry32(seed: seed)
-        let cells = growCluster(&rng, targetCards)
-        let ne = XIDeck.eventCaps.count
-        let nt = XIDeck.twistCaps.count
-        let allowedEv = Array(0..<ne)
-        let allowedTw = Array(0..<nt)
-        return smartAssign(cells, XIDeck.eventCaps, XIDeck.twistCaps, &rng, allowedEv, allowedTw)
+        // Vary how many of the 16 cells fill (10–13) so the blank pattern shifts
+        // noticeably day to day instead of always leaving the same corners.
+        let target = 10 + Int(rng.next() * 4)
+        let cells = growCluster(&rng, target, side: dailySide)
+        let evCells = cells.filter { Grid.cellKindIsEvent($0.0, $0.1) }.count
+        let twCells = cells.count - evCells
+        var ev = allowedEv ?? Array(0..<XIDeck.eventCaps.count)
+        var tw = allowedTw ?? Array(0..<XIDeck.twistCaps.count)
+        if ev.count < evCells { ev = Array(0..<XIDeck.eventCaps.count) }
+        if tw.count < twCells { tw = Array(0..<XIDeck.twistCaps.count) }
+        return smartAssign(cells, XIDeck.eventCaps, XIDeck.twistCaps, &rng, ev, tw)
     }
 
     // MARK: Day numbering

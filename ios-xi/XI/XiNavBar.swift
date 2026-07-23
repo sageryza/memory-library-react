@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// The five XI destinations, matching the web `XiNavBar`.
+/// The five XI destinations. (Curate moved into Settings — it's a rare,
+/// owner-facing task, not a primary destination.)
 enum XiTab: String, CaseIterable, Identifiable {
-    case today, curate, daily, versus, board, library
+    case today, daily, versus, board, library
     var id: String { rawValue }
     var label: String {
         switch self {
         case .today: return "Today"
-        case .curate: return "Curate"
         case .daily: return "Daily"
         case .versus: return "Versus"
         case .board: return "Board"
@@ -17,8 +17,7 @@ enum XiTab: String, CaseIterable, Identifiable {
     /// SF Symbol for the tab (same icon family as the Libraries books.vertical).
     var symbol: String {
         switch self {
-        case .today: return "calendar"
-        case .curate: return "heart"
+        case .today: return "rectangle.portrait.on.rectangle.portrait"
         case .daily: return "square.grid.3x3"
         case .versus: return "person.2"
         case .board: return "sparkles"
@@ -53,10 +52,10 @@ struct XiNavBar: View {
         let on = selection == tab
         return VStack(spacing: 3) {
             Image(systemName: tab.symbol)
-                .font(.system(size: 19, weight: on ? .semibold : .regular))
-                .frame(height: 23)
+                .font(.system(size: 23, weight: on ? .semibold : .regular))
+                .frame(height: 27)
             Text(tab.label.lowercased())
-                .font(.system(size: 9.5, design: .serif))
+                .font(.system(size: 10.5, design: .serif))
                 .tracking(0.2).lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(on ? XITheme.gold : XITheme.navInk)

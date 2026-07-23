@@ -56,6 +56,22 @@ struct ConstellationView: View {
     @State private var pins: [BoardPin] = []
     @State private var editingPin: BoardPin?
     @State private var showConstellations = false
+    // Multiple boards: the active board's identity plus the switcher UI.
+    @State private var boardId = ""
+    @State private var boardName = "Untitled board"
+    @State private var boardsList: [XIService.XIBoardMeta] = []
+    @State private var showAllBoards = false
+    @State private var showRenameBoard = false
+    @State private var renameText = ""
+    // Minimap: the visible slice of the canvas, current zoom, jump requests.
+    @State private var viewport: CGRect = .zero
+    @State private var zoomLevel: CGFloat = 1
+    @State private var minimapJump: CGPoint?
+    @AppStorage("xiShowMinimap") private var showMinimap = true
+    // Constellation mode: tap any card and its whole connected network renders
+    // as gold stars while everything else dims (the web's constellation view).
+    @State private var constellationMode = false
+    @State private var starNetwork: Set<String> = []
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
@@ -91,25 +107,84 @@ struct ConstellationView: View {
                                    cardSize: CGSize(width: Self.cardW, height: Self.cardH),
                                    initialCenter: Self.boardCenter,
                                    onCardMoveBegan: recordUndo,
-                                   onCardMoved: savePositions) {
+                                   onCardMoved: savePositions,
+                                   onViewportChange: { viewport = $0; zoomLevel = $1 },
+                                   jumpTo: $minimapJump) {
                     board.frame(width: Self.canvasSize(placed.count).width,
                                 height: Self.canvasSize(placed.count).height)
                 }
                 if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
+                if showMinimap && loaded && !(placed.isEmpty && pins.isEmpty) {
+                    BoardMinimap(canvasSize: Self.canvasSize(placed.count),
+                                 memoryDots: placed.compactMap { positions[$0] },
+                                 pinDots: pins.compactMap { positions[$0.id] },
+                                 viewport: viewport, zoom: zoomLevel,
+                                 onJump: { minimapJump = $0 })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(12)
+                }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("constellation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                        .disabled(undoStack.isEmpty).tint(crimson)
-                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                        .disabled(redoStack.isEmpty).tint(crimson)
+                // On iOS 26 the system draws a glass pill behind top-bar buttons;
+                // sharedBackgroundVisibility(.hidden) opts these two out so they
+                // render as plain icons. Older iOS falls back to the default look.
+                if #available(iOS 26.0, *) {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
+                            .disabled(undoStack.isEmpty).tint(XITheme.gold)
+                        Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
+                            .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 15)) }
+                            .disabled(undoStack.isEmpty).tint(XITheme.gold)
+                        Button { redo() } label: { Image(systemName: "arrow.uturn.forward").font(.system(size: 15)) }
+                            .disabled(redoStack.isEmpty).tint(XITheme.gold)
+                    }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(placed.count) on board")
-                        .font(.system(.caption, design: .serif)).foregroundStyle(bodyGrey)
+                    // The board's NAME is the title; tapping it drops down the
+                    // three most recent boards plus rename / new / see-all.
+                    Menu {
+                        ForEach(boardsList.prefix(3)) { b in
+                            Button {
+                                switchBoard(to: b.id)
+                            } label: {
+                                if b.id == boardId {
+                                    Label(b.name, systemImage: "checkmark")
+                                } else {
+                                    Text(b.name)
+                                }
+                            }
+                        }
+                        Divider()
+                        Button { renameText = boardName; showRenameBoard = true } label: {
+                            Label("Rename board", systemImage: "pencil")
+                        }
+                        Button { newBoard() } label: {
+                            Label("New board", systemImage: "plus")
+                        }
+                        if boardsList.count > 3 {
+                            Button { showAllBoards = true } label: {
+                                Label("All boards…", systemImage: "square.stack")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(boardName)
+                                .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .semibold)).foregroundStyle(XITheme.gold)
+                        }
+                    }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
@@ -124,11 +199,23 @@ struct ConstellationView: View {
                         Button { showConstellations = true } label: { Label("My constellations", systemImage: "square.stack") }
                         Button { scatterAll() } label: { Label("Scatter all", systemImage: "sparkles") }
                             .disabled(offBoard.isEmpty)
+                        Button { showMinimap.toggle() } label: {
+                            Label(showMinimap ? "Hide minimap" : "Show minimap", systemImage: "map")
+                        }
+                        Button {
+                            constellationMode.toggle()
+                            starNetwork = []
+                            connectFrom = nil
+                        } label: {
+                            Label(constellationMode ? "Exit constellation mode" : "Constellation mode",
+                                  systemImage: constellationMode ? "star.slash" : "star")
+                        }
                         Button(role: .destructive) { clearBoard() } label: { Label("Clear board", systemImage: "trash") }
                             .disabled(placed.isEmpty)
-                    } label: { Image(systemName: "ellipsis.circle") }.tint(crimson)
+                    } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+                        .buttonBorderShape(.roundedRectangle).tint(.primary)
                     if !embedded {
-                        Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(crimson)
+                        Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                     }
                 }
             }
@@ -143,7 +230,7 @@ struct ConstellationView: View {
                     titleA: memoryTitle(c.a), titleB: memoryTitle(c.b), insight: c.insight,
                     onSave: { setInsight(c, $0) }, onDelete: { deleteConnection(c) })
             }
-            .sheet(item: $share) { s in BoardShareSheet(url: s.url) }
+            .sheet(item: $share) { s in BoardShareSheet(info: s) }
             .sheet(item: $editingPin) { p in
                 PinEditorSheet(text: p.text, onSave: { setPinText(p, $0) }, onDelete: { deletePin(p) })
             }
@@ -159,46 +246,199 @@ struct ConstellationView: View {
                     Task { await saveConstellationAction(n) }
                 }
             } message: { Text("Save this board arrangement to reload later.") }
+            .alert("Rename board", isPresented: $showRenameBoard) {
+                TextField("name", text: $renameText)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { renameCurrentBoard(renameText) }
+            }
+            .sheet(isPresented: $showAllBoards) {
+                AllBoardsSheet(boards: boardsList, activeId: boardId,
+                               onSelect: { switchBoard(to: $0); showAllBoards = false },
+                               onDelete: { deleteBoard($0) },
+                               onNew: { newBoard(); showAllBoards = false })
+            }
         }
+        .tint(XITheme.gold)
         .task {
             guard !loaded else { return }
-            async let conns = XIService.shared.loadConnections()
-            async let pos = XIService.shared.loadBoardPositions()
-            async let placedIds = XIService.shared.loadPlacedIds()
-            async let pinData = XIService.shared.loadPins()
-            connections = await conns.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
-            positions = await pos
-            placed = Set(await placedIds)
-            pins = (await pinData).map { BoardPin(id: $0.id, text: $0.text) }
-            // Any placed card lacking a saved position gets a tidy slot.
-            var i = 0
-            for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
-            for p in pins where positions[p.id] == nil { positions[p.id] = Self.boardCenter }
+            let board = await XIService.shared.loadActiveBoard()
+            apply(board)
+            boardsList = await XIService.shared.listBoards()
             loaded = true
+        }
+        // A shared board was just imported (it's now the active board) — swap
+        // to it even if this screen is already loaded and on screen.
+        .onReceive(NotificationCenter.default.publisher(for: XIService.boardImportedNotification)) { _ in
+            guard loaded else { return }
+            Task {
+                await XIService.shared.saveBoard(currentBoard())   // never lose the board you're leaving
+                apply(await XIService.shared.loadActiveBoard())
+                boardsList = await XIService.shared.listBoards()
+            }
+        }
+    }
+
+    // MARK: boards (multiple named canvases)
+
+    /// Swap the view's state to a loaded board (fresh undo history).
+    private func apply(_ board: XIService.XIBoardData) {
+        boardId = board.id
+        boardName = board.name
+        connections = board.connections.map { BoardConnection(a: $0.0, b: $0.1, insight: $0.2) }
+        positions = board.positions
+        placed = Set(board.placed)
+        pins = board.pins.map { BoardPin(id: $0.id, text: $0.text) }
+        undoStack = []; redoStack = []
+        connectFrom = nil
+        // Any placed card lacking a saved position gets a tidy slot.
+        var i = 0
+        for id in placed where positions[id] == nil { positions[id] = Self.slot(i); i += 1 }
+        for p in pins where positions[p.id] == nil { positions[p.id] = Self.boardCenter }
+    }
+
+    /// The view's current state as a savable board document.
+    private func currentBoard() -> XIService.XIBoardData {
+        XIService.XIBoardData(id: boardId, name: boardName,
+                              positions: positions, placed: Array(placed),
+                              pins: pins.map { (id: $0.id, text: $0.text) },
+                              connections: connections.map { ($0.a, $0.b, $0.insight) })
+    }
+
+    private func switchBoard(to id: String) {
+        guard id != boardId else { return }
+        let outgoing = currentBoard()
+        Task {
+            await XIService.shared.saveBoard(outgoing)   // never lose the board you're leaving
+            if let board = await XIService.shared.switchBoard(to: id) {
+                apply(board)
+            }
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func newBoard() {
+        let outgoing = currentBoard()
+        Task {
+            await XIService.shared.saveBoard(outgoing)
+            let board = await XIService.shared.createBoard()
+            apply(board)
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func renameCurrentBoard(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        boardName = trimmed
+        Task {
+            await XIService.shared.renameBoard(boardId, to: trimmed)
+            boardsList = await XIService.shared.listBoards()
+        }
+    }
+
+    private func deleteBoard(_ id: String) {
+        Task {
+            await XIService.shared.deleteBoard(id)
+            boardsList = await XIService.shared.listBoards()
+            if id == boardId {
+                // Deleted the board being viewed — land on the next one (or a
+                // fresh empty board when it was the last).
+                if let next = boardsList.first, let board = await XIService.shared.switchBoard(to: next.id) {
+                    apply(board)
+                } else {
+                    apply(await XIService.shared.createBoard())
+                    boardsList = await XIService.shared.listBoards()
+                }
+            }
+        }
+    }
+
+    /// Every board, for when the dropdown's three most-recent aren't enough —
+    /// same modal pattern as the constellations sheet.
+    private struct AllBoardsSheet: View {
+        let boards: [XIService.XIBoardMeta]
+        let activeId: String
+        var onSelect: (String) -> Void
+        var onDelete: (String) -> Void
+        var onNew: () -> Void
+
+        @Environment(\.dismiss) private var dismiss
+
+        var body: some View {
+            NavigationStack {
+                List {
+                    ForEach(boards) { b in
+                        Button { onSelect(b.id) } label: {
+                            HStack {
+                                Text(b.name)
+                                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                                Spacer()
+                                if b.id == activeId {
+                                    Image(systemName: "checkmark").font(.caption).foregroundStyle(XITheme.gold)
+                                }
+                            }
+                        }
+                        .swipeActions {
+                            Button(role: .destructive) { onDelete(b.id) } label: { Label("Delete", systemImage: "trash") }
+                        }
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(XITheme.paper.ignoresSafeArea())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("boards")
+                            .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { onNew() } label: { Image(systemName: "plus") }.tint(XITheme.gold)
+                            .accessibilityLabel("New board")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line)
+                            .accessibilityLabel("Close")
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .tint(XITheme.gold)
         }
     }
 
     private var emptyBoard: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "pin").font(.system(size: 34, weight: .thin)).foregroundStyle(bodyGrey)
-            Text("Your board is empty")
-                .font(.system(.title3, design: .serif)).foregroundStyle(slate)
-            Text("Pin memories to the board to connect them with string.")
-                .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
-                .multilineTextAlignment(.center)
-            Button { showAdd = true } label: {
-                Label("Add memories", systemImage: "plus")
-                    .font(.system(.body, design: .serif).weight(.medium))
-                    .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
-                    .background(crimson).clipShape(RoundedRectangle(cornerRadius: 6))
-            }.padding(.top, 4)
+        VStack(spacing: 22) {
+            // Instructions up top… (text and preview pass touches through to the
+            // board beneath — only the Add button is tappable)
+            VStack(spacing: 14) {
+                Text("Your board is empty")
+                    .font(.system(.title3, design: .serif)).foregroundStyle(slate)
+                    .allowsHitTesting(false)
+                Text("Pin memories to the board to connect them with string.")
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(bodyGrey)
+                    .multilineTextAlignment(.center)
+                    .allowsHitTesting(false)
+                Button { showAdd = true } label: {
+                    Label("Add memories", systemImage: "plus")
+                        .font(.system(.body, design: .serif).weight(.medium))
+                        .foregroundStyle(.white).padding(.vertical, 11).padding(.horizontal, 22)
+                        .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
+                }.padding(.top, 4)
+            }
+            // …the blurred preview sits below, clearly visible.
+            ConstellationPreview(beige: beige, border: beigeBorder, crimson: crimson,
+                                 slate: slate, bodyGrey: bodyGrey)
+                .allowsHitTesting(false)
         }
         .padding(28)
+        // The whole block (text + button + preview, spacing intact) sits a
+        // little higher than dead center.
+        .offset(y: -60)
     }
 
     /// Persist the board arrangement after a card is dragged.
     private func savePositions() {
-        Task { await XIService.shared.saveBoardPositions(positions) }
+        persistAll()   // whole-board doc — positions live inside it now
     }
 
     /// Long-press from one card released on another: add the string, or remove
@@ -216,13 +456,39 @@ struct ConstellationView: View {
 
     // MARK: board membership (add / remove / scatter / clear)
 
+    /// The next spiral slot that doesn't collide with anything already on the
+    /// board. Cards may have been dragged anywhere, so each candidate is
+    /// checked against every occupied position — new cards land in EMPTY
+    /// space, never on top of existing ones.
+    private func freeSlot(startingAt start: Int, occupied: [CGPoint]) -> (index: Int, point: CGPoint) {
+        var i = start
+        while i < start + 500 {
+            let p = Self.slot(i)
+            let collides = occupied.contains {
+                abs($0.x - p.x) < Self.cardW && abs($0.y - p.y) < Self.cardH
+            }
+            if !collides { return (i, p) }
+            i += 1
+        }
+        return (i, Self.slot(i))
+    }
+
     private func addToBoard(_ ids: [String]) {
         guard !ids.isEmpty else { return }
         recordUndo()
+        var occupied = placed.compactMap { positions[$0] } + pins.compactMap { positions[$0.id] }
         var n = placed.count
         for id in ids where !placed.contains(id) {
-            if positions[id] == nil { positions[id] = Self.slot(n) }
-            placed.insert(id); n += 1
+            if positions[id] == nil {
+                let (idx, p) = freeSlot(startingAt: n, occupied: occupied)
+                positions[id] = p
+                occupied.append(p)
+                n = idx + 1
+            } else {
+                occupied.append(positions[id]!)
+                n += 1
+            }
+            placed.insert(id)
         }
         persistAll()
     }
@@ -252,7 +518,10 @@ struct ConstellationView: View {
     private func addPin() {
         recordUndo()
         let id = "pin_" + XIService.randomShareId()
-        positions[id] = CGPoint(x: Self.boardCenter.x, y: Self.boardCenter.y - 30)
+        // Pins get the same collision-checked placement as cards.
+        let occupied = placed.compactMap { positions[$0] } + pins.compactMap { positions[$0.id] }
+        let (_, p) = freeSlot(startingAt: 0, occupied: occupied)
+        positions[id] = CGPoint(x: p.x, y: p.y - 30)
         let pin = BoardPin(id: id, text: "")
         pins.append(pin)
         persistAll()
@@ -295,17 +564,29 @@ struct ConstellationView: View {
         persistAll()
     }
 
-    /// Publish the board and hand back a shareable web link.
+    /// Publish the board and hand back a shareable web link whose preview IS a
+    /// picture of the whole board — texting the link shows the board itself.
     private func shareBoardAction() async {
         guard !placed.isEmpty else { return }
         sharing = true
+        let byId = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let cards = placed.compactMap { id -> BoardImage.Card? in
+            guard let m = byId[id] else { return nil }
+            return BoardImage.Card(id: id, title: m.title, snippet: m.content)
+        }
+        let pinData = pins.map { (id: $0.id, text: $0.text) }
         let conns = connections.map { ($0.a, $0.b, $0.insight) }
+        let jpeg = BoardImage.render(
+            cards: cards, positions: positions, pins: pinData,
+            connections: connections.map { (a: $0.a, b: $0.b, insight: $0.insight) })
         let id = await XIService.shared.shareBoard(
-            name: "My board", memories: memories, placedIds: Array(placed),
-            positions: positions, connections: conns)
+            name: boardName, memories: memories, placedIds: Array(placed),
+            positions: positions, connections: conns,
+            pins: pinData, snapshotJpeg: jpeg)
         sharing = false
-        if let id, let url = URL(string: "https://incaseofamnesia.com/share/\(id)") {
-            share = ShareInfo(url: url)
+        if let id, let url = URL(string: "https://incaseofamnesia.com/s/\(id)") {
+            share = ShareInfo(url: url, boardName: boardName,
+                              image: jpeg.flatMap { UIImage(data: $0) })
         }
     }
 
@@ -333,42 +614,66 @@ struct ConstellationView: View {
     }
 
     private func persistAll() {
-        savePositions()
-        let pairs = connections.map { ($0.a, $0.b, $0.insight) }
-        let ids = Array(placed)
-        let pinData = pins.map { (id: $0.id, text: $0.text) }
-        Task {
-            await XIService.shared.saveConnections(pairs)
-            await XIService.shared.savePlacedIds(ids)
-            await XIService.shared.savePins(pinData)
-        }
+        let board = currentBoard()
+        Task { await XIService.shared.saveBoard(board) }
     }
 
     private var board: some View {
         ZStack {
             Color.white
             Canvas { ctx, _ in
-                // Hashtag matches → faint dashed "suggestions".
-                for (a, b) in stringPairs {
-                    var path = Path()
-                    path.move(to: a); path.addLine(to: b)
-                    ctx.stroke(path, with: .color(crimson.opacity(0.30)),
-                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                let starring = constellationMode && !starNetwork.isEmpty
+                // Hashtag matches → faint dashed "suggestions" (hidden while a
+                // constellation is lit — only its own strings matter then).
+                if !starring {
+                    for (a, b) in stringPairs {
+                        var path = Path()
+                        path.move(to: a); path.addLine(to: b)
+                        ctx.stroke(path, with: .color(crimson.opacity(0.30)),
+                                   style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                    }
                 }
-                // Hand-drawn strings → solid crimson (only between on-board items).
+                // Hand-drawn strings → solid crimson; while a constellation is
+                // lit, ITS strings turn gold and the rest fade.
                 for c in connections where isOnBoard(c.a) && isOnBoard(c.b) {
                     guard let pa = anchor(c.a), let pb = anchor(c.b) else { continue }
                     var path = Path()
                     path.move(to: pa); path.addLine(to: pb)
-                    ctx.stroke(path, with: .color(crimson),
-                               style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    if starring {
+                        let inNet = starNetwork.contains(c.a) && starNetwork.contains(c.b)
+                        ctx.stroke(path, with: .color(inNet ? XITheme.gold : crimson.opacity(0.12)),
+                                   style: StrokeStyle(lineWidth: inNet ? 2.5 : 1.5, lineCap: .round))
+                    } else {
+                        ctx.stroke(path, with: .color(crimson),
+                                   style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    }
                 }
             }
-            .onTapGesture { connectFrom = nil }   // tap empty space cancels connecting
+            .onTapGesture {
+                connectFrom = nil            // tap empty space cancels connecting
+                starNetwork = []             // …and dims the lit constellation
+            }
             ForEach(boardMemories) { m in
+                if constellationMode && starNetwork.contains(m.id) {
+                    // Its constellation is lit: the card becomes a gold star.
+                    VStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(XITheme.gold)
+                            .shadow(color: XITheme.gold.opacity(0.7), radius: 10)
+                        Text(m.title.isEmpty ? String(m.content.prefix(24)) : m.title)
+                            .font(.system(size: 10, design: .serif))
+                            .foregroundStyle(slate)
+                            .lineLimit(1)
+                            .frame(maxWidth: 120)
+                    }
+                    .position(positions[m.id] ?? center)
+                    .onTapGesture { tapItem(m.id) }
+                } else {
                 PinCard(memory: m, width: Self.cardW, height: Self.cardH,
                         beige: beige, border: beigeBorder, crimson: crimson,
                         slate: slate, bodyGrey: bodyGrey, maroon: maroon)
+                    .opacity(constellationMode && !starNetwork.isEmpty ? 0.25 : 1)
                     .overlay(connectGlow(m.id))
                     .position(positions[m.id] ?? center)
                     .onTapGesture { tapItem(m.id) }
@@ -379,10 +684,12 @@ struct ConstellationView: View {
                             Label("Remove from board", systemImage: "pin.slash")
                         }
                     }
+                }
             }
             // Standalone concept pins.
             ForEach(pins) { p in
                 PinMarker(text: p.text, crimson: crimson, slate: slate, beige: beige, border: beigeBorder)
+                    .opacity(constellationMode && !starNetwork.isEmpty && !starNetwork.contains(p.id) ? 0.25 : 1)
                     .overlay(connectGlow(p.id))
                     .position(positions[p.id] ?? center)
                     .onTapGesture { tapItem(p.id) }
@@ -392,10 +699,13 @@ struct ConstellationView: View {
                         Button(role: .destructive) { deletePin(p) } label: { Label("Delete pin", systemImage: "trash") }
                     }
             }
-            // Tappable insight markers at each string's midpoint.
-            ForEach(placedConnections) { c in
-                if let mid = midpoint(c) {
-                    connectionTag(c).position(mid).onTapGesture { editingConn = c }
+            // Tappable insight markers at each string's midpoint (hidden while
+            // a constellation is lit — stars and strings only).
+            if !(constellationMode && !starNetwork.isEmpty) {
+                ForEach(placedConnections) { c in
+                    if let mid = midpoint(c) {
+                        connectionTag(c).position(mid).onTapGesture { editingConn = c }
+                    }
                 }
             }
         }
@@ -404,12 +714,32 @@ struct ConstellationView: View {
     /// Tap-to-connect: first tap picks the source (it glows); second tap on
     /// another item draws/removes the string; tapping the source again cancels.
     private func tapItem(_ id: String) {
+        if constellationMode {
+            // Light up the whole connected network this item belongs to.
+            starNetwork = network(from: id)
+            return
+        }
         if let from = connectFrom {
             if from != id { toggleConnection(from, id) }
             connectFrom = nil
         } else {
             connectFrom = id
         }
+    }
+
+    /// Everything reachable from an item along on-board strings (the item's
+    /// constellation) — breadth-first over the connections.
+    private func network(from start: String) -> Set<String> {
+        var seen: Set<String> = [start]
+        var queue = [start]
+        let conns = placedConnections
+        while let cur = queue.popLast() {
+            for c in conns {
+                let next: String? = c.a == cur ? c.b : (c.b == cur ? c.a : nil)
+                if let n = next, !seen.contains(n) { seen.insert(n); queue.append(n) }
+            }
+        }
+        return seen
     }
 
     /// A pulsing glow around the item chosen to connect from ("emanating light").
@@ -485,17 +815,16 @@ struct ConstellationView: View {
     /// board opens scrolled to this point.
     static let boardCenter = CGPoint(x: 1100, y: 1600)
 
-    /// A scattered grid slot for the i-th placed card, centered on the board so
-    /// added cards land in the middle (fixed columns so a slot doesn't shift as
-    /// more are added).
+    /// Where the i-th newly-placed card lands: a phyllotaxis spiral out from the
+    /// board centre (where the board opens), so the FIRST card sits dead-centre
+    /// on screen and later ones ring around it — never off to one side. Cards
+    /// with a saved position keep it; this is only for fresh adds.
     static func slot(_ i: Int) -> CGPoint {
-        let col = i % placeCols, row = i / placeCols
-        let originX = boardCenter.x - CGFloat(placeCols - 1) * colW / 2
-        let originY = boardCenter.y - rowH / 2
-        let jx = CGFloat((i &* 73) % 49) - 24
-        let jy = CGFloat((i &* 37) % 41) - 20
-        return CGPoint(x: originX + CGFloat(col) * colW + jx,
-                       y: originY + CGFloat(row) * rowH + jy)
+        guard i > 0 else { return boardCenter }
+        let angle = Double(i) * 2.399963229728653          // golden angle (radians)
+        let radius = 210.0 * Double(i).squareRoot()
+        return CGPoint(x: boardCenter.x + CGFloat(cos(angle) * radius),
+                       y: boardCenter.y + CGFloat(sin(angle) * radius))
     }
 
     /// A big board so cards and string have room to roam — no "wall" at the edge.
@@ -561,7 +890,7 @@ private struct PinCard: View {
                         Text(tag)
                             .font(.system(size: 9, design: .monospaced)).foregroundStyle(maroon)
                             .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(crimson.opacity(0.10)).clipShape(Capsule())
+                            .background(crimson.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -569,6 +898,7 @@ private struct PinCard: View {
         .padding(12)
         .frame(width: width, height: height, alignment: .leading)
         .background(beige)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .shadow(color: .black.opacity(0.13), radius: 4, x: 0, y: 2)
@@ -581,7 +911,7 @@ private struct Pushpin: View {
     let crimson: Color
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Capsule().fill(Color(white: 0.6))
+            RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.6))
                 .frame(width: 2, height: 12)
                 .rotationEffect(.degrees(15), anchor: .top)
                 .offset(x: 11, y: 10)
@@ -626,6 +956,11 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let initialCenter: CGPoint
     let onCardMoveBegan: () -> Void
     let onCardMoved: () -> Void
+    /// Reports the visible rect (content coordinates) + zoom for the minimap.
+    var onViewportChange: (CGRect, CGFloat) -> Void = { _, _ in }
+    /// Set to a content point to center the view there (minimap tap/drag);
+    /// cleared automatically once applied.
+    @Binding var jumpTo: CGPoint?
     @ViewBuilder var content: () -> Content
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -661,6 +996,14 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     func updateUIView(_ scroll: UIScrollView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.host.rootView = content()
+        if let p = jumpTo {
+            var off = CGPoint(x: p.x * scroll.zoomScale - scroll.bounds.width / 2,
+                              y: p.y * scroll.zoomScale - scroll.bounds.height / 2)
+            off.x = max(0, min(off.x, scroll.contentSize.width - scroll.bounds.width))
+            off.y = max(0, min(off.y, scroll.contentSize.height - scroll.bounds.height))
+            scroll.setContentOffset(off, animated: false)
+            DispatchQueue.main.async { self.jumpTo = nil }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -678,6 +1021,17 @@ private struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { host.view }
+
+        func scrollViewDidScroll(_ s: UIScrollView) { reportViewport(s) }
+        func scrollViewDidZoom(_ s: UIScrollView) { reportViewport(s) }
+        private func reportViewport(_ s: UIScrollView) {
+            let z = s.zoomScale
+            guard z > 0 else { return }
+            let rect = CGRect(x: s.contentOffset.x / z, y: s.contentOffset.y / z,
+                              width: s.bounds.width / z, height: s.bounds.height / z)
+            let cb = parent.onViewportChange
+            DispatchQueue.main.async { cb(rect, z) }
+        }
 
         /// Topmost card whose frame contains a point in the (unscaled) board space.
         private func card(at p: CGPoint) -> String? {
@@ -725,6 +1079,7 @@ private struct BoardAddSheet: View {
 
     @State private var search = ""
     @State private var selected: Set<String> = []
+    @State private var showNothingSelected = false
 
     private var filtered: [XIMemory] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -744,6 +1099,7 @@ private struct BoardAddSheet: View {
                         .font(.system(.body, design: .serif)).autocorrectionDisabled()
                 }
                 .padding(10).background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -770,20 +1126,37 @@ private struct BoardAddSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("add to board")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("add to board")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Add\(selected.isEmpty ? "" : " (\(selected.count))")") {
-                        onAdd(Array(selected)); dismiss()
+                    Button {
+                        if selected.isEmpty {
+                            showNothingSelected = true
+                        } else {
+                            onAdd(Array(selected)); dismiss()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark")
+                            if !selected.isEmpty {
+                                Text("\(selected.count)").font(.system(.body, design: .serif).weight(.semibold))
+                            }
+                        }
                     }
-                    .font(.system(.body, design: .serif).weight(.semibold))
-                    .tint(XITheme.gold).disabled(selected.isEmpty)
+                    .tint(XITheme.gold).opacity(selected.isEmpty ? 0.5 : 1)
+                    .accessibilityLabel("Add selected")
                 }
             }
+            .alert("Nothing selected yet", isPresented: $showNothingSelected) {
+                Button("OK", role: .cancel) {}
+            } message: { Text("Tap some memories to add first.") }
         }
     }
 
@@ -806,7 +1179,7 @@ private struct BoardAddSheet: View {
                     ForEach(m.hashtags.prefix(3), id: \.self) { tag in
                         Text(tag).font(.system(size: 11, design: .serif)).foregroundStyle(XITheme.gold)
                             .padding(.vertical, 3).padding(.horizontal, 8)
-                            .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
+                            .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -814,12 +1187,13 @@ private struct BoardAddSheet: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
         .background(on ? XITheme.gold.opacity(0.10) : XITheme.archiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? XITheme.gold : XITheme.archiveBorder, lineWidth: on ? 2 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .topTrailing) {
             Image(systemName: on ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(on ? XITheme.gold : XITheme.line)
-                .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
+                .padding(10)
         }
         .contentShape(Rectangle())
         .onTapGesture { toggle(m.id) }
@@ -880,9 +1254,10 @@ private struct ConnectionInsightSheet: View {
                         .foregroundStyle(XITheme.ink)
                     TextEditor(text: $text)
                         .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                        .frame(minHeight: 120)
+                        .frame(height: 120)
                         .scrollContentBackground(.hidden)
                         .padding(8).background(XITheme.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .focused($focused)
@@ -895,18 +1270,21 @@ private struct ConnectionInsightSheet: View {
                 .padding(20)
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("connection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("connection")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(text); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                    Button { onSave(text); dismiss() } label: { Image(systemName: "checkmark") }
+                        .tint(XITheme.gold).accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                    Spacer(); Button("Done") { focused = false }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
             .onAppear { text = insight }
@@ -918,29 +1296,47 @@ private struct ConnectionInsightSheet: View {
             .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveTitle)
             .lineLimit(3).padding(10).frame(maxWidth: .infinity)
             .background(XITheme.archiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.archiveBorder))
             .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
 /// Wraps a shareable board link so it can drive an item-sheet.
-struct ShareInfo: Identifiable { let id = UUID(); let url: URL }
+struct ShareInfo: Identifiable {
+    let id = UUID()
+    let url: URL
+    var boardName: String = "My board"
+    var image: UIImage?
+}
 
 /// Confirmation sheet after publishing a board — shows the link, a system share
 /// button, and copy. Anyone with the link can open the board on the web.
 private struct BoardShareSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let url: URL
+    let info: ShareInfo
     @State private var copied = false
+
+    private var url: URL { info.url }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Image(systemName: "link.circle.fill")
-                    .font(.system(size: 46)).foregroundStyle(XITheme.gold)
+                // The picture that rides the link — recipients see this in the
+                // message bubble before they ever tap.
+                if let img = info.image {
+                    Image(uiImage: img)
+                        .resizable().scaledToFit()
+                        .frame(maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                } else {
+                    Image(systemName: "link.circle.fill")
+                        .font(.system(size: 46)).foregroundStyle(XITheme.gold)
+                }
                 Text("Your board is shared")
                     .font(.system(.title3, design: .serif).weight(.semibold)).foregroundStyle(XITheme.ink)
-                Text("Anyone with this link can open your board on the web.")
+                Text("Texting the link shows this picture — tapping it opens the live board.")
                     .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.line)
                     .multilineTextAlignment(.center)
 
@@ -949,6 +1345,7 @@ private struct BoardShareSheet: View {
                     .lineLimit(2).truncationMode(.middle)
                     .padding(12).frame(maxWidth: .infinity)
                     .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -963,7 +1360,9 @@ private struct BoardShareSheet: View {
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold, lineWidth: 1))
                     }.tint(XITheme.gold)
 
-                    ShareLink(item: url) {
+                    ShareLink(item: url,
+                              preview: SharePreview(info.boardName,
+                                                    image: info.image.map(Image.init(uiImage:)) ?? Image(systemName: "square.grid.2x2"))) {
                         Label("Share", systemImage: "square.and.arrow.up")
                             .font(.system(.body, design: .serif).weight(.semibold))
                             .foregroundStyle(.white).frame(maxWidth: .infinity)
@@ -978,7 +1377,7 @@ private struct BoardShareSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }
@@ -997,6 +1396,66 @@ private struct ConnectGlow: View {
             .onAppear {
                 withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
             }
+    }
+}
+
+/// A blurred, non-interactive mock of a small constellation — three pinned index
+/// cards joined by crimson string — shown on an empty board so it hints at what a
+/// finished constellation looks like rather than a bare empty prompt.
+private struct ConstellationPreview: View {
+    let beige, border, crimson, slate, bodyGrey: Color
+
+    // Three card centres within the 300×230 canvas, arranged like a cluster.
+    private let spots: [CGPoint] = [
+        CGPoint(x: 82, y: 58), CGPoint(x: 224, y: 92), CGPoint(x: 128, y: 176),
+    ]
+    private let lines = [
+        "the night we drove nowhere",
+        "a door i almost didn't open",
+        "what she said at the table",
+    ]
+    private let cardW: CGFloat = 122, cardH: CGFloat = 76
+
+    var body: some View {
+        ZStack {
+            // Crimson string joining the three cards (a little triangle).
+            Canvas { ctx, _ in
+                for (i, j) in [(0, 1), (1, 2), (0, 2)] {
+                    let a = CGPoint(x: spots[i].x + cardW / 2 - 8, y: spots[i].y - cardH / 2 + 6)
+                    let b = CGPoint(x: spots[j].x + cardW / 2 - 8, y: spots[j].y - cardH / 2 + 6)
+                    var p = Path(); p.move(to: a); p.addLine(to: b)
+                    ctx.stroke(p, with: .color(crimson),
+                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                }
+            }
+            ForEach(0..<3, id: \.self) { i in
+                miniCard(i).position(spots[i])
+            }
+        }
+        .frame(width: 300, height: 230)
+        .blur(radius: 2.6)
+        .opacity(0.7)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func miniCard(_ i: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(lines[i])
+                .font(.system(size: 11, design: .serif).weight(.medium))
+                .foregroundStyle(slate).lineLimit(2)
+            Text("i keep coming back to this one, the way it kept")
+                .font(.system(size: 8, design: .serif)).foregroundStyle(bodyGrey).lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .padding(9)
+        .frame(width: cardW, height: cardH, alignment: .topLeading)
+        .background(beige)
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .overlay(RoundedRectangle(cornerRadius: 5).stroke(border, lineWidth: 0.75))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1.5)
+        .overlay(alignment: .topTrailing) { Pushpin(crimson: crimson).offset(x: -2, y: 1) }
     }
 }
 
@@ -1023,6 +1482,7 @@ private struct PinMarker: View {
                     .foregroundStyle(slate).multilineTextAlignment(.center).lineLimit(2)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(beige)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 0.75))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .frame(maxWidth: 150)
@@ -1051,6 +1511,7 @@ private struct PinEditorSheet: View {
                 TextField("a theme or idea", text: $draft)
                     .font(.system(.body, design: .serif)).focused($focused)
                     .padding(10).background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 Button(role: .destructive) { onDelete(); dismiss() } label: {
@@ -1060,15 +1521,18 @@ private struct PinEditorSheet: View {
             }
             .padding(20)
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("concept pin")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("concept pin")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(draft); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
+                    Button { onSave(draft); dismiss() } label: { Image(systemName: "checkmark") }
+                        .tint(XITheme.gold).accessibilityLabel("Save")
                 }
             }
             .onAppear { draft = text }
@@ -1126,11 +1590,14 @@ private struct ConstellationsSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("constellations")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("constellations")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .task { items = await XIService.shared.loadConstellations(); loading = false }

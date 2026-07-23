@@ -10,6 +10,8 @@
 //   st.set(key, value) -> Promise        (memory writes route to Firestore)
 //   st.list() -> Promise<string[]>       (memory keys that currently have memories)
 
+import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
+
 export function initXi(root, ctx) {
   const { POOL, onOpenLibrary, onScreenChange, initialScreen } = ctx;
   const st = ctx.storage;
@@ -50,7 +52,7 @@ export function initXi(root, ctx) {
     const key = ekey(d, i);
     if (excluded.has(key)) return true;
     const c = POOL[d][i];
-    const sourceOn = c && !disabledDecks.has(c.deck);
+    const sourceOn = c && !disabledDecks.has(c.deck) && !RETIRED_DECKS.has(c.deck);
     const lovedInPlay = lovedOn && loved.has(key);
     return !(sourceOn || lovedInPlay);
   }
@@ -87,7 +89,8 @@ export function initXi(root, ctx) {
   async function saveExcluded() { await st.set('xi2_excluded', [...excluded]); }
   async function loadLoved() { const a = await st.get('xi2_loved'); loved = new Set(Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []); }
   async function saveLoved() { await st.set('xi2_loved', [...loved]); }
-  async function loadDisabled() { const a = await st.get('xi2_disabledDecks'); disabledDecks = new Set(Array.isArray(a) ? a : []); }
+  // Never-stored -> the midjourney-only default; a stored [] (all on) wins.
+  async function loadDisabled() { const a = await st.get('xi2_disabledDecks'); disabledDecks = new Set(Array.isArray(a) ? a : DEFAULT_DISABLED_DECKS); }
   async function saveDisabled() { await st.set('xi2_disabledDecks', [...disabledDecks]); }
   async function loadLovedOn() { lovedOn = (await st.get('xi2_lovedOn')) === true; }
   async function saveLovedOn() { await st.set('xi2_lovedOn', lovedOn); }
@@ -225,7 +228,7 @@ export function initXi(root, ctx) {
   }
   function renderCurate() {
     const lvList = lovedList();
-    const toggles = DECKS.map((dk) => {
+    const toggles = DECKS.filter((dk) => !RETIRED_DECKS.has(dk.id)).map((dk) => {
       const on = !disabledDecks.has(dk.id);
       return `<button class="decktog${on ? ' on' : ''}" data-deck="${dk.id}" role="checkbox" aria-checked="${on}"><span class="deckbox">${on ? '<span class="deckchk">✓</span>' : ''}</span><span class="decknick">${esc(dk.nick)}</span></button>`;
     }).join('')
@@ -245,7 +248,7 @@ export function initXi(root, ctx) {
       groups += `<div class="curdeck"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck</span></div><div class="curgrid">${lc}</div></div>`;
     }
     for (const dk of DECKS) {
-      if (disabledDecks.has(dk.id)) continue; // off decks: cards are hidden, not dimmed
+      if (disabledDecks.has(dk.id) || RETIRED_DECKS.has(dk.id)) continue; // off/retired decks: cards are hidden, not dimmed
       if (dk.split) {
         const evs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, false)).join('');
         const tws = (deckIdx.tw[dk.id] || []).map((i) => cell('tw', i, false)).join('');

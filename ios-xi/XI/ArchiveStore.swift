@@ -15,8 +15,11 @@ func xiNormTag(_ raw: String) -> String {
 final class ArchiveStore: ObservableObject {
     enum Sort: String, CaseIterable, Identifiable { case newest = "Newest", oldest = "Oldest"; var id: String { rawValue } }
     enum Mode: String, CaseIterable, Identifiable { case all = "All", board = "Board", versus = "Versus"; var id: String { rawValue } }
+    /// Which memories to search: your own, the Commons (friends'), or both.
+    enum Scope: String, CaseIterable, Identifiable { case mine = "Mine", commons = "Commons", both = "Both"; var id: String { rawValue } }
 
     @Published var memories: [XIMemory] = []
+    @Published var commons: [XIMemory] = []
     @Published var libraries: [XILibrary] = []
     @Published var loading = true
 
@@ -27,6 +30,7 @@ final class ArchiveStore: ObservableObject {
     @Published var advancedOn = false
     @Published var mode: Mode = .all
     @Published var sort: Sort = .newest
+    @Published var scope: Scope = .mine
     @Published var selectedLibraryId: String?
 
     // Simplify view (persisted)
@@ -48,22 +52,32 @@ final class ArchiveStore: ObservableObject {
         var n = 0
         if !search.xiTrimmed.isEmpty { n += 1 }
         if !tagFilters.isEmpty { n += 1 }
-        if advancedOn && !advanced.isEmpty { n += 1 }
+        if !advanced.isEmpty { n += 1 }
         if mode != .all { n += 1 }
+        if scope != .mine { n += 1 }
         if selectedLibraryId != nil { n += 1 }
         return n
     }
 
     func load() async {
         async let mem = XIService.shared.allMemories()
+        async let com = XIService.shared.commonsMemories()
         async let libs = XIService.shared.loadLibraries()
         memories = await mem
+        commons = await com
         libraries = await libs
         loading = false
     }
 
     func reloadLibraries() async { libraries = await XIService.shared.loadLibraries() }
     func reloadMemories() async { memories = await XIService.shared.allMemories() }
+    func reloadCommons() async { commons = await XIService.shared.commonsMemories() }
+
+    /// Remove a friend's memory from the Commons.
+    func removeFromCommons(_ id: String) async {
+        await XIService.shared.removeFromCommons(id)
+        commons.removeAll { $0.id == id }
+    }
 
     // MARK: memory create / edit / delete
 
@@ -113,16 +127,36 @@ final class ArchiveStore: ObservableObject {
         trashed.removeAll { $0.id == id }
     }
 
-    /// Import a shared board (link or bare code) — copies its memories into the
-    /// library. Returns how many were imported.
-    func importShared(_ raw: String) async -> Int {
+    /// A shared board resolved and ready to confirm before importing to the Commons.
+    struct PendingImport: Identifiable { let id = UUID(); let shareId: String; let sharer: String; let count: Int }
+
+    /// Resolve a share link (or bare code) into who shared it and how many
+    /// memories it holds, so we can ask before adding anything. nil if not found.
+    func prepareImport(_ raw: String) async -> PendingImport? {
         var id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !id.isEmpty else { return 0 }
+        guard !id.isEmpty else { return nil }
         if let last = id.split(separator: "/").last { id = String(last) }
         if let q = id.split(separator: "?").first { id = String(q) }
-        let n = await XIService.shared.importSharedBoard(id)
-        if n > 0 { await reloadMemories() }
+        guard let info = await XIService.shared.sharedBoardInfo(id) else { return nil }
+        return PendingImport(shareId: id, sharer: info.sharer, count: info.count)
+    }
+
+    /// After the user says yes, pull the board's memories into the Commons (never
+    /// into your own library). Returns how many were added.
+    func confirmImportToCommons(_ shareId: String) async -> Int {
+        let n = await XIService.shared.importSharedBoardToCommons(shareId)
+        if n > 0 { await reloadCommons() }
         return n
+    }
+
+    /// Import the WHOLE board: memories to the Commons plus a recreated board
+    /// (layout, strings, pins) named after the sharer, made active. Returns the
+    /// new board's name and how many memories were newly added.
+    func confirmImportAsBoard(_ shareId: String) async -> (boardName: String, added: Int)? {
+        guard let r = await XIService.shared.importSharedBoardAsBoard(shareId) else { return nil }
+        if r.added > 0 { await reloadCommons() }
+        NotificationCenter.default.post(name: XIService.boardImportedNotification, object: r.board.id)
+        return (r.board.name, r.added)
     }
 
     // MARK: filtering
@@ -138,16 +172,28 @@ final class ArchiveStore: ObservableObject {
         return ids
     }
 
-    var filtered: [XIMemory] {
+    /// Your own memories, with library scoping / locked-library hiding applied.
+    /// (Libraries are a "mine" concept — they never touch the Commons.)
+    private var scopedMine: [XIMemory] {
         var out = memories
-
-        // Locked-library hiding / library scoping.
         if let lib = selectedLibrary {
             let ids = Set(lib.memories(from: memories).map(\.id))
             out = out.filter { ids.contains($0.id) }
         } else {
             let hidden = lockedHiddenIds
             if !hidden.isEmpty { out = out.filter { !hidden.contains($0.id) } }
+        }
+        return out
+    }
+
+    var filtered: [XIMemory] {
+        // Base set by scope: yours, the Commons, or both. Library selection only
+        // applies to your own memories.
+        var out: [XIMemory]
+        switch scope {
+        case .mine:    out = scopedMine
+        case .commons: out = commons
+        case .both:    out = scopedMine + commons
         }
 
         // Mode.
@@ -167,8 +213,8 @@ final class ArchiveStore: ObservableObject {
             }
         }
 
-        // Advanced boolean search.
-        if advancedOn && !advanced.isEmpty {
+        // Advanced boolean search (always available in the panel now).
+        if !advanced.isEmpty {
             out = out.filter { advanced.matches($0) }
         }
 
@@ -198,7 +244,11 @@ final class ArchiveStore: ObservableObject {
                 map[n, default: 0] += 1
             }
         }
-        return map.map { (tag: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
+        // Stable order: count desc, then alphabetical. Without the tiebreak,
+        // equal-count tags come out of the dictionary in random order and the
+        // cloud visibly reshuffles on every redraw.
+        return map.map { (tag: $0.key, count: $0.value) }
+            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.tag < $1.tag }
     }
 
     // MARK: boolean hashtag actions
@@ -224,7 +274,7 @@ final class ArchiveStore: ObservableObject {
 
     func clearAllFilters() {
         search = ""; tagFilters = []; advanced = XISearchLogic(); advancedOn = false
-        mode = .all; selectedLibraryId = nil
+        mode = .all; scope = .mine; selectedLibraryId = nil
     }
 
     // MARK: libraries

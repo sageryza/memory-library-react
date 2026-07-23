@@ -54,11 +54,25 @@ platform :ios do
       </plist>
     PLIST
 
-    sh("xcodebuild -exportArchive " \
-       "-archivePath #{archive_path} " \
-       "-exportPath #{export_path} " \
-       "-exportOptionsPlist #{plist_path} " \
-       "#{auth} -allowProvisioningUpdates")
+    # ASC cloud-signing flakes ("no profiles found" / "data couldn't be read
+    # because it isn't in the correct format") come and go in waves — retry the
+    # export a few times before failing the whole 4-minute build over it.
+    attempts = 0
+    begin
+      sh("xcodebuild -exportArchive " \
+         "-archivePath #{archive_path} " \
+         "-exportPath #{export_path} " \
+         "-exportOptionsPlist #{plist_path} " \
+         "#{auth} -allowProvisioningUpdates")
+    rescue => e
+      attempts += 1
+      if attempts < 3
+        UI.important("exportArchive failed (attempt #{attempts}/3) — retrying in 60s")
+        sleep(60)
+        retry
+      end
+      raise e
+    end
 
     ipa = Dir["#{export_path}/*.ipa"].first
     upload_to_testflight(

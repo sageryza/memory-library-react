@@ -12,10 +12,13 @@
         "destination": "/apple-app-site-association"
       },
       {
+<<<<<<< HEAD
+=======
         "source": "/s/**",
         "function": "sharePreview"
       },
       {
+>>>>>>> origin/main
         "source": "**",
         "destination": "/index.html"
       }
@@ -24,19 +27,27 @@
       {
         "source": "/apple-app-site-association",
         "headers": [
+<<<<<<< HEAD
+          { "key": "Content-Type", "value": "application/json" }
+=======
           {
             "key": "Content-Type",
             "value": "application/json"
           }
+>>>>>>> origin/main
         ]
       },
       {
         "source": "/.well-known/apple-app-site-association",
         "headers": [
+<<<<<<< HEAD
+          { "key": "Content-Type", "value": "application/json" }
+=======
           {
             "key": "Content-Type",
             "value": "application/json"
           }
+>>>>>>> origin/main
         ]
       }
     ]

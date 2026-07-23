@@ -4,12 +4,21 @@ import GoogleSignIn
 
 @main
 struct XIApp: App {
-    init() { Self.configureFirebase() }
+    init() { Self.configureFirebase(); XIImagePrefetch.warm() }
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .onOpenURL { url in GIDSignIn.sharedInstance.handle(url) }
+                .onOpenURL { url in
+                    // A shared-board link can also arrive as a direct URL open;
+                    // otherwise hand it to Google Sign-In.
+                    if !XIDeepLink.shared.handle(url) { GIDSignIn.sharedInstance.handle(url) }
+                }
+                // Universal links (tapped https://incaseofamnesia.com/share/… )
+                // arrive as a browsing user-activity for both cold and warm starts.
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL { XIDeepLink.shared.handle(url) }
+                }
         }
     }
 

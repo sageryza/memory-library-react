@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
 
 // The XI engine stores curation under xiSettings/state, mirrored to localStorage:
 //   • excluded      : role-keyed removed cards ("ev:5", "tw:12")  [xi2_excluded]
@@ -19,10 +20,21 @@ function readBool(userId, key) {
   catch { return false; }
 }
 
+// disabledDecks alone distinguishes "never chose" (midjourney-only default,
+// matching the iOS app) from a stored choice — even a stored "all on" ([]).
+function readDisabledDecks(userId) {
+  try {
+    const raw = localStorage.getItem(`xi_${userId || 'anon'}_xi2_disabledDecks`);
+    if (raw === null) return new Set(DEFAULT_DISABLED_DECKS);
+    const v = JSON.parse(raw);
+    return new Set(Array.isArray(v) ? v : DEFAULT_DISABLED_DECKS);
+  } catch { return new Set(DEFAULT_DISABLED_DECKS); }
+}
+
 export function readDeckFilter(userId) {
   return {
     excluded: readSet(userId, 'xi2_excluded'),
-    disabledDecks: readSet(userId, 'xi2_disabledDecks'),
+    disabledDecks: readDisabledDecks(userId),
     loved: readSet(userId, 'xi2_loved'),
     lovedOn: readBool(userId, 'xi2_lovedOn'),
   };
@@ -36,7 +48,7 @@ export function allowedIndices(cards, role, excluded, disabledDecks, loved, love
   for (let i = 0; i < cards.length; i++) {
     const key = `${role}:${i}`;
     if (excluded.has(key)) continue;
-    const sourceOn = !disabledDecks.has(cards[i].deck);
+    const sourceOn = !disabledDecks.has(cards[i].deck) && !RETIRED_DECKS.has(cards[i].deck);
     const lovedInPlay = lovedOn && loved && loved.has(key);
     if (sourceOn || lovedInPlay) out.push(i);
   }
@@ -57,7 +69,7 @@ export function useDeckFilter(userId) {
         const d = s.data();
         setState({
           excluded: new Set(Array.isArray(d.excluded) ? d.excluded : []),
-          disabledDecks: new Set(Array.isArray(d.disabledDecks) ? d.disabledDecks : []),
+          disabledDecks: new Set(Array.isArray(d.disabledDecks) ? d.disabledDecks : DEFAULT_DISABLED_DECKS),
           loved: new Set(Array.isArray(d.loved) ? d.loved : []),
           lovedOn: d.lovedOn === true,
         });

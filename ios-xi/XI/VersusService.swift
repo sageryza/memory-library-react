@@ -27,7 +27,24 @@ struct VersusGameState: Equatable {
     let placed: [VersusPlaced]
     let drawPileCount: Int
     let stats: [String: [String: Int]]
+    /// "waiting" until everyone's in; "active" once live.
+    /// Legacy docs without the field decode as "active".
     let status: String
+    let createdBy: String
+    /// How many players the creator set up the game for — the game starts
+    /// automatically, for everyone at once, the moment this many have joined.
+    let expectedPlayers: Int
+    let invites: [VersusInvite]
+
+    var isWaiting: Bool { status == "waiting" }
+}
+
+/// A tracked invite seat: a unique link token, the contact's name if one was
+/// picked, and who claimed it.
+struct VersusInvite: Equatable {
+    let token: String
+    let name: String
+    let claimedBy: String?
 }
 
 @MainActor
@@ -46,6 +63,9 @@ final class VersusService {
         if let u = Auth.auth().currentUser {
             if let dn = u.displayName, !dn.isEmpty { return ContentFilter.masked(dn) }
             if let em = u.email, let p = em.split(separator: "@").first { return ContentFilter.masked(String(p)) }
+            // Anonymous users get a distinguishable handle instead of everyone
+            // collapsing to the same bare "Player".
+            return "Player " + String(u.uid.suffix(4))
         }
         return "Player"
     }
@@ -55,16 +75,31 @@ final class VersusService {
 
     // MARK: Create / join
 
-    func createGame() async throws -> String {
+    /// invites: one entry per tracked seat (unique link token + optional contact
+    /// name). expectedPlayers counts the creator. The game starts AUTOMATICALLY,
+    /// for everyone at the same instant, when that many players have joined.
+    func createGame(expectedPlayers: Int = 2,
+                    invites: [(token: String, name: String)] = []) async throws -> String {
         guard let uid = uid else { throw e("Sign in to start a Versus game.") }
         let id = generateId()
-        let seeded = VersusModel.seedBoard(eventCount: XIDeck.events.count, twistCount: XIDeck.twists.count)
+        // The deck honors the creator's Curate removals + deck toggles (a
+        // curated game for everyone in it), falling back to the full pools when
+        // too few cards remain to seed and draw — matching the web.
+        let beAll = CurateStore.shared.allowedEvents
+        let bwAll = CurateStore.shared.allowedTwists
+        let seeded = VersusModel.seedBoard(
+            eventPool: beAll.count >= 6 ? beAll : CurateStore.liveIndices(XIDeck.events),
+            twistPool: bwAll.count >= 6 ? bwAll : CurateStore.liveIndices(XIDeck.twists))
         let creator: [String: Any] = ["uid": uid, "name": currentName(), "color": VersusModel.playerColors[0], "order": 0]
         try await gameRef(id).setData([
             "createdBy": uid,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
-            "status": "active",
+            // Games open in a waiting room: nobody can play until everyone has
+            // joined — then it goes live for all players at once. No head starts.
+            "status": "waiting",
+            "expectedPlayers": max(2, expectedPlayers),
+            "invites": invites.map { ["token": $0.token, "name": $0.name] },
             "players": [creator],
             "round": 0,
             "acted": [String](),
@@ -76,22 +111,103 @@ final class VersusService {
         return id
     }
 
-    func joinGame(_ gameId: String) async throws {
+    func joinGame(_ gameId: String, inviteToken: String? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to join.") }
-        let snap = try await gameRef(gameId).getDocument()
-        guard let g = snap.data() else { throw e("Game not found.") }
+        let name = currentName()
+        // Transactional: two players joining at the same moment must not clobber
+        // each other's entry or compute the same order.
+        _ = try await db.runTransaction { txn, errPtr -> Any? in
+            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else {
+                errPtr?.pointee = self.e("Game not found."); return nil
+            }
+            let players = (g["players"] as? [[String: Any]]) ?? []
+            if players.contains(where: { ($0["uid"] as? String) == uid }) { return nil }
+            // A started game is locked to its players — joining is only open
+            // while the game is in its waiting room. (Legacy docs without a
+            // status count as started.)
+            guard (g["status"] as? String ?? "active") == "waiting" else {
+                errPtr?.pointee = self.e("This game has already started — it's locked to its players."); return nil
+            }
+            let order = players.count
+            let player: [String: Any] = [
+                "uid": uid, "name": name,
+                "color": VersusModel.playerColors[order % VersusModel.playerColors.count], "order": order,
+            ]
+            var update: [String: Any] = [
+                "players": players + [player],
+                "stats.\(uid)": ["placed": 0, "stories": 0],
+                "updatedAt": FieldValue.serverTimestamp(),
+            ]
+            // Tracked invite: mark this seat claimed so the waiting room can
+            // show exactly who's in.
+            if let token = inviteToken, !token.isEmpty {
+                var invites = (g["invites"] as? [[String: Any]]) ?? []
+                if let i = invites.firstIndex(where: { ($0["token"] as? String) == token && $0["claimedBy"] == nil }) {
+                    invites[i]["claimedBy"] = uid
+                    update["invites"] = invites
+                }
+            }
+            // Roster complete → the game begins for everyone at this instant.
+            let expected = max(2, g["expectedPlayers"] as? Int ?? 2)
+            if players.count + 1 >= expected {
+                update["status"] = "active"
+            }
+            txn.updateData(update, forDocument: self.gameRef(gameId))
+            return nil
+        }
+    }
+
+    /// The other players' names in a game (everyone but you), for the lobby list.
+    /// nil if no one else has joined yet.
+    func otherPlayerNames(gameId: String) async -> String? {
+        guard let snap = try? await gameRef(gameId).getDocument(), let g = snap.data() else { return nil }
         let players = (g["players"] as? [[String: Any]]) ?? []
-        if players.contains(where: { ($0["uid"] as? String) == uid }) { return }
-        let order = players.count
-        let player: [String: Any] = [
-            "uid": uid, "name": currentName(),
-            "color": VersusModel.playerColors[order % VersusModel.playerColors.count], "order": order,
-        ]
-        try await gameRef(gameId).updateData([
-            "players": players + [player],
-            "stats.\(uid)": ["placed": 0, "stories": 0],
-            "updatedAt": FieldValue.serverTimestamp(),
-        ])
+        let mine = uid
+        let others = players.compactMap { p -> String? in
+            guard let puid = p["uid"] as? String, puid != mine else { return nil }
+            let n = (p["name"] as? String)?.trimmingCharacters(in: .whitespaces)
+            return (n?.isEmpty == false) ? n : nil
+        }
+        return others.isEmpty ? nil : others.joined(separator: ", ")
+    }
+
+    /// Whether the game document still exists — used to prune dead games from the
+    /// lobby's recents. A network error reads as "exists" so we never prune a
+    /// live game just because the fetch failed.
+    func gameExists(_ gameId: String) async -> Bool {
+        guard let snap = try? await gameRef(gameId).getDocument() else { return true }
+        return snap.exists
+    }
+
+    /// Lobby summary for sorting "your games": whether it's YOUR turn, and how
+    /// recently the game moved. nil if the doc is gone (prune it).
+    struct GameSummary {
+        let others: String?
+        let yourTurn: Bool
+        let updatedAt: Double
+        let waiting: Bool
+    }
+
+    func gameSummary(_ gameId: String) async -> GameSummary?? {
+        guard let snap = try? await gameRef(gameId).getDocument() else { return nil }   // network error: unknown
+        guard snap.exists, let g = snap.data() else { return .some(nil) }               // gone: prune
+        let mine = uid
+        let players = (g["players"] as? [[String: Any]]) ?? []
+        let others = players.compactMap { p -> String? in
+            guard let puid = p["uid"] as? String, puid != mine else { return nil }
+            let n = (p["name"] as? String)?.trimmingCharacters(in: .whitespaces)
+            return (n?.isEmpty == false) ? n : nil
+        }
+        let status = g["status"] as? String ?? "active"
+        let acted = (g["acted"] as? [String]) ?? []
+        let yourTurn: Bool = {
+            guard status == "active", let me = mine else { return false }
+            let isPlayer = players.contains { ($0["uid"] as? String) == me }
+            return isPlayer && !acted.contains(me)
+        }()
+        let updated = (g["updatedAt"] as? Timestamp)?.dateValue().timeIntervalSince1970 ?? 0
+        return .some(GameSummary(others: others.isEmpty ? nil : others.joined(separator: ", "),
+                                 yourTurn: yourTurn, updatedAt: updated, waiting: status == "waiting"))
     }
 
     // MARK: Hand
@@ -123,6 +239,9 @@ final class VersusService {
             }
             let players = (g["players"] as? [[String: Any]]) ?? []
             guard players.contains(where: { ($0["uid"] as? String) == uid }) else { errPtr?.pointee = self.e("Join the game first."); return nil }
+            guard (g["status"] as? String ?? "active") != "waiting" else {
+                errPtr?.pointee = self.e("The game hasn't started yet."); return nil
+            }
             if ((g["acted"] as? [String]) ?? []).contains(uid) { errPtr?.pointee = self.e("You've already gone this round."); return nil }
             let placedBy = (g["placedBy"] as? [String]) ?? []
             if placedBy.contains(uid) { errPtr?.pointee = self.e("You've already placed — write its story to finish."); return nil }
@@ -159,6 +278,9 @@ final class VersusService {
         _ = try await db.runTransaction { txn, errPtr -> Any? in
             guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else {
                 errPtr?.pointee = self.e("Game not found."); return nil
+            }
+            guard (g["status"] as? String ?? "active") != "waiting" else {
+                errPtr?.pointee = self.e("The game hasn't started yet."); return nil
             }
             var placedRaw = (g["placed"] as? [[String: Any]]) ?? []
             guard let last = placedRaw.last, (last["by"] as? String) == uid else { errPtr?.pointee = self.e("Nothing of yours to undo."); return nil }
@@ -232,6 +354,9 @@ final class VersusService {
             }
             let players = (g["players"] as? [[String: Any]]) ?? []
             guard players.contains(where: { ($0["uid"] as? String) == uid }) else { errPtr?.pointee = self.e("Join the game first."); return nil }
+            guard (g["status"] as? String ?? "active") != "waiting" else {
+                errPtr?.pointee = self.e("The game hasn't started yet."); return nil
+            }
             if ((g["acted"] as? [String]) ?? []).contains(uid) { errPtr?.pointee = self.e("You've already gone this round."); return nil }
             let me = players.first { ($0["uid"] as? String) == uid }
             name = me?["name"] as? String ?? "Player"; color = me?["color"] as? String
@@ -248,16 +373,26 @@ final class VersusService {
             "eventCap": evCard.cap, "twistCap": twCard.cap, "text": t, "ts": Date().timeIntervalSince1970 * 1000,
         ])
 
-        let title = "times i \(evCard.cap.lowercased()) \(twCard.cap.lowercased())"
+        let title = "times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())"
         let tags = [slugTag(evCard.cap), slugTag(twCard.cap)].compactMap { $0 }
         let now = Date(); let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let df = DateFormatter(); df.dateStyle = .short
-        _ = try? await db.collection("users").document(uid).collection("memories").addDocument(data: [
+        let memRef = try? await db.collection("users").document(uid).collection("memories").addDocument(data: [
             "content": t, "title": title, "hashtags": tags, "source": "xi", "mode": "versus",
             "event": ["id": evCard.id, "cap": evCard.cap], "twist": ["id": twCard.id, "cap": twCard.cap],
             "pairKey": pk, "timestamp": iso.string(from: now), "dateTime": df.string(from: now),
             "gameId": gameId, "createdAt": FieldValue.serverTimestamp(), "updatedAt": FieldValue.serverTimestamp(),
         ])
+        // Swap the card-pair title for an AI title distilled from the story itself,
+        // in the background — same as saving from the daily board. Falls back
+        // silently to the template title if AI is unavailable.
+        if let memRef {
+            Task {
+                if let ai = await XIService.shared.generateTitle(from: t) {
+                    try? await memRef.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
+                }
+            }
+        }
     }
 
     // MARK: helpers
@@ -316,7 +451,14 @@ final class VersusService {
             id: id, players: players, round: d["round"] as? Int ?? 0,
             acted: d["acted"] as? [String] ?? [], placedBy: d["placedBy"] as? [String] ?? [],
             placed: placed, drawPileCount: ((d["drawPile"] as? [[String: Any]]) ?? []).count,
-            stats: stats, status: d["status"] as? String ?? "active"
+            stats: stats, status: d["status"] as? String ?? "active",
+            createdBy: d["createdBy"] as? String ?? "",
+            expectedPlayers: d["expectedPlayers"] as? Int ?? 2,
+            invites: ((d["invites"] as? [[String: Any]]) ?? []).map {
+                VersusInvite(token: $0["token"] as? String ?? "",
+                             name: $0["name"] as? String ?? "",
+                             claimedBy: $0["claimedBy"] as? String)
+            }
         )
     }
     static func decodeCardStatic(_ m: [String: Any]) -> HandCard? {

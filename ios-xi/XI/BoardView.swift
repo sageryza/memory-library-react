@@ -18,36 +18,52 @@ private struct FrameAnchorKey: PreferenceKey {
 }
 
 struct BoardView: View {
-    @ObservedObject var auth: AuthState
-
     @State private var viewDay = BoardEngine.dayNumber()
     @State private var selected: Cell?
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
+<<<<<<< HEAD
+    /// pairKeys of YOUR memories — cards whose board pairing has one get a
+    /// small maroon dot (the web's memory tokens).
+    @State private var memPairKeys: Set<String> = []
+    /// Curate choices shape the daily draw (your board reflects your curation,
+    /// like the web) — observed so deck/card toggles re-deal immediately.
+    @ObservedObject private var curate = CurateStore.shared
+=======
     @State private var showDeleteConfirm = false
     @State private var deleteError: String?
     @State private var showBlocked = false
+>>>>>>> origin/main
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
+<<<<<<< HEAD
+    private var placed: [Placed] {
+        BoardEngine.dailyBoard(viewDay, allowedEv: curate.allowedEvents, allowedTw: curate.allowedTwists)
+    }
+    // Fixed square grid so cards stay a consistent (big) size and the un-filled
+    // cells render as blanks — a crossword, not a solid block.
+    private var rows: Int { BoardEngine.dailySide }
+    private var cols: Int { BoardEngine.dailySide }
+=======
     private var placed: [Placed] { BoardEngine.dailyBoard(viewDay) }
     private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
     private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
+>>>>>>> origin/main
     private var byCell: [String: Placed] {
         Dictionary(uniqueKeysWithValues: placed.map { ("\($0.r),\($0.c)", $0) })
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                header
+            VStack(spacing: 12) {
                 board
                     .frame(maxWidth: min(520, CGFloat(cols) * 130))
                 if !isToday {
-                    Text("Past board — view only. Tap › to come back to today.")
+                    Text("A past day's board — tap two cards to add a memory, or › to return to today.")
                         .font(.system(.footnote, design: .serif))
                         .foregroundStyle(XITheme.line)
                         .multilineTextAlignment(.center)
@@ -55,29 +71,62 @@ struct BoardView: View {
                 }
                 Spacer()
             }
-            .padding(16)
+            .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 16)
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showHelp = true } label: {
-                        Image(systemName: "info.circle").tint(XITheme.gold)
+                // Logo alone top-left, ⓘ alone top-right — balanced corners,
+                // title truly centered, and no iOS 26 glass pills behind them.
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showHelp = true } label: {
+                            Image(systemName: "info.circle").tint(XITheme.gold)
+                        }
+                        .buttonBorderShape(.roundedRectangle)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) {
+                        XILogo(height: 20)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showHelp = true } label: {
+                            Image(systemName: "info.circle").tint(XITheme.gold)
+                        }
+                        .buttonBorderShape(.roundedRectangle)
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        if let email = auth.email {
-                            Text(email)
-                        } else if auth.isAnonymous {
-                            Text("playing without an account")
+                ToolbarItem(placement: .principal) {
+                    // The day arrows live IN the header, flanking the title — no
+                    // separate row, no day label; the board sits flush below.
+                    HStack(spacing: 14) {
+                        Button { viewDay -= 1; selected = nil; composedCells = [] } label: {
+                            Image(systemName: "chevron.left")
                         }
+<<<<<<< HEAD
+                        .disabled(viewDay <= 1)   // no rewinding into day zero / negative days
+                        Text("BOARD OF THE DAY")
+                            .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
+                        Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                        .disabled(viewDay >= today)
+=======
                         Button("manage blocked players") { showBlocked = true }
                         Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
                         Button("delete account", role: .destructive) { showDeleteConfirm = true }
                     } label: {
                         Image(systemName: "person.circle").tint(XITheme.gold)
+>>>>>>> origin/main
                     }
+                    .font(.system(.subheadline))
+                    .tint(XITheme.gold)
                 }
             }
             .sheet(item: $composing) { pair in
@@ -102,32 +151,38 @@ struct BoardView: View {
                 Text(deleteError ?? "")
             }
             .onChange(of: composing?.id) { newID in
-                if newID == nil { composedCells = [] }   // composer closed → clear the pair
+                if newID == nil {
+                    composedCells = []   // composer closed → clear the pair
+                    Task { await loadMemoryDots() }   // it may have added a memory
+                }
             }
+            .task { await loadMemoryDots() }
         }
         .tint(XITheme.gold)
     }
 
-    private var header: some View {
-        HStack {
-            Button { viewDay -= 1; selected = nil; composedCells = [] } label: { Image(systemName: "chevron.left") }
-            Spacer()
-            VStack(spacing: 2) {
-                Text("XI")
-                    .font(.system(.title2, design: .serif).weight(.semibold)).tracking(6)
-                    .foregroundStyle(XITheme.ink)
-                Text(BoardEngine.dayLabel(viewDay, today: today))
-                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.gold)
-            }
-            Spacer()
-            Button { if viewDay < today { viewDay += 1; selected = nil; composedCells = [] } } label: { Image(systemName: "chevron.right") }
-                .disabled(viewDay >= today)
-        }
-        .font(.system(.title3, design: .serif))
-        .tint(XITheme.gold)
-        .padding(.horizontal, 4)
+    private func loadMemoryDots() async {
+        let all = await XIService.shared.allMemories()
+        memPairKeys = Set(all.filter { !$0.isCommons && !$0.pairKey.isEmpty }.map(\.pairKey))
     }
 
+<<<<<<< HEAD
+    /// Does one of this card's on-board pairings carry a memory of yours?
+    private func hasMemory(_ r: Int, _ c: Int, card: XICard, isEvent: Bool) -> Bool {
+        for (dr, dc) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+            guard let n = byCell["\(r + dr),\(c + dc)"] else { continue }
+            let nIsEvent = n.d == "be"
+            guard nIsEvent != isEvent else { continue }
+            let nCard = nIsEvent ? XIDeck.events[n.i] : XIDeck.twists[n.i]
+            let key = isEvent ? "\(card.id)__\(nCard.id)" : "\(nCard.id)__\(card.id)"
+            if memPairKeys.contains(key) { return true }
+        }
+        return false
+    }
+
+
+=======
+>>>>>>> origin/main
     private var board: some View {
         VStack(spacing: 5) {
             ForEach(0..<rows, id: \.self) { r in
@@ -163,7 +218,8 @@ struct BoardView: View {
             let isEvent = p.d == "be"
             let card = isEvent ? XIDeck.events[p.i] : XIDeck.twists[p.i]
             let framed = selected == cell || composedCells.contains(cell)
-            CardCell(card: card, isEvent: isEvent)
+            CardCell(card: card, isEvent: isEvent,
+                     memoryDot: hasMemory(r, c, card: card, isEvent: isEvent))
                 .anchorPreference(key: FrameAnchorKey.self, value: .bounds) {
                     framed ? [$0] : []
                 }
@@ -176,7 +232,8 @@ struct BoardView: View {
     }
 
     private func tap(_ r: Int, _ c: Int, card: XICard, isEvent: Bool) {
-        guard isToday else { return } // past boards are read-only
+        // Past days are playable too — a memory written here is stamped with the
+        // day being viewed (ComposerSheet gets boardDay: viewDay).
         let here = Cell(r: r, c: c)
         guard let sel = selected else { selected = here; return }
         if sel == here { selected = nil; return }
@@ -196,30 +253,26 @@ struct BoardView: View {
 struct CardCell: View {
     let card: XICard
     let isEvent: Bool
+    /// A pairing of this card on this board carries one of your memories.
+    var memoryDot: Bool = false
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4).fill(isEvent ? XITheme.cream : XITheme.white)
-            if let img = card.img, let url = URL(string: XITheme.cardArtBase + img) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    Color.clear
-                }
-                .padding(1)
-            } else {
-                Text(card.cap)
-                    .font(.system(size: 9, design: .serif))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink)
-                    .padding(2)
-            }
+            CardArt(card: card, capSize: 9, pad: 1, blend: false)
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
                 .stroke(XITheme.line, lineWidth: 0.5)
         )
+        .overlay(alignment: .bottomLeading) {
+            if memoryDot {
+                Circle().fill(XITheme.maroon)
+                    .frame(width: 6, height: 6)
+                    .padding(4)
+            }
+        }
     }
 }
 
@@ -241,11 +294,14 @@ private struct BoardHelpSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("How to play")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("how to play")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }

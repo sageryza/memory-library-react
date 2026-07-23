@@ -42,16 +42,19 @@ struct ArchiveLibrariesSheet: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("libraries")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("libraries")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button { newName = ""; newLocked = false; showNew = true } label: {
                         Image(systemName: "plus")
                     }.tint(XITheme.gold)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .alert("New Library", isPresented: $showNew) {

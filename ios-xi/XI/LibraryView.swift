@@ -5,13 +5,21 @@ import SwiftUI
 /// manual Libraries (incl. locked), simplify view, sort, and bulk select-edit.
 /// Which memory sheet the archive is showing.
 enum MemSheet: Identifiable {
-    case add, view(XIMemory), edit(XIMemory)
+    case add, edit(XIMemory)
     var id: String {
         switch self {
         case .add: return "add"
-        case .view(let m): return "view-\(m.id)"
         case .edit(let m): return "edit-\(m.id)"
         }
+    }
+}
+
+/// Reports the filter dropdown's natural content height so the dropdown can
+/// hug it (and cap it above the nav bar).
+private struct FilterPanelHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
@@ -20,14 +28,21 @@ struct LibraryView: View {
     @StateObject private var store = ArchiveStore()
 
     @State private var memSheet: MemSheet?
-    @State private var showFilter = false
+    /// The memory open in the centered pop-up modal (her call: viewing a
+    /// memory is a pop-up, not a slide-up sheet).
+    @State private var viewMem: XIMemory?
+    @State private var filtersExpanded = false
+    @State private var filterPanelH: CGFloat = 0
     @State private var showLibraries = false
     @State private var showAddTag = false
     @State private var addTagText = ""
     @State private var showImport = false
     @State private var importText = ""
     @State private var importMsg: String?
+    @State private var pendingImport: ArchiveStore.PendingImport?
     @State private var showTrash = false
+    @ObservedObject private var deepLink = XIDeepLink.shared
+    @ObservedObject private var kb = KeyboardHeight.shared
     @FocusState private var searchFocused: Bool
 
     private let simplifyCols = [GridItem(.flexible(), spacing: 10),
@@ -38,12 +53,56 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
-                if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
-                content
+                // The grid stays rendered — the filter panel drops down OVER it
+                // so the live-filtered cards remain visible beneath, and the
+                // dropdown's own height ends a little above the nav bar (you
+                // scroll inside it, it never runs under the nav).
+                ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
+                        if !store.tagFilters.isEmpty || store.selectedLibrary != nil { activeBar }
+                        content
+                    }
+                    if filtersExpanded {
+                        GeometryReader { geo in
+                            ZStack(alignment: .top) {
+                                // Tap ANYWHERE outside the panel to close it —
+                                // this catcher spans the whole grid area, and the
+                                // panel above only covers its own (measured)
+                                // height, so taps beside/below it fall through
+                                // here instead of into a dead scroll region.
+                                Color.black.opacity(0.001)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded = false } }
+                                ScrollView {
+                                    LibraryFilterPanel(store: store)
+                                        // A tap on the panel itself does nothing (absorbs).
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {}
+                                        .padding(.bottom, kb.height)
+                                        .background(GeometryReader { g in
+                                            Color.clear.preference(key: FilterPanelHeightKey.self, value: g.size.height)
+                                        })
+                                }
+                                .onPreferenceChange(FilterPanelHeightKey.self) { filterPanelH = $0 }
+                                // The dropdown is exactly as tall as its content,
+                                // hard-capped to end above the nav bar — long tag
+                                // clouds scroll INSIDE the card, which visibly
+                                // stops before the nav instead of running under it.
+                                .frame(height: filterPanelH > 0 ? min(filterPanelH, geo.size.height - 14) : nil,
+                                       alignment: .top)
+                                .frame(maxHeight: geo.size.height - 14, alignment: .top)
+                            }
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
                 if store.selectMode { selectionBar }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle(store.selectedLibrary?.name ?? "your memories")
+            // Tapping outside the search box dismisses the keyboard (card taps
+            // still win — child gestures take precedence).
+            .onTapGesture { searchFocused = false }
+            .navigationTitle(store.selectedLibrary?.name ?? "Memory Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .toolbar {
@@ -63,14 +122,13 @@ struct LibraryView: View {
                     MemoryEditorSheet(existing: m) { t, c, h, x in
                         Task { await store.editMemory(m.id, title: t, content: c, hashtagsText: h, context: x) }
                     }
-                case .view(let m):
-                    MemoryDetailSheet(memory: m,
-                                      onEdit: { memSheet = .edit(m) },
-                                      onTrash: { Task { await store.trash(m.id) }; memSheet = nil })
                 }
             }
+            // Viewing a memory: a centered pop-up modal over the grid (not a
+            // slide-up sheet) — tap the dim, or ✕, to close.
+            .overlay { popupOverlay }
+            .animation(.easeInOut(duration: 0.18), value: viewMem?.id)
             .sheet(isPresented: $showTrash) { TrashSheet(store: store) }
-            .sheet(isPresented: $showFilter) { ArchiveFilterSheet(store: store) }
             .sheet(isPresented: $showLibraries) { ArchiveLibrariesSheet(store: store) }
             .alert("Add hashtag", isPresented: $showAddTag) {
                 TextField("#tag", text: $addTagText)
@@ -84,78 +142,157 @@ struct LibraryView: View {
                 TextField("paste share link", text: $importText)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Cancel", role: .cancel) {}
-                Button("Import") {
+                Button("Next") {
                     let raw = importText; importText = ""
                     Task {
-                        let n = await store.importShared(raw)
-                        importMsg = n > 0 ? "Imported \(n) \(n == 1 ? "memory" : "memories")." : "Couldn't find that board."
+                        if let p = await store.prepareImport(raw) { pendingImport = p }
+                        else { importMsg = "Couldn't find that board." }
                     }
                 }
-            } message: { Text("Paste a board share link to add its memories to your library.") }
+            } message: { Text("Paste a board share link to add its memories to your Commons.") }
+            .alert("Import this board?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), presenting: pendingImport) { p in
+                Button("Import board") {
+                    Task {
+                        if let r = await store.confirmImportAsBoard(p.shareId) {
+                            let mems = r.added > 0
+                                ? "\(r.added) \(r.added == 1 ? "memory" : "memories") added to your Commons."
+                                : "Its memories were already in your Commons."
+                            importMsg = "Imported \u{201C}\(r.boardName)\u{201D} — find it on the board screen. \(mems)"
+                        } else {
+                            importMsg = "Couldn't import that board."
+                        }
+                    }
+                    pendingImport = nil
+                }
+                Button("Just the memories") {
+                    Task {
+                        let n = await store.confirmImportToCommons(p.shareId)
+                        importMsg = n > 0 ? "Added \(n) \(n == 1 ? "memory" : "memories") from \(p.sharer) to your Commons." : "Nothing new to add."
+                    }
+                    pendingImport = nil
+                }
+                Button("Not now", role: .cancel) { pendingImport = nil }
+            } message: { p in
+                Text("\(p.count) \(p.count == 1 ? "memory" : "memories") from \(p.sharer). Import board recreates their whole board — layout, strings, pins — as \u{201C}\(p.sharer)'s board\u{201D}; either way the memories live in your Commons, not mixed into your own library.")
+            }
             .alert("Import", isPresented: Binding(get: { importMsg != nil }, set: { if !$0 { importMsg = nil } })) {
                 Button("OK", role: .cancel) { importMsg = nil }
             } message: { Text(importMsg ?? "") }
         }
+        .tint(XITheme.gold)   // alerts get gold buttons, not system blue
         .task { await store.load() }
+        // A universal link (incaseofamnesia.com/share/…) resolves here and raises
+        // the same "Add to your Commons?" prompt as a pasted link.
+        .task(id: deepLink.pendingShareId) {
+            guard let id = deepLink.pendingShareId else { return }
+            if let p = await store.prepareImport(id) { pendingImport = p }
+            else { importMsg = "Couldn't open that shared board." }
+            deepLink.pendingShareId = nil
+        }
     }
 
     // MARK: toolbar
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button { showLibraries = true } label: { Image(systemName: "books.vertical") }.tint(XITheme.gold)
+        ToolbarItem(placement: .principal) {
+            Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(XITheme.navInk)
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button { showFilter = true } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .overlay(alignment: .topTrailing) {
-                        if store.activeFilterCount > 0 {
-                            Text("\(store.activeFilterCount)")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 14, height: 14)
-                                .background(XITheme.maroon).clipShape(Circle())
-                                .offset(x: 6, y: -6)
-                        }
-                    }
-            }.tint(XITheme.gold)
+        // Plain icons — no iOS 26 glass pill behind the toolbar buttons (same
+        // opt-out as the constellation and board screens).
+        if #available(iOS 26.0, *) {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                XILogo(height: 20)
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .tint(XITheme.gold)
+                    .buttonBorderShape(.roundedRectangle)
+                    .accessibilityLabel("New memory")
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                XILogo(height: 20)
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .tint(XITheme.gold)
+                    .buttonBorderShape(.roundedRectangle)
+                    .accessibilityLabel("New memory")
+            }
+            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { memSheet = .add } label: { Label("New memory", systemImage: "square.and.pencil") }
-                Button { importText = ""; showImport = true } label: { Label("Import shared board", systemImage: "square.and.arrow.down") }
-                Button { showTrash = true } label: { Label("Recently deleted", systemImage: "trash") }
-                Button { store.simplify.toggle() } label: {
-                    Label(store.simplify ? "Detailed view" : "Simplify view",
-                          systemImage: store.simplify ? "rectangle.grid.1x2" : "square.grid.3x3")
-                }
-                Button { store.toggleSelectMode() } label: {
-                    Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
-                }
-            } label: { Image(systemName: "ellipsis.circle") }.tint(XITheme.gold)
-        }
+    }
+
+    private var libraryMenu: some View {
+        Menu {
+            Button { store.toggleSelectMode() } label: {
+                Label(store.selectMode ? "Done selecting" : "Select", systemImage: "checkmark.circle")
+            }
+            Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
+            Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
+        } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+        .buttonBorderShape(.roundedRectangle)
+        .tint(.primary)
     }
 
     // MARK: bars
 
     private var searchBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
-            TextField("search memories", text: $store.search)
-                .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                .autocorrectionDisabled()
-                .focused($searchFocused)
-                .submitLabel(.search)
-                .onSubmit { searchFocused = false }
-            if !store.search.isEmpty {
-                Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
+            // The search box itself (magnifier · field · clear · filters chevron).
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
+                TextField("search memories", text: $store.search)
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .autocorrectionDisabled()
+                    .focused($searchFocused)
+                    .submitLabel(.search)
+                    .onSubmit { searchFocused = false }
+                if !store.search.isEmpty {
+                    Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
+                }
+                Button {
+                    searchFocused = false
+                    withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }
+                } label: {
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 15))
+                        .scaleEffect(x: 1.35, y: 0.7)   // wider + shorter arrow
+                        .rotationEffect(.degrees(filtersExpanded ? 180 : 0))
+                        .foregroundStyle(store.activeFilterCount > 0 ? XITheme.maroon : XITheme.line)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                        .overlay(alignment: .topTrailing) {
+                            if store.activeFilterCount > 0 && !filtersExpanded {
+                                Circle().fill(XITheme.maroon).frame(width: 6, height: 6).offset(x: -2, y: 3)
+                            }
+                        }
+                }
+                .accessibilityLabel(filtersExpanded ? "Hide filters" : "Show filters")
             }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(XITheme.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // Simplify / compact toggle lives OUTSIDE the box, right beside it —
+            // same height as the search box.
+            Button { withAnimation { store.simplify.toggle() } } label: {
+                Image(systemName: store.simplify ? "rectangle.grid.1x2" : "square.grid.2x2")
+                    .font(.system(size: 18))
+                    .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
+                    .frame(width: 40, height: 40)
+                    .background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
         }
-        .padding(10)
-        .background(XITheme.white)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 10)
     }
 
@@ -169,7 +306,7 @@ struct LibraryView: View {
                         Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                     }
                     .foregroundStyle(.white).padding(.vertical, 5).padding(.horizontal, 10)
-                    .background(XITheme.gold).clipShape(Capsule())
+                    .background(XITheme.gold).clipShape(RoundedRectangle(cornerRadius: 6))
                     .onTapGesture { store.selectLibrary(nil) }
                 }
                 ForEach(Array(store.tagFilters.enumerated()), id: \.element.id) { idx, f in
@@ -186,7 +323,7 @@ struct LibraryView: View {
                                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                             }
                             .foregroundStyle(.white).padding(.vertical, 5).padding(.horizontal, 10)
-                            .background(XITheme.maroon).clipShape(Capsule())
+                            .background(XITheme.maroon).clipShape(RoundedRectangle(cornerRadius: 6))
                         }.buttonStyle(.plain)
                     }
                 }
@@ -238,7 +375,9 @@ struct LibraryView: View {
     private var content: some View {
         if store.loading {
             Spacer(); ProgressView().tint(XITheme.gold); Spacer()
-        } else if store.memories.isEmpty {
+        } else if store.scope == .commons && store.commons.isEmpty {
+            emptyState("The Commons is empty.", "Friends' memories from Versus games and shared boards collect here — never robots or strangers.")
+        } else if store.scope == .mine && store.memories.isEmpty {
             emptyState("No memories yet.", "Tap ⋯ → New memory to write one, or make one on the board.")
         } else if store.filtered.isEmpty {
             emptyState("No matches.", "Try a different search or clear your filters.")
@@ -261,7 +400,14 @@ struct LibraryView: View {
                                            selected: store.selectedIds.contains(m.id),
                                            activeTags: Set(store.tagFilters.map(\.tag)),
                                            onOpen: { open(m) },
-                                           onTag: { store.toggleTag($0) })
+                                           onTag: { store.toggleTag($0) },
+                                           onEdit: m.isCommons ? nil : { memSheet = .edit(m) },
+                                           // Multi-statement closures: a bare `Task { … }` expression
+                                           // makes the optional-closure ternary ambiguous to infer.
+                                           onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) }; return },
+                                           onRemoveFromCommons: !m.isCommons ? nil : {
+                                               Task { await store.removeFromCommons(m.id) }; return
+                                           })
                             }
                         }
                     }
@@ -274,19 +420,66 @@ struct LibraryView: View {
 
     private func simplifyCard(_ m: XIMemory) -> some View {
         let title = m.title.isEmpty ? m.content : m.title
-        return Text(title.replacingOccurrences(of: ", ", with: " • "))
-            .font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.archiveTitle)
-            .multilineTextAlignment(.center).lineLimit(4)
+        return VStack(spacing: 3) {
+            Text(title.replacingOccurrences(of: ", ", with: " • "))
+                .font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.archiveTitle)
+                .multilineTextAlignment(.center).lineLimit(4)
+            if m.isCommons {
+                Text(m.authorName).font(.system(size: 9, design: .serif).italic())
+                    .foregroundStyle(XITheme.gold).lineLimit(1)
+            }
+        }
             .frame(maxWidth: .infinity, minHeight: 96)
             .padding(8)
             .background(XITheme.archiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XITheme.archiveBorder, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture { open(m) }
+            .contextMenu {
+                if !m.isCommons {
+                    Button { memSheet = .edit(m) } label: { Label("Edit", systemImage: "pencil") }
+                    Button(role: .destructive) { Task { await store.trash(m.id) } } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } else {
+                    Button(role: .destructive) { Task { await store.removeFromCommons(m.id) } } label: {
+                        Label("Remove from Commons", systemImage: "person.badge.minus")
+                    }
+                }
+            }
     }
 
     private func open(_ m: XIMemory) {
-        if store.selectMode { store.toggleSelected(m.id) } else { memSheet = .view(m) }
+        if store.selectMode {
+            guard !m.isCommons else { return }   // Commons memories aren't yours to bulk-edit
+            store.toggleSelected(m.id)
+        } else { viewMem = m }
+    }
+
+    // Extracted from body — inlining this pushed the type-checker over its
+    // expression-complexity limit.
+    @ViewBuilder
+    private var popupOverlay: some View {
+        if let m = viewMem {
+            MemoryPopup(memory: m,
+                        onEdit: m.isCommons ? nil : { viewMem = nil; memSheet = .edit(m) },
+                        onRemoveFromCommons: !m.isCommons ? nil : {
+                            Task { await store.removeFromCommons(m.id) }; viewMem = nil
+                        },
+                        onClose: { viewMem = nil },
+                        onSetVisibility: m.isCommons ? nil : { makePublic in
+                            // Multi-statement on purpose: a bare `Task { … }` expression
+                            // makes the optional-closure ternary ambiguous to infer.
+                            Task {
+                                _ = await XIService.shared.setMemoryVisibility(m.id, isPublic: makePublic)
+                                await store.reloadMemories()
+                                viewMem = nil
+                            }
+                            return
+                        })
+                .transition(.opacity)
+        }
     }
 
     // MARK: masonry (pack cards into the shortest column so there are no gaps)
@@ -332,6 +525,11 @@ private struct MemoryCard: View {
     let activeTags: Set<String>
     var onOpen: () -> Void
     var onTag: (String) -> Void
+    /// Long-press menu actions — edit/delete for your memories, remove for
+    /// Commons ones (deleting moved here from the pop-up, per Sage).
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
+    var onRemoveFromCommons: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -346,21 +544,41 @@ private struct MemoryCard: View {
             if !memory.hashtags.isEmpty {
                 FlowTags(tags: Array(memory.hashtags.prefix(3)), active: activeTags, onTag: onTag)
             }
+            if memory.isCommons {
+                HStack(spacing: 4) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 10))
+                    Text(memory.authorName).font(.system(size: 11, design: .serif).italic())
+                }.foregroundStyle(XITheme.gold)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(selected ? XITheme.maroon.opacity(0.06) : XITheme.archiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? XITheme.maroon : XITheme.archiveBorder, lineWidth: selected ? 2 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .topTrailing) {
-            if selectMode {
+            if selectMode && !memory.isCommons {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? XITheme.maroon : XITheme.line)
-                    .padding(8).background(.white.opacity(0.6)).clipShape(Circle()).padding(6)
+                    .padding(10)
             }
         }
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
+        .contextMenu {
+            if let onEdit {
+                Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
+            }
+            if let onDelete {
+                Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
+            }
+            if let onRemoveFromCommons {
+                Button(role: .destructive) { onRemoveFromCommons() } label: {
+                    Label("Remove from Commons", systemImage: "person.badge.minus")
+                }
+            }
+        }
     }
 }
 
@@ -379,7 +597,7 @@ private struct FlowTags: View {
                         .foregroundStyle(XITheme.gold)
                         .padding(.vertical, 3).padding(.horizontal, 8)
                         .background(XITheme.gold.opacity(active.contains(xiNormTag(tag)) ? 0.22 : 0.08))
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }.buttonStyle(.plain)
             }
         }
@@ -387,6 +605,130 @@ private struct FlowTags: View {
 }
 
 // MARK: - Detail
+
+/// The memory detail as a centered pop-up modal — dim behind, card in the
+/// middle; tap the dim or ✕ to close. (Her call: viewing a memory should be a
+/// pop-up, not a slide-up panel. Deleting lives on the card's long-press
+/// menu, not in here.)
+struct MemoryPopup: View {
+    let memory: XIMemory
+    var onEdit: (() -> Void)? = nil
+    var onRemoveFromCommons: (() -> Void)? = nil
+    var onClose: () -> Void
+
+    /// Per-memory public/private control (own memories only) — flips through
+    /// the publishMemory screen; nil hides the row (Commons/board contexts).
+    var onSetVisibility: ((Bool) -> Void)? = nil
+    @State private var isPublic = false
+    @State private var visibilityBusy = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+                .onTapGesture { onClose() }
+            VStack(spacing: 0) {
+                HStack {
+                    if let onEdit {
+                        Button("edit") { onEdit() }
+                            .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    }
+                    Spacer()
+                    Button { onClose() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Close")
+                }
+                .padding(.horizontal, 18).padding(.top, 14)
+                // ViewThatFits sizes the card in ONE layout pass — short
+                // memories hug, long ones scroll inside the cap — so the text
+                // never shifts after the pop-up opens (the old measure-then-
+                // resize approach nudged it down a beat after appearing).
+                ViewThatFits(in: .vertical) {
+                    inner
+                    ScrollView { inner }
+                }
+                .frame(maxHeight: 430)
+            }
+            .frame(maxWidth: 360)
+            .background(XITheme.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.28), radius: 20, y: 8)
+            .padding(.horizontal, 26)
+        }
+    }
+
+    private var inner: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if memory.isCommons {
+                HStack(spacing: 5) {
+                    Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
+                    Text("From \(memory.authorName) · the Commons")
+                        .font(.system(.footnote, design: .serif).italic())
+                }.foregroundStyle(XITheme.gold)
+            }
+            if !memory.title.isEmpty {
+                Text(memory.title)
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .foregroundStyle(XITheme.archiveTitle)
+            }
+            Text(memory.content)
+                .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            if !memory.hashtags.isEmpty {
+                PopupTags(tags: memory.hashtags)
+            }
+            if !memory.dateTime.isEmpty {
+                Text(memory.dateTime).font(.system(.caption, design: .serif)).foregroundStyle(XITheme.line)
+            }
+            if let onSetVisibility {
+                Toggle(isOn: Binding(
+                    get: { isPublic },
+                    set: { newValue in
+                        isPublic = newValue
+                        visibilityBusy = true
+                        onSetVisibility(newValue)
+                    }
+                )) {
+                    HStack(spacing: 6) {
+                        Image(systemName: isPublic ? "person.2.fill" : "lock")
+                            .font(.system(size: 12))
+                        Text(isPublic ? "shared with others who draw these cards" : "private — just for you")
+                            .font(.system(size: 13, design: .serif))
+                    }
+                    .foregroundStyle(isPublic ? XITheme.gold : XITheme.line)
+                }
+                .tint(XITheme.gold)
+                .disabled(visibilityBusy)
+                .onAppear { isPublic = memory.isPublic }
+            }
+            if let onRemoveFromCommons {
+                Button(role: .destructive) { onRemoveFromCommons() } label: {
+                    Label("Remove from Commons", systemImage: "person.badge.minus")
+                        .font(.system(.body, design: .serif))
+                }
+                .tint(XITheme.maroon)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Every hashtag, full text, wrapping onto as many lines as needed — the
+/// pop-up is the one place with room for them (grid cards still abbreviate).
+/// Reuses the filter panel's WrapLayout.
+private struct PopupTags: View {
+    let tags: [String]
+
+    var body: some View {
+        WrapLayout(spacing: 6) {
+            ForEach(tags, id: \.self) { tag in
+                Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
+                    .padding(.vertical, 3).padding(.horizontal, 8)
+                    .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+}
 
 struct MemoryDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -396,11 +738,20 @@ struct MemoryDetailSheet: View {
     /// When set (archive context), shows Edit / Delete actions.
     var onEdit: (() -> Void)? = nil
     var onTrash: (() -> Void)? = nil
+    /// When set (Commons context), shows a "Remove from Commons" action.
+    var onRemoveFromCommons: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    if memory.isCommons {
+                        HStack(spacing: 5) {
+                            Image(systemName: "person.crop.circle.fill").font(.system(size: 13))
+                            Text("From \(memory.authorName) · the Commons")
+                                .font(.system(.footnote, design: .serif).italic())
+                        }.foregroundStyle(XITheme.gold)
+                    }
                     if !memory.title.isEmpty {
                         Text(memory.title)
                             .font(.system(.title3, design: .serif).weight(.semibold))
@@ -414,7 +765,7 @@ struct MemoryDetailSheet: View {
                             ForEach(memory.hashtags, id: \.self) { tag in
                                 Text(tag).font(.system(size: 12, design: .serif)).foregroundStyle(XITheme.gold)
                                     .padding(.vertical, 3).padding(.horizontal, 8)
-                                    .background(XITheme.gold.opacity(0.08)).clipShape(Capsule())
+                                    .background(XITheme.gold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                         }
                     }
@@ -432,8 +783,22 @@ struct MemoryDetailSheet: View {
                         .padding(.top, 6)
                     }
                     if let onTrash {
-                        Button(role: .destructive) { onTrash() } label: {
-                            Label("Delete memory", systemImage: "trash")
+                        HStack {
+                            Spacer()
+                            Button(role: .destructive) { onTrash() } label: {
+                                Label("Delete memory", systemImage: "trash")
+                                    .font(.system(.footnote, design: .serif))
+                                    .foregroundStyle(.white)
+                                    .padding(.vertical, 8).padding(.horizontal, 14)
+                                    .background(XITheme.maroon)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                        .padding(.top, 6)
+                    }
+                    if let onRemoveFromCommons {
+                        Button(role: .destructive) { onRemoveFromCommons(); dismiss() } label: {
+                            Label("Remove from Commons", systemImage: "person.badge.minus")
                                 .font(.system(.body, design: .serif))
                         }
                         .tint(XITheme.maroon)
@@ -452,7 +817,7 @@ struct MemoryDetailSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }
@@ -470,6 +835,10 @@ struct MemoryEditorSheet: View {
     @State private var content = ""
     @State private var hashtags = ""
     @State private var context = ""
+    @State private var genTitle = false
+    @State private var genTags = false
+    @State private var showEmptyHint = false
+    @AppStorage("xiMemoryCreateCount") private var createCount = 0
     @FocusState private var focused: Bool
 
     private var canSave: Bool {
@@ -481,23 +850,22 @@ struct MemoryEditorSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    field("TITLE") {
-                        TextField("a short title (optional)", text: $title)
-                            .font(.system(.body, design: .serif)).focused($focused)
-                    }
                     field("MEMORY") {
                         TextEditor(text: $content)
-                            .font(.system(.body, design: .serif)).frame(minHeight: 140)
+                            .font(.system(.body, design: .serif)).frame(height: 140)
                             .scrollContentBackground(.hidden).focused($focused)
                     }
-                    field("HASHTAGS") {
-                        TextField("family, beach, summer", text: $hashtags)
-                            .font(.system(.body, design: .serif)).autocorrectionDisabled()
-                            .textInputAutocapitalization(.never).focused($focused)
+                    magicField("TITLE", text: $title, generating: genTitle,
+                               nudge: existing == nil && createCount < 2) {
+                        await runGenerateTitle()
+                    }
+                    magicField("HASHTAGS", text: $hashtags, autocorrect: false, generating: genTags,
+                               nudge: false) {
+                        await runGenerateTags()
                     }
                     field("MORE CONTEXT (optional)") {
                         TextEditor(text: $context)
-                            .font(.system(.body, design: .serif)).frame(minHeight: 80)
+                            .font(.system(.body, design: .serif)).frame(height: 80)
                             .scrollContentBackground(.hidden).focused($focused)
                     }
                 }
@@ -508,17 +876,35 @@ struct MemoryEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("cancel") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.line)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line)
+                        .accessibilityLabel("Cancel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(existing == nil ? "new memory" : "edit memory")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("save") { onSave(title, content, hashtags, context); dismiss() }
-                        .font(.system(.body, design: .serif).weight(.semibold)).tint(XITheme.gold)
-                        .disabled(!canSave)
+                    // Never iOS-gray-disabled: stays tappable and EXPLAINS what's
+                    // missing (the Save-as-Library convention).
+                    Button {
+                        guard canSave else { showEmptyHint = true; return }
+                        if existing == nil { createCount += 1 }
+                        onSave(title, content, hashtags, context); dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
+                    }
+                    .tint(XITheme.gold)
+                    .opacity(canSave ? 1 : 0.5)
+                    .accessibilityLabel("Save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer(); Button("Done") { focused = false }.tint(XITheme.gold)
+                    Spacer(); Button("Done") { focused = false }.font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
+            .alert("Nothing to save yet", isPresented: $showEmptyHint) {
+                Button("OK", role: .cancel) {}
+            } message: { Text("Write the memory (or at least a title) first.") }
             .onAppear {
                 if let m = existing {
                     title = m.title; content = m.content
@@ -536,9 +922,66 @@ struct MemoryEditorSheet: View {
             content()
                 .foregroundStyle(XITheme.ink)
                 .padding(10).background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
+    }
+
+    /// A short one-line field with a square gold "sparkles" button that fills it
+    /// in automatically from the memory text.
+    private func magicField(_ label: String, text: Binding<String>, autocorrect: Bool = true,
+                            generating: Bool, nudge: Bool,
+                            action: @escaping () async -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .tracking(1).foregroundStyle(XITheme.navInk)
+            HStack(spacing: 8) {
+                TextField("", text: text)
+                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                    .autocorrectionDisabled(!autocorrect)
+                    .textInputAutocapitalization(autocorrect ? .sentences : .never)
+                    .focused($focused)
+                    .padding(10).background(XITheme.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Button { Task { await action() } } label: {
+                    Group {
+                        if generating { ProgressView().tint(XITheme.gold) }
+                        else { Image(systemName: "sparkles").font(.system(size: 17)).foregroundStyle(.white) }
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(XITheme.gold)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .disabled(generating || content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                .accessibilityLabel("Generate \(label.lowercased())")
+            }
+            if nudge {
+                Text("✨ tap the star to fill this in automatically")
+                    .font(.system(size: 11, design: .serif).italic()).foregroundStyle(XITheme.gold)
+            }
+        }
+    }
+
+    private func runGenerateTitle() async {
+        let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !c.isEmpty else { return }
+        focused = false; genTitle = true
+        if let t = await XIService.shared.generateTitle(from: c) { title = t }
+        genTitle = false
+    }
+
+    private func runGenerateTags() async {
+        let c = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !c.isEmpty else { return }
+        focused = false; genTags = true
+        if let tags = await XIService.shared.generateTags(from: c), !tags.isEmpty {
+            hashtags = tags.joined(separator: " ")
+        }
+        genTags = false
     }
 }
 
@@ -586,11 +1029,14 @@ struct TrashSheet: View {
                 }
             }
             .background(XITheme.paper.ignoresSafeArea())
-            .navigationTitle("recently deleted")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("recently deleted")
+                        .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("done") { dismiss() }.font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
             .task { await store.loadTrashed(); loading = false }
