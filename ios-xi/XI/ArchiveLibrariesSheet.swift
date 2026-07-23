@@ -32,6 +32,19 @@ struct ArchiveLibrariesSheet: View {
                     }
                 }
                 Section("Libraries") {
+                    // "stories i tell" — the built-in public library everyone
+                    // has: Versus stories + memories shared to the world.
+                    NavigationLink {
+                        StoriesITellView()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "globe").font(.system(size: 13)).foregroundStyle(XITheme.gold)
+                            Text("stories i tell")
+                                .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                            Spacer()
+                            Text("public").font(.system(.caption2, design: .serif)).foregroundStyle(XITheme.line)
+                        }
+                    }
                     if store.libraries.isEmpty {
                         Text("No libraries yet. Create one below, or save a search from the filter panel.")
                             .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)

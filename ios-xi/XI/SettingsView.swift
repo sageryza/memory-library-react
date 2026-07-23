@@ -51,10 +51,17 @@ struct SettingsView: View {
                     } label: {
                         Label("Public sharing", systemImage: "person.2")
                     }
+                    Toggle(isOn: Binding(
+                        get: { SharePrefs.shared.versusPublic },
+                        set: { SharePrefs.shared.setVersusPublic($0) }
+                    )) {
+                        Label("Versus stories are public", systemImage: "globe")
+                    }
+                    .tint(XITheme.gold)
                 } header: {
                     Text("Sharing")
                 } footer: {
-                    Text("Shared memories appear, first name only, to people who draw the same cards — after an automatic safety check. Changing this never shares older memories; those stay as they are.")
+                    Text("Shared memories appear, first name only, to people who draw the same cards — after an automatic safety check. Versus stories go to the public \"stories i tell\" library unless turned off; any story can be made private from that library. Changing this never shares older memories; those stay as they are.")
                 }
                 Section("Memories") {
                     Button {

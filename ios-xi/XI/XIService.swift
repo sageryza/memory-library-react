@@ -294,6 +294,23 @@ final class XIService {
         } catch { return false }
     }
 
+    /// The "stories I tell" public library — everyone's published memories
+    /// and Versus stories, newest first.
+    func storiesITell(limit: Int = 100) async -> [PublicOther] {
+        guard let snap = try? await db.collection("publicMemories")
+            .order(by: "ts", descending: true).limit(to: limit).getDocuments() else { return [] }
+        return snap.documents.compactMap { doc in
+            let d = doc.data()
+            let content = d["content"] as? String ?? ""
+            guard !content.isEmpty else { return nil }
+            return PublicOther(id: doc.documentID,
+                               byUid: d["byUid"] as? String ?? "",
+                               byName: d["byName"] as? String ?? "anonymous",
+                               content: content,
+                               ts: d["ts"] as? Double ?? 0)
+        }
+    }
+
     /// Flag a public memory for review (write-only reports collection).
     func reportPublicMemory(_ other: PublicOther, reason: String, details: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else {

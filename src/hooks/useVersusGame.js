@@ -14,6 +14,8 @@ import { boardDeck } from '../xi/decks';
 import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
 import { buildXiMemoryDoc, pairKey, timesSentence } from '../xi/xiMemory';
 import { readDeckFilter, allowedIndices } from '../xi/xiExcluded';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 
 export const HAND_SIZE = 5;
 const gameRef = (gameId) => doc(db, 'versusGames', gameId);
@@ -346,13 +348,23 @@ export async function writeStory(gameId, user, cells, text) {
   });
   // The author's own copy in their archive (tagged versus).
   try {
-    await addDoc(collection(db, 'users', user.uid, 'memories'), {
+    const memRef = await addDoc(collection(db, 'users', user.uid, 'memories'), {
       ...buildXiMemoryDoc({ text: t, event, twist, mode: 'versus' }),
       title: timesSentence(event, twist),
       gameId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    // "Stories I tell": Versus stories are public by default — people have
+    // stories they tell. Publishing routes through the publishMemory AI
+    // safety screen; the synced versusPublic setting (absent = on) opts out.
+    try {
+      const st = await getDoc(doc(db, 'users', user.uid, 'xiSettings', 'state'));
+      if (!st.exists() || st.data().versusPublic !== false) {
+        httpsCallable(functions, 'publishMemory')({ memoryId: memRef.id, visibility: 'public' })
+          .catch(() => {});
+      }
+    } catch (e) { /* publish is best-effort */ }
   } catch (e) { console.error('[Versus] archive save failed:', e); }
 }
 
