@@ -440,20 +440,28 @@ service cloud.firestore {
       }
     }
 
-    // Collection-group reads so the app can load "everything I've interacted
-    // with" in one query per type (filtered on uid — the equality filter is
-    // what makes the rule provable for the query).
+    // Reads of the per-user docs. Split get/list on purpose:
+    // - get is keyed on the doc id so it also covers a transaction get of a
+    //   doc that doesn't exist yet (first investment reads before creating —
+    //   a resource.data check would error on the missing doc and sink the
+    //   whole transaction);
+    // - list is keyed on the uid FIELD, which is what makes the app's
+    //   collection-group queries (where uid == me) provable.
     match /{path=**}/simtVotes/{uid} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow get: if isOwner(uid);
+      allow list: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
     match /{path=**}/simtHearts/{uid} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow get: if isOwner(uid);
+      allow list: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
     match /{path=**}/simtPreorders/{uid} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow get: if isOwner(uid);
+      allow list: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
     match /{path=**}/simtInvestments/{uid} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow get: if isOwner(uid);
+      allow list: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     // User-submitted items. Born pending; the public only ever sees approved

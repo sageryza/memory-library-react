@@ -5,11 +5,15 @@ import { getStorage } from "firebase/storage";
 
 // Same Firebase project as the games (membry-df528); this site is its own
 // hosting site inside it, and its collections are namespaced simt*.
-// authDomain is this site's own domain so the Google sign-in popup stays
-// first-party (Safari blocks third-party auth storage).
+// authDomain must stay membry-df528.firebaseapp.com: that's the redirect URI
+// registered on the project's Google OAuth client (shouldimakethis.web.app is
+// in Auth's authorized domains, but the OAuth client only accepts the
+// firebaseapp.com helper — same setup incaseofamnesia.com uses). To move the
+// popup first-party later, add https://shouldimakethis.web.app/__/auth/handler
+// to the OAuth client's redirect URIs in Google Cloud console, then flip this.
 const firebaseConfig = {
   apiKey: "AIzaSyCA04ReaTAoNDUgUCuBS-ti0Jkfl-16h_s",
-  authDomain: "shouldimakethis.web.app",
+  authDomain: "membry-df528.firebaseapp.com",
   projectId: "membry-df528",
   storageBucket: "membry-df528.firebasestorage.app",
   messagingSenderId: "513384339473",
