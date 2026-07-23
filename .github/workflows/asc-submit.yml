@@ -1,0 +1,38 @@
+name: ASC submit release
+
+# Submits an app version to App Store review: finds/creates the version,
+# attaches the requested processed build, sets What's New, and submits.
+# Re-run safe — retry if the build was still processing.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: Bundle id
+        required: false
+        default: com.sageryza.xi
+      version:
+        description: Marketing version to submit (e.g. 1.1)
+        required: true
+      build_number:
+        description: Build number to attach (e.g. 91)
+        required: true
+      whats_new:
+        description: Release notes ("What's New")
+        required: false
+        default: ""
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Submit to App Store review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_BUNDLE_ID: ${{ inputs.bundle }}
+          VERSION_STRING: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          WHATS_NEW: ${{ inputs.whats_new }}
+        run: python3 ci/asc_submit_release.py
