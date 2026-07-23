@@ -74,21 +74,19 @@ final class CurateStore: ObservableObject {
     }
 
     init() {
-        rebuildIndex()
-        extrasObserver = NotificationCenter.default.addObserver(
-            forName: XIDeckExtras.changed, object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.rebuildIndex()
-            self.objectWillChange.send()   // pools changed — every screen re-derives
-        }
+        // Definite initialization: every stored property is set before any
+        // method call or self-capturing closure below.
+        var map: [String: (String, Int)] = [:]
+        for (i, c) in XIDeck.events.enumerated() { map[c.id] = ("ev", i) }
+        for (i, c) in XIDeck.twists.enumerated() { map[c.id] = ("tw", i) }
+        roleIndexByID = map
 
         let d = UserDefaults.standard
         // One-time migration of the v1 id-keyed sets into role keys.
         func loadSet(_ v2: String, migratingFrom v1: String) -> Set<String> {
             if let arr = d.stringArray(forKey: v2) { return Set(arr) }
             return Set((d.stringArray(forKey: v1) ?? []).compactMap { id in
-                self.roleIndexByID[id].map { "\($0.role):\($0.i)" }
+                map[id].map { "\($0.0):\($0.1)" }
             })
         }
         excluded = loadSet(exKey, migratingFrom: "xi.excluded.v1")
@@ -102,6 +100,16 @@ final class CurateStore: ObservableObject {
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let uid = user?.uid else { return }
             Task { @MainActor in await self?.hydrate(uid: uid) }
+        }
+
+        // Shared deck extras appended mid-session → the pools grew: rebuild
+        // the id index and republish so every screen re-derives.
+        extrasObserver = NotificationCenter.default.addObserver(
+            forName: XIDeckExtras.changed, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.rebuildIndex()
+            self.objectWillChange.send()
         }
     }
 
