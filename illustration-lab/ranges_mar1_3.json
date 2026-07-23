@@ -1,0 +1,16 @@
+[
+ {"page":75,"type":"day","date":"Mar 1","start":706,"end":4495},
+ {"page":76,"type":"abstract","date":"Mar 1","start":4495,"end":7061},
+ {"page":77,"type":"day","date":"Mar 1","start":7061,"end":7426},
+ {"page":78,"type":"day","date":"Mar 1","start":7426,"end":8745},
+ {"page":79,"type":"abstract","date":"Mar 1","start":8745,"end":10136},
+ {"page":80,"type":"abstract","date":"Mar 1","start":10136,"end":11423},
+ {"page":81,"type":"day","date":"Mar 1","start":11423,"end":12742},
+ {"page":82,"type":"day","date":"Mar 1","start":12742,"end":13579},
+ {"page":83,"type":"abstract","date":"Mar 2","start":13579,"end":14320},
+ {"page":84,"type":"abstract","date":"Mar 3","start":14320,"end":16252},
+ {"page":85,"type":"ideas","date":"Mar 3","start":16252,"end":17643},
+ {"page":86,"type":"abstract","date":"Mar 3","start":17643,"end":19762},
+ {"page":87,"type":"abstract","date":"Mar 3","start":19762,"end":21998},
+ {"page":88,"type":"ideas","date":"Mar 3","start":21998,"end":23712}
+]

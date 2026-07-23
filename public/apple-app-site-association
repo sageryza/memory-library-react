@@ -4,7 +4,13 @@
     "details": [
       {
         "appID": "5XR23N2CBH.com.sageryza.xi",
-        "paths": [ "/share/*", "/x/*", "/versus/*", "/v/*" ]
+        "paths": [
+          "/share/*",
+          "/x/*",
+          "/versus/*",
+          "/v/*",
+          "/s/*"
+        ]
       }
     ]
   }

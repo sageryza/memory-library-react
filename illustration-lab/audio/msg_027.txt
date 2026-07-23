@@ -1,0 +1,15 @@
+Here are the three New Yorker validation cartoons. The art comes straight from the model just told "New Yorker cartoon" plus the scene — your instinct was right, those words do all the work — and I typeset the punchline underneath as real text, since the model can't render captions reliably itself.
+
+A few things I noticed that are worth locking before I scale to all fourteen:
+
+Style: nailed it. The ink-and-wash look is dead-on, and it even tastefully rendered the gold dog in gold, which I'd otherwise have expected to stay grayscale.
+
+Captions are composited, so they're always crisp and legible, and easy to tweak wording without re-rendering the art.
+
+These are the punchlines I wrote — tell me if you want them drier, longer, or more you. Caption voice is the main thing to dial in.
+
+If you're happy with this direction, I'll write punchlines for the remaining eleven and render the full set at medium. Two quick calls for you: (a) captions good as-is, or want a different voice, and (b) grayscale-only, or let it spot-colour like the gold dog when it helps the joke?
+
+Meanwhile the "should-have-drawn" flagging pass is still running; I'll bring that back when it lands.
+
+TL;DR: New Yorker style is working great — art from a plain "New Yorker cartoon" prompt, captions typeset on after. Approve the look and caption voice and I'll do the other eleven. Should-draw pass still cooking. The draft pull request link is in the chat.

@@ -1,15 +1,16 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate, useParams } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import useAuth from './hooks/useAuth'
 import { useUserProfile } from './hooks/useUserProfile'
 import useMemories from './hooks/useMemories'
-import migrateLocalStorageToFirestore from './utils/migrateData'
+import migrateLocalStorageToFirestore, { hasLocalMemoriesToMigrate } from './utils/migrateData'
 import { runIdMigration } from './utils/migrateIds'
 import './utils/cleanupDuplicates' // Temporary: exposes window.scanDuplicates() and window.deleteDuplicates()
 import './utils/backfillBoardProvenance' // Temporary: exposes window.scanProvenance() and window.backfillProvenance()
 import { ConfirmProvider } from './contexts/ConfirmContext'
+import OpenInAppBanner from './components/xi/OpenInAppBanner'
 import Login from './components/Login'
 import Home from './components/Home'
 import Archive from './components/archive/Archive'
@@ -50,6 +51,28 @@ const LIBRARY_HOME_HOSTS = [
   'localhost',
   '127.0.0.1',
 ];
+// The iOS app shares links as /versus/{id}, /v/{id} and /x/{id} (the paths in
+// the apple-app-site-association file). The SPA's real routes live at
+// /xi/versus/... and /share/... — bridge them so a tapped link always lands on
+// a working page instead of an unmatched route.
+function VersusRedirect() {
+  const { gameId } = useParams();
+  // Keep the query string — tracked invite links carry their seat token in ?i=.
+  return <Navigate to={`/xi/versus/${gameId}${window.location.search}`} replace />;
+}
+function ShareRedirect() {
+  const { shareId } = useParams();
+  return <Navigate to={`/share/${shareId}`} replace />;
+}
+
+// Pages people arrive at from shared links get the floating "Open in the XI
+// app" two-step TestFlight card (see OpenInAppBanner for the gating).
+function OpenInAppRouteGate() {
+  const { pathname } = useLocation();
+  const show = pathname.startsWith('/xi/versus') || pathname.startsWith('/share/');
+  return show ? <OpenInAppBanner /> : null;
+}
+
 function isXiHomeDomain() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname.replace(/^www\./, '');
@@ -221,6 +244,14 @@ function App() {
     let alreadyDone = false;
     try { alreadyDone = localStorage.getItem('xiMigratedV2:' + user.uid) === '1'; } catch { /* ignore */ }
     if (alreadyDone) { setHasMigrationRun(true); return; }
+    // Nothing local to migrate → nothing to do and nothing to show. (Links
+    // opened from Messages get fresh browser storage, so without this the
+    // "Migrating…" overlay reappeared on every open.)
+    if (!hasLocalMemoriesToMigrate()) {
+      try { localStorage.setItem('xiMigratedV2:' + user.uid, '1'); } catch { /* ignore */ }
+      setHasMigrationRun(true);
+      return;
+    }
 
     setMigrating(true);
     setHasMigrationRun(true);
@@ -405,12 +436,17 @@ function App() {
             path="/sms"
             element={<SmsConsent />}
           />
+          <Route path="/versus/:gameId" element={<VersusRedirect />} />
+          <Route path="/v/:gameId" element={<VersusRedirect />} />
+          <Route path="/x/:shareId" element={<ShareRedirect />} />
           <Route
             path="/share/:shareId"
             element={<SharedBoardContainer />}
           />
         </Routes>
         </Suspense>
+
+        <OpenInAppRouteGate />
 
         {/* Recently Deleted Modal */}
         {showRecentlyDeleted && (

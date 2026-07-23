@@ -1,0 +1,27 @@
+Create a new 3x3 grid of nine original black-line drawings that closely match the raw drawing style in the reference images. Use ONLY the user's reference sketches as style guidance; do not use or imitate any previous generated image. Image A is the hanging fish mobile sketch. Image B is the loose puzzle-piece sketch. Image C is the open box/kit sketch. Image D is the grouped chess/game-piece sketch. Image E is the hand dropping small pieces into a bowl/tray sketch. Image F is the simple wheeled dome/creature toy sketch. Image G is the tray of standing figures with a pull cord sketch.
+
+Make one square page with a rough hand-drawn 3x3 grid. In each cell, draw one new strange object or tiny object-group in the same spirit as the references: simple invention sketch, toy sketch, mechanism sketch, or odd household-object sketch. The drawings should feel like quick marker sketches on paper, not like clean doodles or clipart.
+
+Important style rules:
+
+* Match the user's line quality: wobbly, blunt, uneven, slightly shaky black lines with inconsistent thickness.
+* Keep the forms extremely simple, sparse, awkward, and direct.
+* Let proportions be clumsy and imperfect.
+* The grid lines should also be hand-drawn, a little crooked, with uneven spacing.
+* Keep lots of blank white or off-white paper visible.
+* No shading, no color, no polished icon design, no smooth symmetry, no cute decorative embellishment.
+* Make the page feel like a photographed or scanned sketch page.
+* Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
+
+IMPORTANT LAYOUT: draw a COMPLETE 3x3 grid — exactly three columns and three rows, nine equal square cells. Fit the ENTIRE grid inside the image with a clear white margin all around it; do not zoom in, do not crop any cell, do not let the grid run off any edge, and keep every one of the nine cells fully visible and separate (never merge two scenes into one cell). One scene per cell.
+
+For the nine cells, draw exactly these nine scenes, one per cell, in the raw reference sketch style, no caption text:
+1) A boy holding a white sugar cube out on a flat palm to a girl the way you'd feed a horse, in a spare room among sketched-out furniture.
+2) A neat wooden crate of ten toy building blocks, each hand-painted as a different mottled green-and-purple bruise.
+3) A boy folded over with his head buried in both hands, only his blonde crown visible, a girl beside him watching and not reaching out.
+4) Two people sitting at the crumbling lip of a sand cliff above the waves, the edge sifting away beneath them as he holds her tight.
+5) A little shop display of 'pre-used wishes': fallen eyelashes and gone-to-seed dandelions arranged on a tray with a hand-lettered tag saying they've already been wished on but are still pretty good.
+6) The interior of a lived-in car, a small plastic organizer drawer pulled open to reveal two lone peanut butter cups left as a gift.
+7) A mother reading an old El Salvador diary aloud, holding up a childlike sketch of her younger self gleefully jumping on top of her roommates.
+8) A girl alone amid a hundred little satin heart-boxes and velvet-draped pillows printed with angels, all valentines she made for herself.
+9) A small toaster-shaped space heater glowing red on a nightstand, fretting aloud that it may have been programmed wrong because it shouldn't be getting this hot.

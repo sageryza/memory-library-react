@@ -1,0 +1,13 @@
+February is rebuilt fresh and pushed — go ahead and eyeball it.
+
+What you'll see: 101 bands, February 1st through 28th, each now with real italics and bold and the page-divider lines. Seventy-six have emphasis, forty-nine have a divider.
+
+Page-by-page numbering is preserved — I derived the pages from the source's sixty physical page-breaks, so entries on the same scan page share a number. February 1st is page six, spanning a couple bands; twenty-nine pages hold two to five bands each — matching what you see when you scroll the source.
+
+Dates are filled in now. February 1st, 2nd, 3rd, and so on were mostly blank before; the fresh pass reads them from the headers.
+
+The pre-February January lead-in, and everything from March through December, are untouched.
+
+The previous February is preserved in git, so if the new splits don't feel right, I can revert or adjust the split points. A couple of judgment calls worth knowing for your eyeball: February 5th is one long dream band, several sub-dreams strung together, and February 6th is the busiest day at twelve bands, because it genuinely cycles day, ideas, abstract, dreams, and todos.
+
+To wrap up: February rebuilt from source — italics and page dividers restored, page-by-page numbering kept, dates filled in. Pushed for you to eyeball; the old version is safe in git if you want changes. The draft pull request link is in the chat.

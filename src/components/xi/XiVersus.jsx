@@ -5,7 +5,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
   useHand, ensureHand, placeCard, writeStory, useStories,
-  listVersusGames, forgetVersusGame, undoLastMove,
+  listVersusGames, fetchGamesSummary, undoLastMove,
   setLastVersusGame, clearLastVersusGame,
 } from '../../hooks/useVersusGame';
 import { boardDeck } from '../../xi/decks';
@@ -25,7 +25,7 @@ const VERSUS_HELP = (
     <p>You can also just <b>write a story</b> on any two touching cards already on the board, without placing.</p>
     <p><b>Cards:</b> cream squares hold events (“times i…”), white squares hold twists (“…at the worst moment”). Every touching pair makes a prompt.</p>
     <p><b>Rounds:</b> everyone takes one move per round — you can't go again until the others have gone.</p>
-    <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Tap <b>Share</b> to invite someone.</p>
+    <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Invite friends from the waiting room — once the game begins it's locked to its players.</p>
   </>
 );
 
@@ -35,7 +35,7 @@ const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
 export default function XiVersus() {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading, isAnonymous, signInAnonymously } = useAuth();
+  const { user, loading: authLoading, isAnonymous, } = useAuth();
   const { profile } = useUserProfile(user);
   const { game, loading, error } = useVersusGame(gameId);
   const hand = useHand(gameId, user?.uid);
@@ -53,18 +53,28 @@ export default function XiVersus() {
   const [phoneInput, setPhoneInput] = useState(() => {
     try { return localStorage.getItem('xiVersusPhone') || ''; } catch { return ''; }
   });
-  const [nameInput, setNameInput] = useState(() => {
-    try { return localStorage.getItem('xiVersusName') || ''; } catch { return ''; }
-  });
+  const [joinError, setJoinError] = useState('');
+  const [summaries, setSummaries] = useState(null); // lobby: fetched game summaries
 
   const amInGame = !!(game && user && (game.players || []).some((p) => p.uid === user.uid));
 
-  // Auto-join when you open a game link you're not part of (signed-in or guest).
+  // Auto-join when you open a game link you're not part of. The hook enforces
+  // the door policy (only while waiting); a locked game surfaces its message.
   useEffect(() => {
     if (!game || !user || authLoading) return;
     const inGame = (game.players || []).some((p) => p.uid === user.uid);
-    if (!inGame) joinVersusGame(gameId, user, profile).catch(() => {});
+    const token = new URLSearchParams(window.location.search).get('i');
+    if (!inGame) joinVersusGame(gameId, user, profile, token).catch((e) => setJoinError(e.message || 'Could not join.'));
   }, [game, user, authLoading, gameId, profile]);
+
+  // Lobby: fetch a one-shot summary of each remembered game so the list can be
+  // sorted (your-turn games first, then most recently touched) and show names.
+  useEffect(() => {
+    if (gameId || !user) return;
+    const ids = listVersusGames().map((g) => g.id);
+    if (!ids.length) { setSummaries([]); return; }
+    fetchGamesSummary(ids, user.uid).then(setSummaries).catch(() => setSummaries([]));
+  }, [gameId, user]);
 
   // Deal the opening hand once you're confirmed in the game.
   const dealt = useRef('');
@@ -86,23 +96,6 @@ export default function XiVersus() {
     else if (gameId && error === 'not-found') clearLastVersusGame();
   }, [gameId, game, error]);
 
-  // Sign in anonymously (guest), stashing the typed name for the join to use.
-  const playAsGuest = async (after) => {
-    const name = (nameInput.trim() || 'Guest');
-    try { localStorage.setItem('xiVersusName', name); } catch { /* ignore */ }
-    setBusy(true);
-    try {
-      await signInAnonymously();
-      if (after) await after();
-    } catch (e) {
-      setBusy(false);
-      if (e.code === 'auth/operation-not-allowed') {
-        alert('Guest play isn’t enabled yet. Please sign in instead.');
-      } else {
-        alert('Could not join: ' + (e.message || e.code));
-      }
-    }
-  };
 
   // Turn on "your turn" alerts for this user. Email + push are free; SMS only
   // fires if they gave a number. The number is remembered locally so it prefills
@@ -162,18 +155,17 @@ export default function XiVersus() {
     );
   };
 
-  const NameField = (
-    <input
-      className="xiv-name"
-      placeholder="Your name"
-      value={nameInput}
-      maxLength={24}
-      onChange={(e) => setNameInput(e.target.value)}
-    />
-  );
 
   // ---- Create / lobby (no game id) ----
   if (!gameId) {
+    // Until the summaries land, show the remembered list as-is; once they do,
+    // your-turn games float to the top and rows carry the other players' names.
+    const lobbyGames = summaries === null
+      ? otherGames.map((g) => ({ id: g.id, names: '', yourTurn: false }))
+      : summaries
+        .slice()
+        .sort((a, b) => (b.yourTurn - a.yourTurn) || (b.updatedAtMillis - a.updatedAtMillis))
+        .map((s) => ({ id: s.id, names: (s.players || []).join(', '), yourTurn: s.yourTurn }));
     return (
       <div className="xiv">
         <div className="xiv-top">
@@ -182,16 +174,15 @@ export default function XiVersus() {
         </div>
         <div className="xiv-center">
           <p className="xiv-lead">Build a memory board together — one card, one story at a time.</p>
-          {otherGames.length > 0 && (
+          {lobbyGames.length > 0 && (
             <div className="xiv-resume">
               <div className="xiv-resume-title">Your games</div>
-              {otherGames.map((g) => (
+              {lobbyGames.map((g) => (
                 <div key={g.id} className="xiv-resume-row">
                   <button className="xiv-resume-btn" onClick={() => navigate('/xi/versus/' + g.id)}>
-                    Resume <span className="xiv-resume-id">{g.id}</span>
+                    Resume <span className="xiv-resume-id">{g.names || g.id}</span>
+                    {g.yourTurn && <span className="xiv-resume-turn">your turn</span>}
                   </button>
-                  <button className="xiv-resume-x" aria-label="Forget game"
-                    onClick={() => { forgetVersusGame(g.id); navigate('/xi/versus?r=' + Date.now()); }}>×</button>
                 </div>
               ))}
             </div>
@@ -203,11 +194,12 @@ export default function XiVersus() {
             </button>
           ) : (
             <div className="xiv-guest">
-              {NameField}
-              <button className="xiv-btn" disabled={busy} onClick={() => playAsGuest(startGame)}>
-                {busy ? 'Starting…' : 'Start as guest'}
+              {/* Playing needs an account (no guest mode) — Google is one tap,
+                  and sign-in returns straight here. */}
+              <button className="xiv-btn" onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus'))}>
+                Sign in to play
               </button>
-              <a className="xiv-signin" href="/login">or sign in</a>
+              <p className="xiv-note">Takes a moment with Google — then you can start a game.</p>
             </div>
           )}
           <button className="xiv-back" onClick={() => navigate('/xi')}>← Back to XI</button>
@@ -231,13 +223,18 @@ export default function XiVersus() {
 
   const players = game.players || [];
   const acted = game.acted || [];
+  // Waiting room: the game isn't playable until the creator begins it. Older
+  // docs have no status field — treat those as active.
+  const waiting = (game.status || 'active') === 'waiting';
   const iActed = !!(user && acted.includes(user.uid));
   const iPlaced = !!(user && (game.placedBy || []).includes(user.uid)); // placed, owe a story
   // A move = place a card then tell its story, OR write a story on an existing
   // pairing. You can place only once per round; you can write until your move is done.
-  const canPlace2 = amInGame && !iActed && !iPlaced && !working;
-  const canWrite = amInGame && !iActed && !working;
-  const link = `${window.location.origin}/xi/versus/${gameId}`;
+  const canPlace2 = amInGame && !waiting && !iActed && !iPlaced && !working;
+  const canWrite = amInGame && !waiting && !iActed && !working;
+  // The SHORT invite form — same link the iOS app shares. It's a universal
+  // link, so friends with the app land in the app; others get this page.
+  const link = `${window.location.origin}/versus/${gameId}`;
 
   // Legal target cells for the selected hand card — gates taps and shows a subtle
   // on-board hint so you can see where a card may go.
@@ -246,7 +243,7 @@ export default function XiVersus() {
 
   // You can undo your own placement while it's still the last card on the board.
   const lastPlaced = (game.placed || [])[(game.placed || []).length - 1];
-  const canUndo = amInGame && !working && lastPlaced && lastPlaced.by === user?.uid;
+  const canUndo = amInGame && !waiting && !working && lastPlaced && lastPlaced.by === user?.uid;
 
   // Pairing currently chosen to write a story on (two adjacent placed cells).
   const storyReady = storyCells.length === 2;
@@ -336,8 +333,11 @@ export default function XiVersus() {
     catch { window.prompt('Copy this invite link:', link); }
   };
 
+
   // Empty cell -> place the selected card if legal; placed cell -> pick for a story.
+  // While the game is waiting, the seeded board is display-only.
   const handleCellClick = (r, c, cell) => {
+    if (waiting) return;
     if (!cell) { if (legalSet.has(r + '-' + c)) handlePlace(r, c); return; }
     if (canWrite) tapPlaced(r, c, cell);
   };
@@ -363,7 +363,8 @@ export default function XiVersus() {
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
             </svg>
           </button>
-          <button className="xiv-link" onClick={shareInvite}>{copied ? 'Shared ✓' : 'Share'}</button>
+          {/* No header Share button — a started game is locked to its players;
+              inviting happens in the waiting room only. */}
         </div>
       </div>
 
@@ -380,9 +381,10 @@ export default function XiVersus() {
 
       {!user && (
         <div className="xiv-join">
-          {NameField}
-          <button className="xiv-btn-sm" disabled={busy} onClick={() => playAsGuest()}>Join as guest</button>
-          <a className="xiv-signin" href="/login">or sign in</a>
+          <button className="xiv-btn-sm"
+            onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus/' + gameId))}>
+            Sign in to join this game
+          </button>
         </div>
       )}
       {isAnonymous && (
@@ -400,15 +402,17 @@ export default function XiVersus() {
         ))}
       </div>
 
-      <div className="xiv-turn">
-        {amInGame
-          ? (iPlaced
-            ? 'Now tell its story — tap a touching card'
-            : (canPlace2
-              ? 'Your move — place a card or write a story'
-              : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
-          : 'Watching live'}
-      </div>
+      {!waiting && (
+        <div className="xiv-turn">
+          {amInGame
+            ? (iPlaced
+              ? 'Now tell its story — tap a touching card'
+              : (canPlace2
+                ? 'Your move — place a card or write a story'
+                : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
+            : (user ? (joinError || 'Joining…') : 'Sign in to join')}
+        </div>
+      )}
 
       <XiBoardGrid
         placed={game.placed}
@@ -438,7 +442,30 @@ export default function XiVersus() {
         </KeyboardSheet>
       )}
 
-      {amInGame ? (
+      {waiting ? (
+        // Waiting room — the seeded board above is display-only. The game
+        // starts automatically, for everyone at once, when the last expected
+        // player joins. Inviting lives here (and only here).
+        <div className="xiv-waiting">
+          <div className="xiv-turn">
+            Waiting for {Math.max(0, (game.expectedPlayers || 2) - players.length)} more…
+          </div>
+          {(game.invites || []).length > 0 ? (
+            <p className="xiv-waiting-names">
+              {(game.invites || []).map((inv) => `${inv.name || 'a friend'} ${inv.claimedBy ? '✓' : '…'}`).join(' · ')}
+            </p>
+          ) : (
+            <p className="xiv-waiting-names">
+              Here so far: {players.map((p) => p.name + (p.uid === user?.uid ? ' (you)' : '')).join(', ')}
+            </p>
+          )}
+          <button className="xiv-btn" onClick={shareInvite}>{copied ? 'Invite link shared ✓' : 'Invite friends'}</button>
+          {amInGame && <p className="xiv-note">The game starts for everyone the moment the last player joins.</p>}
+          {!amInGame && (
+            <p className="xiv-note">{user ? (joinError || 'Joining the game…') : 'Sign in above to join this game.'}</p>
+          )}
+        </div>
+      ) : amInGame ? (
         <>
           <div className="xiv-hand">
             {hand.map((card, k) => {
@@ -457,7 +484,7 @@ export default function XiVersus() {
           </div>
         </>
       ) : (
-        <p className="xiv-note">Watching live. Join to play, or share the invite link.</p>
+        <p className="xiv-note">{user ? (joinError || 'Joining the game…') : 'Sign in above to join this game.'}</p>
       )}
 
       {stories.length > 0 && (

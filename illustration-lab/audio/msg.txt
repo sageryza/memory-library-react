@@ -1,0 +1,7 @@
+February 9th through 17th is banded and building on main now — the timeline's finished for that stretch.
+
+To your first question: I don't need the every-ten-pages cadence the other chat used. I just did the whole week in one pass, and I can do a full journal-month per turn. For genuinely hands-off overnight work, I can set up a self-continuing loop that grinds through your Notion journals month by month, commits after each month so nothing's ever lost, and leaves you a summary to wake up to. I'd only stop to ask on a page I genuinely can't categorize, which should be rare. One honest caveat: banding is basically free since it's just text, but image generation costs money, so I'd keep those separate and hold to the three dollar rule on any batch.
+
+To your second question, about the pictures icon — here's a more automated version than a plain button. A new tab, call it Illustrate, that works as a curation feed: I pre-scan each journal, auto-flag the strong hard-to-picture moments, skipping the ones you already drew, and pre-generate a candidate drawing for each overnight. You wake to a queue of suggestions and just thumbs-up or down. The approved ones drop into the timeline's drawing bands, so the journal illustrates itself and you only curate. A manual generate button can live there too, for one-offs.
+
+So two go-decisions when you're ready: want me to start the overnight banding loop through the rest of your journals? And for Illustrate, the auto-generated queue, or the simpler tap-to-generate button?

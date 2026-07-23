@@ -23,17 +23,24 @@ struct BoardView: View {
     @State private var composedCells: [Cell] = []   // the pair highlighted while composing
     @State private var composing: Pairing?
     @State private var showHelp = false
+<<<<<<< HEAD
     /// pairKeys of YOUR memories — cards whose board pairing has one get a
     /// small maroon dot (the web's memory tokens).
     @State private var memPairKeys: Set<String> = []
     /// Curate choices shape the daily draw (your board reflects your curation,
     /// like the web) — observed so deck/card toggles re-deal immediately.
     @ObservedObject private var curate = CurateStore.shared
+=======
+    @State private var showDeleteConfirm = false
+    @State private var deleteError: String?
+    @State private var showBlocked = false
+>>>>>>> origin/main
 
     private struct Cell: Equatable { let r: Int; let c: Int }
 
     private var today: Int { BoardEngine.dayNumber() }
     private var isToday: Bool { viewDay == today }
+<<<<<<< HEAD
     private var placed: [Placed] {
         BoardEngine.dailyBoard(viewDay, allowedEv: curate.allowedEvents, allowedTw: curate.allowedTwists)
     }
@@ -41,6 +48,11 @@ struct BoardView: View {
     // cells render as blanks — a crossword, not a solid block.
     private var rows: Int { BoardEngine.dailySide }
     private var cols: Int { BoardEngine.dailySide }
+=======
+    private var placed: [Placed] { BoardEngine.dailyBoard(viewDay) }
+    private var rows: Int { (placed.map { $0.r }.max() ?? 4) + 1 }
+    private var cols: Int { (placed.map { $0.c }.max() ?? 4) + 1 }
+>>>>>>> origin/main
     private var byCell: [String: Placed] {
         Dictionary(uniqueKeysWithValues: placed.map { ("\($0.r),\($0.c)", $0) })
     }
@@ -97,6 +109,7 @@ struct BoardView: View {
                         Button { viewDay -= 1; selected = nil; composedCells = [] } label: {
                             Image(systemName: "chevron.left")
                         }
+<<<<<<< HEAD
                         .disabled(viewDay <= 1)   // no rewinding into day zero / negative days
                         Text("BOARD OF THE DAY")
                             .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
@@ -104,6 +117,13 @@ struct BoardView: View {
                             Image(systemName: "chevron.right")
                         }
                         .disabled(viewDay >= today)
+=======
+                        Button("manage blocked players") { showBlocked = true }
+                        Button("sign out", role: .destructive) { try? XIService.shared.signOut() }
+                        Button("delete account", role: .destructive) { showDeleteConfirm = true }
+                    } label: {
+                        Image(systemName: "person.circle").tint(XITheme.gold)
+>>>>>>> origin/main
                     }
                     .font(.system(.subheadline))
                     .tint(XITheme.gold)
@@ -113,6 +133,23 @@ struct BoardView: View {
                 ComposerSheet(pairing: pair, boardDay: viewDay)
             }
             .sheet(isPresented: $showHelp) { BoardHelpSheet() }
+            .sheet(isPresented: $showBlocked) { BlockedUsersView() }
+            .confirmationDialog("Delete your account?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete account and all my data", role: .destructive) {
+                    Task {
+                        do { try await XIService.shared.deleteAccount() }
+                        catch { deleteError = error.localizedDescription }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your account and all your saved memories and boards. This can't be undone.")
+            }
+            .alert("Couldn't delete account", isPresented: .constant(deleteError != nil)) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
+            }
             .onChange(of: composing?.id) { newID in
                 if newID == nil {
                     composedCells = []   // composer closed → clear the pair
@@ -129,6 +166,7 @@ struct BoardView: View {
         memPairKeys = Set(all.filter { !$0.isCommons && !$0.pairKey.isEmpty }.map(\.pairKey))
     }
 
+<<<<<<< HEAD
     /// Does one of this card's on-board pairings carry a memory of yours?
     private func hasMemory(_ r: Int, _ c: Int, card: XICard, isEvent: Bool) -> Bool {
         for (dr, dc) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
@@ -143,6 +181,8 @@ struct BoardView: View {
     }
 
 
+=======
+>>>>>>> origin/main
     private var board: some View {
         VStack(spacing: 5) {
             ForEach(0..<rows, id: \.self) { r in

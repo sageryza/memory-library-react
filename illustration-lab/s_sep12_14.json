@@ -1,0 +1,14 @@
+[
+ {"date":"Sep 12","start":73094,"end":79438,"parts":[
+   {"type":"abstract","until":"To Do: print out the white noise"},
+   {"type":"ideas","until":null}]},
+ {"date":"Sep 13","start":79438,"end":81382,"parts":[
+   {"type":"abstract","until":null}]},
+ {"date":"Sep 14","start":81382,"end":82936,"parts":[
+   {"type":"day","until":null}]},
+ {"date":"Sep 14","start":82936,"end":87072,"parts":[
+   {"type":"ideas","until":"mostly the emotional but also the physical sensation"},
+   {"type":"day","until":"September 14th"},
+   {"type":"abstract","until":"measuring spoons"},
+   {"type":"ideas","until":null}]}
+]

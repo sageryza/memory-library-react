@@ -1,0 +1,1 @@
+SAGEDIAGRAM, a set of hand-drawn chess pieces: pawns, knight, rook and queen

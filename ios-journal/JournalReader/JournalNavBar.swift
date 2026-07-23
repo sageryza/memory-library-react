@@ -5,7 +5,7 @@ import SwiftUI
 /// tool (ported from ImageForge's /set). `.timeline` (leftmost) is the journal
 /// timeline visualization.
 enum JournalTab: Int, CaseIterable, Identifiable {
-    case timeline, journal, record, stickers, setBuilder
+    case timeline, journal, record, towers, setBuilder, stickers
     var id: Int { rawValue }
 }
 
@@ -22,7 +22,7 @@ struct JournalNavBar: View {
             item(.timeline, symbol: "calendar.day.timeline.left", filled: "calendar.day.timeline.left", label: "Timeline")
             item(.journal,  symbol: "book.closed",     filled: "book.closed.fill",     label: "Journal")
             recordButton
-            item(.stickers,   symbol: "square.grid.2x2",  filled: "square.grid.2x2.fill",  label: "Stickers")
+            towersItem(label: "Towers")
             item(.setBuilder, symbol: "rectangle.3.group", filled: "rectangle.3.group.fill", label: "Set")
         }
         .padding(.top, 8)
@@ -41,6 +41,24 @@ struct JournalNavBar: View {
                 Image(systemName: on ? filled : symbol)
                     .font(.system(size: 20, weight: on ? .semibold : .regular))
                     .frame(height: 24)
+                Text(label)
+                    .font(.system(size: 10)).tracking(0.2)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(on ? accent : inactive)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The Towers tab — uses the custom turret glyph (no SF Symbol exists for it),
+    /// stroked heavier when active, matching the weight swap the other tabs get.
+    private func towersItem(label: String) -> some View {
+        let on = selection == .towers
+        return Button { selection = .towers } label: {
+            VStack(spacing: 3) {
+                TurretShape(designLineWidth: on ? 1.7 : 1.25)
+                    .frame(width: 24, height: 24)
                 Text(label)
                     .font(.system(size: 10)).tracking(0.2)
                     .lineLimit(1).minimumScaleFactor(0.7)

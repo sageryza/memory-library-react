@@ -1,0 +1,13 @@
+Here's my honest read of the style test, which is where I recommended the LoRA.
+
+First, describing the style beat letting the model infer it, clearly. Spelling the style out got the pastel palette and the sparkles; letting the model infer it purely from the reference tiles drifted toward flat, generic clip-art. That was a little surprising — the reference tiles alone didn't steer it much through the edits endpoint.
+
+But neither approach fully nailed your hybrid. Both came out, in a word, "AI-cute" — cleaner, flatter, more uniform in the linework than your cards, which have that wavy watercolour wash, the hand-drawn wobble, and a sparse charm. They're close cousins, not siblings.
+
+And a higher quality tier did not get us closer to your style — high just looked more polished and generic; it added render fidelity, not your look.
+
+So here's my recommendation. Prompt-plus-references will keep landing in that cute-app territory. To actually hit your hybrid, the strong move is a small LoRA trained on these cards — the same way we trained the miracle linocut style. A LoRA is a little add-on model you fine-tune on a set of example images so it learns a specific look; once it's trained, every generation comes out in that style natively, instead of us begging a general model to imitate it from a few reference pictures. It would capture the wash and the wobble far better than references ever will.
+
+Short of that, I can push a heavier style description — really naming the watercolour wash, the wavy fills, the hand-drawn imperfection — and re-test. But if you want your actual look, the LoRA is the way.
+
+To do it, I'd want a set of the cards in your true hybrid style — the more examples the better, ideally twenty or more — and then I'd train it on Replicate like we did for the linocut model. Just say the word and I'll set it up. The draft pull request link is in the chat.

@@ -1,0 +1,88 @@
+name: Secretly a Witch Screenshots
+
+# Boots an iOS Simulator, builds + installs the SecretlyAWitch app, and captures
+# an App Store screenshot of each tab (Home / School / Shadows / Shop). The CI
+# Mac has open internet, so the WKWebView loads the real live app with full
+# content and the native tab bar — submission-grade shots. Artifacts: the PNGs.
+on:
+  workflow_dispatch:
+    inputs:
+      imageforge_ref:
+        description: "sageryza/imageforge branch/ref to build"
+        default: "main"
+        required: false
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    steps:
+      - name: Checkout ImageForge (public) at workspace root
+        uses: actions/checkout@v4
+        with:
+          repository: sageryza/imageforge
+          ref: ${{ inputs.imageforge_ref || 'main' }}
+
+      - name: Select newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Boot a 6.7" simulator
+        id: sim
+        run: |
+          # iPhone 16 Pro Max ≈ 6.9"/6.7" App Store class.
+          DEV=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max" | head -1 | grep -oE "\([0-9A-F-]{36}\)" | tr -d '()')
+          if [ -z "$DEV" ]; then
+            DEV=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro Max|iPhone 15 Pro Max" | head -1 | grep -oE "\([0-9A-F-]{36}\)" | tr -d '()')
+          fi
+          echo "device=$DEV" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$DEV" || true
+          xcrun simctl bootstatus "$DEV" -b
+
+      - name: Build app for the simulator
+        working-directory: ios
+        run: |
+          xcodebuild -project ImageForge.xcodeproj -scheme SecretlyAWitch \
+            -configuration Debug -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Install app
+        run: |
+          APP=$(find ios/build/dd/Build/Products -name "SecretlyAWitch.app" -type d | head -1)
+          echo "app: $APP"
+          xcrun simctl install "${{ steps.sim.outputs.device }}" "$APP"
+
+      - name: Capture screens
+        run: |
+          DEV="${{ steps.sim.outputs.device }}"
+          mkdir -p shots
+          xcrun simctl ui "$DEV" appearance light || true
+          # name|tab|shot-section (shot blank = top of tab)
+          SHOTS="home|home| school|school| shop|shop| book|book| dream|home|dream-card"
+          for ENTRY in $SHOTS; do
+            NAME="${ENTRY%%|*}"; REST="${ENTRY#*|}"; TAB="${REST%%|*}"; SHOT="${REST#*|}"
+            [ "$SHOT" = "$TAB" ] && SHOT=""
+            xcrun simctl terminate "$DEV" com.sageryza.secretlyawitch 2>/dev/null || true
+            SIMCTL_CHILD_WITCH_TAB=$TAB SIMCTL_CHILD_WITCH_SHOT=$SHOT xcrun simctl launch "$DEV" com.sageryza.secretlyawitch
+            # Give the WKWebView time to load the live page + its images.
+            sleep 16
+            xcrun simctl io "$DEV" screenshot "shots/witch-$NAME.png"
+            echo "captured $NAME (tab=$TAB shot=$SHOT)"
+          done
+          ls -la shots
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: witch-screenshots
+          path: shots/*.png

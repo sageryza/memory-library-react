@@ -99,16 +99,25 @@ struct BlockedUsersView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+<<<<<<< HEAD
         NavigationStack {
             List {
                 if moderation.list.isEmpty {
                     Text("You haven't blocked anyone.")
                         .font(.system(.body, design: .serif))
                         .foregroundStyle(XITheme.line)
+=======
+        NavigationView {
+            List {
+                if moderation.list.isEmpty {
+                    Text("You haven't blocked anyone.")
+                        .foregroundColor(.secondary)
+>>>>>>> origin/main
                 } else {
                     ForEach(moderation.list, id: \.uid) { item in
                         HStack {
                             Text(item.name)
+<<<<<<< HEAD
                                 .font(.system(.body, design: .serif))
                                 .foregroundStyle(XITheme.ink)
                             Spacer()
@@ -119,10 +128,18 @@ struct BlockedUsersView: View {
                                     .font(.system(.body, design: .serif))
                                     .foregroundStyle(XITheme.gold)
                             }
+=======
+                            Spacer()
+                            Button("Unblock") {
+                                withAnimation { moderation.unblock(item.uid) }
+                            }
+                            .foregroundColor(.accentColor)
+>>>>>>> origin/main
                         }
                     }
                 }
             }
+<<<<<<< HEAD
             .scrollContentBackground(.hidden)
             .background(XITheme.paper.ignoresSafeArea())
             .tint(XITheme.gold)
@@ -136,6 +153,12 @@ struct BlockedUsersView: View {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                         .tint(XITheme.line).accessibilityLabel("Close")
                 }
+=======
+            .navigationTitle("Blocked players")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
+>>>>>>> origin/main
             }
         }
     }

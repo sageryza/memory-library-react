@@ -1,0 +1,16 @@
+Create a new 3x3 grid of nine original black-line drawings that closely match the raw drawing style in the reference images. Use ONLY the user's reference sketches as style guidance; do not use or imitate any previous generated image. Image A is the hanging fish mobile sketch. Image B is the loose puzzle-piece sketch. Image C is the open box/kit sketch. Image D is the grouped chess/game-piece sketch. Image E is the hand dropping small pieces into a bowl/tray sketch. Image F is the simple wheeled dome/creature toy sketch. Image G is the tray of standing figures with a pull cord sketch.
+
+Make one square page with a rough hand-drawn 3x3 grid. In each cell, draw one new strange object or tiny object-group in the same spirit as the references: simple invention sketch, toy sketch, mechanism sketch, or odd household-object sketch. The drawings should feel like quick marker sketches on paper, not like clean doodles or clipart.
+
+Important style rules:
+
+* Match the user's line quality: wobbly, blunt, uneven, slightly shaky black lines with inconsistent thickness.
+* Keep the forms extremely simple, sparse, awkward, and direct.
+* Let proportions be clumsy and imperfect.
+* The grid lines should also be hand-drawn, a little crooked, with uneven spacing.
+* Keep lots of blank white or off-white paper visible.
+* No shading, no color, no polished icon design, no smooth symmetry, no cute decorative embellishment.
+* Make the page feel like a photographed or scanned sketch page.
+* Each object should be readable but only barely; they should feel like quick concept sketches, not finished illustrations.
+
+For the nine cells, invent objects in this general family so the sheet stays close to the references: 1) a dangling hanging object/mobile, 2) a chunky interlocking token or puzzle-like part, 3) a small open box or kit with a few odd contents, 4) a little group of blunt game-piece or figurine shapes, 5) a hand interacting with a small object or tool, 6) a simple bowl, scoop, tray, or container with a few small pieces inside, 7) a tiny wheeled pull toy or creature-like toy, 8) a shallow tray or platform holding a few upright little figures or parts, 9) a crude boxy mechanism or hand-cranked object. Make all nine drawings new, but keep them stylistically very close to the references.

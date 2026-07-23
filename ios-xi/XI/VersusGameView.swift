@@ -80,6 +80,7 @@ struct VersusGameView: View {
                 ReportSheet(
                     subjectLabel: "story",
                     onSubmit: { reason, details in
+<<<<<<< HEAD
                         // Only claim success if the report actually landed.
                         Task {
                             do {
@@ -91,6 +92,13 @@ struct VersusGameView: View {
                             }
                         }
                         reportingStory = nil
+=======
+                        Task {
+                            try? await VersusService.shared.reportStory(
+                                gameId: gameId, story: story, reason: reason, details: details)
+                        }
+                        reportingStory = nil; reported = true
+>>>>>>> origin/main
                     },
                     onCancel: { reportingStory = nil }
                 )
