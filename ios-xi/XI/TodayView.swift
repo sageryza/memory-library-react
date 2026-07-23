@@ -175,6 +175,10 @@ struct TodayView: View {
                     Spacer()
                     Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
                 }
+            } else {
+                // Past days have no redraw row, so the cards rise into the
+                // floating gear's corner — keep the same clearance it gave.
+                Color.clear.frame(height: 16)
             }
         }
         .padding(.bottom, 12)
