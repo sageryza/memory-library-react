@@ -88,7 +88,7 @@ final class CurateStore: ObservableObject {
         func loadSet(_ v2: String, migratingFrom v1: String) -> Set<String> {
             if let arr = d.stringArray(forKey: v2) { return Set(arr) }
             return Set((d.stringArray(forKey: v1) ?? []).compactMap { id in
-                map[id].map { "\($0.0):\($0.1)" }
+                self.roleIndexByID[id].map { "\($0.role):\($0.i)" }
             })
         }
         excluded = loadSet(exKey, migratingFrom: "xi.excluded.v1")
