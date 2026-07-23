@@ -47,7 +47,7 @@ export function allowedIndices(cards, role, excluded, disabledDecks, loved, love
   const out = [];
   for (let i = 0; i < cards.length; i++) {
     const key = `${role}:${i}`;
-    if (excluded.has(key)) continue;
+    if (excluded.has(key) || cards[i].hidden) continue;
     const sourceOn = !disabledDecks.has(cards[i].deck) && !RETIRED_DECKS.has(cards[i].deck);
     const lovedInPlay = lovedOn && loved && loved.has(key);
     if (sourceOn || lovedInPlay) out.push(i);

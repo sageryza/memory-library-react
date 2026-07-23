@@ -18,6 +18,7 @@ import rawTrial from '../data/xi/deckTrial.json';
 import rawClaude from '../data/xi/deckDaily.json';   // the Claude plain-text deck
 import rawChatgpt from '../data/xi/deckBoard.json';  // the ChatGPT illustrated deck
 import rawDreams from '../data/xi/deckDreams.json';
+import { cachedDeckExtras, fetchDeckExtras } from './deckExtras';
 
 // Slugify a caption into a stable id, e.g. "INTERRUPTED A GOOD TIME" -> "interrupted-a-good-time"
 export function slugifyCaption(cap) {
@@ -113,6 +114,55 @@ for (const deck of [dailyDeck, boardDeck]) {
 export function getCardById(id) {
   return allCardsById.get(id) || null;
 }
+
+// ── shared deck extras: Sage's remote additions/removals for everyone ──
+// Added cards append to the END of every pool (indices of existing cards never
+// move); removed base ids set `hidden` on their derived cards — never dealt,
+// but still resolvable so old memories keep their art. The curate pairing
+// (curateRoleKeys) is position-within-deck, so appended cards pair correctly
+// even though the two pools have different lengths.
+const appliedExtraIds = new Set();
+const derivedIdsOf = (base) => [
+  `daily-event-${base}`, `daily-twist-${base}`, `board-event-${base}`, `board-twist-${base}`,
+];
+let extrasSig0 = '';
+
+export function applyDeckExtras(extras) {
+  for (const e of extras.added || []) {
+    if (!e || !e.id || appliedExtraIds.has(e.id)) continue;
+    appliedExtraIds.add(e.id);
+    const src = { id: e.id, cap: e.cap || '', img: e.img || null };
+    for (const [deckObj, ns] of [[dailyDeck, 'daily'], [boardDeck, 'board']]) {
+      const evC = mkCard(src, 'event', ns, 'midjourney');
+      const twC = mkCard(src, 'twist', ns, 'midjourney');
+      deckObj.events.push(evC);
+      deckObj.twists.push(twC);
+      allCardsById.set(evC.id, evC);
+      allCardsById.set(twC.id, twC);
+    }
+  }
+  const removedBases = new Set(extras.removed || []);
+  for (const card of allCardsById.values()) card.hidden = false;
+  for (const base of removedBases) {
+    for (const id of derivedIdsOf(base)) {
+      const c = allCardsById.get(id);
+      if (c) c.hidden = true;
+    }
+  }
+  extrasSig0 = [...appliedExtraIds].join(',') + '|' + [...removedBases].sort().join(',');
+}
+
+// Changes when applied additions/removals change — components key re-inits on it.
+export function deckExtrasSignature() { return extrasSig0; }
+
+export async function refreshDeckExtras() {
+  try { applyDeckExtras(await fetchDeckExtras()); } catch { /* offline: cache stands */ }
+  return extrasSig0;
+}
+
+// Boot: cached extras apply synchronously (pools are complete before any
+// component renders); the fresh fetch applies deltas in the background.
+applyDeckExtras(cachedDeckExtras());
 
 // Resolve a stored card reference ({ id, cap }) back to its full card (with art).
 // Falls back to the stored caption if the id is no longer in the deck.

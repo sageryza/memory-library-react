@@ -1,0 +1,76 @@
+.xdm {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+  font-family: 'Crimson Text', serif;
+  color: #2b2620;
+}
+.xdm-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.xdm-sub { color: #8a8172; margin: 0 0 18px; }
+.xdm-add {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e4ddcf;
+  border-radius: 6px;
+}
+.xdm-cap {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 10px 12px;
+  border: 1px solid #d9d2c4;
+  border-radius: 6px;
+}
+.xdm-file { font-family: inherit; }
+.xdm-btn {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 10px 16px;
+  background: #b08d2f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.xdm-btn:disabled { opacity: 0.5; cursor: default; }
+.xdm-error { color: #a33; }
+.xdm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.xdm-card {
+  background: #fff;
+  border: 1px solid #e4ddcf;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xdm-card.off { opacity: 0.45; }
+.xdm-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.xdm-cap-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  min-height: 2.2em;
+}
+.xdm-toggle {
+  background: #fff;
+  color: #b08d2f;
+  border: 1px solid #b08d2f88;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+}
