@@ -88,8 +88,8 @@ final class VersusService {
         let beAll = CurateStore.shared.allowedEvents
         let bwAll = CurateStore.shared.allowedTwists
         let seeded = VersusModel.seedBoard(
-            eventPool: beAll.count >= 6 ? beAll : Array(0..<XIDeck.events.count),
-            twistPool: bwAll.count >= 6 ? bwAll : Array(0..<XIDeck.twists.count))
+            eventPool: beAll.count >= 6 ? beAll : CurateStore.liveIndices(XIDeck.events),
+            twistPool: bwAll.count >= 6 ? bwAll : CurateStore.liveIndices(XIDeck.twists))
         let creator: [String: Any] = ["uid": uid, "name": currentName(), "color": VersusModel.playerColors[0], "order": 0]
         try await gameRef(id).setData([
             "createdBy": uid,

@@ -62,7 +62,7 @@ struct CurateView: View {
         let lovedCount = curate.lovedCards.count
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 6, alignment: .leading)],
                          alignment: .leading, spacing: 8) {
-            ForEach(CurateStore.decks) { deck in
+            ForEach(CurateStore.activeDecks) { deck in
                 deckToggle(nick: deck.nick, on: curate.isDeckOn(deck.id), heart: false) {
                     curate.toggleDeck(deck.id)
                 }

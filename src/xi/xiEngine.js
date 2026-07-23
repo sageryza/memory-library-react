@@ -10,7 +10,7 @@
 //   st.set(key, value) -> Promise        (memory writes route to Firestore)
 //   st.list() -> Promise<string[]>       (memory keys that currently have memories)
 
-import { DEFAULT_DISABLED_DECKS } from './decks';
+import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
 
 export function initXi(root, ctx) {
   const { POOL, onOpenLibrary, onScreenChange, initialScreen } = ctx;
@@ -52,7 +52,7 @@ export function initXi(root, ctx) {
     const key = ekey(d, i);
     if (excluded.has(key)) return true;
     const c = POOL[d][i];
-    const sourceOn = c && !disabledDecks.has(c.deck);
+    const sourceOn = c && !disabledDecks.has(c.deck) && !RETIRED_DECKS.has(c.deck);
     const lovedInPlay = lovedOn && loved.has(key);
     return !(sourceOn || lovedInPlay);
   }
@@ -228,7 +228,7 @@ export function initXi(root, ctx) {
   }
   function renderCurate() {
     const lvList = lovedList();
-    const toggles = DECKS.map((dk) => {
+    const toggles = DECKS.filter((dk) => !RETIRED_DECKS.has(dk.id)).map((dk) => {
       const on = !disabledDecks.has(dk.id);
       return `<button class="decktog${on ? ' on' : ''}" data-deck="${dk.id}" role="checkbox" aria-checked="${on}"><span class="deckbox">${on ? '<span class="deckchk">✓</span>' : ''}</span><span class="decknick">${esc(dk.nick)}</span></button>`;
     }).join('')
@@ -248,7 +248,7 @@ export function initXi(root, ctx) {
       groups += `<div class="curdeck"><div class="curdeckhd">loved <span class="curdecktag">your hearts deck</span></div><div class="curgrid">${lc}</div></div>`;
     }
     for (const dk of DECKS) {
-      if (disabledDecks.has(dk.id)) continue; // off decks: cards are hidden, not dimmed
+      if (disabledDecks.has(dk.id) || RETIRED_DECKS.has(dk.id)) continue; // off/retired decks: cards are hidden, not dimmed
       if (dk.split) {
         const evs = (deckIdx.ev[dk.id] || []).map((i) => cell('ev', i, false)).join('');
         const tws = (deckIdx.tw[dk.id] || []).map((i) => cell('tw', i, false)).join('');

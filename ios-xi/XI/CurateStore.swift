@@ -23,7 +23,8 @@ struct XIDeckDef: Identifiable {
 final class CurateStore: ObservableObject {
     static let shared = CurateStore()
 
-    /// The five decks, in pool order.
+    /// The five decks, in pool order. The pool list must NEVER shrink or
+    /// reorder — role keys ("ev:5") and archived memories are index-based.
     static let decks: [XIDeckDef] = [
         .init(id: "midjourney", nick: "midjourney", split: false),
         .init(id: "internet", nick: "internet", split: false),
@@ -31,6 +32,12 @@ final class CurateStore: ObservableObject {
         .init(id: "claude", nick: "claude", split: true),
         .init(id: "chatgpt", nick: "chatgpt", split: true),
     ]
+    /// Retired decks (July 2026): midjourney is the only playable deck. The
+    /// others stay in the pools so old memories/hearts keep resolving, but
+    /// they never deal, and Curate doesn't show them or their toggles.
+    /// Individually ♥-loved cards still ride the loved-deck switch.
+    static let retiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
+    static var activeDecks: [XIDeckDef] { decks.filter { !retiredDecks.contains($0.id) } }
     static let splitDecks: Set<String> = Set(decks.filter(\.split).map(\.id))
 
     @Published private(set) var excluded: Set<String>
@@ -176,7 +183,9 @@ final class CurateStore: ObservableObject {
 
     // MARK: - Deck toggles
 
-    func isDeckOn(_ deckID: String) -> Bool { !disabledDecks.contains(deckID) }
+    func isDeckOn(_ deckID: String) -> Bool {
+        !Self.retiredDecks.contains(deckID) && !disabledDecks.contains(deckID)
+    }
 
     func toggleDeck(_ deckID: String) {
         if disabledDecks.contains(deckID) { disabledDecks.remove(deckID) }
@@ -214,7 +223,7 @@ final class CurateStore: ObservableObject {
         for (i, c) in cards.enumerated() {
             let key = "\(role):\(i)"
             if excluded.contains(key) { continue }
-            let sourceOn = !(c.deck.map { disabledDecks.contains($0) } ?? false)
+            let sourceOn = !(c.deck.map { disabledDecks.contains($0) || Self.retiredDecks.contains($0) } ?? false)
             if sourceOn || (lovedOn && loved.contains(key)) { out.append(i) }
         }
         return out
@@ -223,10 +232,20 @@ final class CurateStore: ObservableObject {
     var allowedEvents: [Int] { allowedIndices(XIDeck.events, role: "ev") }
     var allowedTwists: [Int] { allowedIndices(XIDeck.twists, role: "tw") }
 
-    /// In-play subset of a pool (falls back to the full pool if curation
-    /// removed everything, so the app never deals from an empty deck).
+    /// Non-retired indices of a pool — the correct "everything" fallback when
+    /// curation leaves too few cards (never resurrects retired decks).
+    static func liveIndices(_ cards: [XICard]) -> [Int] {
+        let idx = cards.indices.filter { !(cards[$0].deck.map { retiredDecks.contains($0) } ?? false) }
+        return idx.isEmpty ? Array(cards.indices) : idx
+    }
+
+    /// In-play subset of a pool (falls back to the non-retired pool if
+    /// curation removed everything, so the app never deals from an empty
+    /// deck — and never resurrects retired decks in the process).
     func keep(_ cards: [XICard], role: String) -> [XICard] {
         let idx = allowedIndices(cards, role: role)
-        return idx.isEmpty ? cards : idx.map { cards[$0] }
+        if !idx.isEmpty { return idx.map { cards[$0] } }
+        let live = cards.filter { !($0.deck.map { Self.retiredDecks.contains($0) } ?? false) }
+        return live.isEmpty ? cards : live
     }
 }

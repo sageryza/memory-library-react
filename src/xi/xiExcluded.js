@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DEFAULT_DISABLED_DECKS } from './decks';
+import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
 
 // The XI engine stores curation under xiSettings/state, mirrored to localStorage:
 //   • excluded      : role-keyed removed cards ("ev:5", "tw:12")  [xi2_excluded]
@@ -48,7 +48,7 @@ export function allowedIndices(cards, role, excluded, disabledDecks, loved, love
   for (let i = 0; i < cards.length; i++) {
     const key = `${role}:${i}`;
     if (excluded.has(key)) continue;
-    const sourceOn = !disabledDecks.has(cards[i].deck);
+    const sourceOn = !disabledDecks.has(cards[i].deck) && !RETIRED_DECKS.has(cards[i].deck);
     const lovedInPlay = lovedOn && loved && loved.has(key);
     if (sourceOn || lovedInPlay) out.push(i);
   }

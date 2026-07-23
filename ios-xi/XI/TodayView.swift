@@ -52,8 +52,8 @@ struct TodayView: View {
     /// Falls back to the full pool per axis if curation left it empty.
     private func dayPairIndices(_ dn: Int) -> (Int, Int) {
         let ae = curate.allowedEvents, at = curate.allowedTwists
-        let evPool = ae.isEmpty ? Array(0..<XIDeck.events.count) : ae
-        let twPool = at.isEmpty ? Array(0..<XIDeck.twists.count) : at
+        let evPool = ae.isEmpty ? CurateStore.liveIndices(XIDeck.events) : ae
+        let twPool = at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at
         guard !evPool.isEmpty, !twPool.isEmpty else { return (0, 0) }
         let ei = evPool[((dn % evPool.count) + evPool.count) % evPool.count]
         let ti = twPool[((((twPool.count - 1 - dn) % twPool.count) + twPool.count) % twPool.count)]
@@ -460,10 +460,14 @@ struct TodayView: View {
         // preference (reverted from redrawing the pair).
         hist.append((ev, tw))
         if flip == "tw" {
-            tw = stepIndex(tw, poolSize: XIDeck.twists.count, allowed: curate.allowedTwists, step: -1)
+            let at = curate.allowedTwists
+            tw = stepIndex(tw, poolSize: XIDeck.twists.count,
+                           allowed: at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at, step: -1)
             flip = "ev"
         } else {
-            ev = stepIndex(ev, poolSize: XIDeck.events.count, allowed: curate.allowedEvents, step: 1)
+            let ae = curate.allowedEvents
+            ev = stepIndex(ev, poolSize: XIDeck.events.count,
+                           allowed: ae.isEmpty ? CurateStore.liveIndices(XIDeck.events) : ae, step: 1)
             flip = "tw"
         }
         text = ""
