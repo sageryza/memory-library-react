@@ -40,6 +40,11 @@ export const DECKS = [
   { id: 'chatgpt', nick: 'chatgpt', split: true },
 ];
 
+// Fresh users start on the midjourney deck only — the other four are opt-in
+// from Curate, matching the iOS app's fresh-install default. Applied only when
+// no deck choice was ever stored; a stored choice (even "all on") always wins.
+export const DEFAULT_DISABLED_DECKS = ['internet', 'dreams', 'claude', 'chatgpt'];
+
 const trial = rawTrial.cards || [];
 const SOURCES = {
   // trial.json is Midjourney (86 cards) then internet (60). The blank nt3 stub was
