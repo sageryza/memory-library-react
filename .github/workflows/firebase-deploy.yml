@@ -36,6 +36,15 @@ jobs:
           # certificates). Optional: if unset, the app just skips push setup.
           VITE_FCM_VAPID_KEY: ${{ secrets.VITE_FCM_VAPID_KEY }}
 
+      # Second hosting target in the same project: shouldimakethis.web.app
+      # (hosting is a target array in firebase.json, so `--only hosting`
+      # deploys both sites and both must be built).
+      - name: Build ShouldiMakeThis
+        working-directory: shouldimakethis
+        run: |
+          npm ci
+          npm run build
+
       - name: Deploy to Firebase
         run: |
           npm install -g firebase-tools

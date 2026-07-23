@@ -2563,3 +2563,6 @@ exports.publishMemory = onCall({ cors: true, timeoutSeconds: 60 }, async (req) =
   await memRef.set({ visibility: 'public' }, { merge: true });
   return { ok: true, visibility: 'public' };
 });
+
+// ─── ShouldiMakeThis.com aggregate triggers (shouldimakethis.web.app) ───
+Object.assign(exports, require('./simt'));

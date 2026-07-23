@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Tailwind v4 preflight leaves buttons on the browser-default cursor; the
+   design expects every button to read as clickable. */
+button {
+  cursor: pointer;
+}
