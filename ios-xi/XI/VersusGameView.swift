@@ -178,9 +178,13 @@ struct VersusGameView: View {
                 } else if game == nil {
                     ProgressView().tint(XITheme.gold).padding(.top, 40)
                 } else if game?.isWaiting == true {
-                    // Waiting room: the seeded board is visible but untouchable;
-                    // the game begins for everyone at once — no head starts.
+                    // Waiting room: the seeded board stays BLURRED until the
+                    // game begins for everyone at once — reading the open
+                    // cards early would be a head start.
                     board
+                        .blur(radius: 8)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                     waitingPanel
                     if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
                 } else {
@@ -262,9 +266,13 @@ struct VersusGameView: View {
                         .foregroundStyle(XITheme.ink)
                 }
                 // Inviting lives HERE — once the game begins it's locked to its
-                // players, so there's no share button anywhere else.
+                // players, so there's no share button anywhere else. Once
+                // anyone has been invited or joined, the label goes plural —
+                // "invite a friend" after inviting people read as if it hadn't
+                // taken.
+                let invitedAny = !g.invites.isEmpty || g.players.count > 1 || g.expectedPlayers > 2
                 ShareLink(item: shareText) {
-                    Text("invite a friend")
+                    Text(invitedAny ? "invite more friends" : "invite a friend")
                         .font(.system(.body, design: .serif))
                         .padding(.horizontal, 28).padding(.vertical, 10)
                         .background(XITheme.gold).foregroundStyle(.white)

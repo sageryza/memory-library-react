@@ -414,12 +414,17 @@ export default function XiVersus() {
         </div>
       )}
 
-      <XiBoardGrid
-        placed={game.placed}
-        tokensByCard={tokensByCard}
-        selectedCells={storyCells}
-        onCellClick={handleCellClick}
-      />
+      {/* While waiting, the seeded board stays blurred — reading the open
+          cards before the game starts would be a head start. */}
+      <div style={waiting ? { filter: 'blur(8px)', pointerEvents: 'none' } : undefined}
+        aria-hidden={waiting || undefined}>
+        <XiBoardGrid
+          placed={game.placed}
+          tokensByCard={tokensByCard}
+          selectedCells={storyCells}
+          onCellClick={handleCellClick}
+        />
+      </div>
 
       {storyReady && (
         <KeyboardSheet>
