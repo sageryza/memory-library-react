@@ -20,6 +20,10 @@ on:
         description: Release notes ("What's New")
         required: false
         default: ""
+      resubmit:
+        description: Cancel an in-queue submission first (swap in a newer build)
+        required: false
+        default: "false"
 
 jobs:
   submit:
@@ -35,4 +39,5 @@ jobs:
           VERSION_STRING: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
           WHATS_NEW: ${{ inputs.whats_new }}
+          RESUBMIT: ${{ inputs.resubmit }}
         run: python3 ci/asc_submit_release.py

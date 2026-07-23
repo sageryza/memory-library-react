@@ -18,10 +18,10 @@ struct CurateView: View {
     /// Cards of each deck, in pool order (events pool carries every deck's
     /// cards; split decks also have their twists list).
     private var eventsByDeck: [String: [XICard]] {
-        Dictionary(grouping: XIDeck.events, by: { $0.deck ?? "" })
+        Dictionary(grouping: XIDeck.events.filter { !XIDeck.isHidden($0) }, by: { $0.deck ?? "" })
     }
     private var twistsByDeck: [String: [XICard]] {
-        Dictionary(grouping: XIDeck.twists, by: { $0.deck ?? "" })
+        Dictionary(grouping: XIDeck.twists.filter { !XIDeck.isHidden($0) }, by: { $0.deck ?? "" })
     }
 
     var body: some View {

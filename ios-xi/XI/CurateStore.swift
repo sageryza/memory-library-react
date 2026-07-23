@@ -58,13 +58,24 @@ final class CurateStore: ObservableObject {
     private let ddKey = "xi.disabledDecks.v1"
     private let lonKey = "xi.lovedOn.v1"
 
-    /// Card id → (role, pool index), across both pools.
-    private let roleIndexByID: [String: (role: String, i: Int)]
+    /// Card id → (role, pool index), across both pools. Rebuilt when shared
+    /// deck extras append cards to the pools mid-session.
+    private var roleIndexByID: [String: (role: String, i: Int)] = [:]
     private var authHandle: AuthStateDidChangeListenerHandle?
+    private var extrasObserver: NSObjectProtocol?
     private var hydratedFor: String?
     private var saveTask: Task<Void, Never>?
 
+    private func rebuildIndex() {
+        var map: [String: (String, Int)] = [:]
+        for (i, c) in XIDeck.events.enumerated() { map[c.id] = ("ev", i) }
+        for (i, c) in XIDeck.twists.enumerated() { map[c.id] = ("tw", i) }
+        roleIndexByID = map
+    }
+
     init() {
+        // Definite initialization: every stored property is set before any
+        // method call or self-capturing closure below.
         var map: [String: (String, Int)] = [:]
         for (i, c) in XIDeck.events.enumerated() { map[c.id] = ("ev", i) }
         for (i, c) in XIDeck.twists.enumerated() { map[c.id] = ("tw", i) }
@@ -89,6 +100,16 @@ final class CurateStore: ObservableObject {
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let uid = user?.uid else { return }
             Task { @MainActor in await self?.hydrate(uid: uid) }
+        }
+
+        // Shared deck extras appended mid-session → the pools grew: rebuild
+        // the id index and republish so every screen re-derives.
+        extrasObserver = NotificationCenter.default.addObserver(
+            forName: XIDeckExtras.changed, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.rebuildIndex()
+            self.objectWillChange.send()
         }
     }
 
@@ -138,16 +159,26 @@ final class CurateStore: ObservableObject {
 
     // MARK: - Role keys
 
-    /// The key(s) a ♥/✕ on this card affects. Interchangeable cards occupy the
-    /// SAME index in both pools, so toggles hit both roles at once (the web's
-    /// `curateRoleKeys`); split-deck cards toggle only their own role.
+    /// The key(s) a ♥/✕ on this card affects. Interchangeable cards pair by
+    /// POSITION WITHIN THEIR DECK across the two pools (the web's
+    /// `curateRoleKeys`) — for the bundled decks that equals same-index, but
+    /// shared-extras cards append to pools of different lengths, so absolute
+    /// indices differ while deck positions still line up. Split-deck cards
+    /// toggle only their own role.
     private func roleKeys(_ id: String) -> [String] {
         guard let r = roleIndexByID[id] else { return [] }
         let card = r.role == "ev" ? XIDeck.events[r.i] : XIDeck.twists[r.i]
-        if let deck = card.deck, !Self.splitDecks.contains(deck) {
-            return ["ev:\(r.i)", "tw:\(r.i)"]
+        guard let deck = card.deck, !Self.splitDecks.contains(deck) else {
+            return ["\(r.role):\(r.i)"]
         }
-        return ["\(r.role):\(r.i)"]
+        let evList = XIDeck.events.indices.filter { XIDeck.events[$0].deck == deck }
+        let twList = XIDeck.twists.indices.filter { XIDeck.twists[$0].deck == deck }
+        let own = r.role == "ev" ? evList : twList
+        guard let p = own.firstIndex(of: r.i) else { return ["\(r.role):\(r.i)"] }
+        var keys: [String] = []
+        if p < evList.count { keys.append("ev:\(evList[p])") }
+        if p < twList.count { keys.append("tw:\(twList[p])") }
+        return keys.isEmpty ? ["\(r.role):\(r.i)"] : keys
     }
 
     private func ownKey(_ id: String) -> String? {
@@ -213,7 +244,12 @@ final class CurateStore: ObservableObject {
         var seen = Set<String>()
         for key in loved.sorted() {
             guard let r = cardForKey(key) else { continue }
-            let cid = r.inter ? "i\(r.i)" : key
+            // Dedupe interchangeable cards by their base id, not index —
+            // extras cards sit at different indices in the two pools.
+            let cid = r.inter
+                ? "i-" + r.card.id.replacingOccurrences(
+                    of: #"^board-(event|twist)-"#, with: "", options: .regularExpression)
+                : key
             if seen.contains(cid) { continue }
             seen.insert(cid)
             out.append(r.card)
@@ -230,7 +266,7 @@ final class CurateStore: ObservableObject {
         var out: [Int] = []
         for (i, c) in cards.enumerated() {
             let key = "\(role):\(i)"
-            if excluded.contains(key) { continue }
+            if excluded.contains(key) || XIDeck.isHidden(c) { continue }
             let sourceOn = !(c.deck.map { disabledDecks.contains($0) || Self.retiredDecks.contains($0) } ?? false)
             if sourceOn || (lovedOn && loved.contains(key)) { out.append(i) }
         }
@@ -243,7 +279,9 @@ final class CurateStore: ObservableObject {
     /// Non-retired indices of a pool — the correct "everything" fallback when
     /// curation leaves too few cards (never resurrects retired decks).
     static func liveIndices(_ cards: [XICard]) -> [Int] {
-        let idx = cards.indices.filter { !(cards[$0].deck.map { retiredDecks.contains($0) } ?? false) }
+        let idx = cards.indices.filter {
+            !(cards[$0].deck.map { retiredDecks.contains($0) } ?? false) && !XIDeck.isHidden(cards[$0])
+        }
         return idx.isEmpty ? Array(cards.indices) : idx
     }
 
@@ -253,7 +291,7 @@ final class CurateStore: ObservableObject {
     func keep(_ cards: [XICard], role: String) -> [XICard] {
         let idx = allowedIndices(cards, role: role)
         if !idx.isEmpty { return idx.map { cards[$0] } }
-        let live = cards.filter { !($0.deck.map { Self.retiredDecks.contains($0) } ?? false) }
+        let live = cards.filter { !($0.deck.map { Self.retiredDecks.contains($0) } ?? false) && !XIDeck.isHidden($0) }
         return live.isEmpty ? cards : live
     }
 }

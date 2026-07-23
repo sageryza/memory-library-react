@@ -423,8 +423,7 @@ final class VersusService {
         return VersusPlaced(r: r, c: c, d: d, i: i, by: m["by"] as? String, color: m["color"] as? String)
     }
     fileprivate func decodeCard(_ m: [String: Any]) -> HandCard? {
-        guard let d = m["d"] as? String, let i = m["i"] as? Int else { return nil }
-        return HandCard(d: d, i: i)
+        Self.decodeCardStatic(m)
     }
     private func slugTag(_ cap: String) -> String? {
         let s = cap.lowercased().replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
@@ -463,6 +462,10 @@ final class VersusService {
     }
     static func decodeCardStatic(_ m: [String: Any]) -> HandCard? {
         guard let d = m["d"] as? String, let i = m["i"] as? Int else { return nil }
+        // An index past our pools means another player has newer shared deck
+        // extras — pull them (append-only, so the index resolves after).
+        let n = d == "ev" || d == "be" ? XIDeck.events.count : XIDeck.twists.count
+        if i >= n { XIDeckExtras.noteStaleIndex() }
         return HandCard(d: d, i: i)
     }
     static func decodeStory(_ doc: QueryDocumentSnapshot) -> VersusStory? {
