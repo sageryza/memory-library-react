@@ -4,6 +4,7 @@ import useAuth from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   useVersusGame, createVersusGame, joinVersusGame,
+  leaveVersusGame, kickPlayer,
   useHand, ensureHand, placeCard, writeStory, useStories,
   listVersusGames, fetchGamesSummary, undoLastMove,
   setLastVersusGame, clearLastVersusGame,
@@ -25,7 +26,7 @@ const VERSUS_HELP = (
     <p>You can also just <b>write a story</b> on any two touching cards already on the board, without placing.</p>
     <p><b>Cards:</b> cream squares hold events (“times i…”), white squares hold twists (“…at the worst moment”). Every touching pair makes a prompt.</p>
     <p><b>Rounds:</b> everyone takes one move per round — you can't go again until the others have gone.</p>
-    <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Invite friends from the waiting room — once the game begins it's locked to its players.</p>
+    <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Friends can join any time — share the invite link from the top of the game.</p>
   </>
 );
 
@@ -58,14 +59,18 @@ export default function XiVersus() {
 
   const amInGame = !!(game && user && (game.players || []).some((p) => p.uid === user.uid));
 
-  // Auto-join when you open a game link you're not part of. The hook enforces
-  // the door policy (only while waiting); a locked game surfaces its message.
-  useEffect(() => {
-    if (!game || !user || authLoading) return;
-    const inGame = (game.players || []).some((p) => p.uid === user.uid);
+  // Joining is an explicit tap — merely OPENING a link never writes you into
+  // the roster (auto-join is how the creator's own peek at their link used to
+  // eat a friend's seat and start the game). The link's ?i= invite token still
+  // marks the tracked seat as claimed when you do join.
+  const doJoin = async () => {
+    if (!user || busy) return;
+    setBusy(true); setJoinError('');
     const token = new URLSearchParams(window.location.search).get('i');
-    if (!inGame) joinVersusGame(gameId, user, profile, token).catch((e) => setJoinError(e.message || 'Could not join.'));
-  }, [game, user, authLoading, gameId, profile]);
+    try { await joinVersusGame(gameId, user, profile, token); }
+    catch (e) { setJoinError(e.message || 'Could not join.'); }
+    finally { setBusy(false); }
+  };
 
   // Lobby: fetch a one-shot summary of each remembered game so the list can be
   // sorted (your-turn games first, then most recently touched) and show names.
@@ -322,6 +327,22 @@ export default function XiVersus() {
     try { localStorage.removeItem('xiNotifDone'); } catch { /* ignore */ }
   };
 
+  // Kick a player out (creator only) — always behind an are-you-sure, since a
+  // tap on the wrong chip shouldn't silently eject a friend.
+  const doKick = async (p) => {
+    if (!window.confirm(`Are you sure you want to kick ${p.name} out of the game?`)) return;
+    try { await kickPlayer(gameId, user, p.uid); }
+    catch (e) { alert(e.message); }
+  };
+
+  // Leave a game you joined (the fix-it for joining as the wrong account —
+  // e.g. a browser session that snuck into your own game).
+  const doLeave = async () => {
+    if (!window.confirm('Leave this game? Your placed cards and stories stay on the board.')) return;
+    try { await leaveVersusGame(gameId, user); navigate('/xi/versus'); }
+    catch (e) { alert(e.message); }
+  };
+
   // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
   // copying the link if the device has no share support.
   const shareInvite = async () => {
@@ -363,8 +384,14 @@ export default function XiVersus() {
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
             </svg>
           </button>
-          {/* No header Share button — a started game is locked to its players;
-              inviting happens in the waiting room only. */}
+          {/* Games never lock — anyone with the link can join, even mid-game —
+              so the invite link is always one tap away. */}
+          <button className="xiv-bell" onClick={shareInvite} aria-label="Invite friends"
+            title="Invite friends — anyone with the link can join">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -398,9 +425,24 @@ export default function XiVersus() {
           <span key={p.uid} className={'xiv-pill' + (acted.includes(p.uid) ? ' done' : '')}>
             <i style={{ background: p.color }} />
             {p.name}{p.uid === user?.uid ? ' (you)' : ''}{acted.includes(p.uid) ? ' ✓' : ''}
+            {user?.uid === game.createdBy && p.uid !== user.uid && (
+              <button className="xiv-kick" aria-label={`Kick ${p.name} out`} title={`Kick ${p.name} out`}
+                onClick={() => doKick(p)}>✕</button>
+            )}
           </span>
         ))}
       </div>
+
+      {/* Not in the game yet? Joining is one explicit tap — opening the link
+          alone never seats you. */}
+      {user && !amInGame && (
+        <div className="xiv-join">
+          <button className="xiv-btn" disabled={busy} onClick={doJoin}>
+            {busy ? 'Joining…' : 'Join this game'}
+          </button>
+          {joinError && <p className="xiv-note">{joinError}</p>}
+        </div>
+      )}
 
       {!waiting && (
         <div className="xiv-turn">
@@ -410,7 +452,7 @@ export default function XiVersus() {
               : (canPlace2
                 ? 'Your move — place a card or write a story'
                 : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
-            : (user ? (joinError || 'Joining…') : 'Sign in to join')}
+            : (user ? 'Anyone with the link can join — jump in above' : 'Sign in to join')}
         </div>
       )}
 
@@ -448,13 +490,10 @@ export default function XiVersus() {
       )}
 
       {waiting ? (
-        // Waiting room — the seeded board above is display-only. The game
-        // starts automatically, for everyone at once, when the last expected
-        // player joins. Inviting lives here (and only here).
+        // A doc from an older app build, still parked in the retired waiting-
+        // room state — the first friend to join brings it live for everyone.
         <div className="xiv-waiting">
-          <div className="xiv-turn">
-            Waiting for {Math.max(0, (game.expectedPlayers || 2) - players.length)} more…
-          </div>
+          <div className="xiv-turn">Waiting for friends…</div>
           {(game.invites || []).length > 0 ? (
             <p className="xiv-waiting-names">
               {(game.invites || []).map((inv) => `${inv.name || 'a friend'} ${inv.claimedBy ? '✓' : '…'}`).join(' · ')}
@@ -465,9 +504,9 @@ export default function XiVersus() {
             </p>
           )}
           <button className="xiv-btn" onClick={shareInvite}>{copied ? 'Invite link shared ✓' : 'Invite friends'}</button>
-          {amInGame && <p className="xiv-note">The game starts for everyone the moment the last player joins.</p>}
+          {amInGame && <p className="xiv-note">The game begins the moment a friend joins — anyone with the link can.</p>}
           {!amInGame && (
-            <p className="xiv-note">{user ? (joinError || 'Joining the game…') : 'Sign in above to join this game.'}</p>
+            <p className="xiv-note">{user ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
           )}
         </div>
       ) : amInGame ? (
@@ -489,7 +528,7 @@ export default function XiVersus() {
           </div>
         </>
       ) : (
-        <p className="xiv-note">{user ? (joinError || 'Joining the game…') : 'Sign in above to join this game.'}</p>
+        <p className="xiv-note">{user ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
       )}
 
       {stories.length > 0 && (
@@ -502,6 +541,11 @@ export default function XiVersus() {
             </div>
           ))}
         </div>
+      )}
+      {/* The undo hatch for joining as the wrong account (e.g. a stray browser
+          session in your own game): that session can take itself back out. */}
+      {amInGame && user?.uid !== game.createdBy && (
+        <button className="xiv-leavegame" onClick={doLeave}>Leave this game</button>
       )}
       <XiNavBar />
     </div>

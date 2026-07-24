@@ -5,9 +5,9 @@ import MessageUI
 /// The screen after "start a new game": set up who's playing BEFORE the game
 /// exists. One big person circle to start; + adds another (up to four). Fill a
 /// circle from your contacts to send them their own tracked invite text, or
-/// leave circles blank and use the group-chat link (untracked), or just start
-/// the game and share however you like. Either way the game sits in its
-/// waiting room and begins for everyone at once when the last player joins.
+/// use the group-chat link (untracked), or just start the game and share
+/// however you like. Games are live from birth — no waiting room, no
+/// headcount, no lock: anyone with the link joins whenever they tap it.
 struct VersusInviteView: View {
     var onCreated: (String) -> Void
 
@@ -201,20 +201,21 @@ struct VersusInviteView: View {
     }
 
     /// Each friend gets a unique tracked link; the game knows who accepted.
+    /// Only FILLED circles become tracked seats — an empty circle is not a
+    /// person (counting blanks is what used to wedge games).
     private func sendPersonalInvites() async {
         busy = true; error = nil
         do {
-            let invites = slots.map { (token: Self.token(), name: $0.name) }
-            let id = try await VersusService.shared.createGame(
-                expectedPlayers: slots.count + 1, invites: invites)
+            let filled = slots.filter { $0.isFilled }
+            let invites = filled.map { (token: Self.token(), name: $0.name) }
+            let id = try await VersusService.shared.createGame(invites: invites)
             createdGameId = id
             // Queue a pre-addressed text per picked contact, each with their
             // own link. (Apple requires a Send tap per message — the app can't
             // text silently.)
-            sendQueue = zip(slots, invites).compactMap { slot, inv in
-                guard slot.isFilled else { return nil }
-                return PendingText(recipient: slot.phone,
-                                   body: "Build a memory board with me in XI: \(link(id, token: inv.token))")
+            sendQueue = zip(filled, invites).map { slot, inv in
+                PendingText(recipient: slot.phone,
+                            body: "Build a memory board with me in XI: \(link(id, token: inv.token))")
             }
             busy = false
             // A device that can't text would silently skip every composer —
@@ -228,22 +229,22 @@ struct VersusInviteView: View {
         } catch { self.error = error.localizedDescription; busy = false }
     }
 
-    /// One shared link for the group chat — counts seats, doesn't track names.
+    /// One shared link for the group chat — whoever taps it joins.
     private func sendGroupChatLink() async {
         busy = true; error = nil
         do {
-            let id = try await VersusService.shared.createGame(expectedPlayers: slots.count + 1)
+            let id = try await VersusService.shared.createGame()
             createdGameId = id
             busy = false
             sheet = .share(link(id, token: nil))
         } catch { self.error = error.localizedDescription; busy = false }
     }
 
-    /// No invites now — straight to the waiting room; share from there.
+    /// No invites now — straight into the game; share from there any time.
     private func startPlain() async {
         busy = true; error = nil
         do {
-            let id = try await VersusService.shared.createGame(expectedPlayers: slots.count + 1)
+            let id = try await VersusService.shared.createGame()
             createdGameId = id
             busy = false
             finish()

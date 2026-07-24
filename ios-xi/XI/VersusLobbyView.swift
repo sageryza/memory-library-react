@@ -16,7 +16,6 @@ enum VersusRecents {
 struct VersusLobbyView: View {
     @ObservedObject var auth: AuthState
 
-    @State private var joinCode = ""
     @State private var busy = false
     @State private var error: String?
     @State private var path: [String] = []
@@ -24,7 +23,6 @@ struct VersusLobbyView: View {
     @State private var namesLoaded: Set<String> = []    // games whose name fetch finished
     @State private var recents: [String] = VersusRecents.list()
     @State private var showInvite = false
-    @FocusState private var joinFocused: Bool
     @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
@@ -42,22 +40,8 @@ struct VersusLobbyView: View {
                 }
                 .disabled(busy)
 
-                HStack(spacing: 8) {
-                    // Until universal links are validated by Apple, pasting the
-                    // invite link (or its code) is the fallback way in.
-                    TextField("paste invite link", text: $joinCode)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .font(.system(.body, design: .serif))
-                        .focused($joinFocused)
-                        .padding(12)
-                        .background(XITheme.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line))
-                    Button("join") { join(joinCode) }
-                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
-                        .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty || busy)
-                }
-
+                // Paste-a-link is retired: invites are tap-to-join universal
+                // links now — tapping one lands here and joins on its own.
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                 if busy {
                     // Joining from a tapped invite (or starting a game) — show it.
@@ -98,8 +82,6 @@ struct VersusLobbyView: View {
             .frame(maxWidth: 460)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(XITheme.paper.ignoresSafeArea())
-            // Tapping anywhere outside the join field dismisses the keyboard.
-            .onTapGesture { joinFocused = false }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // App-wide title convention: ALL-CAPS typewriter, navInk; logo
@@ -113,11 +95,6 @@ struct VersusLobbyView: View {
                         .sharedBackgroundVisibility(.hidden)
                 } else {
                     ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { joinFocused = false }
-                        .font(.system(.body, design: .serif)).tint(XITheme.gold)
                 }
             }
             .navigationDestination(for: String.self) { gameId in
@@ -182,28 +159,6 @@ struct VersusLobbyView: View {
         recents = ordered + recents.filter { !known.contains($0) }
     }
 
-    private func join(_ code: String) {
-        var id = code.trimmingCharacters(in: .whitespaces)
-        var token: String?
-        // Accept a pasted "…/versus/{id}" link as well as a bare code — and
-        // claim its tracked invite seat if the link carried one.
-        if id.contains("/"), let url = URL(string: id),
-           let parsed = XIDeepLink.parse(url), parsed.kind == "versus" {
-            id = parsed.id
-            token = parsed.token
-        }
-        guard !id.isEmpty else { return }
-        busy = true; error = nil
-        Task {
-            do {
-                try await VersusService.shared.joinGame(id, inviteToken: token)
-                VersusRecents.remember(id)
-                recents = VersusRecents.list()
-                busy = false
-                path.append(id)
-            } catch { self.error = error.localizedDescription; busy = false }
-        }
-    }
 }
 
 /// A blurred, non-interactive mock of a game in progress — the REAL board (actual
