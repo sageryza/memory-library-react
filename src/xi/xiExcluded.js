@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
+import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS, ALL_RETIRED_DECKS } from './decks';
 
 // The XI engine stores curation under xiSettings/state, mirrored to localStorage:
 //   • excluded      : role-keyed removed cards ("ev:5", "tw:12")  [xi2_excluded]
@@ -43,16 +43,24 @@ export function readDeckFilter(userId) {
 // Indices of `cards` (boardDeck.events or .twists) still in play for `role`
 // ('ev' | 'tw'): not removed (✕), and either in an enabled deck OR loved while
 // the loved deck is on.
-export function allowedIndices(cards, role, excluded, disabledDecks, loved, lovedOn) {
+export function allowedIndices(cards, role, excluded, disabledDecks, loved, lovedOn, retired) {
+  const off = retired || RETIRED_DECKS;
   const out = [];
   for (let i = 0; i < cards.length; i++) {
     const key = `${role}:${i}`;
     if (excluded.has(key) || cards[i].hidden) continue;
-    const sourceOn = !disabledDecks.has(cards[i].deck) && !RETIRED_DECKS.has(cards[i].deck);
+    const sourceOn = !disabledDecks.has(cards[i].deck) && !off.has(cards[i].deck);
     const lovedInPlay = lovedOn && loved && loved.has(key);
     if (sourceOn || lovedInPlay) out.push(i);
   }
   return out;
+}
+
+// Same, but deck retirement ALWAYS applies — even for the curator. Games are
+// played with other people, so they deal from the deck everyone else has.
+const ALL_RETIRED_SET = new Set(ALL_RETIRED_DECKS);
+export function allowedIndicesShared(cards, role, excluded, disabledDecks, loved, lovedOn) {
+  return allowedIndices(cards, role, excluded, disabledDecks, loved, lovedOn, ALL_RETIRED_SET);
 }
 
 // React hook: the deck filter for this user — instant from localStorage, then
