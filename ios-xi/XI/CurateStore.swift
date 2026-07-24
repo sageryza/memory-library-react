@@ -43,7 +43,7 @@ final class CurateStore: ObservableObject {
     static var curatorUnlocked: Bool {
         Auth.auth().currentUser?.email.map { curatorEmails.contains($0) } ?? false
     }
-    private static let allRetiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
+    static let allRetiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
     static var retiredDecks: Set<String> { curatorUnlocked ? [] : allRetiredDecks }
     static var activeDecks: [XIDeckDef] { decks.filter { !retiredDecks.contains($0.id) } }
     static let splitDecks: Set<String> = Set(decks.filter(\.split).map(\.id))
@@ -263,24 +263,46 @@ final class CurateStore: ObservableObject {
     /// and either from an enabled deck OR loved while the loved deck is on.
     /// Mirrors the web's `allowedIndices`.
     func allowedIndices(_ cards: [XICard], role: String) -> [Int] {
+        allowedIndices(cards, role: role, retired: Self.retiredDecks)
+    }
+
+    private func allowedIndices(_ cards: [XICard], role: String, retired: Set<String>) -> [Int] {
         var out: [Int] = []
         for (i, c) in cards.enumerated() {
             let key = "\(role):\(i)"
             if excluded.contains(key) || XIDeck.isHidden(c) { continue }
-            let sourceOn = !(c.deck.map { disabledDecks.contains($0) || Self.retiredDecks.contains($0) } ?? false)
+            let sourceOn = !(c.deck.map { disabledDecks.contains($0) || retired.contains($0) } ?? false)
             if sourceOn || (lovedOn && loved.contains(key)) { out.append(i) }
         }
         return out
     }
 
+    /// Same, but deck retirement ALWAYS applies — even for the curator. Games
+    /// are played with other people, so they must deal from the public deck;
+    /// the curator's five-deck unlock is for her own screens only.
+    func allowedIndicesShared(_ cards: [XICard], role: String) -> [Int] {
+        allowedIndices(cards, role: role, retired: Self.allRetiredDecks)
+    }
+
     var allowedEvents: [Int] { allowedIndices(XIDeck.events, role: "ev") }
     var allowedTwists: [Int] { allowedIndices(XIDeck.twists, role: "tw") }
+    var sharedEvents: [Int] { allowedIndicesShared(XIDeck.events, role: "ev") }
+    var sharedTwists: [Int] { allowedIndicesShared(XIDeck.twists, role: "tw") }
 
     /// Non-retired indices of a pool — the correct "everything" fallback when
     /// curation leaves too few cards (never resurrects retired decks).
     static func liveIndices(_ cards: [XICard]) -> [Int] {
+        liveIndices(cards, retired: retiredDecks)
+    }
+
+    /// Fallback pool for shared games — retirement always applies.
+    static func sharedIndices(_ cards: [XICard]) -> [Int] {
+        liveIndices(cards, retired: allRetiredDecks)
+    }
+
+    private static func liveIndices(_ cards: [XICard], retired: Set<String>) -> [Int] {
         let idx = cards.indices.filter {
-            !(cards[$0].deck.map { retiredDecks.contains($0) } ?? false) && !XIDeck.isHidden(cards[$0])
+            !(cards[$0].deck.map { retired.contains($0) } ?? false) && !XIDeck.isHidden(cards[$0])
         }
         return idx.isEmpty ? Array(cards.indices) : idx
     }

@@ -84,12 +84,14 @@ final class VersusService {
         let id = generateId()
         // The deck honors the creator's Curate removals + deck toggles (a
         // curated game for everyone in it), falling back to the full pools when
-        // too few cards remain to seed and draw — matching the web.
-        let beAll = CurateStore.shared.allowedEvents
-        let bwAll = CurateStore.shared.allowedTwists
+        // too few cards remain to seed and draw — matching the web. Retired
+        // decks are ALWAYS excluded here, curator or not: a game is played with
+        // other people, so it deals from the deck everyone else has.
+        let beAll = CurateStore.shared.sharedEvents
+        let bwAll = CurateStore.shared.sharedTwists
         let seeded = VersusModel.seedBoard(
-            eventPool: beAll.count >= 6 ? beAll : CurateStore.liveIndices(XIDeck.events),
-            twistPool: bwAll.count >= 6 ? bwAll : CurateStore.liveIndices(XIDeck.twists))
+            eventPool: beAll.count >= 6 ? beAll : CurateStore.sharedIndices(XIDeck.events),
+            twistPool: bwAll.count >= 6 ? bwAll : CurateStore.sharedIndices(XIDeck.twists))
         let creator: [String: Any] = ["uid": uid, "name": currentName(), "color": VersusModel.playerColors[0], "order": 0]
         try await gameRef(id).setData([
             "createdBy": uid,

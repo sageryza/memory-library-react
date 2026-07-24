@@ -161,8 +161,6 @@ struct TodayView: View {
             .font(.system(.subheadline))
             .tint(XITheme.gold)
             .frame(maxWidth: .infinity)
-            // The XI wordmark lives top-left on every screen.
-            .overlay(alignment: .leading) { XILogo(height: 22) }
             if isToday {
                 HStack(spacing: 10) {
                     if !hist.isEmpty {
@@ -218,15 +216,25 @@ struct TodayView: View {
         let frac = min(1.0, Double(totalCount) / Double(goal))
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 5).fill(XITheme.cream)
-                if frac > 0 {
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(LinearGradient(colors: [Color(red: 0.949, green: 0.800, blue: 0.451),
-                                                      Color(red: 0.788, green: 0.596, blue: 0.196)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .frame(width: max(10, geo.size.width * frac))
-                        .shadow(color: frac >= 1 ? XITheme.gold.opacity(0.6) : .clear, radius: 4)
+                RoundedRectangle(cornerRadius: 5).fill(XITheme.white)
+                // Always a sliver of gold at the very left, even at zero — the
+                // bar should show what it's going to do before you fill it.
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(LinearGradient(colors: [Color(red: 0.949, green: 0.800, blue: 0.451),
+                                                  Color(red: 0.788, green: 0.596, blue: 0.196)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: max(7, geo.size.width * frac))
+                    .shadow(color: frac >= 1 ? XITheme.gold.opacity(0.6) : .clear, radius: 4)
+                // Thermometer ticks at each memory mark, so the five stops you're
+                // working toward are visible from the start.
+                HStack(spacing: 0) {
+                    ForEach(1..<goal, id: \.self) { _ in
+                        Spacer(minLength: 0)
+                        Rectangle().fill(XITheme.line.opacity(0.45)).frame(width: 0.5)
+                    }
+                    Spacer(minLength: 0)
                 }
+                .padding(.vertical, 1.5)
             }
         }
         .frame(height: 10)

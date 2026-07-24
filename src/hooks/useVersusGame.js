@@ -13,7 +13,7 @@ import { db } from '../firebase';
 import { boardDeck } from '../xi/decks';
 import { seedBoard, PLAYER_COLORS, canPlace } from '../xi/versusModel';
 import { buildXiMemoryDoc, pairKey, timesSentence } from '../xi/xiMemory';
-import { readDeckFilter, allowedIndices } from '../xi/xiExcluded';
+import { readDeckFilter, allowedIndicesShared } from '../xi/xiExcluded';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 
@@ -94,8 +94,10 @@ export async function createVersusGame(user, profile, expectedPlayers = 2, invit
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
   const { excluded, disabledDecks, loved, lovedOn } = readDeckFilter(user.uid);
-  const beAll = allowedIndices(boardDeck.events, 'ev', excluded, disabledDecks, loved, lovedOn);
-  const bwAll = allowedIndices(boardDeck.twists, 'tw', excluded, disabledDecks, loved, lovedOn);
+  // Retired decks are ALWAYS excluded from a game, curator or not — a game is
+  // played with other people, so it deals from the public deck.
+  const beAll = allowedIndicesShared(boardDeck.events, 'ev', excluded, disabledDecks, loved, lovedOn);
+  const bwAll = allowedIndicesShared(boardDeck.twists, 'tw', excluded, disabledDecks, loved, lovedOn);
   const { placed, drawPile } = seedBoard({
     be: beAll.length >= 6 ? beAll : boardDeck.events.length, // keep enough to seed + draw
     bw: bwAll.length >= 6 ? bwAll : boardDeck.twists.length,
