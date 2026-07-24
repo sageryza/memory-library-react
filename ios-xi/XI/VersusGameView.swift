@@ -37,6 +37,8 @@ struct VersusGameView: View {
     @State private var reported = false
     @State private var error: String?
     @State private var busy = false
+    /// Player pending a kick — the confirmation dialog presents from this.
+    @State private var kickTarget: VersusPlayer?
     /// Opponent stories already copied into the Commons this session (so live
     /// snapshot updates don't re-add them; the service also de-dupes server-side).
     @State private var syncedStoryIds: Set<String> = []
@@ -51,6 +53,8 @@ struct VersusGameView: View {
 
     private var uid: String? { auth.uid }
     private var game: VersusGameState? { store.game }
+    private var amInGame: Bool { uid.map { u in game?.players.contains { $0.uid == u } ?? false } ?? false }
+    private var iAmCreator: Bool { uid != nil && uid == game?.createdBy }
     private var iActed: Bool { uid.map { game?.acted.contains($0) ?? false } ?? false }
     private var iPlaced: Bool { uid.map { game?.placedBy.contains($0) ?? false } ?? false }
     private var byCell: [String: VersusPlaced] {
@@ -98,13 +102,26 @@ struct VersusGameView: View {
             .alert("Thanks — we'll review this.", isPresented: $reported) {
                 Button("OK", role: .cancel) {}
             }
+            .confirmationDialog(
+                "Are you sure you want to kick \(kickTarget?.name ?? "this player") out of the game?",
+                isPresented: Binding(get: { kickTarget != nil }, set: { if !$0 { kickTarget = nil } }),
+                titleVisibility: .visible,
+                presenting: kickTarget
+            ) { p in
+                Button("Kick \(p.name) out", role: .destructive) {
+                    run { try await VersusService.shared.kickPlayer(gameId, targetUid: p.uid) }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
             .task(id: gameId) {
+                // No auto-join: opening a game never seats you (that's how the
+                // old flow ate seats). You get here already a player — creator,
+                // recents, or the lobby's deep-link join; anyone else sees the
+                // explicit "join this game" button below the board.
                 guard let uid else { return }
                 store.subscribe(gameId: gameId, uid: uid)
-                do {
-                    try await VersusService.shared.joinGame(gameId)
-                    try await VersusService.shared.ensureHand(gameId)
-                } catch { self.error = error.localizedDescription }
+                do { try await VersusService.shared.ensureHand(gameId) }
+                catch { self.error = error.localizedDescription }
             }
             .onDisappear { store.unsubscribe() }
             .onChange(of: store.stories) { newStories in
@@ -149,18 +166,21 @@ struct VersusGameView: View {
                         .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                 }
                 // Plain icons, no iOS 26 glass pill behind them (same opt-out
-                // as the constellation toolbar). No share button here — a
-                // started game is locked to its players; inviting happens in
-                // the waiting room only.
+                // as the constellation toolbar). Games never lock, so the
+                // invite link is always one tap away up here.
                 if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }
+                            .tint(XITheme.gold)
                         // Instructions live behind the ⓘ, not on the board.
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
                             .buttonBorderShape(.roundedRectangle)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 } else {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }
+                            .tint(XITheme.gold)
                         Button { showHelp = true } label: { Image(systemName: "info.circle") }.tint(XITheme.gold)
                             .buttonBorderShape(.roundedRectangle)
                     }
@@ -178,9 +198,9 @@ struct VersusGameView: View {
                 } else if game == nil {
                     ProgressView().tint(XITheme.gold).padding(.top, 40)
                 } else if game?.isWaiting == true {
-                    // Waiting room: the seeded board stays BLURRED until the
-                    // game begins for everyone at once — reading the open
-                    // cards early would be a head start.
+                    // A doc from an older build, still parked in the retired
+                    // waiting-room state — the first friend to join brings it
+                    // live for everyone. Board stays view-only till then.
                     board
                         .blur(radius: 8)
                         .allowsHitTesting(false)
@@ -188,11 +208,16 @@ struct VersusGameView: View {
                     waitingPanel
                     if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
                 } else {
+                    playersRow
                     header
                     board
                     if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
-                    hand
-                    controls
+                    if amInGame {
+                        hand
+                        controls
+                    } else {
+                        joinPanel
+                    }
                     stories
                 }
             }
@@ -239,12 +264,11 @@ struct VersusGameView: View {
         }
     }
 
-    // MARK: waiting room
+    // MARK: waiting room (legacy docs only — new games are live from birth)
 
     @ViewBuilder
     private var waitingPanel: some View {
         if let g = game {
-            let missing = max(0, g.expectedPlayers - g.players.count)
             VStack(spacing: 14) {
                 // Who's in: tracked invites show each seat by name; otherwise
                 // just the joined players.
@@ -260,17 +284,15 @@ struct VersusGameView: View {
                 } else {
                     let others = g.players.filter { $0.uid != uid }
                     Text(others.isEmpty
-                         ? "Waiting for \(missing) more \(missing == 1 ? "player" : "players")…"
-                         : "\(others.map(\.name).joined(separator: ", ")) joined — \(missing) more to go")
+                         ? "Waiting for a friend to join…"
+                         : "\(others.map(\.name).joined(separator: ", ")) joined")
                         .font(.system(.subheadline, design: .serif))
                         .foregroundStyle(XITheme.ink)
                 }
-                // Inviting lives HERE — once the game begins it's locked to its
-                // players, so there's no share button anywhere else. Once
-                // anyone has been invited or joined, the label goes plural —
-                // "invite a friend" after inviting people read as if it hadn't
-                // taken.
-                let invitedAny = !g.invites.isEmpty || g.players.count > 1 || g.expectedPlayers > 2
+                // Once anyone has been invited or joined, the label goes
+                // plural — "invite a friend" after inviting people read as if
+                // it hadn't taken.
+                let invitedAny = !g.invites.isEmpty || g.players.count > 1
                 ShareLink(item: shareText) {
                     Text(invitedAny ? "invite more friends" : "invite a friend")
                         .font(.system(.body, design: .serif))
@@ -278,11 +300,74 @@ struct VersusGameView: View {
                         .background(XITheme.gold).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                Text("The game starts for everyone the moment the last player joins.")
+                Text("The game begins the moment a friend joins — anyone with the link can, even mid-game.")
                     .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
+                    .multilineTextAlignment(.center)
             }
             .padding(.top, 8)
         }
+    }
+
+    // MARK: players row + joining
+
+    /// Everyone in the game, with their gold shape. The creator gets a small
+    /// ✕ on each other player — kicking is always behind an are-you-sure (it's
+    /// the fix for a stray session joining as a phantom second you).
+    @ViewBuilder
+    private var playersRow: some View {
+        if let g = game, g.players.count > 1 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(g.players) { p in
+                        HStack(spacing: 5) {
+                            Image(systemName: Self.playerSymbol(p.order))
+                                .font(.system(size: 9)).foregroundStyle(XITheme.gold)
+                            Text(p.uid == uid ? "\(p.name) (you)" : p.name)
+                                .font(.system(.caption, design: .serif)).lineLimit(1)
+                                .foregroundStyle(XITheme.ink)
+                            if iAmCreator && p.uid != uid {
+                                Button { kickTarget = p } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 8, weight: .semibold))
+                                        .foregroundStyle(XITheme.line)
+                                        .frame(width: 16, height: 16)
+                                        .background(Color.black.opacity(0.06), in: Circle())
+                                }
+                                .accessibilityLabel("Kick \(p.name) out")
+                            }
+                        }
+                        .padding(.vertical, 4).padding(.horizontal, 8)
+                        .background(XITheme.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+        }
+    }
+
+    /// Shown when you're looking at a game you're not in — joining is one
+    /// explicit tap, never something that happens just because a link opened.
+    private var joinPanel: some View {
+        VStack(spacing: 10) {
+            Button {
+                run {
+                    try await VersusService.shared.joinGame(gameId)
+                    try await VersusService.shared.ensureHand(gameId)
+                }
+            } label: {
+                Text(busy ? "joining…" : "join this game")
+                    .font(.system(.body, design: .serif))
+                    .padding(.horizontal, 28).padding(.vertical, 10)
+                    .background(XITheme.gold).foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .disabled(busy)
+            Text("Anyone with the invite link can join — even mid-game.")
+                .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.line)
+        }
+        .padding(.top, 4)
     }
 
     // MARK: board

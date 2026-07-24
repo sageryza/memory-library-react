@@ -27,12 +27,13 @@ struct VersusGameState: Equatable {
     let placed: [VersusPlaced]
     let drawPileCount: Int
     let stats: [String: [String: Int]]
-    /// "waiting" until everyone's in; "active" once live.
-    /// Legacy docs without the field decode as "active".
+    /// Games are live ("active") from birth now. "waiting" only appears on
+    /// docs from older builds (the retired fixed-headcount format) — the
+    /// first join flips them live. Docs without the field decode as "active".
     let status: String
     let createdBy: String
-    /// How many players the creator set up the game for — the game starts
-    /// automatically, for everyone at once, the moment this many have joined.
+    /// Legacy (retired): the old fixed-headcount trigger. Kept only so older
+    /// docs decode; nothing starts or locks on it any more.
     let expectedPlayers: Int
     let invites: [VersusInvite]
 
@@ -76,10 +77,10 @@ final class VersusService {
     // MARK: Create / join
 
     /// invites: one entry per tracked seat (unique link token + optional contact
-    /// name). expectedPlayers counts the creator. The game starts AUTOMATICALLY,
-    /// for everyone at the same instant, when that many players have joined.
-    func createGame(expectedPlayers: Int = 2,
-                    invites: [(token: String, name: String)] = []) async throws -> String {
+    /// name), so the game can show exactly who's accepted. Games are live from
+    /// birth — no waiting room, no headcount, no lock: friends join whenever
+    /// they tap the link, and the creator can kick a wrong join.
+    func createGame(invites: [(token: String, name: String)] = []) async throws -> String {
         guard let uid = uid else { throw e("Sign in to start a Versus game.") }
         let id = generateId()
         // The deck honors the creator's Curate removals + deck toggles (a
@@ -97,10 +98,7 @@ final class VersusService {
             "createdBy": uid,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
-            // Games open in a waiting room: nobody can play until everyone has
-            // joined — then it goes live for all players at once. No head starts.
-            "status": "waiting",
-            "expectedPlayers": max(2, expectedPlayers),
+            "status": "active",
             "invites": invites.map { ["token": $0.token, "name": $0.name] },
             "players": [creator],
             "round": 0,
@@ -124,12 +122,8 @@ final class VersusService {
             }
             let players = (g["players"] as? [[String: Any]]) ?? []
             if players.contains(where: { ($0["uid"] as? String) == uid }) { return nil }
-            // A started game is locked to its players — joining is only open
-            // while the game is in its waiting room. (Legacy docs without a
-            // status count as started.)
-            guard (g["status"] as? String ?? "active") == "waiting" else {
-                errPtr?.pointee = self.e("This game has already started — it's locked to its players."); return nil
-            }
+            // Games never lock — anyone with the invite link can join at any
+            // point, even mid-game. (The creator can kick a wrong join.)
             let order = players.count
             let player: [String: Any] = [
                 "uid": uid, "name": name,
@@ -149,14 +143,68 @@ final class VersusService {
                     update["invites"] = invites
                 }
             }
-            // Roster complete → the game begins for everyone at this instant.
-            let expected = max(2, g["expectedPlayers"] as? Int ?? 2)
-            if players.count + 1 >= expected {
+            // Docs from older builds open as "waiting" (the retired fixed-
+            // headcount format) — the first join brings them live for everyone.
+            if (g["status"] as? String ?? "active") == "waiting" {
                 update["status"] = "active"
             }
             txn.updateData(update, forDocument: self.gameRef(gameId))
             return nil
         }
+    }
+
+    /// Leave a game yourself: your hand slides back under the draw pile (the
+    /// hands security rules mean only YOU can return your cards) and you come
+    /// off the roster. Placed cards and written stories stay on the board.
+    func leaveGame(_ gameId: String) async throws {
+        guard let uid = uid else { return }
+        _ = try await db.runTransaction { txn, errPtr -> Any? in
+            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else { return nil }
+            guard ((g["players"] as? [[String: Any]]) ?? []).contains(where: { ($0["uid"] as? String) == uid }) else { return nil }
+            let hSnap = self.txnGet(txn, self.handRef(gameId, uid), errPtr)
+            let cards = (hSnap?.data()?["cards"] as? [[String: Any]]) ?? []
+            var update = self.withoutPlayer(g, uid)
+            update["drawPile"] = ((g["drawPile"] as? [[String: Any]]) ?? []) + cards
+            update["updatedAt"] = FieldValue.serverTimestamp()
+            txn.updateData(update, forDocument: self.gameRef(gameId))
+            if hSnap?.exists == true { txn.deleteDocument(self.handRef(gameId, uid)) }
+            return nil
+        }
+    }
+
+    /// Kick a player out (creator only — enforced in the UI, always behind an
+    /// are-you-sure). Their hidden hand doc is theirs alone under the security
+    /// rules, so it stays put — if they rejoin via the link later they simply
+    /// pick their old hand back up.
+    func kickPlayer(_ gameId: String, targetUid: String) async throws {
+        guard let uid = uid, targetUid != uid else { return }
+        _ = try await db.runTransaction { txn, errPtr -> Any? in
+            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else { return nil }
+            guard ((g["players"] as? [[String: Any]]) ?? []).contains(where: { ($0["uid"] as? String) == targetUid }) else { return nil }
+            var update = self.withoutPlayer(g, targetUid)
+            update["updatedAt"] = FieldValue.serverTimestamp()
+            txn.updateData(update, forDocument: self.gameRef(gameId))
+            return nil
+        }
+    }
+
+    /// Roster math shared by leave/kick: drop a player from every per-round
+    /// list, and if everyone REMAINING has already acted, advance the round
+    /// exactly like a completed move would — otherwise the round could stall
+    /// forever waiting on a player who's no longer in the game.
+    private func withoutPlayer(_ g: [String: Any], _ dropUid: String) -> [String: Any] {
+        let players = ((g["players"] as? [[String: Any]]) ?? []).filter { ($0["uid"] as? String) != dropUid }
+        let acted = ((g["acted"] as? [String]) ?? []).filter { $0 != dropUid }
+        let placedBy = ((g["placedBy"] as? [String]) ?? []).filter { $0 != dropUid }
+        var stats = (g["stats"] as? [String: [String: Any]]) ?? [:]
+        stats.removeValue(forKey: dropUid)
+        let uids = players.compactMap { $0["uid"] as? String }
+        let allDone = !uids.isEmpty && uids.allSatisfy { acted.contains($0) }
+        if allDone {
+            return ["players": players, "stats": stats, "acted": [String](),
+                    "placedBy": [String](), "round": ((g["round"] as? Int) ?? 0) + 1]
+        }
+        return ["players": players, "stats": stats, "acted": acted, "placedBy": placedBy]
     }
 
     /// The other players' names in a game (everyone but you), for the lobby list.
@@ -218,6 +266,10 @@ final class VersusService {
         guard let uid = uid else { return }
         _ = try await db.runTransaction { txn, errPtr -> Any? in
             guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), gSnap.exists else { return nil }
+            // Only players get dealt cards — joining is explicit now, so this
+            // can be called by someone just looking at a game they're not in.
+            let roster = (gSnap.data()?["players"] as? [[String: Any]]) ?? []
+            guard roster.contains(where: { ($0["uid"] as? String) == uid }) else { return nil }
             let hSnap = self.txnGet(txn, self.handRef(gameId, uid), errPtr)
             var cards = ((hSnap?.data()?["cards"] as? [[String: Any]]) ?? [])
             if cards.count >= Self.handSize { return nil }

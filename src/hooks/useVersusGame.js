@@ -80,17 +80,35 @@ const guestName = () => {
 const playerName = (profile) => (profile?.firstName || profile?.displayName || guestName() || 'Player');
 
 // Games created before the waiting room have no status field — treat them as
-// already active (playable, but locked to their players like any started game).
+// already active. Games never lock any more: anyone with the invite link can
+// join at any point, even mid-game (the creator can kick a wrong join).
 const statusOf = (g) => (g && g.status) || 'active';
 
-// Moves are blocked until the creator begins the game (waiting -> active).
+// Moves are blocked while a game still says "waiting" (docs from older app
+// builds open in that state; the first join flips them live).
 function assertStarted(g) {
   if (statusOf(g) === 'waiting') throw new Error("The game hasn't started yet.");
 }
 
+// Roster math shared by leave/kick: drop a player from every per-round list,
+// and if everyone REMAINING has already acted, advance the round exactly like
+// a completed move would — otherwise the round could stall forever waiting on
+// a player who's no longer in the game.
+function withoutPlayer(g, uid) {
+  const players = (g.players || []).filter((p) => p.uid !== uid);
+  const acted = (g.acted || []).filter((u) => u !== uid);
+  const placedBy = (g.placedBy || []).filter((u) => u !== uid);
+  const stats = { ...(g.stats || {}) };
+  delete stats[uid];
+  const allDone = players.length > 0 && players.every((p) => acted.includes(p.uid));
+  return allDone
+    ? { players, stats, acted: [], placedBy: [], round: (g.round || 0) + 1 }
+    : { players, stats, acted, placedBy };
+}
+
 // Create a new game seeded from the board deck; the creator is player 0. The
 // deck honors the creator's Curate removals (a curated game for everyone in it).
-export async function createVersusGame(user, profile, expectedPlayers = 2, invites = []) {
+export async function createVersusGame(user, profile, invites = []) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
   const gameId = generateGameId();
   const { excluded, disabledDecks, loved, lovedOn } = readDeckFilter(user.uid);
@@ -108,11 +126,11 @@ export async function createVersusGame(user, profile, expectedPlayers = 2, invit
     createdBy: user.uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    status: 'waiting',
-    // The game starts AUTOMATICALLY, for everyone at once, when this many
-    // players have joined (creator included). Tracked invites carry a unique
-    // link token each, so the waiting room shows exactly who's in.
-    expectedPlayers: Math.max(2, expectedPlayers),
+    // Games are live from birth — no waiting room, no headcount, no lock.
+    // Friends join whenever they tap the link; the creator can kick a wrong
+    // join. Tracked invites still carry a unique token each so the game can
+    // show exactly who's accepted.
+    status: 'active',
     invites: invites.map((i) => ({ token: i.token, name: i.name || '' })),
     players: [creator],
     round: 0,
@@ -126,9 +144,8 @@ export async function createVersusGame(user, profile, expectedPlayers = 2, invit
   return gameId;
 }
 
-// Add the current user to a game if they're not already in it. New players can
-// only come in while the game is still waiting; once it's active it's locked to
-// its players (existing players may always re-enter).
+// Add the current user to a game if they're not already in it. Games never
+// lock: anyone with the invite link can join at any time, even mid-game.
 export async function joinVersusGame(gameId, user, profile, inviteToken = null) {
   if (!user?.uid) throw new Error('Sign in to join.');
   const ref = doc(db, 'versusGames', gameId);
@@ -138,9 +155,6 @@ export async function joinVersusGame(gameId, user, profile, inviteToken = null) 
   if ((data.players || []).some((p) => p.uid === user.uid)) { // already joined
     rememberVersusGame(gameId);
     return;
-  }
-  if (statusOf(data) !== 'waiting') {
-    throw new Error("This game has already started — it's locked to its players.");
   }
   rememberVersusGame(gameId);
 
@@ -156,16 +170,55 @@ export async function joinVersusGame(gameId, user, profile, inviteToken = null) 
     [`stats.${user.uid}`]: { placed: 0, stories: 0 },
     updatedAt: serverTimestamp(),
   };
-  // Tracked invite: mark this seat claimed so the waiting room shows who's in.
+  // Tracked invite: mark this seat claimed so the game shows who's accepted.
   if (inviteToken) {
     const invites = [...(data.invites || [])];
     const i = invites.findIndex((x) => x.token === inviteToken && !x.claimedBy);
     if (i >= 0) { invites[i] = { ...invites[i], claimedBy: user.uid }; update.invites = invites; }
   }
-  // Roster complete → the game begins for everyone at this instant.
-  const expected = Math.max(2, data.expectedPlayers || 2);
-  if ((data.players || []).length + 1 >= expected) update.status = 'active';
+  // Docs from older app builds open as "waiting" (the old fixed-headcount
+  // format) — the first join brings them live so everyone can play.
+  if (statusOf(data) === 'waiting') update.status = 'active';
   await updateDoc(ref, update);
+}
+
+// Leave a game yourself: your hand slides back under the draw pile (own-hand
+// security rules mean only YOU can return your cards) and you come off the
+// roster. Placed cards and written stories stay on the board.
+export async function leaveVersusGame(gameId, user) {
+  if (!user?.uid) return;
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) return;
+    const g = gSnap.data();
+    if (!(g.players || []).some((p) => p.uid === user.uid)) return;
+    const hSnap = await tx.get(handRef(gameId, user.uid));
+    const cards = hSnap.exists() ? (hSnap.data().cards || []) : [];
+    tx.update(gameRef(gameId), {
+      ...withoutPlayer(g, user.uid),
+      drawPile: [...(g.drawPile || []), ...cards],
+      updatedAt: serverTimestamp(),
+    });
+    if (hSnap.exists()) tx.delete(handRef(gameId, user.uid));
+  });
+}
+
+// Kick a player (creator only — enforced in the UI; rules allow any player to
+// write for v1, same as moves). Their hidden hand doc is theirs alone under
+// the security rules, so it stays put — if they rejoin via the link later they
+// simply pick their old hand back up.
+export async function kickPlayer(gameId, user, targetUid) {
+  if (!user?.uid || !targetUid || targetUid === user.uid) return;
+  await runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gameRef(gameId));
+    if (!gSnap.exists()) return;
+    const g = gSnap.data();
+    if (!(g.players || []).some((p) => p.uid === targetUid)) return;
+    tx.update(gameRef(gameId), {
+      ...withoutPlayer(g, targetUid),
+      updatedAt: serverTimestamp(),
+    });
+  });
 }
 
 // One-shot summaries for the lobby list. For each remembered game id: its
@@ -366,7 +419,7 @@ export async function writeStory(gameId, user, cells, text) {
         httpsCallable(functions, 'publishMemory')({ memoryId: memRef.id, visibility: 'public' })
           .catch(() => {});
       }
-    } catch (e) { /* publish is best-effort */ }
+    } catch { /* publish is best-effort */ }
   } catch (e) { console.error('[Versus] archive save failed:', e); }
 }
 

@@ -136,3 +136,11 @@
 .xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px}
 .xiv-feeditem i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-feedwho{font-weight:600;color:#241d18}
+
+/* Kick a player out (creator only) — small circular ✕ inside the player chip,
+   always behind an are-you-sure confirm. */
+.xiv-kick{width:16px;height:16px;border-radius:50%;border:none;padding:0;margin-left:2px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:#8a7d6e;background:rgba(36,29,24,.10);cursor:pointer}
+.xiv-kick:hover{background:#800020;color:#fff}
+
+/* Quiet exit for a session that joined as the wrong account. */
+.xiv-leavegame{display:block;margin:0 auto 26px;border:1px solid rgba(36,29,24,.18);border-radius:6px;background:none;padding:7px 16px;font-size:13px;color:#8a7d6e;cursor:pointer}
