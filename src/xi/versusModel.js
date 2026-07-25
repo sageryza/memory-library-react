@@ -9,6 +9,8 @@
 
 export const BR = 4;
 export const BC = 4;
+// Cards the board opens with, scattered at random.
+export const SEED_COUNT = 4;
 
 // Distinct, legible player colours, assigned by join order.
 export const PLAYER_COLORS = [
@@ -48,16 +50,29 @@ export function seedBoard(poolSizes, rng = Math.random) {
   const evIdx = shuffle(Array.isArray(poolSizes.be) ? poolSizes.be.slice() : [...Array(poolSizes.be).keys()], rng);
   const twIdx = shuffle(Array.isArray(poolSizes.bw) ? poolSizes.bw.slice() : [...Array(poolSizes.bw).keys()], rng);
 
-  const cr = 2;
-  const cc = 2;
-  const placed = [{ r: cr, c: cc, d: 'be', i: evIdx[0], by: null, color: null }];
-  neighbors(cr, cc).forEach((nb, k) => {
-    placed.push({ r: nb[0], c: nb[1], d: 'bw', i: twIdx[k], by: null, color: null });
-  });
+  // Four cards dropped on random cells (not a fixed centre cross), each taking
+  // the kind its cell colour demands.
+  const cells = [];
+  for (let r = 0; r < BR; r++) for (let c = 0; c < BC; c++) cells.push([r, c]);
+  const order = shuffle(cells, rng);
+
+  const placed = [];
+  let evUsed = 0;
+  let twUsed = 0;
+  for (const [r, c] of order) {
+    if (placed.length >= SEED_COUNT) break;
+    if (cellKind(r, c) === 'event') {
+      if (evUsed >= evIdx.length) continue;
+      placed.push({ r, c, d: 'be', i: evIdx[evUsed++], by: null, color: null });
+    } else {
+      if (twUsed >= twIdx.length) continue;
+      placed.push({ r, c, d: 'bw', i: twIdx[twUsed++], by: null, color: null });
+    }
+  }
 
   const pile = [];
-  for (let k = 1; k < evIdx.length; k++) pile.push({ d: 'be', i: evIdx[k] });
-  for (let k = 4; k < twIdx.length; k++) pile.push({ d: 'bw', i: twIdx[k] });
+  for (let k = evUsed; k < evIdx.length; k++) pile.push({ d: 'be', i: evIdx[k] });
+  for (let k = twUsed; k < twIdx.length; k++) pile.push({ d: 'bw', i: twIdx[k] });
 
   return { placed, drawPile: shuffle(pile, rng) };
 }

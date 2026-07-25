@@ -226,15 +226,15 @@ struct TodayView: View {
                     .frame(width: max(7, geo.size.width * frac))
                     .shadow(color: frac >= 1 ? XITheme.gold.opacity(0.6) : .clear, radius: 4)
                 // Thermometer ticks at each memory mark, so the five stops you're
-                // working toward are visible from the start.
-                HStack(spacing: 0) {
-                    ForEach(1..<goal, id: \.self) { _ in
-                        Spacer(minLength: 0)
-                        Rectangle().fill(XITheme.line.opacity(0.45)).frame(width: 0.5)
-                    }
-                    Spacer(minLength: 0)
+                // working toward are visible from the start. Drawn at explicit
+                // x positions (a Spacer-based HStack rendered too faint to
+                // read) and dark enough to show over both track and fill.
+                ForEach(1..<goal, id: \.self) { k in
+                    Rectangle()
+                        .fill(XITheme.ink.opacity(0.28))
+                        .frame(width: 1)
+                        .offset(x: geo.size.width * (Double(k) / Double(goal)) - 0.5)
                 }
-                .padding(.vertical, 1.5)
             }
         }
         .frame(height: 10)

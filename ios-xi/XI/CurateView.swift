@@ -27,8 +27,6 @@ struct CurateView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                XILogo(height: 32)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 6)
                 Text("Heart the cards you love, remove the ones you don't. Your curation shapes the whole app — the daily cards, the Board of the Day, redraws, and new Versus games all draw from the decks you keep.")
                     .font(.system(size: 13, design: .serif)).foregroundStyle(XITheme.line)
                     .padding(.bottom, 14)

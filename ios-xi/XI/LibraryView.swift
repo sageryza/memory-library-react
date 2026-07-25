@@ -204,7 +204,6 @@ struct LibraryView: View {
         // opt-out as the constellation and board screens).
         if #available(iOS 26.0, *) {
             ToolbarItemGroup(placement: .topBarLeading) {
-                XILogo(height: 20)
                 Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
                     .tint(XITheme.gold)
                     .buttonBorderShape(.roundedRectangle)
@@ -215,7 +214,6 @@ struct LibraryView: View {
                 .sharedBackgroundVisibility(.hidden)
         } else {
             ToolbarItemGroup(placement: .topBarLeading) {
-                XILogo(height: 20)
                 Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
                     .tint(XITheme.gold)
                     .buttonBorderShape(.roundedRectangle)
