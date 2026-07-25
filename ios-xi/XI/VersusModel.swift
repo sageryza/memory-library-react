@@ -1,7 +1,7 @@
 import Foundation
 
 // Faithful Swift port of src/xi/versusModel.js — pure XI Versus game logic
-// (no Firebase). The board is a 5×5 checkerboard stored as a FLAT list of placed
+// (no Firebase). The board is a 4×4 checkerboard stored as a FLAT list of placed
 // cells (Firestore forbids nested arrays). Events on cream cells (r+c even),
 // twists on white cells, so every orthogonal adjacency is an event×twist pair.
 
@@ -22,8 +22,8 @@ struct HandCard: Equatable, Hashable {
 }
 
 enum VersusModel {
-    static let BR = 5
-    static let BC = 5
+    static let BR = 4
+    static let BC = 4
 
     /// Distinct player colors, assigned by join order.
     static let playerColors = [
@@ -49,7 +49,7 @@ enum VersusModel {
         let evIdx = eventPool.shuffled()
         let twIdx = twistPool.shuffled()
 
-        let cr = 2, cc = 2
+        let cr = BR / 2, cc = BC / 2
         var placed: [VersusPlaced] = [VersusPlaced(r: cr, c: cc, d: "be", i: evIdx[0], by: nil, color: nil)]
         for (k, nb) in neighbors(cr, cc).enumerated() where k < twIdx.count {
             placed.append(VersusPlaced(r: nb.0, c: nb.1, d: "bw", i: twIdx[k], by: nil, color: nil))

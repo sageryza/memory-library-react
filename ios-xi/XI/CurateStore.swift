@@ -37,14 +37,12 @@ final class CurateStore: ObservableObject {
     /// they never deal, and Curate doesn't show them or their toggles.
     /// Individually ♥-loved cards still ride the loved-deck switch.
     ///
-    /// EXCEPT for the curator's own account — five-deck curation was Sage's
-    /// personal feature, so signing in as her un-retires everything.
-    static let curatorEmails: Set<String> = ["sageryza@gmail.com"]
-    static var curatorUnlocked: Bool {
-        Auth.auth().currentUser?.email.map { curatorEmails.contains($0) } ?? false
-    }
+    /// Retirement now applies to EVERY account, the curator's included (July
+    /// 2026): the personal five-deck unlock leaked other decks into shared
+    /// games, and one deck everywhere is the simpler product. Adding and
+    /// removing midjourney cards still happens in the web deck manager.
     static let allRetiredDecks: Set<String> = ["internet", "dreams", "claude", "chatgpt"]
-    static var retiredDecks: Set<String> { curatorUnlocked ? [] : allRetiredDecks }
+    static var retiredDecks: Set<String> { allRetiredDecks }
     static var activeDecks: [XIDeckDef] { decks.filter { !retiredDecks.contains($0.id) } }
     static let splitDecks: Set<String> = Set(decks.filter(\.split).map(\.id))
 

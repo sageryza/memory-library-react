@@ -374,9 +374,9 @@ struct VersusGameView: View {
 
     private var board: some View {
         VStack(spacing: 5) {
-            ForEach(0..<5, id: \.self) { r in
+            ForEach(0..<VersusModel.BR, id: \.self) { r in
                 HStack(spacing: 5) {
-                    ForEach(0..<5, id: \.self) { c in cell(r, c) }
+                    ForEach(0..<VersusModel.BC, id: \.self) { c in cell(r, c) }
                 }
             }
         }
