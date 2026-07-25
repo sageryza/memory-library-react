@@ -173,8 +173,8 @@ private struct VersusPreview: View {
         (2, 1, "NOTHING TO DO BUT WAIT", nil),
         (2, 2, "WON THE HEART OF THE CROWD", nil),
         (2, 3, "TOOK BAD ADVICE", nil),
-        (3, 2, "STOOD UP FOR THE CROWD", nil),
-        (4, 2, "HAD A LITTLE TOO MUCH FUN", 1),
+        (3, 2, "STOOD UP FOR THE CROWD", 1),
+        (1, 1, "HAD A LITTLE TOO MUCH FUN", nil),
     ]
 
     private static func card(_ cap: String) -> XICard? {
@@ -186,9 +186,9 @@ private struct VersusPreview: View {
         // Same geometry as the real game board: 5pt gaps, empty cells showing,
         // plain background — just blurred.
         VStack(spacing: 5) {
-            ForEach(0..<5, id: \.self) { r in
+            ForEach(0..<VersusModel.BR, id: \.self) { r in
                 HStack(spacing: 5) {
-                    ForEach(0..<5, id: \.self) { c in
+                    ForEach(0..<VersusModel.BC, id: \.self) { c in
                         if let cell = Self.layout.first(where: { $0.r == r && $0.c == c }),
                            let card = Self.card(cell.cap) {
                             VersusCardCell(card: card, isEvent: (r + c) % 2 == 0,

@@ -51,16 +51,13 @@ export const DEFAULT_DISABLED_DECKS = ['internet', 'dreams', 'claude', 'chatgpt'
 // resolving, but they never deal and Curate never shows them. Individually
 // ♥-loved cards still ride the loved-deck switch.
 //
-// EXCEPT for Sage's own account: five-deck curation was her personal feature,
-// so signing in as the curator un-retires everything (see useAuth).
-export const RETIRED_DECKS = new Set(['internet', 'dreams', 'claude', 'chatgpt']);
+// Retirement applies to EVERY account, the curator's included (July 2026):
+// the personal five-deck unlock leaked other decks into shared games, and one
+// deck everywhere is the simpler product. CURATOR_EMAILS still gates the deck
+// MANAGER (adding/removing midjourney cards for everyone).
 export const ALL_RETIRED_DECKS = ['internet', 'dreams', 'claude', 'chatgpt'];
-const ALL_RETIRED = ALL_RETIRED_DECKS;
+export const RETIRED_DECKS = new Set(ALL_RETIRED_DECKS);
 export const CURATOR_EMAILS = ['sageryza@gmail.com'];
-export function setCuratorUnlocked(on) {
-  RETIRED_DECKS.clear();
-  if (!on) for (const d of ALL_RETIRED) RETIRED_DECKS.add(d);
-}
 
 const trial = rawTrial.cards || [];
 const SOURCES = {
