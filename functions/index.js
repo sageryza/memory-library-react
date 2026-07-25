@@ -62,6 +62,39 @@ async function sendSms(cfg, to, body) {
   if (!res.ok) console.error('Twilio SMS failed', res.status, await res.text().catch(() => ''));
 }
 
+// Gmail SMTP credentials live in a locked-down Firestore doc (config/gmail:
+// { user, appPassword }) — an app password from the Google account, NOT the
+// real password. This is the PREFERRED turn-email sender: Gmail gives the
+// account its own ~500 sends/day, keeping Brevo's daily allowance free for
+// customer/newsletter mail, and mail genuinely sent by Gmail from the account
+// authenticates cleanly (better Primary-tab odds than relayed mail).
+async function loadGmailSmtp() {
+  try {
+    const snap = await db.doc('config/gmail').get();
+    const d = snap.exists ? snap.data() : null;
+    return (d && d.user && d.appPassword) ? d : false;
+  } catch { return false; }
+}
+
+async function sendGmailEmail(cfg, to, subject, text, html) {
+  if (!cfg) return false;
+  try {
+    const nodemailer = require('nodemailer');
+    const transport = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: cfg.user, pass: cfg.appPassword },
+    });
+    await transport.sendMail({
+      from: `"${cfg.fromName || 'XI'}" <${cfg.user}>`,
+      to, subject, text, html,
+    });
+    return true;
+  } catch (e) {
+    console.error('gmail send failed:', e.message || e);
+    return false;
+  }
+}
+
 // Brevo (transactional email) credentials live in a locked-down Firestore doc
 // (config/brevo: { apiKey, fromEmail, fromName? }) — same pattern as
 // config/twilio. The "Trigger Email" extension was never installed in this
@@ -120,6 +153,7 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
   const link = `${APP_URL}/xi/versus/${gameId}`;
   const twilio = await loadTwilio();
   const brevo = await loadBrevo();
+  const gmail = await loadGmailSmtp();
 
   for (const p of toNotify) {
     try {
@@ -164,10 +198,13 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
         const text = `It’s your turn to play in XI · Versus.\nOpen the board: ${link}`;
         const html = `<p>It’s your turn to play in <b>XI · Versus</b>.</p>`
                    + `<p><a href="${link}">Open the board →</a></p>`;
-        if (brevo) {
+        // Sender ladder: Gmail SMTP (own quota, best inbox placement) →
+        // Brevo (shared with customer mail) → the /mail queue (extension).
+        if (gmail && await sendGmailEmail(gmail, email, subject, text, html)) {
+          // sent via Gmail
+        } else if (brevo) {
           await sendBrevoEmail(brevo, email, subject, text, html);
         } else {
-          // No Brevo config yet — queue for the Trigger Email extension.
           await db.collection('mail').add({ to: email, message: { subject, text, html } });
         }
       }
