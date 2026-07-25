@@ -84,15 +84,12 @@ struct VersusLobbyView: View {
             .background(XITheme.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // App-wide title convention: ALL-CAPS typewriter, navInk; logo
-                // top-left with the iOS 26 glass pill suppressed.
+                // App-wide title convention: ALL-CAPS typewriter, navInk. (The
+                // XI wordmark used to sit top-left; removed July 2026 because
+                // it shifted the content beside it.)
                 ToolbarItem(placement: .principal) {
                     Text("VERSUS")
                         .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
-                }
-                if #available(iOS 26.0, *) {
-                        .sharedBackgroundVisibility(.hidden)
-                } else {
                 }
             }
             .navigationDestination(for: String.self) { gameId in
