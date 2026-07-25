@@ -94,7 +94,10 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
     try {
       const uSnap = await db.doc(`users/${p.uid}`).get();
       const u = uSnap.exists ? uSnap.data() : {};
-      if (u.notifOptIn !== true) { notified.push(p.uid); continue; } // not opted in
+      // Turn alerts are ON by default — playing an async game means wanting to
+      // know it's your move. Only an explicit opt-out (notifOptIn === false)
+      // silences them. Push and SMS remain strictly opt-in below.
+      if (u.notifOptIn === false) { notified.push(p.uid); continue; }
 
       // Web push to all their devices.
       const tokens = Array.isArray(u.fcmTokens) ? u.fcmTokens : [];
@@ -115,9 +118,19 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
       }
 
       // Email via the Trigger Email extension (reads the /mail collection).
-      if (u.notifEmailOn === true && u.notifEmail) {
+      // Default-on: fall back to the account's own sign-in address when no
+      // preference was ever saved (real accounts always have one; anonymous
+      // guests have none and naturally drop out here).
+      let email = u.notifEmail || '';
+      if (u.notifEmailOn !== false && !email) {
+        try {
+          const { getAuth } = require('firebase-admin/auth');
+          email = (await getAuth().getUser(p.uid)).email || '';
+        } catch (e) { /* unknown auth user: no email */ }
+      }
+      if (u.notifEmailOn !== false && email) {
         await db.collection('mail').add({
-          to: u.notifEmail,
+          to: email,
           message: {
             subject: 'Your move in XI · Versus',
             text: `It’s your turn to play in XI · Versus.\nOpen the board: ${link}`,

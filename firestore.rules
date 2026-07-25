@@ -210,27 +210,34 @@ service cloud.firestore {
     }
 
     // XI Versus — async multiplayer games (link-based, collaborative).
+    // Playing needs a REAL account (not an anonymous guest session): names and
+    // turn-notification emails come from the account, and invisible "Player"
+    // ghosts joining from stray browser sessions was a real incident.
+    function isRealAccount() {
+      return isAuthenticated()
+             && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
     match /versusGames/{gameId} {
-      // Anyone with the link can watch / join.
+      // Anyone with the link can watch.
       allow read: if true;
-      // Signed-in users start and play games (turn order is enforced
+      // Real accounts start and play games (turn order is enforced
       // client-side for v1; can be hardened with a Cloud Function later).
-      allow create, update: if isAuthenticated();
+      allow create, update: if isRealAccount();
       // Only the creator can delete a game.
-      allow delete: if isAuthenticated()
+      allow delete: if isRealAccount()
                     && resource.data.createdBy == request.auth.uid;
 
       // Hidden hands — each player can read/write ONLY their own hand.
       match /hands/{playerId} {
-        allow read, write: if isAuthenticated() && request.auth.uid == playerId;
+        allow read, write: if isRealAccount() && request.auth.uid == playerId;
       }
 
       // Stories written on the board — visible to everyone in the game; only the
       // author can create/edit/remove their own.
       match /stories/{storyId} {
         allow read: if true;
-        allow create: if isAuthenticated() && request.resource.data.byUid == request.auth.uid;
-        allow update, delete: if isAuthenticated() && resource.data.byUid == request.auth.uid;
+        allow create: if isRealAccount() && request.resource.data.byUid == request.auth.uid;
+        allow update, delete: if isRealAccount() && resource.data.byUid == request.auth.uid;
       }
     }
 
