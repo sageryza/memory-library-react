@@ -91,10 +91,8 @@ struct VersusLobbyView: View {
                         .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
                 }
                 if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
                         .sharedBackgroundVisibility(.hidden)
                 } else {
-                    ToolbarItem(placement: .topBarLeading) { XILogo(height: 20) }
                 }
             }
             .navigationDestination(for: String.self) { gameId in

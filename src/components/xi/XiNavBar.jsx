@@ -9,7 +9,6 @@ import './XiNavBar.css';
 const ITEMS = [
   { key: 'today', label: 'Today' },
   { key: 'curate', label: 'Curate' },
-  { key: 'boardday', label: 'Daily', route: '/xi/board' },
   { key: 'versus', label: 'Versus', route: '/xi/versus' },
   { key: 'library', label: 'Library' },
 ];
@@ -43,7 +42,9 @@ export default function XiNavBar() {
 
   let active;
   if (location.pathname.startsWith('/xi/versus')) active = 'versus';
-  else if (location.pathname === '/xi/board') active = 'boardday';
+  // Board of the Day is retired from the nav (July 2026) — the route still
+  // works if opened directly, it just isn't linked anywhere.
+  else if (location.pathname === '/xi/board') active = '';
   else active = params.get('s') || 'today';
 
   const go = (item) => {

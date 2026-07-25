@@ -3,7 +3,13 @@ import SwiftUI
 /// The five XI destinations. (Curate moved into Settings — it's a rare,
 /// owner-facing task, not a primary destination.)
 enum XiTab: String, CaseIterable, Identifiable {
+    // `daily` (Board of the Day) is RETIRED from the navigation — July 2026.
+    // The case and BoardView stay so deep links and old state still resolve,
+    // but it is not listed in `tabs` and nothing routes to it.
     case today, daily, versus, board, library
+
+    /// The tabs actually shown, in order.
+    static var tabs: [XiTab] { [.today, .versus, .board, .library] }
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -33,7 +39,7 @@ struct XiNavBar: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            ForEach(XiTab.allCases) { tab in
+            ForEach(XiTab.tabs) { tab in
                 Button { selection = tab } label: { item(tab) }
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)

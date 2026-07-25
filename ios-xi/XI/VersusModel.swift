@@ -24,6 +24,8 @@ struct HandCard: Equatable, Hashable {
 enum VersusModel {
     static let BR = 4
     static let BC = 4
+    /// Cards the board opens with, scattered at random.
+    static let seedCount = 4
 
     /// Distinct player colors, assigned by join order.
     static let playerColors = [
@@ -49,15 +51,29 @@ enum VersusModel {
         let evIdx = eventPool.shuffled()
         let twIdx = twistPool.shuffled()
 
-        let cr = BR / 2, cc = BC / 2
-        var placed: [VersusPlaced] = [VersusPlaced(r: cr, c: cc, d: "be", i: evIdx[0], by: nil, color: nil)]
-        for (k, nb) in neighbors(cr, cc).enumerated() where k < twIdx.count {
-            placed.append(VersusPlaced(r: nb.0, c: nb.1, d: "bw", i: twIdx[k], by: nil, color: nil))
+        // Four cards dropped on random cells (not a fixed centre cross), each
+        // taking the kind its cell colour demands.
+        var cells: [(Int, Int)] = []
+        for r in 0..<BR { for c in 0..<BC { cells.append((r, c)) } }
+        cells.shuffle()
+
+        var placed: [VersusPlaced] = []
+        var evUsed = 0, twUsed = 0
+        for (r, c) in cells where placed.count < seedCount {
+            if cellIsEvent(r, c) {
+                guard evUsed < evIdx.count else { continue }
+                placed.append(VersusPlaced(r: r, c: c, d: "be", i: evIdx[evUsed], by: nil, color: nil))
+                evUsed += 1
+            } else {
+                guard twUsed < twIdx.count else { continue }
+                placed.append(VersusPlaced(r: r, c: c, d: "bw", i: twIdx[twUsed], by: nil, color: nil))
+                twUsed += 1
+            }
         }
 
         var pile: [HandCard] = []
-        for k in 1..<evIdx.count { pile.append(HandCard(d: "be", i: evIdx[k])) }
-        if twIdx.count > 4 { for k in 4..<twIdx.count { pile.append(HandCard(d: "bw", i: twIdx[k])) } }
+        if evUsed < evIdx.count { for k in evUsed..<evIdx.count { pile.append(HandCard(d: "be", i: evIdx[k])) } }
+        if twUsed < twIdx.count { for k in twUsed..<twIdx.count { pile.append(HandCard(d: "bw", i: twIdx[k])) } }
         return (placed, pile.shuffled())
     }
 
