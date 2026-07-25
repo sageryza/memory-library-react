@@ -62,6 +62,36 @@ async function sendSms(cfg, to, body) {
   if (!res.ok) console.error('Twilio SMS failed', res.status, await res.text().catch(() => ''));
 }
 
+// Brevo (transactional email) credentials live in a locked-down Firestore doc
+// (config/brevo: { apiKey, fromEmail, fromName? }) — same pattern as
+// config/twilio. The "Trigger Email" extension was never installed in this
+// project, so turn emails send directly through Brevo's API; if the config
+// doc is missing, requests fall back to the /mail queue (extension-ready).
+async function loadBrevo() {
+  try {
+    const snap = await db.doc('config/brevo').get();
+    const d = snap.exists ? snap.data() : null;
+    return (d && d.apiKey && d.fromEmail) ? d : false;
+  } catch { return false; }
+}
+
+async function sendBrevoEmail(cfg, to, subject, text, html) {
+  if (!cfg) return false;
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': cfg.apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender: { email: cfg.fromEmail, name: cfg.fromName || 'XI' },
+      to: [{ email: to }],
+      subject,
+      textContent: text,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) console.error('brevo send failed:', res.status, await res.text().catch(() => ''));
+  return res.ok;
+}
+
 exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data();
@@ -89,6 +119,7 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
   const gameId = event.params.gameId;
   const link = `${APP_URL}/xi/versus/${gameId}`;
   const twilio = await loadTwilio();
+  const brevo = await loadBrevo();
 
   for (const p of toNotify) {
     try {
@@ -129,15 +160,16 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
         } catch (e) { /* unknown auth user: no email */ }
       }
       if (u.notifEmailOn !== false && email) {
-        await db.collection('mail').add({
-          to: email,
-          message: {
-            subject: 'Your move in XI · Versus',
-            text: `It’s your turn to play in XI · Versus.\nOpen the board: ${link}`,
-            html: `<p>It’s your turn to play in <b>XI · Versus</b>.</p>`
-                + `<p><a href="${link}">Open the board →</a></p>`,
-          },
-        });
+        const subject = 'Your move in XI · Versus';
+        const text = `It’s your turn to play in XI · Versus.\nOpen the board: ${link}`;
+        const html = `<p>It’s your turn to play in <b>XI · Versus</b>.</p>`
+                   + `<p><a href="${link}">Open the board →</a></p>`;
+        if (brevo) {
+          await sendBrevoEmail(brevo, email, subject, text, html);
+        } else {
+          // No Brevo config yet — queue for the Trigger Email extension.
+          await db.collection('mail').add({ to: email, message: { subject, text, html } });
+        }
       }
 
       // Text via Twilio (if both the player and the project are configured).
