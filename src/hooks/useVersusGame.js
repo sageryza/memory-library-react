@@ -110,6 +110,7 @@ function withoutPlayer(g, uid) {
 // deck honors the creator's Curate removals (a curated game for everyone in it).
 export async function createVersusGame(user, profile, invites = []) {
   if (!user?.uid) throw new Error('Sign in to start a Versus game.');
+  if (user.isAnonymous) throw new Error('Versus needs a real account — sign in to play.');
   const gameId = generateGameId();
   const { excluded, disabledDecks, loved, lovedOn } = readDeckFilter(user.uid);
   // Retired decks are ALWAYS excluded from a game, curator or not — a game is
@@ -148,6 +149,7 @@ export async function createVersusGame(user, profile, invites = []) {
 // lock: anyone with the invite link can join at any time, even mid-game.
 export async function joinVersusGame(gameId, user, profile, inviteToken = null) {
   if (!user?.uid) throw new Error('Sign in to join.');
+  if (user.isAnonymous) throw new Error('Versus needs a real account — sign in to play.');
   const ref = doc(db, 'versusGames', gameId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('Game not found.');

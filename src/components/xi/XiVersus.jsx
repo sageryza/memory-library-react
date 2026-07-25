@@ -193,14 +193,15 @@ export default function XiVersus() {
             </div>
           )}
           {notifOptInBlock(false)}
-          {user ? (
+          {user && !isAnonymous ? (
             <button className="xiv-btn" disabled={busy} onClick={() => startGame()}>
               {busy ? 'Starting…' : 'Start a new game'}
             </button>
           ) : (
             <div className="xiv-guest">
-              {/* Playing needs an account (no guest mode) — Google is one tap,
-                  and sign-in returns straight here. */}
+              {/* Playing needs a REAL account — an anonymous guest session
+                  counts as signed-out here. Google is one tap, and sign-in
+                  returns straight here. */}
               <button className="xiv-btn" onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus'))}>
                 Sign in to play
               </button>
@@ -406,16 +407,15 @@ export default function XiVersus() {
         <XiInfo title="How to play XI Versus">{VERSUS_HELP}</XiInfo>
       </div>
 
-      {!user && (
+      {(!user || isAnonymous) && (
+        // Playing needs a real account — anonymous guest sessions can watch,
+        // not join (that's how nameless "Player" ghosts used to happen).
         <div className="xiv-join">
           <button className="xiv-btn-sm"
             onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus/' + gameId))}>
             Sign in to join this game
           </button>
         </div>
-      )}
-      {isAnonymous && (
-        <div className="xiv-nudge"><a href="/login">Sign in</a> to keep your stories &amp; stats.</div>
       )}
 
       {amInGame && !notifOn && !notifDismissed && notifOptInBlock(true)}
@@ -435,7 +435,7 @@ export default function XiVersus() {
 
       {/* Not in the game yet? Joining is one explicit tap — opening the link
           alone never seats you. */}
-      {user && !amInGame && (
+      {user && !isAnonymous && !amInGame && (
         <div className="xiv-join">
           <button className="xiv-btn" disabled={busy} onClick={doJoin}>
             {busy ? 'Joining…' : 'Join this game'}
@@ -452,7 +452,7 @@ export default function XiVersus() {
               : (canPlace2
                 ? 'Your move — place a card or write a story'
                 : (iActed ? `Played ✓ — waiting (${acted.length}/${players.length})` : 'Working…')))
-            : (user ? 'Anyone with the link can join — jump in above' : 'Sign in to join')}
+            : (user && !isAnonymous ? 'Anyone with the link can join — jump in above' : 'Sign in to join')}
         </div>
       )}
 
@@ -506,7 +506,7 @@ export default function XiVersus() {
           <button className="xiv-btn" onClick={shareInvite}>{copied ? 'Invite link shared ✓' : 'Invite friends'}</button>
           {amInGame && <p className="xiv-note">The game begins the moment a friend joins — anyone with the link can.</p>}
           {!amInGame && (
-            <p className="xiv-note">{user ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
+            <p className="xiv-note">{user && !isAnonymous ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
           )}
         </div>
       ) : amInGame ? (
@@ -528,7 +528,7 @@ export default function XiVersus() {
           </div>
         </>
       ) : (
-        <p className="xiv-note">{user ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
+        <p className="xiv-note">{user && !isAnonymous ? 'Tap Join above to play.' : 'Sign in above to join this game.'}</p>
       )}
 
       {stories.length > 0 && (

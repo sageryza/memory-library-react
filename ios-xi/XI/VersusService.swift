@@ -82,6 +82,11 @@ final class VersusService {
     /// they tap the link, and the creator can kick a wrong join.
     func createGame(invites: [(token: String, name: String)] = []) async throws -> String {
         guard let uid = uid else { throw e("Sign in to start a Versus game.") }
+        // Versus needs a REAL account: names and turn-notification emails come
+        // from the account, and anonymous ghost players were a real incident.
+        guard Auth.auth().currentUser?.isAnonymous != true else {
+            throw e("Versus needs a real account — sign in to play.")
+        }
         let id = generateId()
         // The deck honors the creator's Curate removals + deck toggles (a
         // curated game for everyone in it), falling back to the full pools when
@@ -113,6 +118,9 @@ final class VersusService {
 
     func joinGame(_ gameId: String, inviteToken: String? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to join.") }
+        guard Auth.auth().currentUser?.isAnonymous != true else {
+            throw e("Versus needs a real account — sign in to play.")
+        }
         let name = currentName()
         // Transactional: two players joining at the same moment must not clobber
         // each other's entry or compute the same order.
