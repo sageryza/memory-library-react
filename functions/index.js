@@ -150,7 +150,11 @@ exports.notifyVersusTurn = onDocumentUpdated('versusGames/{gameId}', async (even
   }
 
   const gameId = event.params.gameId;
-  const link = `${APP_URL}/xi/versus/${gameId}`;
+  // Use the SHORT /versus/ path — it's the one registered in the
+  // apple-app-site-association file, so tapping it opens the iOS app when
+  // installed (the web redirects it to /xi/versus/ for everyone else).
+  // The long /xi/versus/ path always opened the website, app or not.
+  const link = `${APP_URL}/versus/${gameId}`;
   const twilio = await loadTwilio();
   const brevo = await loadBrevo();
   const gmail = await loadGmailSmtp();

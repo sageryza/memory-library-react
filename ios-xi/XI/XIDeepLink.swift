@@ -21,7 +21,10 @@ final class XIDeepLink: ObservableObject {
     /// for links we don't own. kind is "share" or "versus".
     static func parse(_ url: URL) -> (kind: String, id: String, token: String?)? {
         guard let host = url.host, host.contains("incaseofamnesia.com") else { return nil }
-        let parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
+        var parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
+        // Tolerate the website's long form /xi/versus/{id} (old turn-alert
+        // emails used it) — drop the "xi" prefix and parse the rest as usual.
+        if parts.first == "xi" { parts.removeFirst() }
         guard parts.count >= 2 else { return nil }
         let id = parts[1].trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty else { return nil }

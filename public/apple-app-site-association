@@ -8,6 +8,7 @@
           "/share/*",
           "/x/*",
           "/versus/*",
+          "/xi/versus/*",
           "/v/*",
           "/s/*"
         ]
