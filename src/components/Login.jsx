@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
+  OAuthProvider,
   getAdditionalUserInfo,
   linkWithCredential,
   EmailAuthProvider,
@@ -41,7 +43,19 @@ const Login = () => {
         // If user is anonymous, link the account instead of creating new
         if (user && isAnonymous) {
           const credential = EmailAuthProvider.credential(email, password);
-          await linkWithCredential(user, credential);
+          try {
+            await linkWithCredential(user, credential);
+          } catch (linkError) {
+            // The email already owns a real account — they're not signing UP,
+            // they're signing IN from a browser that had a stray guest
+            // session. Sign into the existing account instead of dead-ending.
+            if (linkError.code === 'auth/email-already-in-use' ||
+                linkError.code === 'auth/credential-already-in-use') {
+              await signInWithEmailAndPassword(auth, email, password);
+            } else {
+              throw linkError;
+            }
+          }
         } else {
           await createUserWithEmailAndPassword(auth, email, password);
         }
@@ -78,7 +92,22 @@ const Login = () => {
 
       // If user is anonymous, link with Google instead
       if (user && isAnonymous) {
-        result = await linkWithPopup(user, provider);
+        try {
+          result = await linkWithPopup(user, provider);
+        } catch (linkError) {
+          // The Google account already owns a real account: the visitor is
+          // trying to SIGN IN, not merge a stray guest session. Sign into
+          // the existing account with the credential Google just returned —
+          // the old behavior showed "already linked to another user" and
+          // stranded them.
+          if (linkError.code === 'auth/credential-already-in-use') {
+            const cred = GoogleAuthProvider.credentialFromError(linkError);
+            if (!cred) throw linkError;
+            result = await signInWithCredential(auth, cred);
+          } else {
+            throw linkError;
+          }
+        }
       } else {
         result = await signInWithPopup(auth, provider);
       }
@@ -97,6 +126,46 @@ const Login = () => {
       if (error.code === 'auth/credential-already-in-use') {
         setError('This Google account is already linked to another user.');
       } else {
+        setError(error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const provider = new OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+
+      // Same shape as Google: link a stray guest session if there is one,
+      // and if the Apple ID already owns a real account, sign into it.
+      if (user && isAnonymous) {
+        try {
+          await linkWithPopup(user, provider);
+        } catch (linkError) {
+          if (linkError.code === 'auth/credential-already-in-use') {
+            const cred = OAuthProvider.credentialFromError(linkError);
+            if (!cred) throw linkError;
+            await signInWithCredential(auth, cred);
+          } else {
+            throw linkError;
+          }
+        }
+      } else {
+        await signInWithPopup(auth, provider);
+      }
+      // Navigation is handled by the useEffect when auth state updates.
+    } catch (error) {
+      if (error.code === 'auth/operation-not-allowed') {
+        setError('Apple sign-in is not switched on for this site yet — try Google or email for now.');
+      } else if (error.code === 'auth/credential-already-in-use') {
+        setError('This Apple ID is already linked to another user.');
+      } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
         setError(error.message);
       }
     } finally {
@@ -172,6 +241,17 @@ const Login = () => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Sign in with Google
+        </button>
+
+        <button
+          onClick={handleAppleSignIn}
+          style={styles.appleButton}
+          disabled={loading}
+        >
+          <svg style={styles.googleIcon} viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#fff" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+          </svg>
+          Sign in with Apple
         </button>
 
         <p style={styles.switchMode}>
@@ -264,6 +344,23 @@ const styles = {
   googleIcon: {
     width: '20px',
     height: '20px',
+  },
+  appleButton: {
+    backgroundColor: '#000',
+    color: '#fff',
+    padding: '12px',
+    fontSize: '16px',
+    border: '2px solid #000',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontFamily: '"Crimson Text", serif',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    width: '100%',
+    marginTop: '12px',
+    transition: 'opacity 0.3s',
   },
   divider: {
     display: 'flex',

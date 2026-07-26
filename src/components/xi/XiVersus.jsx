@@ -344,6 +344,17 @@ export default function XiVersus() {
     catch (e) { alert(e.message); }
   };
 
+  // "Open in the XI app" — the app's own xi:// scheme link. Universal links
+  // never fire from in-app browsers (Gmail's, notably), so turn-alert links
+  // opened there strand people on the web; the scheme link escapes anywhere.
+  // iOS only — that's where the app lives.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+  const openInApp = () => {
+    const token = new URLSearchParams(window.location.search).get('i');
+    window.location.href = `xi://versus/${gameId}` + (token ? `?i=${encodeURIComponent(token)}` : '');
+  };
+
   // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
   // copying the link if the device has no share support.
   const shareInvite = async () => {
@@ -395,6 +406,15 @@ export default function XiVersus() {
           </button>
         </div>
       </div>
+
+      {isIOS && (
+        <button className="xiv-openapp" onClick={openInApp}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" />
+          </svg>
+          Open in the XI app
+        </button>
+      )}
 
       <div className="xiv-subbar">
         {canUndo ? (
