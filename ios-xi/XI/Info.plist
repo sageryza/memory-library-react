@@ -14,6 +14,20 @@
 				<string>com.googleusercontent.apps.513384339473-if0buongt6cjhhc096usgf3g6iub07nk</string>
 			</array>
 		</dict>
+		<dict>
+			<!-- The app's own scheme: xi://versus/{id}?i={token}, xi://share/{id}.
+			     The web game page's "Open in the XI app" button uses it — custom
+			     schemes escape in-app browsers (Gmail's) where universal links
+			     never fire. -->
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.sageryza.xi</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>xi</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

@@ -17,14 +17,24 @@ final class XIDeepLink: ObservableObject {
     /// tracked invite seat when joining.
     @Published var pendingVersusInviteToken: String?
 
-    /// Pull the (kind, id, invite token) out of a universal link. Returns nil
-    /// for links we don't own. kind is "share" or "versus".
+    /// Pull the (kind, id, invite token) out of a universal link or an
+    /// xi:// scheme link. Returns nil for links we don't own. kind is
+    /// "share" or "versus".
     static func parse(_ url: URL) -> (kind: String, id: String, token: String?)? {
-        guard let host = url.host, host.contains("incaseofamnesia.com") else { return nil }
-        var parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
-        // Tolerate the website's long form /xi/versus/{id} (old turn-alert
-        // emails used it) — drop the "xi" prefix and parse the rest as usual.
-        if parts.first == "xi" { parts.removeFirst() }
+        var parts: [String]
+        if url.scheme == "xi" {
+            // The app's own scheme — xi://versus/{id}?i={token}. The web game
+            // page's "Open in the XI app" button sends these; they work even
+            // from in-app browsers (Gmail's) where universal links don't fire.
+            // URL parsing puts the kind in `host` and the id in the path.
+            parts = [url.host].compactMap { $0 } + url.pathComponents.filter { $0 != "/" }
+        } else {
+            guard let host = url.host, host.contains("incaseofamnesia.com") else { return nil }
+            parts = url.pathComponents.filter { $0 != "/" }   // e.g. ["versus", "abc123"]
+            // Tolerate the website's long form /xi/versus/{id} (old turn-alert
+            // emails used it) — drop the "xi" prefix and parse the rest as usual.
+            if parts.first == "xi" { parts.removeFirst() }
+        }
         guard parts.count >= 2 else { return nil }
         let id = parts[1].trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty else { return nil }
