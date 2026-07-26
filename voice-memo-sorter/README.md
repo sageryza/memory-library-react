@@ -122,3 +122,13 @@ only runs on memos detected as musical.
 
 Audio is sent to OpenAI for transcription. Nothing is uploaded anywhere else, and
 output stays on your machine. The `output/` folder is gitignored.
+
+## Companion tooling
+
+- **`firebase/`** — push recordings + manifest to Firebase Storage, and read/deploy
+  the Storage rules (zero-dependency Node). See `firebase/README.md`.
+- **`artifact/`** — build the private Claude library/data artifacts and the category
+  icons. See `artifact/README.md`.
+
+Private transcript data is **not** committed (this repo is public) — it lives in
+the private Claude artifacts + Firebase. See `CLAUDE.md` → "Voice memo archive".

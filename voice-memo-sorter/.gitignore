@@ -19,3 +19,16 @@ audio/
 *.opus
 
 node_modules/
+
+# Private DATA (transcripts/titles/descriptions) — lives ONLY in the private
+# Claude artifacts + Firebase, NEVER in this public repo.
+memos-data*.json
+*-manifest.json
+transcripts*.json
+memo-archive*.json
+flagged-*.json
+resorted/
+
+# Firebase service-account key — never commit
+*serviceaccount*.json
+*firebase-adminsdk*.json
