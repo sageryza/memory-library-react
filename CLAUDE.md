@@ -42,6 +42,9 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   message to copy-paste, forward, or hand off to another chat, put the ENTIRE
   message inside a single fenced code block so it copies in one tap — no
   commentary mixed in, never split across sections or styled headers.
+  - **Hard-wrap copy boxes.** Insert real line breaks (~80 chars) so the block
+    flows DOWN the screen (vertical scroll), never one long line that scrolls
+    sideways. Sage's default — she shouldn't have to ask.
 - **No military / 24-hour time.** Always write times in 12-hour format with
   am/pm (e.g. "5:08 pm", not "17:08" or "22:08 UTC"). Convert before showing.
 - **User's timezone is US Pacific (PT).** Show times in Pacific time (PDT in
