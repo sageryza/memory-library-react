@@ -1,0 +1,13 @@
+# never commit secrets or private journal content
+*.json.key
+*-sa.json
+service-account*.json
+*.pdf
+*.png
+*_draft.txt
+*_cold*.txt
+*_calibrated.txt
+nov_blocks.json
+output/
+clean-set/
+*.mjs.local
