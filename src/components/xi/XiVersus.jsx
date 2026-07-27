@@ -33,6 +33,22 @@ const VERSUS_HELP = (
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
 const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
 
+// A simple gold shape per player (by join order) instead of a coloured dot —
+// triangle, square, circle, diamond, … — matching the app's playerSymbol.
+const SHAPES = [
+  <path key="t" d="M12 4 21 20 H3 Z" />,                              // triangle
+  <rect key="s" x="4.5" y="4.5" width="15" height="15" rx="1.5" />,   // square
+  <circle key="c" cx="12" cy="12" r="8" />,                           // circle
+  <path key="d" d="M12 3 21 12 12 21 3 12 Z" />,                      // diamond
+  <path key="p" d="M12 3.5 20.4 9.6 17.2 19.5 H6.8 L3.6 9.6 Z" />,    // pentagon
+  <path key="h" d="M7.5 4.2 h9 L21 12 l-4.5 7.8 h-9 L3 12 Z" />,      // hexagon
+];
+const playerShape = (order) => (
+  <svg className="xiv-shape" viewBox="0 0 24 24" aria-hidden="true">
+    {SHAPES[((order % SHAPES.length) + SHAPES.length) % SHAPES.length]}
+  </svg>
+);
+
 export default function XiVersus() {
   const { gameId } = useParams();
   const navigate = useNavigate();
@@ -229,6 +245,10 @@ export default function XiVersus() {
 
   const players = game.players || [];
   const acted = game.acted || [];
+  // Join order per uid → the player's gold shape (the app's playerSymbol).
+  const orderOf = {};
+  players.forEach((p, k) => { orderOf[p.uid] = (typeof p.order === 'number' ? p.order : k); });
+  const shapeFor = (uid) => (uid in orderOf ? playerShape(orderOf[uid]) : null);
   // Waiting room: the game isn't playable until the creator begins it. Older
   // docs have no status field — treat those as active.
   const waiting = (game.status || 'active') === 'waiting';
@@ -443,7 +463,7 @@ export default function XiVersus() {
       <div className="xiv-players">
         {players.map((p) => (
           <span key={p.uid} className={'xiv-pill' + (acted.includes(p.uid) ? ' done' : '')}>
-            <i style={{ background: p.color }} />
+            {shapeFor(p.uid) || <i style={{ background: p.color }} />}
             {p.name}{p.uid === user?.uid ? ' (you)' : ''}{acted.includes(p.uid) ? ' ✓' : ''}
             {user?.uid === game.createdBy && p.uid !== user.uid && (
               <button className="xiv-kick" aria-label={`Kick ${p.name} out`} title={`Kick ${p.name} out`}
@@ -491,11 +511,27 @@ export default function XiVersus() {
       {storyReady && (
         <KeyboardSheet>
           <div className="xiv-composer">
+            {/* The two cards themselves, side by side above the prompt — the
+                app's ComposerSheet look (event on cream, twist on white). */}
+            <div className="xiv-paircards">
+              {storyEv && (
+                <div className="xiv-pcard event">
+                  <img src={artOf('be', storyEv.i)?.img} alt={artOf('be', storyEv.i)?.cap || ''} />
+                </div>
+              )}
+              {storyTw && (
+                <div className="xiv-pcard twist">
+                  <img src={artOf('bw', storyTw.i)?.img} alt={artOf('bw', storyTw.i)?.cap || ''} />
+                </div>
+              )}
+            </div>
             <div className="xiv-pairlabel">{storyLabel}</div>
             {pairStories.length > 0 && (
               <div className="xiv-pairstories">
                 {pairStories.map((s) => (
-                  <div key={s.id} className="xiv-pairstory"><i style={{ background: s.color || '#999' }} /> {s.text}</div>
+                  <div key={s.id} className="xiv-pairstory">
+                    {shapeFor(s.byUid) || <i style={{ background: s.color || '#999' }} />} {s.text}
+                  </div>
                 ))}
               </div>
             )}
@@ -556,7 +592,7 @@ export default function XiVersus() {
           <div className="xiv-feed-title">Stories</div>
           {stories.slice(0, 12).map((s) => (
             <div key={s.id} className="xiv-feeditem">
-              <i style={{ background: s.color || '#999' }} />
+              {shapeFor(s.byUid) || <i style={{ background: s.color || '#999' }} />}
               <span className="xiv-feedwho">{s.byName}</span> {s.text}
             </div>
           ))}
