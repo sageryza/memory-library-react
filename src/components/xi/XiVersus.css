@@ -1,56 +1,68 @@
-.xiv{position:fixed;inset:0;z-index:9000;background:#efe7d6;color:#241d18;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;padding-bottom:60px}
+/* Versus — aligned to the app's visual system (XITheme): paper #F1E9D8,
+   ink #241d18, gold #b08c36 accents, white cards with hairline #ccbd9e
+   borders, 6px radii (no pills). */
+.xiv{position:fixed;inset:0;z-index:9000;background:#f1e9d8;color:#241d18;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;padding-bottom:60px}
 
 .xiv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
 .xiv-logo,.xiv-logo-btn{font-variant:small-caps;letter-spacing:.06em;font-size:18px;color:#241d18;background:none;border:none;font-family:inherit;cursor:pointer;padding:0}
 .xiv-top-right{display:flex;align-items:center;gap:8px}
 
+/* The player's gold shape (join order → triangle/square/circle/…), the app's
+   playerSymbol stand-in for coloured dots. */
+.xiv-shape{width:11px;height:11px;flex:none;fill:#b08c36;stroke:none}
+.xiv-pairstory .xiv-shape,.xiv-feeditem .xiv-shape{margin-top:4px}
+
 /* ⓘ how-to-play */
 .xiv-info{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:#8a7d6e;cursor:pointer}
 .xiv-info svg{width:22px;height:22px}
 .xiv-infobackdrop{position:fixed;inset:0;z-index:9900;background:rgba(36,29,24,.45);display:flex;align-items:center;justify-content:center;padding:20px}
-.xiv-infomodal{background:#fbf7ec;border-radius:14px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(36,29,24,.35)}
-.xiv-infohead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:17px}
+.xiv-infomodal{background:#fbf7ec;border-radius:10px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(36,29,24,.35)}
+.xiv-infohead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;font-variant:small-caps;letter-spacing:.05em;color:#b08c36;font-size:17px}
 .xiv-infox{background:none;border:none;font-size:24px;line-height:1;color:#8a7d6e;cursor:pointer;padding:0 4px}
 .xiv-infobody{padding:0 16px 18px;color:#3b332b;font-size:15px;line-height:1.5}
 .xiv-infobody p{margin:0 0 10px}
 .xiv-infobody b{color:#241d18}
 .xiv-infobody .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin:0 2px;border:1px solid #cbbfa6}
-.xiv-switch{font-family:inherit;font-size:12px;color:#5b4f44;background:#fbf7ec;border:1px solid #cbbfa6;border-radius:12px;padding:5px 8px;max-width:120px;cursor:pointer}
+.xiv-switch{font-family:inherit;font-size:12px;color:#5b4f44;background:#fbf7ec;border:1px solid #cbbfa6;border-radius:6px;padding:5px 8px;max-width:120px;cursor:pointer}
 .xiv-bell{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:#8a7d6e;cursor:pointer}
 /* "Open in the XI app" — slim row under the top bar, iOS only */
 .xiv-openapp{display:inline-flex;align-items:center;justify-content:center;gap:7px;margin:8px auto 0;font-family:inherit;font-size:13px;background:rgba(36,29,24,.06);color:#241d18;border:none;border-radius:6px;padding:7px 12px;cursor:pointer}
-.xiv-openapp svg{width:15px;height:15px;color:#800020}
-.xiv-bell.on{color:#800020}
+.xiv-openapp svg{width:15px;height:15px;color:#b08c36}
+.xiv-bell.on{color:#b08c36}
 .xiv-bell:disabled{opacity:.5}
 .xiv-bell svg{width:20px;height:20px}
 
 /* Resume / switch games */
 .xiv-resume{width:100%;max-width:300px;margin:6px 0 14px;text-align:left}
-.xiv-resume-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:13px;margin-bottom:6px;text-align:center}
+.xiv-resume-title{font-variant:small-caps;letter-spacing:.05em;color:#b08c36;font-size:13px;margin-bottom:6px;text-align:center}
 .xiv-resume-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.xiv-resume-btn{flex:1;font-family:inherit;font-size:14px;background:rgba(36,29,24,.06);color:#241d18;border:none;border-radius:10px;padding:9px 12px;cursor:pointer;text-align:left}
+.xiv-resume-btn{flex:1;font-family:inherit;font-size:14px;background:#fff;color:#241d18;border:0.5px solid #ccbd9e;border-radius:6px;padding:9px 12px;cursor:pointer;text-align:left}
 .xiv-resume-id{color:#8a7d6e;font-size:12px;letter-spacing:.06em}
-.xiv-resume-turn{float:right;font-variant:small-caps;letter-spacing:.06em;font-size:12px;color:#800020;font-weight:600}
+.xiv-resume-turn{float:right;font-variant:small-caps;letter-spacing:.06em;font-size:12px;color:#b08c36;font-weight:600}
 
 .xiv-skip{display:block;margin:6px auto 0;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
 .xiv-skip:disabled{opacity:.5}
 
 .xiv-center{margin:auto;text-align:center;padding:24px;max-width:340px;display:flex;flex-direction:column;align-items:center}
 .xiv-lead{font-size:17px;line-height:1.45;color:#5b4f44}
-.xiv-lead a{color:#800020}
-.xiv-btn{font-family:inherit;font-size:16px;background:#800020;color:#fff;border:none;border-radius:8px;padding:10px 20px;margin-top:16px;cursor:pointer}
+.xiv-lead a{color:#b08c36}
+/* Primary action — gold with white text, like the app's save/invite buttons. */
+.xiv-btn{font-family:inherit;font-size:16px;background:#b08c36;color:#fff;border:none;border-radius:6px;padding:10px 24px;margin-top:16px;cursor:pointer}
 .xiv-btn:disabled{opacity:.6}
 .xiv-back{margin-top:18px;background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 
 .xiv-players{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px;justify-content:center}
-.xiv-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:3px 10px;border-radius:12px;background:rgba(36,29,24,.06)}
+/* Player chip — white card with hairline border and the player's gold shape,
+   matching the app's chips (rounded rectangle, not a pill). */
+.xiv-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 9px;border-radius:6px;background:#fff;border:0.5px solid #ccbd9e}
 .xiv-pill.on{background:#241d18;color:#f3ead9}
 .xiv-pill i{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
 
 .xiv-turn{text-align:center;font-variant:small-caps;letter-spacing:.05em;font-size:15px;padding:6px;color:#5b4f44}
 
 .xiv-board{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:6px 10px 4px;max-width:440px;width:100%;margin:0 auto;box-sizing:border-box}
-.xiv-pairframe{position:absolute;border:3px solid #800020;border-radius:6px;pointer-events:none;z-index:3;box-sizing:border-box}
+/* Locked pair — one gold frame around both cards, the app's pair frame. */
+.xiv-pairframe{position:absolute;border:2.5px solid #b08c36;border-radius:6px;pointer-events:none;z-index:3;box-sizing:border-box}
 .xiv-tokens{position:absolute;left:3px;bottom:3px;display:flex;gap:2px;flex-wrap:wrap;max-width:70%;z-index:2}
 .xiv-tokens i{width:8px;height:8px;border-radius:50%;border:1px solid rgba(255,255,255,.85);box-shadow:0 0 1px rgba(0,0,0,.5)}
 .xiv-cell{position:relative;aspect-ratio:1;border-radius:2px;padding:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
@@ -67,15 +79,15 @@
 .xiv-waiting-names{margin:0;font-size:14px;color:#5b4f44}
 .xiv-waiting .xiv-btn{margin-top:10px}
 .xiv-waiting .xiv-note{padding-bottom:0}
-.xiv-btn.xiv-begin{background:#b8860b;color:#fff}
+.xiv-btn.xiv-begin{background:#b08c36;color:#fff}
 
 /* "Text me when it's my turn" opt-in — pre-checked, shown on the lobby (Start
    applies it) and as an in-game banner for players who joined via a link. */
-.xiv-notif{width:100%;max-width:300px;margin:2px auto 14px;background:rgba(36,29,24,.05);border:1px solid #e2d8c2;border-radius:6px;padding:11px 13px;text-align:left}
+.xiv-notif{width:100%;max-width:300px;margin:2px auto 14px;background:rgba(36,29,24,.05);border:0.5px solid #ccbd9e;border-radius:6px;padding:11px 13px;text-align:left}
 .xiv-notif.inline{max-width:440px;margin:8px auto 4px;background:#fbf7ec}
 .xiv-notif-hook{font-size:14.5px;color:#241d18;font-weight:600;margin-bottom:6px}
 .xiv-notif-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
-.xiv-notif-row input{margin:3px 0 0;flex:none;width:16px;height:16px;accent-color:#800020}
+.xiv-notif-row input{margin:3px 0 0;flex:none;width:16px;height:16px;accent-color:#b08c36}
 .xiv-notif-label{font-size:14.5px;color:#3b332b;line-height:1.35}
 .xiv-notif-phone{width:100%;box-sizing:border-box;margin-top:8px;font-family:inherit;font-size:16px;padding:8px 11px;border:1px solid #cbbfa6;border-radius:6px;background:#fbf8f1;color:#241d18}
 .xiv-notif-fine{margin-top:5px;font-size:12px;color:#8a7d6e}
@@ -83,23 +95,24 @@
 
 /* Guest / sign-in join controls */
 .xiv-guest{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:16px}
-.xiv-name{font-family:inherit;font-size:16px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
+.xiv-name{font-family:inherit;font-size:16px;text-align:center;padding:8px 12px;border:1px solid #cbbfa6;border-radius:6px;background:#fbf7ec;color:#241d18;width:200px;max-width:80vw}
 .xiv-signin{color:#8a7d6e;font-size:14px;text-decoration:underline}
 .xiv-join{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:rgba(36,29,24,.05)}
 .xiv-join .xiv-name{width:150px;font-size:14px;padding:6px 10px}
-.xiv-btn-sm{font-family:inherit;font-size:14px;background:#800020;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer}
+.xiv-btn-sm{font-family:inherit;font-size:14px;background:#b08c36;color:#fff;border:none;border-radius:6px;padding:7px 14px;cursor:pointer}
 .xiv-btn-sm:disabled{opacity:.6}
 .xiv-nudge{text-align:center;font-size:12.5px;color:#8a7d6e;padding:5px 14px}
-.xiv-nudge a{color:#800020}
+.xiv-nudge a{color:#b08c36}
 
 /* Hand + placement (Milestone 2) */
 .xiv-hint{text-align:center;font-size:13.5px;color:#5b4f44;padding:4px 16px 2px}
 .xiv-hand{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;padding:8px 10px 6px;min-height:62px}
-.xiv-handcard{width:58px;height:58px;border:1px solid #cbbfa6;border-radius:2px;padding:2px;cursor:pointer;flex:none}
+.xiv-handcard{width:58px;height:58px;border:0.5px solid #ccbd9e;border-radius:4px;padding:2px;cursor:pointer;flex:none}
 .xiv-handcard.event{background:#ece0c2}
 .xiv-handcard.twist{background:#fbf8f1}
 .xiv-handcard img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
-.xiv-handcard.sel{outline:3px solid #800020;outline-offset:-1px}
+/* Selected card — the app's gold frame. */
+.xiv-handcard.sel{outline:2.5px solid #b08c36;outline-offset:-1px}
 .xiv-handcard:disabled{opacity:.55;cursor:default}
 .xiv-empty{color:#8a7d6e;font-size:14px;align-self:center}
 .xiv-pill.done{opacity:.5}
@@ -122,28 +135,53 @@
 .xiv.composing{overflow:hidden}
 /* The two tapped cards, pinned above the composer so they stay in view while you
    write — full size, no shrinking. */
-.xiv-pairpreview{display:flex;gap:12px;justify-content:center;align-items:flex-end;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;padding:12px 14px 4px;pointer-events:auto}
+.xiv-pairpreview{display:flex;gap:12px;justify-content:center;align-items:flex-end;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:10px 10px 0 0;padding:12px 14px 4px;pointer-events:auto}
 .xiv-pairpreview img{height:120px;width:auto;max-width:46%;object-fit:contain;display:block;border-radius:3px}
 .xiv-pairpreview + .xiv-composer{border-top:none;border-radius:0;box-shadow:none}
-.xiv-composer{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:10px 14px 12px;background:#fbf7ec;border-top:1px solid #e2d8c2;border-radius:14px 14px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.xiv-pairlabel{text-align:center;color:#5b4f44;font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:400}
+.xiv-composer{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:12px 14px;background:#f1e9d8;border-top:1px solid #e2d8c2;border-radius:10px 10px 0 0;box-shadow:0 -1px 6px rgba(36,29,24,.06);max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* The two cards themselves inside the composer — the app's ComposerSheet:
+   event on cream, twist on white, side by side above the prompt. */
+.xiv-paircards{display:flex;gap:10px;justify-content:center;padding-top:4px}
+.xiv-pcard{width:116px;height:116px;border:0.5px solid #ccbd9e;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:4px;box-sizing:border-box}
+.xiv-pcard.event{background:#ece0c2}
+.xiv-pcard.twist{background:#fff}
+.xiv-pcard img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+/* The prompt sentence — serif, ink, sentence case (the app's title3), not caps. */
+.xiv-pairlabel{text-align:center;color:#241d18;font-size:17px;line-height:1.35}
 .xiv-pairstories{display:flex;flex-direction:column;gap:4px}
 .xiv-pairstory{font-size:13.5px;color:#3b332b;display:flex;align-items:flex-start;gap:6px}
 .xiv-pairstory i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
-.xiv-ta{font-family:inherit;font-size:16px;line-height:1.4;min-height:70px;border:1px solid #cbbfa6;border-radius:8px;background:#fbf8f1;padding:9px 11px;color:#241d18;resize:none}
+.xiv-ta{font-family:inherit;font-size:16px;line-height:1.4;min-height:70px;border:1px solid #cbbfa6;border-radius:6px;background:#fff;padding:9px 11px;color:#241d18;resize:none}
 .xiv-composer-row{display:flex;justify-content:flex-end;align-items:center;gap:10px}
 .xiv-saved{margin-right:auto;color:#5b7a3b;font-size:13.5px;font-style:italic}
 .xiv-ghost{background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 .xiv-feed{max-width:440px;margin:8px auto 26px;padding:0 14px;width:100%;box-sizing:border-box}
-.xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#800020;font-size:14px;margin:6px 0 4px}
-.xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px}
+.xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#b08c36;font-size:14px;margin:6px 0 4px}
+.xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
 .xiv-feeditem i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-feedwho{font-weight:600;color:#241d18}
+/* A told story is a whole story — show three lines and a "…", open it on a
+   click. flex:1 keeps the ▶ on the same row. */
+.xiv-feedtext{flex:1;min-width:0;cursor:pointer;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.xiv-feedtext.open{display:block;overflow:visible}
+
+/* Tell it out loud — the mic in the composer, and the ▶ on a told story.
+   (The mic is a circular icon button, the one shape the no-pills rule allows;
+   the play control is a rounded rectangle like every other text button.) */
+.xiv-tell{display:flex;align-items:center;justify-content:center;gap:12px;padding:2px 0 4px}
+.xiv-mic{width:54px;height:54px;border-radius:50%;border:none;background:#b08c36;color:#fff;font-size:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.xiv-mic.rec{background:#c0392b}
+.xiv-tell-hint{font-size:13.5px;color:#8a7d6e}
+.xiv-live{font-size:14.5px;line-height:1.4;color:#241d18;background:#fff;border:0.5px solid #ccbd9e;border-radius:6px;padding:9px 11px;max-height:108px;overflow-y:auto}
+.xiv-live.on{color:#5b4f44}
+.xiv-play{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:13px;color:#b08c36;background:#fff;border:0.5px solid #ccbd9e;border-radius:6px;padding:6px 12px;cursor:pointer}
+.xiv-play-ico{font-size:10px;line-height:1}
+.xiv-play-feed{padding:2px 8px;font-size:12px;margin-left:auto}
 
 /* Kick a player out (creator only) — small circular ✕ inside the player chip,
    always behind an are-you-sure confirm. */
 .xiv-kick{width:16px;height:16px;border-radius:50%;border:none;padding:0;margin-left:2px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:#8a7d6e;background:rgba(36,29,24,.10);cursor:pointer}
-.xiv-kick:hover{background:#800020;color:#fff}
+.xiv-kick:hover{background:#b08c36;color:#fff}
 
 /* Quiet exit for a session that joined as the wrong account. */
 .xiv-leavegame{display:block;margin:0 auto 26px;border:1px solid rgba(36,29,24,.18);border-radius:6px;background:none;padding:7px 16px;font-size:13px;color:#8a7d6e;cursor:pointer}

@@ -2,8 +2,8 @@
   position:fixed;left:0;right:0;bottom:0;z-index:9500;
   display:flex;justify-content:space-around;align-items:flex-end;
   background:rgba(243,234,217,.97);backdrop-filter:saturate(1.1) blur(2px);
-  border-top:1px solid #d8cdb6;
-  padding:6px 2px calc(6px + env(safe-area-inset-bottom,0px));
+  border-top:0.5px solid #d8cdb6;
+  padding:7px 2px calc(6px + env(safe-area-inset-bottom,0px));
   transition:transform .2s ease;
 }
 .xinav.writing{transform:translateY(110%)}
@@ -11,9 +11,12 @@
 .xinav-btn{
   flex:1 1 0;min-width:0;
   background:none;border:none;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:2px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
   color:#8a7d6e;font-family:'EB Garamond',serif;padding:2px 0;
 }
 .xinav-btn svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.xinav-btn span{font-size:9.5px;letter-spacing:.02em;line-height:1}
-.xinav-btn.on{color:#800020}
+.xinav-btn span{font-size:10.5px;letter-spacing:.2px;line-height:1}
+/* Active = gold, like the app (XITheme.gold); a touch heavier stroke stands in
+   for the SF Symbols semibold weight. */
+.xinav-btn.on{color:#b08c36}
+.xinav-btn.on svg{stroke-width:2.1}

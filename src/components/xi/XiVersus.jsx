@@ -17,13 +17,16 @@ import XiBoardGrid from './XiBoardGrid';
 import XiNavBar from './XiNavBar';
 import KeyboardSheet from './KeyboardSheet';
 import XiInfo from './XiInfo';
+import StoryPlayButton from './StoryPlayButton';
+import { useStoryRecorder, canRecord } from '../../xi/storyVoice';
 import './XiVersus.css';
 
 const VERSUS_HELP = (
   <>
     <p>Build a shared memory board with friends — one card and one story at a time.</p>
-    <p><b>Your move:</b> place a card from your hand onto an empty square of its colour, next to a card already on the board. Then <b>tell its story</b> — tap the touching card it pairs with and write a memory that's both of them.</p>
-    <p>You can also just <b>write a story</b> on any two touching cards already on the board, without placing.</p>
+    <p><b>Your move:</b> place a card from your hand onto an empty square of its colour, next to a card already on the board. Then <b>tell its story</b> — tap the touching card it pairs with and tell a memory that's both of them.</p>
+    <p><b>Say it out loud:</b> tap the mic and tell the story — everyone else presses play and hears you tell it. (You can still type it instead.)</p>
+    <p>You can also just <b>tell a story</b> on any two touching cards already on the board, without placing.</p>
     <p><b>Cards:</b> cream squares hold events (“times i…”), white squares hold twists (“…at the worst moment”). Every touching pair makes a prompt.</p>
     <p><b>Rounds:</b> everyone takes one move per round — you can't go again until the others have gone.</p>
     <p>Tap <b>undo</b> (top-left) to take back a card you just placed. Friends can join any time — share the invite link from the top of the game.</p>
@@ -32,6 +35,22 @@ const VERSUS_HELP = (
 
 const artOf = (d, i) => ((d === 'be' ? boardDeck.events : boardDeck.twists)[i] || null);
 const kindClass = (d) => (d === 'be' ? 'event' : 'twist');
+
+// A simple gold shape per player (by join order) instead of a coloured dot —
+// triangle, square, circle, diamond, … — matching the app's playerSymbol.
+const SHAPES = [
+  <path key="t" d="M12 4 21 20 H3 Z" />,                              // triangle
+  <rect key="s" x="4.5" y="4.5" width="15" height="15" rx="1.5" />,   // square
+  <circle key="c" cx="12" cy="12" r="8" />,                           // circle
+  <path key="d" d="M12 3 21 12 12 21 3 12 Z" />,                      // diamond
+  <path key="p" d="M12 3.5 20.4 9.6 17.2 19.5 H6.8 L3.6 9.6 Z" />,    // pentagon
+  <path key="h" d="M7.5 4.2 h9 L21 12 l-4.5 7.8 h-9 L3 12 Z" />,      // hexagon
+];
+const playerShape = (order) => (
+  <svg className="xiv-shape" viewBox="0 0 24 24" aria-hidden="true">
+    {SHAPES[((order % SHAPES.length) + SHAPES.length) % SHAPES.length]}
+  </svg>
+);
 
 export default function XiVersus() {
   const { gameId } = useParams();
@@ -47,6 +66,8 @@ export default function XiVersus() {
   const [storyCells, setStoryCells] = useState([]); // placed cells chosen to write on
   const [storyText, setStoryText] = useState('');
   const [working, setWorking] = useState(false);
+  const rec = useStoryRecorder();   // tell the story out loud instead of typing
+  const [openStories, setOpenStories] = useState([]); // feed stories opened out
   const [notifBusy, setNotifBusy] = useState(false);
   const [notifOn, setNotifOn] = useState(() => { try { return localStorage.getItem('xiNotifDone') === '1'; } catch { return false; } });
   const [notifWanted, setNotifWanted] = useState(true);   // pre-checked opt-in
@@ -229,6 +250,10 @@ export default function XiVersus() {
 
   const players = game.players || [];
   const acted = game.acted || [];
+  // Join order per uid → the player's gold shape (the app's playerSymbol).
+  const orderOf = {};
+  players.forEach((p, k) => { orderOf[p.uid] = (typeof p.order === 'number' ? p.order : k); });
+  const shapeFor = (uid) => (uid in orderOf ? playerShape(orderOf[uid]) : null);
   // Waiting room: the game isn't playable until the creator begins it. Older
   // docs have no status field — treat those as active.
   const waiting = (game.status || 'active') === 'waiting';
@@ -302,11 +327,12 @@ export default function XiVersus() {
   };
 
   const handleWrite = async () => {
-    if (!storyText.trim() || working) return;
+    if ((!storyText.trim() && !rec.take) || working || rec.recording) return;
     setWorking(true);
-    try { await writeStory(gameId, user, storyCells, storyText); setStoryCells([]); setStoryText(''); }
-    catch (e) { alert(e.message); }
-    finally { setWorking(false); }
+    try {
+      await writeStory(gameId, user, storyCells, storyText, rec.take);
+      setStoryCells([]); setStoryText(''); rec.reset();
+    } catch (e) { alert(e.message); } finally { setWorking(false); }
   };
 
   const doUndo = async () => {
@@ -443,7 +469,7 @@ export default function XiVersus() {
       <div className="xiv-players">
         {players.map((p) => (
           <span key={p.uid} className={'xiv-pill' + (acted.includes(p.uid) ? ' done' : '')}>
-            <i style={{ background: p.color }} />
+            {shapeFor(p.uid) || <i style={{ background: p.color }} />}
             {p.name}{p.uid === user?.uid ? ' (you)' : ''}{acted.includes(p.uid) ? ' ✓' : ''}
             {user?.uid === game.createdBy && p.uid !== user.uid && (
               <button className="xiv-kick" aria-label={`Kick ${p.name} out`} title={`Kick ${p.name} out`}
@@ -491,19 +517,72 @@ export default function XiVersus() {
       {storyReady && (
         <KeyboardSheet>
           <div className="xiv-composer">
+            {/* The two cards themselves, side by side above the prompt — the
+                app's ComposerSheet look (event on cream, twist on white). */}
+            <div className="xiv-paircards">
+              {storyEv && (
+                <div className="xiv-pcard event">
+                  <img src={artOf('be', storyEv.i)?.img} alt={artOf('be', storyEv.i)?.cap || ''} />
+                </div>
+              )}
+              {storyTw && (
+                <div className="xiv-pcard twist">
+                  <img src={artOf('bw', storyTw.i)?.img} alt={artOf('bw', storyTw.i)?.cap || ''} />
+                </div>
+              )}
+            </div>
             <div className="xiv-pairlabel">{storyLabel}</div>
             {pairStories.length > 0 && (
               <div className="xiv-pairstories">
                 {pairStories.map((s) => (
-                  <div key={s.id} className="xiv-pairstory"><i style={{ background: s.color || '#999' }} /> {s.text}</div>
+                  <div key={s.id} className="xiv-pairstory">
+                    {shapeFor(s.byUid) || <i style={{ background: s.color || '#999' }} />} {s.text}
+                  </div>
                 ))}
               </div>
             )}
-            <textarea className="xiv-ta" placeholder="A memory that's both of these…"
-              value={storyText} maxLength={500} onChange={(e) => setStoryText(e.target.value)} />
+            {/* Telling it is the point of the game — the mic leads, typing is
+                the fallback underneath it. */}
+            {canRecord() && (
+              <div className="xiv-tell">
+                {rec.take ? (
+                  <>
+                    <StoryPlayButton id="composer-preview" url={rec.take.url} seconds={rec.take.seconds} />
+                    <button type="button" className="xiv-ghost" onClick={rec.reset}>Record again</button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button"
+                      className={'xiv-mic' + (rec.recording ? ' rec' : '')}
+                      onClick={() => (rec.recording ? rec.stop() : rec.start())}
+                      aria-label={rec.recording ? 'Stop recording' : 'Tell the story out loud'}>
+                      {rec.recording ? '■' : '🎙'}
+                    </button>
+                    <span className="xiv-tell-hint">
+                      {rec.recording ? `${Math.floor(rec.seconds / 60)}:${String(Math.floor(rec.seconds % 60)).padStart(2, '0')}` : 'Tell it out loud'}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+            {/* The words as you say them, from the browser's own recogniser —
+                free, and it means nothing has to transcribe this afterwards. */}
+            {rec.liveText && (
+              <div className={'xiv-live' + (rec.recording ? ' on' : '')}>{rec.liveText}</div>
+            )}
+            {rec.micError && <p className="xiv-note">{rec.micError}</p>}
+            {!rec.take && (
+              <textarea className="xiv-ta" placeholder={canRecord() ? '…or type it' : "A memory that's both of these…"}
+                value={storyText} maxLength={500} disabled={rec.recording}
+                onChange={(e) => setStoryText(e.target.value)} />
+            )}
             <div className="xiv-composer-row">
-              <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); }}>Cancel</button>
-              <button className="xiv-btn-sm" disabled={working || !storyText.trim()} onClick={handleWrite}>Save story</button>
+              <button className="xiv-ghost" onClick={() => { setStoryCells([]); setStoryText(''); rec.reset(); }}>Cancel</button>
+              <button className="xiv-btn-sm"
+                disabled={working || rec.recording || (!storyText.trim() && !rec.take)}
+                onClick={handleWrite}>
+                {working && rec.take ? 'Sending…' : 'Save story'}
+              </button>
             </div>
           </div>
         </KeyboardSheet>
@@ -556,8 +635,20 @@ export default function XiVersus() {
           <div className="xiv-feed-title">Stories</div>
           {stories.slice(0, 12).map((s) => (
             <div key={s.id} className="xiv-feeditem">
-              <i style={{ background: s.color || '#999' }} />
-              <span className="xiv-feedwho">{s.byName}</span> {s.text}
+              {shapeFor(s.byUid) || <i style={{ background: s.color || '#999' }} />}
+              {/* Three lines and a "…" — click to read the whole thing. A told
+                  story can run for minutes, and the feed is for scanning. */}
+              <span
+                className={'xiv-feedtext' + (openStories.includes(s.id) ? ' open' : '')}
+                onClick={() => setOpenStories((prev) => (prev.includes(s.id)
+                  ? prev.filter((x) => x !== s.id) : [...prev, s.id]))}>
+                <span className="xiv-feedwho">{s.byName}</span> {s.text}
+              </span>
+              {/* Told out loud → hear them tell it, not just read it. */}
+              {s.audioUrl && (
+                <StoryPlayButton id={s.id} url={s.audioUrl} seconds={s.audioSec}
+                  className="xiv-play xiv-play-feed" />
+              )}
             </div>
           ))}
         </div>

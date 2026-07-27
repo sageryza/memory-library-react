@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 // Data layer for XI Versus — a faithful Swift port of src/hooks/useVersusGame.js.
 // Same `versusGames/{id}` doc shape, same transactions, so web ↔ iOS players
@@ -16,6 +17,12 @@ struct VersusStory: Identifiable, Equatable {
     let id: String, byUid: String, byName: String, color: String, pairKey: String
     let eventCap: String, twistCap: String, text: String
     let ts: Double
+    /// Set when the story was TOLD rather than typed: the recording everyone
+    /// presses play on, and how long it runs. `text` is the whole story either
+    /// way — typed, or transcribed free on the teller's own device.
+    var audioUrl: String?
+    var audioSec: Double = 0
+    var isSpoken: Bool { !(audioUrl ?? "").isEmpty }
 }
 
 struct VersusGameState: Equatable {
@@ -392,6 +399,9 @@ final class VersusService {
             "reportedUid": story.byUid,
             "reportedName": story.byName,
             "storyText": story.text,
+            // A told story's actual content is the recording — a report has to
+            // point at it, not just at the line in the feed.
+            "storyAudioUrl": story.audioUrl ?? "",
             "reason": reason,
             "details": details.trimmingCharacters(in: .whitespacesAndNewlines),
             "reporterUid": uid ?? "anonymous",
@@ -402,9 +412,44 @@ final class VersusService {
 
     // MARK: Story
 
-    func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced, text: String) async throws {
+    /// Bank a spoken take and get its words back: the recording is uploaded and
+    /// transcribed server-side (`tellStory`). Transcription can come back empty
+    /// — the audio is the story, the text is the convenience on top of it.
+    private func tellStory(_ gameId: String, audio: SpokenTake) async throws
+        -> (url: String, transcript: String) {
+        let res = try await Functions.functions().httpsCallable("tellStory").call([
+            "gameId": gameId,
+            "audio": audio.data.base64EncodedString(),
+            "mime": "audio/m4a",
+            "seconds": audio.seconds,
+            // Apple already transcribed this on the phone, for free, while it
+            // was being told — so the server has nothing to pay for.
+            "transcript": audio.transcript,
+        ])
+        guard let d = res.data as? [String: Any], let url = d["audioUrl"] as? String, !url.isEmpty else {
+            throw e("Couldn't save your recording — try again.")
+        }
+        return (url, (d["transcript"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// Write a story on a pairing as your move. `audio` is set when the story
+    /// was TOLD out loud — then the recording is what the other players hear,
+    /// and the text is what the phone already transcribed while you told it.
+    func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced,
+                    text: String, audio: SpokenTake? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to write.") }
-        let t = ContentFilter.masked(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        // Upload BEFORE the turn-completing transaction: if the recording can't
+        // be saved, the player still has their take and their turn.
+        var audioUrl: String?
+        var t = ContentFilter.masked(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        if let audio {
+            let told = try await tellStory(gameId, audio: audio)
+            audioUrl = told.url
+            // The whole story as the phone heard it. Empty only if speech
+            // recognition was off — the recording still plays either way.
+            let heard = ContentFilter.masked(told.transcript)
+            t = heard.isEmpty ? "told out loud" : heard
+        }
         guard !t.isEmpty else { return }
         let evCard = XIDeck.events[event.i], twCard = XIDeck.twists[twist.i]
         let pk = "\(evCard.id)__\(twCard.id)"
@@ -430,27 +475,37 @@ final class VersusService {
             return nil
         }
 
-        _ = try await gameRef(gameId).collection("stories").addDocument(data: [
+        var storyDoc: [String: Any] = [
             "byUid": uid, "byName": name, "color": color ?? NSNull(), "pairKey": pk,
             "eventCap": evCard.cap, "twistCap": twCard.cap, "text": t, "ts": Date().timeIntervalSince1970 * 1000,
-        ])
+        ]
+        if let audioUrl {
+            storyDoc["audioUrl"] = audioUrl
+            storyDoc["audioSec"] = audio?.seconds ?? 0
+        }
+        _ = try await gameRef(gameId).collection("stories").addDocument(data: storyDoc)
 
+        // Your own copy keeps the story plus the recording, so it plays back
+        // in your library too.
+        let full = t
         let title = "times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())"
         let tags = [slugTag(evCard.cap), slugTag(twCard.cap)].compactMap { $0 }
         let now = Date(); let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let df = DateFormatter(); df.dateStyle = .short
-        let memRef = try? await db.collection("users").document(uid).collection("memories").addDocument(data: [
-            "content": t, "title": title, "hashtags": tags, "source": "xi", "mode": "versus",
+        var memDoc: [String: Any] = [
+            "content": full, "title": title, "hashtags": tags, "source": "xi", "mode": "versus",
             "event": ["id": evCard.id, "cap": evCard.cap], "twist": ["id": twCard.id, "cap": twCard.cap],
             "pairKey": pk, "timestamp": iso.string(from: now), "dateTime": df.string(from: now),
             "gameId": gameId, "createdAt": FieldValue.serverTimestamp(), "updatedAt": FieldValue.serverTimestamp(),
-        ])
+        ]
+        if let audioUrl { memDoc["audioUrl"] = audioUrl; memDoc["audioSec"] = audio?.seconds ?? 0 }
+        let memRef = try? await db.collection("users").document(uid).collection("memories").addDocument(data: memDoc)
         // Swap the card-pair title for an AI title distilled from the story itself,
         // in the background — same as saving from the daily board. Falls back
         // silently to the template title if AI is unavailable.
         if let memRef {
             Task {
-                if let ai = await XIService.shared.generateTitle(from: t) {
+                if let ai = await XIService.shared.generateTitle(from: full) {
                     try? await memRef.updateData(["title": ai, "updatedAt": FieldValue.serverTimestamp()])
                 }
             }
@@ -543,7 +598,9 @@ final class VersusService {
             id: doc.documentID, byUid: m["byUid"] as? String ?? "", byName: m["byName"] as? String ?? "Player",
             color: m["color"] as? String ?? "#34495e",
             pairKey: m["pairKey"] as? String ?? "", eventCap: m["eventCap"] as? String ?? "",
-            twistCap: m["twistCap"] as? String ?? "", text: m["text"] as? String ?? "", ts: m["ts"] as? Double ?? 0
+            twistCap: m["twistCap"] as? String ?? "", text: m["text"] as? String ?? "", ts: m["ts"] as? Double ?? 0,
+            audioUrl: m["audioUrl"] as? String,
+            audioSec: m["audioSec"] as? Double ?? 0
         )
     }
 }
