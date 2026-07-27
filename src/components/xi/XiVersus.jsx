@@ -564,6 +564,11 @@ export default function XiVersus() {
                 )}
               </div>
             )}
+            {/* The words as you say them, from the browser's own recogniser —
+                free, and it means nothing has to transcribe this afterwards. */}
+            {rec.liveText && (
+              <div className={'xiv-live' + (rec.recording ? ' on' : '')}>{rec.liveText}</div>
+            )}
             {rec.micError && <p className="xiv-note">{rec.micError}</p>}
             {!rec.take && (
               <textarea className="xiv-ta" placeholder={canRecord() ? '…or type it' : "A memory that's both of these…"}

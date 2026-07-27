@@ -376,6 +376,9 @@ export async function writeStory(gameId, user, cells, text, audio = null) {
   if (audio?.base64) {
     const res = await httpsCallable(functions, 'tellStory')({
       gameId, audio: audio.base64, mime: audio.mime || 'audio/webm', seconds: audio.seconds || 0,
+      // Already transcribed for free by the browser while you talked, so the
+      // server has nothing to pay for.
+      transcript: audio.transcript || '',
     });
     audioUrl = res?.data?.audioUrl || null;
     if (!audioUrl) throw new Error('Could not save your recording — try again.');

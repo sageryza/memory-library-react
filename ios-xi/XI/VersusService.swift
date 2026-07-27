@@ -418,13 +418,16 @@ final class VersusService {
     /// Bank a spoken take and get its words back: the recording is uploaded and
     /// transcribed server-side (`tellStory`). Transcription can come back empty
     /// — the audio is the story, the text is the convenience on top of it.
-    private func tellStory(_ gameId: String, audio: (data: Data, seconds: Double)) async throws
+    private func tellStory(_ gameId: String, audio: SpokenTake) async throws
         -> (url: String, transcript: String, gist: String) {
         let res = try await Functions.functions().httpsCallable("tellStory").call([
             "gameId": gameId,
             "audio": audio.data.base64EncodedString(),
             "mime": "audio/m4a",
             "seconds": audio.seconds,
+            // Apple already transcribed this on the phone, for free, while it
+            // was being told — so the server has nothing to pay for.
+            "transcript": audio.transcript,
         ])
         guard let d = res.data as? [String: Any], let url = d["audioUrl"] as? String, !url.isEmpty else {
             throw e("Couldn't save your recording — try again.")
@@ -438,7 +441,7 @@ final class VersusService {
     /// was TOLD out loud — then the recording is what the other players hear,
     /// and the text in the feed is the AI's one-line gist of it.
     func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced,
-                    text: String, audio: (data: Data, seconds: Double)? = nil) async throws {
+                    text: String, audio: SpokenTake? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to write.") }
         // Upload BEFORE the turn-completing transaction: if the recording can't
         // be saved, the player still has their take and their turn.

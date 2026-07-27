@@ -812,7 +812,7 @@ struct StoryComposer: View {
             } else {
                 Button {
                     writing = false
-                    if recorder.isRecording { recorder.stop() } else { audio.stop(); recorder.start() }
+                    if recorder.isRecording { recorder.finish() } else { audio.stop(); recorder.start() }
                 } label: {
                     Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
                         .font(.system(size: 22))
@@ -826,6 +826,23 @@ struct StoryComposer: View {
                     .font(.system(recorder.isRecording ? .subheadline : .caption,
                                   design: recorder.isRecording ? .monospaced : .serif))
                     .foregroundStyle(recorder.isRecording ? XITheme.ink : XITheme.line)
+            }
+
+            // The words as you say them — Apple's on-device recogniser, so it
+            // costs nothing and never leaves the phone. Blank if speech
+            // permission was declined; the recording still works.
+            if !recorder.liveText.isEmpty {
+                ScrollView {
+                    Text(recorder.liveText)
+                        .font(.system(.subheadline, design: .serif))
+                        .foregroundStyle(recorder.isRecording ? XITheme.line : XITheme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .frame(maxHeight: 108)
+                .background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
             }
 
             if recorder.permissionDenied {

@@ -1905,11 +1905,17 @@ async function transcribeAudio(key, buffer, mime, ext) {
   return String(json.text || '').trim();
 }
 
-// { gameId, audio (base64), mime, seconds } -> { audioUrl, transcript, gist, seconds }
+// { gameId, audio (base64), mime, seconds, transcript?, transcribe? }
+//   -> { audioUrl, transcript, gist, seconds }
 //
-// Transcription/gist failures are NOT errors: the client still gets its
-// audioUrl and saves the story, because the recording is the story. The text
-// is the convenience layer on top of it.
+// Transcription happens FREE on the client — Apple's on-device recogniser on
+// iPhone, the browser's own recogniser on the web — and arrives here as
+// `transcript`. Whisper is only called when a caller explicitly passes
+// `transcribe: true`, so the normal path costs nothing to transcribe.
+//
+// Gist failures are NOT errors: the client still gets its audioUrl and saves
+// the story, because the recording is the story. The text is the convenience
+// layer on top of it.
 exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const data = req.data || {};
@@ -1936,12 +1942,19 @@ exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }
     mime,
   );
 
-  let transcript = '';
-  try {
-    const key = await loadOpenAIKey();
-    if (key) transcript = await transcribeAudio(key, buffer, mime, ext);
-  } catch (e) {
-    console.error('[tellStory] transcription failed', e);
+  // The free path: the words the client already heard while you were talking.
+  let transcript = String(data.transcript || '').trim().slice(0, 20000);
+
+  // Paid fallback, off unless asked for. Left in place so a caller that can't
+  // caption locally (an old browser, a locale with no on-device model) can opt
+  // in — but nothing spends money on its own.
+  if (!transcript && data.transcribe === true) {
+    try {
+      const key = await loadOpenAIKey();
+      if (key) transcript = await transcribeAudio(key, buffer, mime, ext);
+    } catch (e) {
+      console.error('[tellStory] transcription failed', e);
+    }
   }
 
   let gist = '';

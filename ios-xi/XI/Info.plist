@@ -6,6 +6,10 @@
 	     story composer records the memory so the other players hear it. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>So you can tell your story out loud on your turn — the other players hear it in your own voice.</string>
+	<!-- On-device speech: the words appear as you tell the story, and get saved
+	     with it. Nothing is sent anywhere to be transcribed. -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>So the words show up as you tell your story, right on your phone.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -1,14 +1,42 @@
 import AVFoundation
 import Foundation
+import Speech
 
 // XI is a storytelling game, so a turn can be TOLD rather than typed: you tap
 // the mic, tell the memory out loud, and everyone else presses play and hears
-// it. This file is the audio half of that — recording your turn, and playing
-// back one story at a time in the feed.
+// it. This file is the audio half of that — recording your turn (with the words
+// appearing as you say them), and playing back one story at a time in the feed.
 
-/// Records a spoken story to a temporary m4a. Voice-grade AAC (mono, 22.05k,
-/// 32 kbps) so five minutes is ~1.2 MB — small enough to hand to the
-/// `tellStory` function in one call, and plenty for transcription.
+/// A finished spoken take: the recording, how long it runs, and the words the
+/// phone already heard for free while it was being told.
+struct SpokenTake {
+    let data: Data
+    let seconds: Double
+    let transcript: String
+}
+
+/// Hands audio from the recording thread to whichever speech request is
+/// current. The tap runs on a realtime audio thread and must never touch
+/// main-actor state, and the request is swapped whenever Apple ends a stretch
+/// of recognition, so the two are kept apart behind a lock.
+private final class SpeechFeed: @unchecked Sendable {
+    private let lock = NSLock()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+
+    func use(_ r: SFSpeechAudioBufferRecognitionRequest?) {
+        lock.lock(); request = r; lock.unlock()
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        lock.lock(); let r = request; lock.unlock()
+        r?.append(buffer)
+    }
+}
+
+/// Records a spoken story to a temporary m4a while captioning it live with
+/// Apple's on-device recogniser — free, offline, and the words show up as you
+/// speak them. Voice-grade AAC (32 kbps) keeps five minutes at ~1.2 MB, small
+/// enough to hand to `tellStory` in one call.
 @MainActor
 final class StoryRecorder: NSObject, ObservableObject {
     /// Stories are a turn in a game, not a podcast — long enough to tell one
@@ -20,9 +48,24 @@ final class StoryRecorder: NSObject, ObservableObject {
     /// The finished take, ready to save. Re-recording replaces it.
     @Published private(set) var recordedURL: URL?
     @Published var permissionDenied = false
+    /// The words so far, as Apple hears them. Empty when speech recognition
+    /// isn't permitted or available — recording still works, it's just silent
+    /// on screen and the server transcribes it instead.
+    @Published private(set) var liveText = ""
 
-    private var recorder: AVAudioRecorder?
+    private var engine: AVAudioEngine?
+    private var file: AVAudioFile?
     private var timer: Timer?
+    private var startedAt: Date?
+
+    private let recognizer = SFSpeechRecognizer(locale: Locale.current)
+    private let feed = SpeechFeed()
+    private var task: SFSpeechRecognitionTask?
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var speechAllowed = false
+    /// Stretches Apple has already finalised, plus the one still in progress.
+    private var committed = ""
+    private var partial = ""
 
     var hasRecording: Bool { recordedURL != nil }
 
@@ -32,20 +75,34 @@ final class StoryRecorder: NSObject, ObservableObject {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
+    private var joined: String {
+        [committed, partial].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
     func start() {
-        requestPermission { [weak self] granted in
+        requestPermissions { [weak self] micGranted, speechGranted in
             guard let self else { return }
-            guard granted else { self.permissionDenied = true; return }
+            guard micGranted else { self.permissionDenied = true; return }
+            // Speech is a bonus, never a gate: if it's off you still get to
+            // tell your story, the words just don't appear as you talk.
+            self.speechAllowed = speechGranted
             self.beginRecording()
         }
     }
 
     func stop() {
-        recorder?.stop()
-        recorder = nil
+        guard isRecording || engine != nil else { return }
         timer?.invalidate(); timer = nil
+        if let engine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        engine = nil
+        file = nil                      // the tap is gone, so nothing else writes
+        if let startedAt { seconds = min(Self.maxSeconds, Date().timeIntervalSince(startedAt)) }
+        startedAt = nil
         isRecording = false
-        // Playback elsewhere in the app expects a normal session back.
+        endRecognition()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -55,68 +112,153 @@ final class StoryRecorder: NSObject, ObservableObject {
         if let url = recordedURL { try? FileManager.default.removeItem(at: url) }
         recordedURL = nil
         seconds = 0
+        committed = ""; partial = ""; liveText = ""
     }
 
-    /// The bytes to upload, and how long they run.
-    func take() -> (data: Data, seconds: Double)? {
+    /// The bytes to upload, how long they run, and the words Apple already
+    /// heard — sending that last one is what saves paying to transcribe again.
+    func take() -> SpokenTake? {
         guard let url = recordedURL, let data = try? Data(contentsOf: url), !data.isEmpty else { return nil }
-        return (data, Double(seconds))
+        return SpokenTake(data: data, seconds: Double(seconds),
+                          transcript: liveText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
+
+    // MARK: recording
 
     private func beginRecording() {
         if let old = recordedURL { try? FileManager.default.removeItem(at: old) }
         recordedURL = nil
         seconds = 0
+        committed = ""; partial = ""; liveText = ""
+
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("xi-story-\(UUID().uuidString).m4a")
-        let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 22050,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderBitRateKey: 32000,
-        ]
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
             try session.setActive(true)
-            let rec = try AVAudioRecorder(url: url, settings: settings)
-            rec.delegate = self
-            guard rec.record(forDuration: Self.maxSeconds) else { return }
-            recorder = rec
+
+            let engine = AVAudioEngine()
+            let input = engine.inputNode
+            // The tap's own format — writing the file in the same sample rate
+            // and channel count is what lets AVAudioFile take the buffers
+            // straight from the tap without a conversion step.
+            let format = input.outputFormat(forBus: 0)
+            guard format.sampleRate > 0 else { return }
+            let audioFile = try AVAudioFile(forWriting: url, settings: [
+                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                AVSampleRateKey: format.sampleRate,
+                AVNumberOfChannelsKey: Int(format.channelCount),
+                AVEncoderBitRateKey: 32000,
+            ])
+
+            if speechAllowed { startRecognition() }
+
+            let sink = feed
+            input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
+                try? audioFile.write(from: buffer)
+                sink.append(buffer)
+            }
+            engine.prepare()
+            try engine.start()
+
+            self.engine = engine
+            self.file = audioFile
+            self.recordedURL = nil          // only set once there's a finished take
+            startedAt = Date()
             isRecording = true
+
+            let takeURL = url
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    guard let self, let r = self.recorder, r.isRecording else { return }
-                    self.seconds = r.currentTime
+                    guard let self, let started = self.startedAt else { return }
+                    self.seconds = Date().timeIntervalSince(started)
+                    if self.seconds >= Self.maxSeconds { self.finish(takeURL) }
                 }
             }
+            pendingURL = takeURL
         } catch {
             isRecording = false
+            engine = nil
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
-    private func requestPermission(_ done: @escaping (Bool) -> Void) {
-        let hand: (Bool) -> Void = { granted in Task { @MainActor in done(granted) } }
+    /// Where the in-progress take is being written, so stopping can hand it over.
+    private var pendingURL: URL?
+
+    /// Stop and keep the take (the mic button and the 5-minute cap both land here).
+    func finish(_ url: URL? = nil) {
+        let target = url ?? pendingURL
+        stop()
+        recordedURL = target
+        pendingURL = nil
+    }
+
+    // MARK: live captions (Apple, on-device, free)
+
+    private func startRecognition() {
+        guard let recognizer, recognizer.isAvailable else { return }
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        // On-device keeps it free, private and offline — and unlike the server
+        // path it isn't rationed. Falls back to Apple's servers if this locale
+        // hasn't been downloaded.
+        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
+        request = req
+        feed.use(req)
+        task = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            Task { @MainActor in
+                guard let self, self.isRecording else { return }
+                if let result {
+                    self.partial = result.bestTranscription.formattedString
+                    self.liveText = self.joined
+                }
+                // Apple closes a stretch of recognition on its own; a five
+                // minute story outlives several. Bank what it heard and open
+                // a fresh one so the captions keep going.
+                if error != nil || (result?.isFinal ?? false) { self.rollRecognition() }
+            }
+        }
+    }
+
+    private func rollRecognition() {
+        commitPartial()
+        endRecognition()
+        guard isRecording, speechAllowed else { return }
+        startRecognition()
+    }
+
+    private func commitPartial() {
+        guard !partial.isEmpty else { return }
+        committed = [committed, partial].filter { !$0.isEmpty }.joined(separator: " ")
+        partial = ""
+        liveText = joined
+    }
+
+    private func endRecognition() {
+        commitPartial()
+        feed.use(nil)
+        request?.endAudio()
+        task?.cancel()
+        request = nil
+        task = nil
+    }
+
+    // MARK: permissions
+
+    /// Mic first (required), then speech (optional — captions only).
+    private func requestPermissions(_ done: @escaping (Bool, Bool) -> Void) {
+        let micDone: (Bool) -> Void = { granted in
+            guard granted else { Task { @MainActor in done(false, false) }; return }
+            SFSpeechRecognizer.requestAuthorization { status in
+                Task { @MainActor in done(true, status == .authorized) }
+            }
+        }
         if #available(iOS 17.0, *) {
-            AVAudioApplication.requestRecordPermission(completionHandler: hand)
+            AVAudioApplication.requestRecordPermission(completionHandler: micDone)
         } else {
-            AVAudioSession.sharedInstance().requestRecordPermission(hand)
-        }
-    }
-}
-
-extension StoryRecorder: AVAudioRecorderDelegate {
-    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        let url = recorder.url
-        let length = recorder.currentTime
-        Task { @MainActor in
-            self.timer?.invalidate(); self.timer = nil
-            self.isRecording = false
-            self.recorder = nil
-            // currentTime reads 0 once stopped, so keep whatever the ticker saw.
-            if length > 0 { self.seconds = length }
-            self.recordedURL = flag ? url : nil
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            AVAudioSession.sharedInstance().requestRecordPermission(micDone)
         }
     }
 }
