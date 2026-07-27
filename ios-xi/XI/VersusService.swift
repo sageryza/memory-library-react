@@ -18,14 +18,11 @@ struct VersusStory: Identifiable, Equatable {
     let eventCap: String, twistCap: String, text: String
     let ts: Double
     /// Set when the story was TOLD rather than typed: the recording everyone
-    /// presses play on, its length, and the full words behind the feed's line.
+    /// presses play on, and how long it runs. `text` is the whole story either
+    /// way — typed, or transcribed free on the teller's own device.
     var audioUrl: String?
     var audioSec: Double = 0
-    var transcript: String = ""
     var isSpoken: Bool { !(audioUrl ?? "").isEmpty }
-    /// The whole story in words — the transcript when told, the typed text
-    /// otherwise. (`text` is the short line the feed shows.)
-    var fullText: String { transcript.isEmpty ? text : transcript }
 }
 
 struct VersusGameState: Equatable {
@@ -401,7 +398,7 @@ final class VersusService {
             "storyId": story.id,
             "reportedUid": story.byUid,
             "reportedName": story.byName,
-            "storyText": story.fullText,
+            "storyText": story.text,
             // A told story's actual content is the recording — a report has to
             // point at it, not just at the line in the feed.
             "storyAudioUrl": story.audioUrl ?? "",
@@ -419,7 +416,7 @@ final class VersusService {
     /// transcribed server-side (`tellStory`). Transcription can come back empty
     /// — the audio is the story, the text is the convenience on top of it.
     private func tellStory(_ gameId: String, audio: SpokenTake) async throws
-        -> (url: String, transcript: String, gist: String) {
+        -> (url: String, transcript: String) {
         let res = try await Functions.functions().httpsCallable("tellStory").call([
             "gameId": gameId,
             "audio": audio.data.base64EncodedString(),
@@ -432,31 +429,26 @@ final class VersusService {
         guard let d = res.data as? [String: Any], let url = d["audioUrl"] as? String, !url.isEmpty else {
             throw e("Couldn't save your recording — try again.")
         }
-        return (url,
-                (d["transcript"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-                (d["gist"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+        return (url, (d["transcript"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// Write a story on a pairing as your move. `audio` is set when the story
     /// was TOLD out loud — then the recording is what the other players hear,
-    /// and the text in the feed is the AI's one-line gist of it.
+    /// and the text is what the phone already transcribed while you told it.
     func writeStory(_ gameId: String, event: VersusPlaced, twist: VersusPlaced,
                     text: String, audio: SpokenTake? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to write.") }
         // Upload BEFORE the turn-completing transaction: if the recording can't
         // be saved, the player still has their take and their turn.
         var audioUrl: String?
-        var transcript = ""
         var t = ContentFilter.masked(text.trimmingCharacters(in: .whitespacesAndNewlines))
         if let audio {
             let told = try await tellStory(gameId, audio: audio)
             audioUrl = told.url
-            transcript = ContentFilter.masked(told.transcript)
-            // The feed line: the gist, else the words themselves, else an
-            // honest placeholder (transcription was down — the audio isn't).
-            let gist = ContentFilter.masked(told.gist)
-            t = !gist.isEmpty ? gist
-                : (!transcript.isEmpty ? String(transcript.prefix(200)) : "told out loud")
+            // The whole story as the phone heard it. Empty only if speech
+            // recognition was off — the recording still plays either way.
+            let heard = ContentFilter.masked(told.transcript)
+            t = heard.isEmpty ? "told out loud" : heard
         }
         guard !t.isEmpty else { return }
         let evCard = XIDeck.events[event.i], twCard = XIDeck.twists[twist.i]
@@ -490,13 +482,12 @@ final class VersusService {
         if let audioUrl {
             storyDoc["audioUrl"] = audioUrl
             storyDoc["audioSec"] = audio?.seconds ?? 0
-            storyDoc["transcript"] = transcript
         }
         _ = try await gameRef(gameId).collection("stories").addDocument(data: storyDoc)
 
-        // Your own copy keeps the WHOLE story (the transcript), not the feed's
-        // one-liner — plus the recording, so it plays back in your library too.
-        let full = transcript.isEmpty ? t : transcript
+        // Your own copy keeps the story plus the recording, so it plays back
+        // in your library too.
+        let full = t
         let title = "times i \(evCard.cap.lowercased()), \(twCard.cap.lowercased())"
         let tags = [slugTag(evCard.cap), slugTag(twCard.cap)].compactMap { $0 }
         let now = Date(); let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -609,8 +600,7 @@ final class VersusService {
             pairKey: m["pairKey"] as? String ?? "", eventCap: m["eventCap"] as? String ?? "",
             twistCap: m["twistCap"] as? String ?? "", text: m["text"] as? String ?? "", ts: m["ts"] as? Double ?? 0,
             audioUrl: m["audioUrl"] as? String,
-            audioSec: m["audioSec"] as? Double ?? 0,
-            transcript: m["transcript"] as? String ?? ""
+            audioSec: m["audioSec"] as? Double ?? 0
         )
     }
 }

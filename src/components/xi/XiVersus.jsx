@@ -67,6 +67,7 @@ export default function XiVersus() {
   const [storyText, setStoryText] = useState('');
   const [working, setWorking] = useState(false);
   const rec = useStoryRecorder();   // tell the story out loud instead of typing
+  const [openStories, setOpenStories] = useState([]); // feed stories opened out
   const [notifBusy, setNotifBusy] = useState(false);
   const [notifOn, setNotifOn] = useState(() => { try { return localStorage.getItem('xiNotifDone') === '1'; } catch { return false; } });
   const [notifWanted, setNotifWanted] = useState(true);   // pre-checked opt-in
@@ -635,8 +636,15 @@ export default function XiVersus() {
           {stories.slice(0, 12).map((s) => (
             <div key={s.id} className="xiv-feeditem">
               {shapeFor(s.byUid) || <i style={{ background: s.color || '#999' }} />}
-              <span className="xiv-feedwho">{s.byName}</span> {s.text}
-              {/* Told out loud → hear them tell it, not just read the line. */}
+              {/* Three lines and a "…" — click to read the whole thing. A told
+                  story can run for minutes, and the feed is for scanning. */}
+              <span
+                className={'xiv-feedtext' + (openStories.includes(s.id) ? ' open' : '')}
+                onClick={() => setOpenStories((prev) => (prev.includes(s.id)
+                  ? prev.filter((x) => x !== s.id) : [...prev, s.id]))}>
+                <span className="xiv-feedwho">{s.byName}</span> {s.text}
+              </span>
+              {/* Told out loud → hear them tell it, not just read it. */}
               {s.audioUrl && (
                 <StoryPlayButton id={s.id} url={s.audioUrl} seconds={s.audioSec}
                   className="xiv-play xiv-play-feed" />

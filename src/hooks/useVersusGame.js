@@ -367,24 +367,21 @@ export async function skipTurn(gameId, user) {
 // the author's own archive as a versus memory, and bumps the stories stat.
 export async function writeStory(gameId, user, cells, text, audio = null) {
   if (!user?.uid) throw new Error('Sign in to write.');
-  // Told out loud: bank + transcribe the recording FIRST (it's the story, and
-  // it must never be lost to a failed turn). The feed then shows the AI's
-  // one-line gist of it; the transcript is the archived memory.
+  // Told out loud: bank the recording FIRST (it's the story, and it must never
+  // be lost to a failed turn). The text is what the browser already
+  // transcribed for free while you were talking.
   let audioUrl = null;
-  let transcript = '';
   let t = (text || '').trim();
   if (audio?.base64) {
     const res = await httpsCallable(functions, 'tellStory')({
       gameId, audio: audio.base64, mime: audio.mime || 'audio/webm', seconds: audio.seconds || 0,
-      // Already transcribed for free by the browser while you talked, so the
-      // server has nothing to pay for.
       transcript: audio.transcript || '',
     });
     audioUrl = res?.data?.audioUrl || null;
     if (!audioUrl) throw new Error('Could not save your recording — try again.');
-    transcript = (res?.data?.transcript || '').trim();
-    const gist = (res?.data?.gist || '').trim();
-    t = gist || transcript.slice(0, 200) || 'told out loud';
+    // Empty only where the browser has no recogniser (Firefox) — the
+    // recording still plays for everyone.
+    t = (res?.data?.transcript || '').trim() || 'told out loud';
   }
   if (!t) return;
   const evCell = (cells || []).find((x) => x.d === 'be');
@@ -420,13 +417,13 @@ export async function writeStory(gameId, user, cells, text, audio = null) {
   await addDoc(collection(db, 'versusGames', gameId, 'stories'), {
     byUid: user.uid, byName: info.name, color: info.color, pairKey: pk,
     eventCap: event?.cap || '', twistCap: twist?.cap || '', text: t, ts: Date.now(),
-    ...(audioUrl ? { audioUrl, audioSec: audio?.seconds || 0, transcript } : {}),
+    ...(audioUrl ? { audioUrl, audioSec: audio?.seconds || 0 } : {}),
   });
-  // The author's own copy in their archive (tagged versus) — the WHOLE story,
-  // not the feed's one-liner, plus the recording so it plays back later.
+  // The author's own copy in their archive (tagged versus), plus the recording
+  // so it plays back later.
   try {
     const memRef = await addDoc(collection(db, 'users', user.uid, 'memories'), {
-      ...buildXiMemoryDoc({ text: transcript || t, event, twist, mode: 'versus' }),
+      ...buildXiMemoryDoc({ text: t, event, twist, mode: 'versus' }),
       title: timesSentence(event, twist),
       gameId,
       ...(audioUrl ? { audioUrl, audioSec: audio?.seconds || 0 } : {}),

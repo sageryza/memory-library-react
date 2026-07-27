@@ -1872,12 +1872,6 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
 // (it's the deliverable and must never be lost), then transcribed, then
 // distilled to a line for the game feed.
 
-const STORY_GIST_SYSTEM = 'You are given a transcript of someone telling a short story out loud '
-  + 'in a storytelling game. Write ONE line that says what the story was about, so a friend '
-  + 'scanning the game feed knows what they would be pressing play on. Under 120 characters, '
-  + 'lowercase, plain and human, in the teller\'s own words where you can. Never invent details, '
-  + 'never add a preamble like "the story is about". Output only the line.';
-
 // Whisper's audio endpoint by container. Keep the extension honest — OpenAI
 // rejects a file whose extension doesn't match its actual format.
 const STORY_AUDIO_EXT = {
@@ -1906,16 +1900,14 @@ async function transcribeAudio(key, buffer, mime, ext) {
 }
 
 // { gameId, audio (base64), mime, seconds, transcript?, transcribe? }
-//   -> { audioUrl, transcript, gist, seconds }
+//   -> { audioUrl, transcript, seconds }
 //
-// Transcription happens FREE on the client — Apple's on-device recogniser on
-// iPhone, the browser's own recogniser on the web — and arrives here as
-// `transcript`. Whisper is only called when a caller explicitly passes
-// `transcribe: true`, so the normal path costs nothing to transcribe.
-//
-// Gist failures are NOT errors: the client still gets its audioUrl and saves
-// the story, because the recording is the story. The text is the convenience
-// layer on top of it.
+// Costs nothing but storage. Transcription happens FREE on the client —
+// Apple's on-device recogniser on iPhone, the browser's own recogniser on the
+// web — and arrives here as `transcript`; the feed shows the first few lines
+// of it and expands on a tap, so there's no summarising model to pay for
+// either. Whisper stays wired up but only runs when a caller explicitly passes
+// `transcribe: true`.
 exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const data = req.data || {};
@@ -1957,25 +1949,7 @@ exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }
     }
   }
 
-  let gist = '';
-  if (transcript) {
-    try {
-      const aKey = await loadAnthropicKey();
-      if (aKey) {
-        const msg = await new Anthropic({ apiKey: aKey }).messages.create({
-          model: TITLE_MODEL,
-          max_tokens: 80,
-          system: STORY_GIST_SYSTEM,
-          messages: [{ role: 'user', content: `Transcript:\n\n${transcript.slice(0, 6000)}\n\nLine:` }],
-        });
-        gist = textOf(msg).trim().replace(/^["']|["']$/g, '').slice(0, 200);
-      }
-    } catch (e) {
-      console.error('[tellStory] gist failed', e);
-    }
-  }
-
-  return { audioUrl, transcript, gist, seconds };
+  return { audioUrl, transcript, seconds };
 });
 
 /* ===== The Little Book of Miracles ======================================= */

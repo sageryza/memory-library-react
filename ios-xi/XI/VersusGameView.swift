@@ -30,6 +30,8 @@ struct VersusGameView: View {
     @StateObject private var moderation = Moderation()
     /// Shared so only one story plays at a time (and the ▶ flips to ■).
     @ObservedObject private var player = StoryAudioPlayer.shared
+    /// Stories opened out to their full text (the feed clamps to three lines).
+    @State private var expanded: Set<String> = []
     @State private var selectedCard: HandCard?      // placement mode when set
     @State private var anchor: Anchor?              // first tapped cell for a story
     @State private var composing: StoryTarget?
@@ -150,10 +152,8 @@ struct VersusGameView: View {
                 return x.isEmpty ? nil : "#\(x)"
             }
             Task {
-                // A told story arrives as the whole transcript, not the feed's
-                // one-line gist — the Commons keeps what they actually said.
                 await XIService.shared.addToCommons(
-                    title: title, content: s.fullText, hashtags: tags,
+                    title: title, content: s.text, hashtags: tags,
                     authorName: s.byName, sourceType: "versus", sourceId: gameId)
             }
         }
@@ -508,8 +508,18 @@ struct VersusGameView: View {
                                                 ? "Stop \(s.byName)'s story" : "Play \(s.byName)'s story")
                             .padding(.top, 2)
                         }
+                        // Three lines and a "…" — tap to read the whole thing.
+                        // A told story can run for minutes, and the feed is for
+                        // scanning, not reading.
                         Text(s.text).font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(expanded.contains(s.id) ? nil : 3)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    if expanded.contains(s.id) { expanded.remove(s.id) } else { expanded.insert(s.id) }
+                                }
+                            }
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)

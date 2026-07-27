@@ -160,6 +160,10 @@
 .xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
 .xiv-feeditem i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-feedwho{font-weight:600;color:#241d18}
+/* A told story is a whole story — show three lines and a "…", open it on a
+   click. flex:1 keeps the ▶ on the same row. */
+.xiv-feedtext{flex:1;min-width:0;cursor:pointer;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.xiv-feedtext.open{display:block;overflow:visible}
 
 /* Tell it out loud — the mic in the composer, and the ▶ on a told story.
    (The mic is a circular icon button, the one shape the no-pills rule allows;
