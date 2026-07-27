@@ -2781,3 +2781,48 @@ exports.backfillMemoryVectors = onCall(async (request) => {
   }
   return { embedded: done, total: mem.size };
 });
+
+// ===========================================================================
+// Archive semantic search — Sage's voice memos + journal entries, in one place
+// (used by JournalReader). Both corpora are HERS (single-user), so a single
+// shared index at Storage `search-index/archive.json` is fine — JournalReader is
+// her private TestFlight app. Build it with
+// voice-memo-sorter/firebase/build-archive-index.mjs. `source` filters
+// memo/journal/both. Reuses embedText/cosineSim/EMBED_MODEL above.
+// ===========================================================================
+let _archiveCache = null; // { at, items }
+const ARCHIVE_TTL = 5 * 60 * 1000;
+async function loadArchiveIndex() {
+  if (_archiveCache && Date.now() - _archiveCache.at < ARCHIVE_TTL) return _archiveCache.items;
+  const file = getStorage().bucket().file('search-index/archive.json');
+  const [exists] = await file.exists();
+  if (!exists) return [];
+  const [buf] = await file.download();
+  const items = JSON.parse(buf.toString('utf8'));
+  _archiveCache = { at: Date.now(), items };
+  return items;
+}
+
+// request.data: { query, source?: 'memo'|'journal'|'both', limit? }
+exports.searchArchive = onCall(async (request) => {
+  if (!(request.auth && request.auth.uid)) throw new HttpsError('unauthenticated', 'Sign in.');
+  const query = String((request.data && request.data.query) || '').trim();
+  const source = (request.data && request.data.source) || 'both';
+  const limit = Math.min(Math.max(1, Number(request.data && request.data.limit) || 30), 100);
+  if (!query) return { results: [] };
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
+  const [qVec, items] = await Promise.all([embedText(key, query), loadArchiveIndex()]);
+  const qLower = query.toLowerCase();
+  const out = [];
+  for (const it of items) {
+    if (!it.vector) continue;
+    if (source !== 'both' && it.source !== source) continue;
+    let score = cosineSim(qVec, it.vector);
+    if ((it.snippet || '').toLowerCase().includes(qLower)) score += 0.05;
+    const { vector, ...meta } = it;
+    out.push({ ...meta, score });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return { results: out.slice(0, limit) };
+});
