@@ -10,10 +10,14 @@
 /* Tiny build stamp so you can tell a deployed version from a cached one. */
 .xi-build-stamp{position:fixed;top:3px;right:6px;z-index:9600;font-family:'EB Garamond',serif;font-size:9px;letter-spacing:.02em;color:rgba(36,29,24,.32);pointer-events:none}
 
-/* Calendar → past days, top-right of the Today screen (its top-right slot is empty). */
-.xi-cal{position:fixed;top:22px;right:16px;z-index:9550;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:#6b5d4f;cursor:pointer}
+/* Top-right of the Today screen: the gear (Curate, matching the app's corner)
+   sits in the corner; the calendar (past days) rides just left of it. */
+.xi-cal{position:fixed;top:22px;right:58px;z-index:9550;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:#6b5d4f;cursor:pointer}
 .xi-cal:hover{color:#241d18}
 .xi-cal svg{width:23px;height:23px}
+.xi-gear{position:fixed;top:22px;right:16px;z-index:9550;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:#6b5d4f;cursor:pointer}
+.xi-gear:hover{color:#241d18}
+.xi-gear svg{width:22px;height:22px}
 
 /* Floating CTA on the Curate screen to open the card generator. */
 .xi-genbtn{position:fixed;z-index:9550;left:50%;transform:translateX(-50%);bottom:72px;font-family:'EB Garamond',Georgia,serif;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:9px 18px;background:#241d18;color:#fdf7ec;border:1px solid #241d18;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.28);cursor:pointer}
