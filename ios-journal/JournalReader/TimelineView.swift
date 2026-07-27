@@ -29,7 +29,10 @@ struct TimelineView: View {
             .overlay(alignment: .topTrailing) { searchButton }
             .sheet(isPresented: $showSearch) {
                 NavigationStack {
-                    ArchiveSearchView()
+                    ArchiveSearchView(onSelectJournal: { page in
+                        showSearch = false
+                        router.timelineTargetPage = page
+                    })
                         .navigationTitle("Search")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {

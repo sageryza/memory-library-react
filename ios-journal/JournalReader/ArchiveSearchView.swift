@@ -10,16 +10,15 @@ import FirebaseStorage
 struct ArchiveHit: Identifiable {
     let source: String        // "memo" | "journal"
     let id: String
+    let file: String?         // memos: audio file under memo-audio/
+    let dur: Int?             // memos: seconds
     let date: String?
     let title: String?
     let cat: String?          // memos: "dream" | "journal"
     let type: String?         // journal entries: band type
     let snippet: String?
     let score: Double
-
-    var stableID: String { "\(source)-\(id)" }
 }
-extension ArchiveHit { var identity: String { stableID } }
 
 /// Backs the archive search: which source (memos / journal / both), the query,
 /// the hits, and a memo lookup so a memo hit can stream its recording. All of
@@ -42,7 +41,6 @@ final class ArchiveSearchStore: ObservableObject {
 
     private lazy var functions = Functions.functions()
     private let storage = Storage.storage()
-    private var memoByID: [String: VoiceEntry] = [:]
 
     func search() {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -59,6 +57,8 @@ final class ArchiveSearchStore: ObservableObject {
                     ArchiveHit(
                         source: (d["source"] as? String) ?? "memo",
                         id: (d["id"] as? String) ?? UUID().uuidString,
+                        file: d["file"] as? String,
+                        dur: d["dur"] as? Int,
                         date: d["date"] as? String,
                         title: d["title"] as? String,
                         cat: d["cat"] as? String,
@@ -74,27 +74,11 @@ final class ArchiveSearchStore: ObservableObject {
         }
     }
 
-    /// Resolve a memo hit to a full `VoiceEntry` (with its audio file) so it can
-    /// play. Loads the manifest once and caches an id → entry map.
-    func memo(for hit: ArchiveHit) async -> VoiceEntry? {
-        if memoByID.isEmpty { await loadMemoMap() }
-        return memoByID[hit.id]
-    }
-
-    private func loadMemoMap() async {
-        do {
-            try await ensureAuth()
-            let ref = storage.reference(withPath: "memo-audio/manifest.json")
-            let data = try await ref.data(maxSize: 20 * 1024 * 1024)
-            struct M: Codable { let memos: [VoiceEntry] }
-            let m = try JSONDecoder().decode(M.self, from: data)
-            memoByID = Dictionary(m.memos.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        } catch { /* leave empty — memo hits just won't play */ }
-    }
-
-    func audioURL(for entry: VoiceEntry) async throws -> URL {
+    /// A playable download URL for a memo hit, streamed straight from the file
+    /// carried on the hit (`memo-audio/<file>`). No manifest lookup.
+    func audioURL(file: String) async throws -> URL {
         try await ensureAuth()
-        return try await storage.reference(withPath: "memo-audio/\(entry.file)").downloadURL()
+        return try await storage.reference(withPath: "memo-audio/\(file)").downloadURL()
     }
 
     private func ensureAuth() async throws {
@@ -106,6 +90,9 @@ final class ArchiveSearchStore: ObservableObject {
 /// entries — ranked by meaning, not keywords. A toggle chooses memos, journal,
 /// or both. Memo hits play the recording in place; journal hits show the passage.
 struct ArchiveSearchView: View {
+    /// Called when a journal hit is tapped, with its timeline page to focus.
+    var onSelectJournal: (Int) -> Void = { _ in }
+
     @StateObject private var store = ArchiveSearchStore()
     @StateObject private var player = VoicePlayer()
     @FocusState private var searching: Bool
@@ -180,7 +167,8 @@ struct ArchiveSearchView: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(store.hits) { hit in
-                            ArchiveHitRow(hit: hit, store: store, player: player)
+                            ArchiveHitRow(hit: hit, store: store, player: player,
+                                          onSelectJournal: onSelectJournal)
                             Divider().padding(.leading, 16)
                         }
                     }
@@ -201,11 +189,17 @@ private struct ArchiveHitRow: View {
     let hit: ArchiveHit
     @ObservedObject var store: ArchiveSearchStore
     @ObservedObject var player: VoicePlayer
+    var onSelectJournal: (Int) -> Void = { _ in }
 
     @State private var loading = false
     @State private var audioError: String?
 
     private var isMemo: Bool { hit.source == "memo" }
+    /// Journal ids look like "p12-3" → timeline page 12.
+    private var journalPage: Int? {
+        guard hit.source == "journal", hit.id.hasPrefix("p") else { return nil }
+        return Int(hit.id.dropFirst().prefix { $0 != "-" })
+    }
     private var isThis: Bool { player.currentID == hit.id }
     private var tint: Color {
         if isMemo {
@@ -248,9 +242,16 @@ private struct ArchiveHitRow: View {
                 }
             }
             Spacer(minLength: 0)
+            if journalPage != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.gray.opacity(0.5))
+                    .padding(.top, 4)
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .contentShape(Rectangle())
+        .onTapGesture { if let p = journalPage { onSelectJournal(p) } }
     }
 
     private var playButton: some View {
@@ -279,13 +280,16 @@ private struct ArchiveHitRow: View {
 
     private func play() {
         if isThis { player.togglePause(); return }
+        guard let file = hit.file else {
+            audioError = "Couldn’t find this recording."; return
+        }
         loading = true; audioError = nil
+        let entry = VoiceEntry(id: hit.id, file: file, date: hit.date,
+                               cat: hit.cat ?? "journal", title: hit.title,
+                               desc: nil, transcript: nil, dur: hit.dur)
         Task {
-            guard let entry = await store.memo(for: hit) else {
-                audioError = "Couldn’t find this recording."; loading = false; return
-            }
             do {
-                let url = try await store.audioURL(for: entry)
+                let url = try await store.audioURL(file: file)
                 player.play(entry, url: url)
             } catch {
                 audioError = "Couldn’t play this recording."

@@ -55,8 +55,11 @@ const items = [];
   for (const m of (manifest.memos || [])) {
     const text = [m.title, m.desc, m.transcript].filter(Boolean).join('. ').trim();
     if (!text) continue;
-    items.push({ source: 'memo', id: m.id, date: m.date || null, title: m.title || null,
-      cat: m.cat || null, snippet: (m.desc || m.transcript || '').slice(0, 200), text: text.slice(0, 8000) });
+    // `file` + `dur` travel with the hit so JournalReader can stream the
+    // recording straight from the search result — no second manifest load.
+    items.push({ source: 'memo', id: m.id, file: m.file || null, dur: m.dur ?? null,
+      date: m.date || null, title: m.title || null, cat: m.cat || null,
+      snippet: (m.desc || m.transcript || '').slice(0, 200), text: text.slice(0, 8000) });
   }
 }
 
