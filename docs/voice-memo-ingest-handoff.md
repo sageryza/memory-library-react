@@ -1,9 +1,23 @@
 # Handoff: pull NEW voice recordings into JournalReader (share → transcribe → file → index)
 
-Goal: let Sage select recordings in the iOS **Voice Memos** app, **Share → JournalReader**,
-and have them automatically transcribed, filed with the existing 993 memos, and
-made searchable — no manual file wrangling. Assume you know nothing; here's the
-whole picture, what already exists, the plan, and the decisions still open.
+Goal: automatically pull Sage's **new** voice recordings into JournalReader —
+transcribed, filed with the existing 993 memos, and made searchable — with no
+manual file wrangling. Assume you know nothing; here's the whole picture, what
+already exists, the plan, and the one decision still open.
+
+## ✅ DECISION (chosen by Sage — build THIS)
+
+**Option C: a daily auto-sync job on Sage's Mac.** A `launchd` LaunchAgent runs a
+script once a day (and catches up on the next wake/boot if the Mac was off) that
+reads new recordings straight from the **macOS Voice Memos folder** (they sync
+there from her iPhone via iCloud), dedupes against what's already uploaded, and
+runs each new one through the existing transcribe → file → index pipeline.
+
+Why this won over the share-sheet ideas: it's fully automatic (nothing to select
+or share), needs **no iOS target / provisioning / app rebuild**, reuses the whole
+existing pipeline, and — because it reads files off disk — it **preserves each
+memo's true recording date**, which fixes the date problem the share-sheet routes
+had. Options A and B below are kept for reference but are **not** the plan.
 
 ## The user's ask (settled — build toward this)
 
@@ -61,52 +75,70 @@ whole picture, what already exists, the plan, and the decisions still open.
   opened from the 🔍 on the Timeline; plays memo hits, jumps journal hits to the
   timeline. No new UI is needed for ingest unless you add a confirm step.
 
-## The plan (recommended)
+## The plan
 
-The heavy lifting is one **server-side ingest function**, identical for both front
-doors below. Build it first — it's ~80% of the value.
+The pipeline for each new memo is the same regardless of front door — transcribe →
+file → manifest → incrementally embed. For the **chosen Mac route (Option C)** this
+runs **entirely on the Mac** (it already has the OpenAI + service-account keys); no
+Cloud Function is needed. (Only the reference Options A/B would need a server-side
+inbox function — described at the end.)
 
-### 1. Ingest function (the core)
-- New audio arrives at an **inbox** path in Storage, e.g. `memo-inbox/<uuid>.m4a`.
-- A **Storage-triggered function** (`onObjectFinalized` on `memo-inbox/`) then:
-  1. Transcribes (`gpt-4o-transcribe`) and categorizes/titles/keywords
-     (`gpt-4o-mini`) — reuse `transcribe-sort.mjs` prompts.
-  2. Assigns an `id` + `date` (see the date caveat), moves the file to
-     `memo-audio/<id>.m4a`.
-  3. Appends the memo to `memo-audio/manifest.json`.
-  4. **Incrementally embeds** just that one item into `search-index/archive.json`
+### 1. The per-memo pipeline (the core)
+For each new recording:
+  1. Transcribe (`gpt-4o-transcribe`) and categorize/title/keywords (`gpt-4o-mini`)
+     — reuse `voice-memo-sorter/transcribe-sort.mjs`.
+  2. Assign the `id` + `date` from the recording's real timestamp; upload the audio
+     to `memo-audio/<id>.m4a`.
+  3. Append the memo to `memo-audio/manifest.json`.
+  4. **Incrementally embed** just that one item into `search-index/archive.json`
      (append + re-upload; do NOT re-embed all 2,280 — see `patch-archive.mjs` for
-     the read-mutate-upload pattern, and `build-archive-index.mjs` for the embed
-     call).
+     the read-mutate-upload pattern and `build-archive-index.mjs` for the embed call).
 - Result: the memo shows up in the Voice-notes list and in search automatically.
+- For Option C, wrap this in the daily LaunchAgent + watermark described below.
 
-### 2. The front door — TWO options (pick with Sage)
+### 2. The front door
 
-**Option A — iOS Share Extension** (native; "JournalReader" literally in the share
-sheet). It's a **new app-extension target** in `ios-journal/project.yml`: own
-bundle id, an **App Group** (to share Firebase config/auth with the main app), and
-a **second provisioning profile** on the `ios-journal-testflight.yml` pipeline.
-The extension just needs to upload the shared audio to `memo-inbox/` (anonymous
-Firebase auth). The provisioning/signing setup is the only higher-risk part.
+**✅ CHOSEN — Option C: daily Mac auto-sync (build this).** No app UI at all; it
+runs on Sage's Mac.
 
-**Option B — Apple Shortcut → HTTPS ingest** (lightweight; ship in days). An
-`onRequest`/callable HTTPS function accepts an uploaded audio blob; a Shortcut Sage
-installs once appears in the share sheet, grabs the audio, and POSTs it. **No new
-Xcode target, no provisioning, no app rebuild.** Slightly less "native" (shortcut's
-name, not the app's).
+- **Where the recordings are:** the macOS Voice Memos app stores recordings as
+  `.m4a` in a Group Containers path (recent macOS:
+  `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`;
+  older: `~/Library/Application Support/com.apple.voicememos/Recordings/`). They
+  sync there from her iPhone via iCloud. A `CloudRecordings.db` (SQLite) alongside
+  holds titles/dates; the `.m4a`'s own metadata + name also carry the recording
+  timestamp — that's how IDs like `2022-04-13_1000_2022-04-13T17_00_40Z` are formed.
+  VERIFY the exact path on her macOS version at build time.
+- **The schedule:** a **LaunchAgent** plist (`~/Library/LaunchAgents/…plist`) with a
+  daily `StartCalendarInterval`. If the Mac is asleep/off at that time, `launchd`
+  runs the job **once at the next wake/boot** — exactly Sage's "if it hasn't turned
+  on in a day, run as soon as it turns on." (`cron` does NOT catch up missed runs;
+  use `launchd`.)
+- **Incremental / dedup:** keep a small **state file** (e.g. `~/.journalreader-sync.json`)
+  with a high-water mark — the timestamp/ID of the last processed memo. Each run:
+  list recordings → take those at/after the mark → **dedup by ID** → process the new
+  ones → update the mark.
+- **Per new memo:** reuse `voice-memo-sorter/transcribe-sort.mjs` (transcribe +
+  categorize/title) and the firebase upload path (upload to `memo-audio/<id>.m4a`,
+  append `manifest.json`, **incrementally embed** into `archive.json` — see
+  `patch-archive.mjs` for the read-mutate-upload pattern).
+- **One-time Mac setup:** iCloud sync for Voice Memos ON; the OpenAI key + a current
+  Firebase service-account key stored locally (NOT in repo); **Full Disk Access**
+  granted to the job's runner (the Recordings folder is protected).
+- **Recording date is solved** by this route: read it from disk (file
+  metadata / `CloudRecordings.db` / filename), so memos slot in on their true date.
 
-Sage's leaning: build the ingest function, then start with **B** (fast, low-risk),
-and graduate to **A** later if she wants the fully-native finish. Nothing about B
-is wasted if you later do A (same ingest function).
+**Alternatives (NOT chosen — reference only):**
 
-## The one open decision: recording DATE
-
-Memos are sorted/slotted by their **original recording date**. A memo shared after
-the fact may not carry that date in the `.m4a`. **Check what date Voice Memos puts
-on a shared file** (filename is the memo's title, not a date; look at the audio
-container's creation metadata). If the original date is unavailable, options:
-(a) use the share date, (b) read it from file metadata if present, or (c) let Sage
-confirm/edit the date in-app after import. Confirm with her before committing.
+- *Option A — iOS Share Extension:* native "Share → JournalReader"; a new
+  app-extension target in `ios-journal/project.yml` (own bundle id, App Group,
+  second provisioning profile). Heavier; leaves the recording-date problem below.
+- *Option B — Apple Shortcut → HTTPS ingest:* a Shortcut in the share sheet POSTs
+  audio to an `onRequest` function. Lighter than A, but still manual and shares the
+  date problem.
+  - For A/B only, the recording DATE is an open problem: a memo shared after the
+    fact may not carry its original date in the `.m4a`, so you'd fall back to
+    share-date / file-metadata / confirm-in-app. Option C avoids this entirely.
 
 ## Security / gotchas (READ THIS)
 
