@@ -66,7 +66,6 @@ final class AuthState: ObservableObject {
 final class XIService {
     static let shared = XIService()
     private lazy var db = Firestore.firestore()
-    private lazy var functions = Functions.functions()
 
     // MARK: Semantic search (Cloud Functions)
 
