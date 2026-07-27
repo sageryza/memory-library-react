@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Versus turns can be TOLD out loud instead of typed — the mic in the
+	     story composer records the memory so the other players hear it. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>So you can tell your story out loud on your turn — the other players hear it in your own voice.</string>
+	<!-- On-device speech: the words appear as you tell the story, and get saved
+	     with it. Nothing is sent anywhere to be transcribed. -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>So the words show up as you tell your story, right on your phone.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

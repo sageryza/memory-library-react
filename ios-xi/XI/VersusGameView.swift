@@ -28,6 +28,10 @@ struct VersusGameView: View {
 
     @StateObject private var store = VersusStore()
     @StateObject private var moderation = Moderation()
+    /// Shared so only one story plays at a time (and the ▶ flips to ■).
+    @ObservedObject private var player = StoryAudioPlayer.shared
+    /// Stories opened out to their full text (the feed clamps to three lines).
+    @State private var expanded: Set<String> = []
     @State private var selectedCard: HandCard?      // placement mode when set
     @State private var anchor: Anchor?              // first tapped cell for a story
     @State private var composing: StoryTarget?
@@ -123,7 +127,7 @@ struct VersusGameView: View {
                 do { try await VersusService.shared.ensureHand(gameId) }
                 catch { self.error = error.localizedDescription }
             }
-            .onDisappear { store.unsubscribe() }
+            .onDisappear { store.unsubscribe(); player.stop() }
             .onChange(of: store.stories) { newStories in
                 syncOpponentStoriesToCommons(newStories)
             }
@@ -482,8 +486,40 @@ struct VersusGameView: View {
                                 .lineLimit(1)
                             storyMenu(s)
                         }
+                        // Told out loud → the recording is the story, so play
+                        // comes first and the line below it says what it's about.
+                        if s.isSpoken, let url = URL(string: s.audioUrl ?? "") {
+                            Button {
+                                StoryAudioPlayer.shared.toggle(id: s.id, url: url)
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: player.nowPlaying == s.id ? "stop.fill" : "play.fill")
+                                        .font(.system(size: 11))
+                                    Text(s.audioSec > 0 ? storyClock(s.audioSec) : "listen")
+                                        .font(.system(.caption, design: .monospaced))
+                                }
+                                .foregroundStyle(XITheme.gold)
+                                .padding(.vertical, 6).padding(.horizontal, 12)
+                                .background(XITheme.paper)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5), lineWidth: 1))
+                            }
+                            .accessibilityLabel(player.nowPlaying == s.id
+                                                ? "Stop \(s.byName)'s story" : "Play \(s.byName)'s story")
+                            .padding(.top, 2)
+                        }
+                        // Three lines and a "…" — tap to read the whole thing.
+                        // A told story can run for minutes, and the feed is for
+                        // scanning, not reading.
                         Text(s.text).font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(expanded.contains(s.id) ? nil : 3)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    if expanded.contains(s.id) { expanded.remove(s.id) } else { expanded.insert(s.id) }
+                                }
+                            }
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -564,7 +600,8 @@ private struct VersusHelpSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     help("Each round, **place one card** from your hand in a cell touching a card already on the board.")
-                    help("Then tap **two touching cards** to write the story that's both of them (\u{201C}times i\u{2026}\u{201D}) — that finishes your go.")
+                    help("Then tap **two touching cards** and tell the story that's both of them (\u{201C}times i\u{2026}\u{201D}) — that finishes your go.")
+                    help("**Tap the mic and say it out loud** — everyone else presses play and hears you tell it. (You can still type it instead.)")
                     help("Everyone goes once per round; the next round starts when all players have gone.")
                     help("Your stories are saved to your library. Friends' stories land in your Commons.")
                 }
@@ -671,9 +708,17 @@ struct StoryComposer: View {
     @State private var busy = false
     @State private var error: String?
     @FocusState private var writing: Bool
+    @StateObject private var recorder = StoryRecorder()
+    @ObservedObject private var audio = StoryAudioPlayer.shared
+    /// Opens tall: the mic, the cards and the box don't fit a half sheet.
+    /// Dragging down to half still works (the board reappears behind it).
+    @State private var detent: PresentationDetent = .large
 
     private var evCard: XICard { XIDeck.events[event.i] }
     private var twCard: XICard { XIDeck.twists[twist.i] }
+
+    private var typed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSave: Bool { recorder.hasRecording || !typed.isEmpty }
 
     // Mirrors the board's ComposerSheet exactly: a half-height sheet (the game
     // board stays visible behind it), the two cards big up top, the prompt, and
@@ -692,33 +737,42 @@ struct StoryComposer: View {
                 .foregroundStyle(XITheme.ink)
                 .padding(.horizontal, 8)
 
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text("tell the story…").font(.system(.body, design: .serif))
-                        .foregroundStyle(XITheme.line).padding(.top, 16).padding(.leading, 13)
-                }
-                TextEditor(text: $text)
-                    .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
-                    .focused($writing)
-                    .frame(height: 120)
-                    .padding(8)
-                    .scrollContentBackground(.hidden)
-            }
-            .background(XITheme.white)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
+            // Telling comes first — this is a storytelling game, so the mic is
+            // the main way to take your turn and typing is the fallback.
+            mic
 
-            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+            if !recorder.hasRecording {
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text(recorder.isRecording ? "listening…" : "…or type it")
+                            .font(.system(.body, design: .serif))
+                            .foregroundStyle(XITheme.line).padding(.top, 16).padding(.leading, 13)
+                    }
+                    TextEditor(text: $text)
+                        .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
+                        .focused($writing)
+                        .frame(height: 120)
+                        .padding(8)
+                        .scrollContentBackground(.hidden)
+                }
+                .background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line))
+                .disabled(recorder.isRecording)
+                .opacity(recorder.isRecording ? 0.4 : 1)
+            }
+
+            if let error { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
 
             Button(action: save) {
-                Text(busy ? "saving…" : "save")
+                Text(busy ? (recorder.hasRecording ? "sending your story…" : "saving…") : "save")
                     .font(.system(.body, design: .serif))
                     .padding(.horizontal, 28).padding(.vertical, 10)
                     .background(XITheme.gold).foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
-            .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+            .disabled(!canSave || busy || recorder.isRecording)
+            .opacity(canSave && !recorder.isRecording ? 1 : 0.5)
 
             Spacer(minLength: 0)
         }
@@ -731,8 +785,85 @@ struct StoryComposer: View {
                     .font(.system(.body, design: .serif)).tint(XITheme.gold)
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
     }
+
+    /// Record / stop / listen back. The circular mic is the exception to the
+    /// no-pills rule (it's an icon button), and it's deliberately the biggest
+    /// thing in the composer.
+    @ViewBuilder
+    private var mic: some View {
+        VStack(spacing: 8) {
+            if recorder.hasRecording {
+                HStack(spacing: 14) {
+                    Button {
+                        if let url = recorder.recordedURL {
+                            audio.toggle(id: StoryComposer.previewId, url: url)
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: audio.nowPlaying == StoryComposer.previewId ? "stop.fill" : "play.fill")
+                                .font(.system(size: 12))
+                            Text(recorder.clock).font(.system(.subheadline, design: .monospaced))
+                        }
+                        .foregroundStyle(XITheme.gold)
+                        .padding(.vertical, 9).padding(.horizontal, 16)
+                        .background(XITheme.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.gold.opacity(0.5), lineWidth: 1))
+                    }
+                    .accessibilityLabel(audio.nowPlaying == StoryComposer.previewId ? "Stop" : "Listen back")
+
+                    Button("record again") {
+                        audio.stop(); recorder.reset()
+                    }
+                    .font(.system(.subheadline, design: .serif)).foregroundStyle(XITheme.line)
+                }
+            } else {
+                Button {
+                    writing = false
+                    if recorder.isRecording { recorder.finish() } else { audio.stop(); recorder.start() }
+                } label: {
+                    Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.white)
+                        .frame(width: 62, height: 62)
+                        .background(recorder.isRecording ? Color.red : XITheme.gold, in: Circle())
+                }
+                .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Tell the story out loud")
+
+                Text(recorder.isRecording ? recorder.clock : "tell it out loud")
+                    .font(.system(recorder.isRecording ? .subheadline : .caption,
+                                  design: recorder.isRecording ? .monospaced : .serif))
+                    .foregroundStyle(recorder.isRecording ? XITheme.ink : XITheme.line)
+            }
+
+            // The words as you say them — Apple's on-device recogniser, so it
+            // costs nothing and never leaves the phone. Blank if speech
+            // permission was declined; the recording still works.
+            if !recorder.liveText.isEmpty {
+                ScrollView {
+                    Text(recorder.liveText)
+                        .font(.system(.subheadline, design: .serif))
+                        .foregroundStyle(recorder.isRecording ? XITheme.line : XITheme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .frame(maxHeight: 108)
+                .background(XITheme.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
+            }
+
+            if recorder.permissionDenied {
+                Text("Microphone access is off — turn it on in Settings to tell your story out loud.")
+                    .font(.footnote).foregroundStyle(XITheme.line).multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    /// The id the shared player uses for this composer's own take.
+    fileprivate static let previewId = "composer-preview"
 
     private func storyCard(_ card: XICard, isEvent: Bool) -> some View {
         ZStack {
@@ -746,11 +877,16 @@ struct StoryComposer: View {
 
     private func save() {
         busy = true; error = nil
+        audio.stop()
+        let take = recorder.take()
         Task {
             do {
-                try await VersusService.shared.writeStory(gameId, event: event, twist: twist, text: text)
-                await MainActor.run { onDone(); dismiss() }
+                try await VersusService.shared.writeStory(gameId, event: event, twist: twist,
+                                                          text: text, audio: take)
+                await MainActor.run { recorder.reset(); onDone(); dismiss() }
             } catch {
+                // The take stays in the composer, so a failed send is a retry,
+                // never a lost story.
                 await MainActor.run { self.error = error.localizedDescription; busy = false }
             }
         }

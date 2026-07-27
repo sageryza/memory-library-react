@@ -157,9 +157,26 @@
 .xiv-ghost{background:none;border:none;color:#8a7d6e;font-family:inherit;font-size:14px;cursor:pointer}
 .xiv-feed{max-width:440px;margin:8px auto 26px;padding:0 14px;width:100%;box-sizing:border-box}
 .xiv-feed-title{font-variant:small-caps;letter-spacing:.05em;color:#b08c36;font-size:14px;margin:6px 0 4px}
-.xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px}
+.xiv-feeditem{font-size:13.5px;color:#3b332b;padding:3px 0;display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
 .xiv-feeditem i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
 .xiv-feedwho{font-weight:600;color:#241d18}
+/* A told story is a whole story — show three lines and a "…", open it on a
+   click. flex:1 keeps the ▶ on the same row. */
+.xiv-feedtext{flex:1;min-width:0;cursor:pointer;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.xiv-feedtext.open{display:block;overflow:visible}
+
+/* Tell it out loud — the mic in the composer, and the ▶ on a told story.
+   (The mic is a circular icon button, the one shape the no-pills rule allows;
+   the play control is a rounded rectangle like every other text button.) */
+.xiv-tell{display:flex;align-items:center;justify-content:center;gap:12px;padding:2px 0 4px}
+.xiv-mic{width:54px;height:54px;border-radius:50%;border:none;background:#b08c36;color:#fff;font-size:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.xiv-mic.rec{background:#c0392b}
+.xiv-tell-hint{font-size:13.5px;color:#8a7d6e}
+.xiv-live{font-size:14.5px;line-height:1.4;color:#241d18;background:#fff;border:0.5px solid #ccbd9e;border-radius:6px;padding:9px 11px;max-height:108px;overflow-y:auto}
+.xiv-live.on{color:#5b4f44}
+.xiv-play{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:13px;color:#b08c36;background:#fff;border:0.5px solid #ccbd9e;border-radius:6px;padding:6px 12px;cursor:pointer}
+.xiv-play-ico{font-size:10px;line-height:1}
+.xiv-play-feed{padding:2px 8px;font-size:12px;margin-left:auto}
 
 /* Kick a player out (creator only) — small circular ✕ inside the player chip,
    always behind an are-you-sure confirm. */

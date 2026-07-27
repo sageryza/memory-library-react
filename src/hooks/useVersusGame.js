@@ -365,9 +365,24 @@ export async function skipTurn(gameId, user) {
 // Write a story on a pairing (two adjacent placed cells, event×twist) as your
 // move this round. Records it in the game (shown live, with attribution) AND in
 // the author's own archive as a versus memory, and bumps the stories stat.
-export async function writeStory(gameId, user, cells, text) {
+export async function writeStory(gameId, user, cells, text, audio = null) {
   if (!user?.uid) throw new Error('Sign in to write.');
-  const t = (text || '').trim();
+  // Told out loud: bank the recording FIRST (it's the story, and it must never
+  // be lost to a failed turn). The text is what the browser already
+  // transcribed for free while you were talking.
+  let audioUrl = null;
+  let t = (text || '').trim();
+  if (audio?.base64) {
+    const res = await httpsCallable(functions, 'tellStory')({
+      gameId, audio: audio.base64, mime: audio.mime || 'audio/webm', seconds: audio.seconds || 0,
+      transcript: audio.transcript || '',
+    });
+    audioUrl = res?.data?.audioUrl || null;
+    if (!audioUrl) throw new Error('Could not save your recording — try again.');
+    // Empty only where the browser has no recogniser (Firefox) — the
+    // recording still plays for everyone.
+    t = (res?.data?.transcript || '').trim() || 'told out loud';
+  }
   if (!t) return;
   const evCell = (cells || []).find((x) => x.d === 'be');
   const twCell = (cells || []).find((x) => x.d === 'bw');
@@ -402,13 +417,16 @@ export async function writeStory(gameId, user, cells, text) {
   await addDoc(collection(db, 'versusGames', gameId, 'stories'), {
     byUid: user.uid, byName: info.name, color: info.color, pairKey: pk,
     eventCap: event?.cap || '', twistCap: twist?.cap || '', text: t, ts: Date.now(),
+    ...(audioUrl ? { audioUrl, audioSec: audio?.seconds || 0 } : {}),
   });
-  // The author's own copy in their archive (tagged versus).
+  // The author's own copy in their archive (tagged versus), plus the recording
+  // so it plays back later.
   try {
     const memRef = await addDoc(collection(db, 'users', user.uid, 'memories'), {
       ...buildXiMemoryDoc({ text: t, event, twist, mode: 'versus' }),
       title: timesSentence(event, twist),
       gameId,
+      ...(audioUrl ? { audioUrl, audioSec: audio?.seconds || 0 } : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
