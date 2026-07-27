@@ -1865,6 +1865,106 @@ exports.aiAssist = onCall({ cors: true, timeoutSeconds: 120 }, async (req) => {
   throw new HttpsError('invalid-argument', 'Unknown mode.');
 });
 
+/* ===== XI Versus — told-out-loud stories ================================= */
+// XI is a storytelling game, so a turn should be TOLD, not typed: the player
+// records the story, everyone else presses play and hears it in their voice.
+// This is the one call that makes that work — the recording is banked first
+// (it's the deliverable and must never be lost), then transcribed, then
+// distilled to a line for the game feed.
+
+const STORY_GIST_SYSTEM = 'You are given a transcript of someone telling a short story out loud '
+  + 'in a storytelling game. Write ONE line that says what the story was about, so a friend '
+  + 'scanning the game feed knows what they would be pressing play on. Under 120 characters, '
+  + 'lowercase, plain and human, in the teller\'s own words where you can. Never invent details, '
+  + 'never add a preamble like "the story is about". Output only the line.';
+
+// Whisper's audio endpoint by container. Keep the extension honest — OpenAI
+// rejects a file whose extension doesn't match its actual format.
+const STORY_AUDIO_EXT = {
+  'audio/m4a': 'm4a', 'audio/x-m4a': 'm4a', 'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
+  'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  'audio/webm': 'webm', 'audio/ogg': 'ogg',
+};
+
+async function transcribeAudio(key, buffer, mime, ext) {
+  const form = new FormData();
+  form.append('file', new Blob([buffer], { type: mime }), `story.${ext}`);
+  form.append('model', 'whisper-1');
+  form.append('response_format', 'json');
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`OpenAI transcribe ${res.status}: ${t.slice(0, 300)}`);
+  }
+  const json = await res.json();
+  return String(json.text || '').trim();
+}
+
+// { gameId, audio (base64), mime, seconds } -> { audioUrl, transcript, gist, seconds }
+//
+// Transcription/gist failures are NOT errors: the client still gets its
+// audioUrl and saves the story, because the recording is the story. The text
+// is the convenience layer on top of it.
+exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const data = req.data || {};
+  const gameId = String(data.gameId || '').replace(/[^a-z0-9-]/gi, '').slice(0, 64);
+  if (!gameId) throw new HttpsError('invalid-argument', 'No game.');
+
+  // Strip a data: URL prefix if the client sent one (the web recorder does).
+  const raw = String(data.audio || '').replace(/^data:[^,]*,/, '');
+  if (!raw) throw new HttpsError('invalid-argument', 'No recording.');
+  if (raw.length > 14 * 1024 * 1024) {
+    throw new HttpsError('invalid-argument', 'That recording is too long — keep it under ~5 minutes.');
+  }
+  const buffer = Buffer.from(raw, 'base64');
+  if (!buffer.length) throw new HttpsError('invalid-argument', 'Empty recording.');
+
+  const mime = String(data.mime || 'audio/m4a').split(';')[0].trim().toLowerCase();
+  const ext = STORY_AUDIO_EXT[mime] || 'm4a';
+  const seconds = Math.max(0, Math.min(600, Number(data.seconds) || 0));
+
+  // Bank the audio FIRST — everything after this is best-effort.
+  const audioUrl = await persistBuffer(
+    buffer,
+    `versus-audio/${gameId}/${req.auth.uid}-${Date.now()}.${ext}`,
+    mime,
+  );
+
+  let transcript = '';
+  try {
+    const key = await loadOpenAIKey();
+    if (key) transcript = await transcribeAudio(key, buffer, mime, ext);
+  } catch (e) {
+    console.error('[tellStory] transcription failed', e);
+  }
+
+  let gist = '';
+  if (transcript) {
+    try {
+      const aKey = await loadAnthropicKey();
+      if (aKey) {
+        const msg = await new Anthropic({ apiKey: aKey }).messages.create({
+          model: TITLE_MODEL,
+          max_tokens: 80,
+          system: STORY_GIST_SYSTEM,
+          messages: [{ role: 'user', content: `Transcript:\n\n${transcript.slice(0, 6000)}\n\nLine:` }],
+        });
+        gist = textOf(msg).trim().replace(/^["']|["']$/g, '').slice(0, 200);
+      }
+    } catch (e) {
+      console.error('[tellStory] gist failed', e);
+    }
+  }
+
+  return { audioUrl, transcript, gist, seconds };
+});
+
 /* ===== The Little Book of Miracles ======================================= */
 // One style (Sketchy / sageryza/special) + baked-in style guidelines. A moment
 // is distilled by Claude into a short caption + a single simple thing to doodle,
