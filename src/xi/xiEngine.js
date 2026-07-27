@@ -21,8 +21,6 @@ export function initXi(root, ctx) {
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const UNDO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>';
-  // Sunrise (lucide) — "New cards" feels like a fresh dawn of cards.
-  const SUNRISE = '<svg class="sunicon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></svg>';
 
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
@@ -85,6 +83,12 @@ export function initXi(root, ctx) {
   }
 
   let S = { shown: [], hist: [], flip: 'tw' };
+  // Which day's pair is showing — ‹ › browse past days like the app's Today.
+  // Today shows YOUR live pair (S.shown, redraws and all); a past day shows
+  // that day's deterministic pair, read-only cards but a live composer.
+  let viewDay = dayNum();
+  const isToday = () => viewDay === dayNum();
+  const displayedPair = () => (isToday() ? S.shown : pairForDay(viewDay));
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
   // Start the two slots at opposite ends of the (shared) deck — event from the
   // front, twist from the back — so you're never comparing a card with itself.
@@ -125,13 +129,26 @@ export function initXi(root, ctx) {
     if (sanitizeShown()) await savePair();
   }
 
-  /* top center: New cards (centered) + Undo (absolute left) */
+  /* Today header — the app's "CARD OF THE DAY" row with ‹ › day arrows, then a
+     today-only row: undo (absolute left) · redraw · I got nothing. */
   function renderCenter() {
-    const undo = S.hist.length ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
-    $('#center').innerHTML = undo + '<button class="newcards" id="newCardsBtn">' + SUNRISE + '<span>New cards</span></button><button class="nothing" id="nothingBtn">I got nothing</button>';
+    const today = isToday();
+    const arrows = '<div class="day-nav">'
+      + '<button id="dayPrev" class="day-arrow" aria-label="Previous day">&lsaquo;</button>'
+      + '<span class="day-title">CARD OF THE DAY</span>'
+      + `<button id="dayNext" class="day-arrow" aria-label="Next day"${today ? ' disabled' : ''}>&rsaquo;</button>`
+      + '</div>';
+    const undo = (today && S.hist.length) ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
+    const row = today
+      ? `<div class="redraw-row">${undo}<button class="redraw" id="newCardsBtn">redraw</button><button class="nothing" id="nothingBtn">I got nothing</button></div>`
+      : '<div class="redraw-row past"></div>';
+    $('#center').innerHTML = arrows + row;
+    $('#dayPrev').onclick = () => { viewDay -= 1; renderCenter(); renderToday(); };
+    const nx = $('#dayNext'); if (nx) nx.onclick = () => { if (!isToday()) { viewDay += 1; renderCenter(); renderToday(); } };
     // Only the twist redraws — the event card is THE card of the day.
-    $('#newCardsBtn').onclick = async () => { S.hist.push(clone(S.shown)); const k = S.shown.findIndex((r) => r.d === 'tw'); if (k >= 0) { S.shown[k] = { d: 'tw', i: stepI('tw', S.shown[k].i) }; } else { S.shown.push({ d: 'tw', i: prevI('tw', 0) }); } await savePair(); renderCenter(); softUpdateToday(); };
-    $('#nothingBtn').onclick = gotNothing;
+    const nb = $('#newCardsBtn');
+    if (nb) nb.onclick = async () => { S.hist.push(clone(S.shown)); const k = S.shown.findIndex((r) => r.d === 'tw'); if (k >= 0) { S.shown[k] = { d: 'tw', i: stepI('tw', S.shown[k].i) }; } else { S.shown.push({ d: 'tw', i: prevI('tw', 0) }); } await savePair(); renderCenter(); softUpdateToday(); };
+    const ng = $('#nothingBtn'); if (ng) ng.onclick = gotNothing;
     const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
   }
   function closeMenu() { root.querySelectorAll('.cardmenu').forEach((m) => m.remove()); }
@@ -188,42 +205,78 @@ export function initXi(root, ctx) {
   // The composer (textbox + Save) and the collected-memories list are rendered
   // separately so that, while writing, the cards + composer can be pinned above
   // the keyboard as one sheet and the memories tuck below.
-  function composerHtml(one) {
+  // The bottom row mirrors the app's: today's collected count on the left
+  // (italic, never "0"), the quiet ink-outline Save on the right.
+  function composerHtml(one, todayN) {
     const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="btn-row"><button class="btn small" id="saveBtn">Save</button></div></div>`;
+    const line = todayN > 0 ? `${todayN} ${todayN === 1 ? 'memory' : 'memories'} collected` : '';
+    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="composer-row"><span class="count-line">${line}</span><button class="btn small" id="saveBtn">Save</button></div></div>`;
   }
   function memsHtml(arr) {
     return `<div class="today-mems">`
-      + (arr.length ? `<div class="collected">${arr.length} ${arr.length === 1 ? 'memory' : 'memories'} collected</div>` : '')
       + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
       + `</div>`;
   }
+  // The piggy-bank bar — a golden thermometer that fills as you collect
+  // memories today, full at five (the app's piggyBar). Flat gold fill (house
+  // rule: no gradients); the full-bar glow is the one sanctioned shadow.
+  const PIGGY_GOAL = 5;
+  async function todayCount() {
+    const start = new Date(); start.setHours(0, 0, 0, 0); const s = start.getTime();
+    const keys = await st.list(); let n = 0;
+    for (const k of keys) { const a = (await st.get(k)) || []; for (const m of a) { if ((m.ts || 0) >= s) n += 1; } }
+    return n;
+  }
+  function piggyLabel(n) { return `${Math.min(n, PIGGY_GOAL)} of ${PIGGY_GOAL} memories collected today`; }
+  function piggyHtml(n) {
+    const frac = Math.min(1, n / PIGGY_GOAL);
+    const ticks = Array.from({ length: PIGGY_GOAL - 1 }, (_, k) => `<i style="left:${((k + 1) / PIGGY_GOAL) * 100}%"></i>`).join('');
+    return `<div class="piggy${frac >= 1 ? ' full' : ''}" role="img" aria-label="${piggyLabel(n)}"><span class="piggy-fill" style="width:max(7px,${frac * 100}%)"></span>${ticks}</div>`;
+  }
   function wireSave() {
     const ta = $('#cardSlot textarea'); const sb = $('#saveBtn');
-    if (sb) sb.onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(S.shown); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); softUpdateToday(); };
+    if (sb) sb.onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(displayedPair()); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); softUpdateToday(); };
   }
   async function cardBack(k) { const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); softUpdateToday(); }
 
-  // Full render — used on screen entry / structural changes.
+  // Full render — used on screen entry / structural changes. A past day's
+  // cards are read-only (no tap menu, no per-card back), but the composer
+  // still saves onto that day's pair, like the app.
   async function renderToday() {
-    const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(S.shown)];
-    const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${S.shown.length}">` + S.shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}"><button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button></div>`).join('') + `</div>`;
-    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${composerHtml(one)}</div></div>` + memsHtml(arr);
-    root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
-    root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
+    const shown = displayedPair(); const today = isToday();
+    const arr = (await st.get(memKey(shown))) || []; const one = shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = today && !!misses[missKey(shown)];
+    const cnt = await todayCount();
+    const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${shown.length}">` + shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}">${today ? `<button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button>` : ''}</div>`).join('') + `</div>`;
+    const piggy = today ? piggyHtml(cnt) : '';
+    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${piggy}${composerHtml(one, cnt)}</div></div>` + memsHtml(arr);
+    if (today) {
+      root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
+      root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
+    }
     wireSave();
   }
 
   // Soft update — swap only the changed card images + the memory block, leaving
-  // the card DOM (and its handlers) intact so nothing flashes on New cards/Replace.
+  // the card DOM (and its handlers) intact so nothing flashes on redraw/Replace.
   async function softUpdateToday() {
+    const shown = displayedPair(); const today = isToday();
     const row = $('#cardSlot .cardrow');
     const imgs = row ? row.querySelectorAll('.card > img') : [];
-    if (!row || imgs.length !== S.shown.length) { return renderToday(); }
-    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', !!misses[missKey(S.shown)]);
-    S.shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
-    const arr = (await st.get(memKey(S.shown))) || []; const one = S.shown.length === 1;
-    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one);
+    if (!row || imgs.length !== shown.length) { return renderToday(); }
+    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', today && !!misses[missKey(shown)]);
+    shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
+    const arr = (await st.get(memKey(shown))) || []; const one = shown.length === 1;
+    const cnt = await todayCount();
+    // Piggy: animate the fill in place so a save visibly tops it up.
+    const pig = $('#cardSlot .piggy');
+    if (pig && today) {
+      const frac = Math.min(1, cnt / PIGGY_GOAL);
+      const fill = pig.querySelector('.piggy-fill');
+      if (fill) fill.style.width = `max(7px,${frac * 100}%)`;
+      pig.classList.toggle('full', frac >= 1);
+      pig.setAttribute('aria-label', piggyLabel(cnt));
+    } else if (pig && !today) { pig.remove(); }
+    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one, cnt);
     const mems = $('#cardSlot .today-mems');
     if (mems) mems.outerHTML = memsHtml(arr); else $('#cardSlot').insertAdjacentHTML('beforeend', memsHtml(arr));
     wireSave();
@@ -317,7 +370,7 @@ export function initXi(root, ctx) {
     const bar = gsel.length === 2 ? `<button class="usepair" id="usePairBtn">Add a memory with these &rarr;</button>` : `<div class="selhint">${gsel.length === 1 ? 'Pick one more card' : 'Tap any two cards to pair them'}</div>`;
     $('#gallerySlot').innerHTML = `<div class="selbar">${bar}</div><div class="gallerygrid">${cells}</div>`;
     root.querySelectorAll('#gallerySlot .galcard').forEach((b) => b.onclick = () => { const r = { d: b.dataset.d, i: +b.dataset.i }; const idx = gsel.findIndex((g) => g.d === r.d && g.i === r.i); if (idx >= 0) gsel.splice(idx, 1); else { if (gsel.length >= 2) gsel.shift(); gsel.push(r); } renderGallery(); });
-    const up = $('#usePairBtn'); if (up) up.onclick = async () => { S.shown = gsel.slice().sort((a, b) => a.d === b.d ? 0 : (a.d === 'ev' ? -1 : 1)).map((r) => ({ d: r.d, i: r.i })); S.hist = []; S.flip = 'tw'; gsel = []; await savePair(); renderCenter(); showScreen('today'); renderToday(); };
+    const up = $('#usePairBtn'); if (up) up.onclick = async () => { S.shown = gsel.slice().sort((a, b) => a.d === b.d ? 0 : (a.d === 'ev' ? -1 : 1)).map((r) => ({ d: r.d, i: r.i })); S.hist = []; S.flip = 'tw'; gsel = []; viewDay = dayNum(); await savePair(); renderCenter(); showScreen('today'); renderToday(); };
   }
 
   /* library: XI memories grouped under their card pair, newest first */
@@ -334,7 +387,7 @@ export function initXi(root, ctx) {
       const mems = g.arr.map((m) => `<div class="libmem">${esc(m.text)}</div>`).join('');
       return `<div class="libgroup"><button class="libcards" data-key="${esc(g.key)}">${imgs}</button><div class="libmems">${mems}</div></div>`;
     }).join('');
-    root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.hist = []; S.flip = 'tw'; await savePair(); renderCenter(); showScreen('today'); renderToday(); });
+    root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.hist = []; S.flip = 'tw'; viewDay = dayNum(); await savePair(); renderCenter(); showScreen('today'); renderToday(); });
   }
 
   const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];

@@ -12,11 +12,7 @@ const XI_LOGO = `<div class="logo"><svg class="hg hg-x" viewBox="0 0 48 66" aria
 
 export const XI_MARKUP = `<header class="xi-brand">${XI_LOGO}<div id="brandToggles" class="brand-toggles" style="display:none"></div></header>
 <div class="screen wrap" id="screen-today">
-  <header class="topbar">
-    <div class="tb-side"></div>
-    <div class="center-wrap" id="center"></div>
-    <div class="tb-side"></div>
-  </header>
+  <header class="today-head" id="center"></header>
   <div id="cardSlot"></div>
 </div>
 <div class="screen wrap" id="screen-curate" style="display:none">

@@ -23,7 +23,7 @@
 .xi-genbtn{position:fixed;z-index:9550;left:50%;transform:translateX(-50%);bottom:72px;font-family:'EB Garamond',Georgia,serif;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:9px 18px;background:#241d18;color:#fdf7ec;border:1px solid #241d18;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.28);cursor:pointer}
 .xi-genbtn:active{transform:translateX(-50%) scale(.98)}
 
-.xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08a3e;--line:#d8ccb2;--sepia:#7a5a36}
+.xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08c36;--line:#d8ccb2;--sepia:#7a5a36}
 .xi-app *{box-sizing:border-box}
 .xi-app,.xi-app{margin:0}
 .xi-app{background:var(--bg);color:var(--ink);font-family:'EB Garamond',Georgia,serif;font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
@@ -41,15 +41,13 @@
 .xi-app .cardmenu button.cm-icon{font-variant:normal;letter-spacing:0;padding:0;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1}
 .xi-app .cardmenu button.cm-love.on{color:#800020;border-color:#800020}
 .xi-app .cardmenu button.cm-x{color:#8a3b3b}
-.xi-app .newcards{background:none;border:1px solid var(--ink);color:var(--ink);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.82rem;padding:4px 13px;border-radius:6px;cursor:pointer}
-.xi-app .newcards:hover{background:rgba(36,29,24,.05)}
 .xi-app .topright{justify-content:flex-end;gap:12px}
 .xi-app .gear{display:flex;cursor:pointer;color:var(--soft);background:none;border:none;padding:0}
 .xi-app .gear:hover{color:var(--maroon)}
 .xi-app .gear svg{display:block}
 .xi-app .hg{width:20px;height:28px;flex:none}
 .xi-app .card{background:transparent;border:none;box-shadow:none;padding:0;margin:0 0 4px}
-.xi-app .card img{display:block;width:100%;height:auto;border-radius:2px}
+.xi-app .card img{display:block;width:100%;height:auto;border-radius:4px;border:0.5px solid var(--line);background:#fff;box-sizing:border-box}
 .xi-app .cardcap{text-align:center;font-variant:small-caps;letter-spacing:.12em;font-size:1.05rem;margin-top:6px;color:var(--ink)}
 .xi-app .cardrow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:flex-start;margin-bottom:6px}
 .xi-app .cardrow .card{margin:0;min-width:0}
@@ -73,17 +71,37 @@
 .xi-app .composer-top{display:flex;align-items:flex-start;justify-content:space-between;min-height:22px}
 .xi-app .count{color:var(--soft);font-size:.82rem;font-style:italic}
 .xi-app .collected{color:var(--soft);font-style:italic;font-size:.85rem;text-align:center;margin:2px 0 0}
-.xi-app textarea{width:100%;min-height:96px;background:#fff;border:1px solid var(--soft);border-radius:3px;font-family:inherit;font-size:1.05rem;padding:12px;resize:vertical;color:var(--ink);margin-top:4px}
-.xi-app textarea:focus{outline:2px solid rgba(36,29,24,.32);border-color:var(--maroon)}
-.xi-app .btn{appearance:none;border:1px solid var(--maroon);background:var(--maroon);color:#fdf7ec;font-family:inherit;font-size:1rem;letter-spacing:.06em;padding:12px 20px;border-radius:2px;cursor:pointer;font-variant:small-caps;transition:.15s;width:100%}
+.xi-app textarea{width:100%;min-height:96px;background:#fff;border:1px solid rgba(107,93,79,.7);border-radius:6px;font-family:inherit;font-size:1.05rem;padding:12px;resize:vertical;color:var(--ink);margin-top:4px}
+.xi-app textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.xi-app .btn{appearance:none;border:1px solid var(--maroon);background:var(--maroon);color:#fdf7ec;font-family:inherit;font-size:1rem;letter-spacing:.06em;padding:12px 20px;border-radius:6px;cursor:pointer;font-variant:small-caps;transition:.15s;width:100%}
 .xi-app .btn:hover{background:var(--maroon-d)}
 .xi-app .btn.ghost{background:transparent;color:var(--maroon)}
 .xi-app .btn.ghost:hover{background:rgba(36,29,24,.06)}
-.xi-app .btn.small{width:auto;display:inline-block;padding:5px 14px;font-size:.85rem;background:var(--paper);color:var(--ink);border:1px solid var(--ink)}
+/* The quiet Save — ink on paper with a thin ink outline (the app's original). */
+.xi-app .btn.small{width:auto;display:inline-block;padding:8px 20px;font-size:15px;font-variant:normal;letter-spacing:.5px;background:var(--bg);color:var(--ink);border:1px solid var(--ink)}
 .xi-app .btn.small:hover{background:#efe6d2;color:var(--ink)}
 .xi-app .btn-row{text-align:right;margin-top:4px}
+/* Composer bottom row — today's count (italic, left) + Save (right). */
+.xi-app .composer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.xi-app .count-line{color:var(--soft);font-size:13px;font-style:italic}
+/* Today header — the app's CARD OF THE DAY row with ‹ › day arrows. */
+.xi-app .today-head{margin-bottom:12px}
+.xi-app .day-nav{display:flex;align-items:center;justify-content:center;gap:10px}
+.xi-app .day-title{font-family:'Courier Prime',ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.08em;color:#8a7d6e}
+.xi-app .day-arrow{background:none;border:none;color:var(--gold);font-family:inherit;font-size:27px;line-height:1;padding:0 8px 3px;cursor:pointer}
+.xi-app .day-arrow:disabled{opacity:.35;cursor:default}
+.xi-app .redraw-row{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;min-height:32px}
+.xi-app .redraw-row.past{min-height:16px}
+.xi-app .redraw{font-family:inherit;font-size:13px;letter-spacing:.6px;color:var(--ink);background:#f5e6c4;border:1px solid var(--sepia);border-radius:6px;padding:6px 14px;cursor:pointer}
+.xi-app .redraw:hover{background:#f0dcb0}
+/* The piggy-bank bar — white track, flat gold fill, thermometer ticks; the
+   full-bar glow is the one sanctioned shadow in the system. */
+.xi-app .piggy{position:relative;height:10px;margin:12px 0 2px;background:#fff;border:0.5px solid var(--line);border-radius:5px;overflow:hidden}
+.xi-app .piggy-fill{position:absolute;left:0;top:0;bottom:0;background:#deb253;border-radius:5px;transition:width .5s ease}
+.xi-app .piggy.full .piggy-fill{box-shadow:0 0 6px rgba(176,140,54,.65)}
+.xi-app .piggy i{position:absolute;top:0;bottom:0;width:1px;background:rgba(36,29,24,.28)}
 .xi-app .linkbtn{background:none;border:none;color:var(--maroon);font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;cursor:pointer;padding:6px 0;border-bottom:1px solid var(--line);margin-top:10px}
-.xi-app .mem{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:11px 13px;margin:8px 0}
+.xi-app .mem{background:#fff;border:0.5px solid var(--line);border-radius:4px;padding:11px 13px;margin:8px 0}
 .xi-app .mem .who{font-variant:small-caps;letter-spacing:.06em;color:var(--maroon);font-size:.88rem}
 .xi-app .mem .txt{margin-top:2px}
 .xi-app .memwrap{margin-top:10px}
@@ -157,23 +175,20 @@
 .xi-app /* two-deck additions */
 #cardSlot .cardrow .card{position:relative}
 .xi-app .center-wrap{flex:0 1 auto;position:relative;display:flex;align-items:center;justify-content:center}
-.xi-app .newcards{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sepia);background:linear-gradient(180deg,#fbf3e0 0%,#f2e0ba 100%);border-radius:6px;padding:6px 14px 6px 11px;box-shadow:0 1px 2px rgba(122,90,54,.18)}
-.xi-app .newcards .sunicon{color:var(--sepia);flex:none}
-.xi-app .newcards:hover{background:linear-gradient(180deg,#fdf6e7 0%,#efdab0 100%)}
-.xi-app #undoBtn{position:absolute;right:100%;margin-right:12px;top:50%;transform:translateY(-50%);color:var(--soft);background:none;border:none;cursor:pointer;display:flex;padding:0}
+.xi-app #undoBtn{position:absolute;left:0;top:50%;transform:translateY(-50%);color:var(--soft);background:none;border:none;cursor:pointer;display:flex;padding:0}
 .xi-app #undoBtn:hover{color:var(--ink)}
 .xi-app .libitem{margin-bottom:20px;position:relative}
 .xi-app .liblabel{margin-bottom:4px}
 .xi-app .liblabel .lbtn{background:none;border:none;font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;color:var(--maroon);cursor:pointer;padding:0;border-bottom:1px solid var(--line)}
 .xi-app .liblabel .sep{color:var(--soft);font-size:.82rem;margin:0 5px}
-.xi-app .libmem{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:11px 13px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.xi-app .libmem{background:#fff;border:0.5px solid var(--line);border-radius:4px;padding:11px 13px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .xi-app .memmenu{display:flex;gap:10px;margin-top:8px}
 .xi-app .memmenu button{font-family:inherit;font-variant:small-caps;letter-spacing:.05em;font-size:.82rem;padding:4px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
 .xi-app .galcell .pairmini{display:flex;gap:5px}
 .xi-app .galcell .pairmini img{width:50%;height:auto;border:1px solid var(--line);border-radius:2px}
 .xi-app .galcard{padding:0;border:none;background:none;cursor:pointer;line-height:0;width:50%;border-radius:2px}
 .xi-app .galcard img{width:100% !important;border:1px solid var(--line);border-radius:2px}
-.xi-app .galcard.selg img{border-color:#c9a227;outline:2px solid #c9a227;outline-offset:-1px}
+.xi-app .galcard.selg img{border-color:var(--gold);outline:2px solid var(--gold);outline-offset:-1px}
 .xi-app .selbar{position:sticky;top:0;z-index:3;text-align:center;padding:8px 0 10px;background:var(--bg)}
 .xi-app .selhint{font-variant:small-caps;letter-spacing:.05em;font-size:.78rem;color:var(--soft)}
 .xi-app .usepair{font-family:inherit;font-variant:small-caps;letter-spacing:.06em;font-size:.9rem;padding:7px 22px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:6px;cursor:pointer}
