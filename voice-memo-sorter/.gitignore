@@ -1,0 +1,34 @@
+# Your API key lives here — never commit it.
+.env
+
+# Private output — transcripts, cache, audio. Never commit.
+output/
+*.cache.json
+
+# Audio drops, in case you keep them alongside the tool
+audio/
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.aiff
+*.aif
+*.caf
+*.flac
+*.ogg
+*.opus
+
+node_modules/
+
+# Private DATA (transcripts/titles/descriptions) — lives ONLY in the private
+# Claude artifacts + Firebase, NEVER in this public repo.
+memos-data*.json
+*-manifest.json
+transcripts*.json
+memo-archive*.json
+flagged-*.json
+resorted/
+
+# Firebase service-account key — never commit
+*serviceaccount*.json
+*firebase-adminsdk*.json

@@ -9,7 +9,7 @@
 // of `notified` re-triggers this function, but then everyone able to move is
 // already in `notified`, so no further sends and no write — no loop.
 
-const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentUpdated, onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
@@ -2739,3 +2739,177 @@ exports.publishMemory = onCall({ cors: true, timeoutSeconds: 60 }, async (req) =
 
 // ─── ShouldiMakeThis.com aggregate triggers (shouldimakethis.web.app) ───
 Object.assign(exports, require('./simt'));
+// ===========================================================================
+// Semantic layer for the memory library (XI / Times Eye).
+//
+// Each memory is embedded as it's written, into a light per-user `vectors`
+// subcollection. semanticSearch ranks a query against the caller's own vectors
+// (the Archive search); scorePlay scores a freshly-told memory against the
+// dealt cards (the game — new memories, not the library); backfillMemoryVectors
+// embeds a user's existing memories once. All scoped to the caller's uid.
+// ===========================================================================
+const EMBED_MODEL = 'text-embedding-3-small';
+const EMBED_DIMS = 512;
+
+function memoryTextOf(d) {
+  const keys = ['title', 'text', 'content', 'caption', 'note', 'description', 'body', 'memory'];
+  const parts = [];
+  for (const k of keys) { const v = d && d[k]; if (typeof v === 'string' && v.trim()) parts.push(v.trim()); }
+  if (!parts.length) for (const v of Object.values(d || {})) if (typeof v === 'string' && v.length > 3) parts.push(v);
+  return parts.join('. ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+}
+
+async function embedText(key, input) {
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: EMBED_MODEL, dimensions: EMBED_DIMS, input }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new HttpsError('internal', `OpenAI embeddings ${res.status}: ${t.slice(0, 300)}`);
+  }
+  const data = (await res.json()).data;
+  return Array.isArray(input) ? data.map((d) => d.embedding) : data[0].embedding;
+}
+
+function cosineSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
+}
+const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
+
+exports.embedMemory = onDocumentWritten('users/{uid}/memories/{mid}', async (event) => {
+  const { uid, mid } = event.params;
+  const after = event.data && event.data.after && event.data.after.data();
+  const vecRef = db.doc(`users/${uid}/vectors/${mid}`);
+  if (!after) { await vecRef.delete().catch(() => {}); return; }
+  const text = memoryTextOf(after);
+  if (!text) { await vecRef.delete().catch(() => {}); return; }
+  const hash = sha1(text);
+  const existing = await vecRef.get();
+  if (existing.exists && existing.data() && existing.data().hash === hash) return;
+  const key = await loadOpenAIKey();
+  if (!key) return;
+  const vector = await embedText(key, text);
+  await vecRef.set({ hash, vector, snippet: text.slice(0, 200), updatedAt: FieldValue.serverTimestamp() });
+});
+
+async function loadUserVectors(uid) {
+  const snap = await db.collection(`users/${uid}/vectors`).get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+exports.semanticSearch = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in to search.');
+  const query = String((request.data && request.data.query) || '').trim();
+  const limit = Math.min(Math.max(1, Number(request.data && request.data.limit) || 20), 50);
+  if (!query) return { results: [] };
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
+  const [qVec, items] = await Promise.all([embedText(key, query), loadUserVectors(uid)]);
+  const qLower = query.toLowerCase();
+  const out = items.filter((it) => it.vector).map((it) => {
+    let score = cosineSim(qVec, it.vector);
+    if ((it.snippet || '').toLowerCase().includes(qLower)) score += 0.05;
+    return { id: it.id, snippet: it.snippet, score };
+  });
+  out.sort((a, b) => b.score - a.score);
+  return { results: out.slice(0, limit) };
+});
+
+exports.scorePlay = onCall(async (request) => {
+  if (!(request.auth && request.auth.uid)) throw new HttpsError('unauthenticated', 'Sign in.');
+  const text = String((request.data && request.data.text) || '').trim();
+  const cards = Array.isArray(request.data && request.data.cards) ? request.data.cards.slice(0, 8) : [];
+  const threshold = Number(request.data && request.data.threshold) || 0.28;
+  if (!text || !cards.length) return { scores: [], points: 0 };
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
+  const vecs = await embedText(key, [text, ...cards.map((c) => String(c.caption || ''))]);
+  const memVec = vecs[0];
+  const scores = cards.map((c, i) => {
+    const sim = cosineSim(memVec, vecs[i + 1]);
+    return { id: c.id, caption: c.caption, similarity: sim, match: sim >= threshold };
+  });
+  return { scores, points: scores.filter((s) => s.match).length };
+});
+
+exports.backfillMemoryVectors = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in.');
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
+  const [mem, vecSnap] = await Promise.all([
+    db.collection(`users/${uid}/memories`).get(),
+    db.collection(`users/${uid}/vectors`).get(),
+  ]);
+  const have = new Map(vecSnap.docs.map((d) => [d.id, d.data() && d.data().hash]));
+  const todo = [];
+  for (const doc of mem.docs) {
+    const text = memoryTextOf(doc.data());
+    if (!text) continue;
+    const hash = sha1(text);
+    if (have.get(doc.id) === hash) continue;
+    todo.push({ id: doc.id, text, hash });
+  }
+  let done = 0;
+  for (let i = 0; i < todo.length; i += 96) {
+    const batch = todo.slice(i, i + 96);
+    const vecs = await embedText(key, batch.map((t) => t.text));
+    const wb = db.batch();
+    batch.forEach((t, j) => wb.set(db.doc(`users/${uid}/vectors/${t.id}`), {
+      hash: t.hash, vector: vecs[j], snippet: t.text.slice(0, 200), updatedAt: FieldValue.serverTimestamp(),
+    }));
+    await wb.commit();
+    done += batch.length;
+  }
+  return { embedded: done, total: mem.size };
+});
+
+// ===========================================================================
+// Archive semantic search — Sage's voice memos + journal entries, in one place
+// (used by JournalReader). Both corpora are HERS (single-user), so a single
+// shared index at Storage `search-index/archive.json` is fine — JournalReader is
+// her private TestFlight app. Build it with
+// voice-memo-sorter/firebase/build-archive-index.mjs. `source` filters
+// memo/journal/both. Reuses embedText/cosineSim/EMBED_MODEL above.
+// ===========================================================================
+let _archiveCache = null; // { at, items }
+const ARCHIVE_TTL = 5 * 60 * 1000;
+async function loadArchiveIndex() {
+  if (_archiveCache && Date.now() - _archiveCache.at < ARCHIVE_TTL) return _archiveCache.items;
+  const file = getStorage().bucket().file('search-index/archive.json');
+  const [exists] = await file.exists();
+  if (!exists) return [];
+  const [buf] = await file.download();
+  const items = JSON.parse(buf.toString('utf8'));
+  _archiveCache = { at: Date.now(), items };
+  return items;
+}
+
+// request.data: { query, source?: 'memo'|'journal'|'both', limit? }
+exports.searchArchive = onCall(async (request) => {
+  if (!(request.auth && request.auth.uid)) throw new HttpsError('unauthenticated', 'Sign in.');
+  const query = String((request.data && request.data.query) || '').trim();
+  const source = (request.data && request.data.source) || 'both';
+  const limit = Math.min(Math.max(1, Number(request.data && request.data.limit) || 30), 100);
+  if (!query) return { results: [] };
+  const key = await loadOpenAIKey();
+  if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
+  const [qVec, items] = await Promise.all([embedText(key, query), loadArchiveIndex()]);
+  const qLower = query.toLowerCase();
+  const out = [];
+  for (const it of items) {
+    if (!it.vector) continue;
+    if (source !== 'both' && it.source !== source) continue;
+    let score = cosineSim(qVec, it.vector);
+    if ((it.snippet || '').toLowerCase().includes(qLower)) score += 0.05;
+    const { vector, ...meta } = it;
+    out.push({ ...meta, score });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return { results: out.slice(0, limit) };
+});
