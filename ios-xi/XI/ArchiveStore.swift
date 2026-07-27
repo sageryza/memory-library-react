@@ -33,6 +33,12 @@ final class ArchiveStore: ObservableObject {
     @Published var scope: Scope = .mine
     @Published var selectedLibraryId: String?
 
+    // Semantic ("by meaning") search — calls the deployed Cloud Function.
+    @Published var semanticOn = false
+    @Published var semanticLoading = false
+    @Published var semanticIds: [String] = []      // memory ids, best match first
+    private var didBackfill = false
+
     // Simplify view (persisted)
     @Published var simplify = UserDefaults.standard.bool(forKey: "xiSimplifyView") {
         didSet { UserDefaults.standard.set(simplify, forKey: "xiSimplifyView") }
@@ -218,6 +224,18 @@ final class ArchiveStore: ObservableObject {
             out = out.filter { advanced.matches($0) }
         }
 
+        // Semantic ("by meaning") search — replaces plain text search + sort,
+        // ordering by relevance from the Cloud Function. Other filters (library,
+        // mode, hashtags, advanced) still apply as pre-filters above.
+        if semanticOn {
+            guard !semanticIds.isEmpty else { return [] }
+            var rank: [String: Int] = [:]
+            for (i, id) in semanticIds.enumerated() where rank[id] == nil { rank[id] = i }
+            out = out.filter { rank[$0.id] != nil }
+            out.sort { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
+            return out
+        }
+
         // Plain text search (title + content + hashtags).
         let q = search.xiTrimmed.lowercased()
         if !q.isEmpty {
@@ -275,6 +293,28 @@ final class ArchiveStore: ObservableObject {
     func clearAllFilters() {
         search = ""; tagFilters = []; advanced = XISearchLogic(); advancedOn = false
         mode = .all; scope = .mine; selectedLibraryId = nil
+        semanticOn = false; semanticIds = []
+    }
+
+    // MARK: semantic search
+
+    func toggleSemantic() {
+        semanticOn.toggle()
+        semanticIds = []
+    }
+
+    /// Run a meaning-based search for the current query. On first use, backfills
+    /// this user's existing memories so they're all searchable.
+    func runSemantic() async {
+        let q = search.xiTrimmed
+        guard semanticOn, !q.isEmpty else { semanticIds = []; return }
+        semanticLoading = true
+        if !didBackfill {
+            didBackfill = true
+            _ = await XIService.shared.backfillVectors()
+        }
+        semanticIds = await XIService.shared.semanticSearch(q)
+        semanticLoading = false
     }
 
     // MARK: libraries

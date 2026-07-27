@@ -239,18 +239,35 @@ struct LibraryView: View {
 
     private var searchBar: some View {
         HStack(spacing: 8) {
-            // The search box itself (magnifier · field · clear · filters chevron).
+            // The search box itself (magnifier · field · clear · ✨meaning · filters chevron).
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(XITheme.line)
-                TextField("search memories", text: $store.search)
+                TextField(store.semanticOn ? "search by meaning" : "search memories", text: $store.search)
                     .font(.system(.body, design: .serif)).foregroundStyle(XITheme.ink)
                     .autocorrectionDisabled()
                     .focused($searchFocused)
                     .submitLabel(.search)
-                    .onSubmit { searchFocused = false }
-                if !store.search.isEmpty {
-                    Button { store.search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
+                    .onSubmit {
+                        searchFocused = false
+                        if store.semanticOn { Task { await store.runSemantic() } }
+                    }
+                if store.semanticLoading {
+                    ProgressView().scaleEffect(0.8)
+                } else if !store.search.isEmpty {
+                    Button { store.search = ""; store.semanticIds = [] } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(XITheme.line) }
                 }
+                // Semantic ("by meaning") search toggle.
+                Button {
+                    store.toggleSemantic()
+                    if store.semanticOn { Task { await store.runSemantic() } }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 15))
+                        .foregroundStyle(store.semanticOn ? XITheme.maroon : XITheme.line)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(store.semanticOn ? "Meaning search on" : "Meaning search off")
                 Button {
                     searchFocused = false
                     withAnimation(.easeInOut(duration: 0.2)) { filtersExpanded.toggle() }

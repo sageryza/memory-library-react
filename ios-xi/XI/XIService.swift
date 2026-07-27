@@ -66,6 +66,29 @@ final class AuthState: ObservableObject {
 final class XIService {
     static let shared = XIService()
     private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
+
+    // MARK: Semantic search (Cloud Functions)
+
+    /// Search this user's memories by meaning. Returns memory ids, best first.
+    func semanticSearch(_ query: String, limit: Int = 50) async -> [String] {
+        do {
+            let res = try await functions.httpsCallable("semanticSearch")
+                .call(["query": query, "limit": limit])
+            let data = res.data as? [String: Any]
+            let results = data?["results"] as? [[String: Any]] ?? []
+            return results.compactMap { $0["id"] as? String }
+        } catch { return [] }
+    }
+
+    /// Embed any of this user's memories that don't have a vector yet (one-time).
+    @discardableResult
+    func backfillVectors() async -> Int {
+        do {
+            let res = try await functions.httpsCallable("backfillMemoryVectors").call()
+            return ((res.data as? [String: Any])?["embedded"] as? Int) ?? 0
+        } catch { return 0 }
+    }
 
     // MARK: Auth
 
