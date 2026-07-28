@@ -20,11 +20,14 @@ struct ShopView: View {
                         LazyVGrid(columns: cols, spacing: 14) {
                             ForEach(shop.products) { item in
                                 Button {
-                                    if let url = item.storeURL { openURL(url) }
+                                    Task {
+                                        if let url = await shop.checkout(for: item) { openURL(url) }
+                                    }
                                 } label: {
-                                    ShopCard(item: item)
+                                    ShopCard(item: item, opening: shop.opening == item.id)
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(!item.available || shop.opening != nil)
                             }
                         }
                     }
@@ -73,6 +76,7 @@ struct ShopView: View {
 
 struct ShopCard: View {
     let item: ShopProduct
+    var opening = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -108,9 +112,15 @@ struct ShopCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
-                Text(item.price).font(PWC.display(17, .semibold)).foregroundStyle(PWC.accent)
+                Text(item.available ? item.price : "Sold out")
+                    .font(PWC.display(17, .semibold))
+                    .foregroundStyle(item.available ? PWC.accent : PWC.cardSub)
                 Spacer()
-                Image(systemName: "arrow.up.right").foregroundStyle(PWC.accent).font(.footnote)
+                if opening {
+                    ProgressView().tint(PWC.cardSub)
+                } else if item.available {
+                    Image(systemName: "bag").foregroundStyle(PWC.accent).font(.footnote)
+                }
             }
             .padding(.top, 2)
         }

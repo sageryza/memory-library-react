@@ -225,6 +225,8 @@ final class ShopStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var failed = false
 
+    @Published var opening: String?
+
     func refresh() async {
         isLoading = true
         defer { isLoading = false }
@@ -235,5 +237,14 @@ final class ShopStore: ObservableObject {
         } catch {
             failed = products.isEmpty
         }
+    }
+
+    /// Builds a real Shopify checkout for one item. Returns nil if the
+    /// storefront refuses, so the caller can stay quiet rather than opening
+    /// a broken page.
+    func checkout(for product: ShopProduct) async -> URL? {
+        opening = product.id
+        defer { opening = nil }
+        return try? await Shopify.checkoutURL(for: product)
     }
 }

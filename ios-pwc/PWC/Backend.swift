@@ -163,18 +163,24 @@ struct ShopProduct: Identifiable, Equatable {
     let blurb: String
     let price: String
     let imageURL: URL?
-    let storeURL: URL?
+    let variantID: String?
+    let available: Bool
 }
 
 enum Shopify {
     /// Reads the same storefront collection the website's Buy Button shows.
+    ///
+    /// The store's products are not published to the Online Store channel —
+    /// `onlineStoreUrl` is null and /products/<handle> 404s — so buying goes
+    /// through `checkoutURL(for:)` rather than a product page link.
     static func products() async throws -> [ShopProduct] {
         let query = """
         { collection(id: "gid://shopify/Collection/\(PWCBackend.shopCollectionID)") {
             products(first: 30) { edges { node {
-              id title handle description onlineStoreUrl
+              id title handle description
               featuredImage { url }
               priceRange { minVariantPrice { amount currencyCode } }
+              variants(first: 1) { edges { node { id availableForSale } } }
             } } } } }
         """
         var request = URLRequest(url: URL(string: "https://\(PWCBackend.shopDomain)/api/2024-10/graphql.json")!)
@@ -195,11 +201,10 @@ enum Shopify {
                   let id = node["id"] as? String,
                   let title = node["title"] as? String else { return nil }
 
-            let handle = node["handle"] as? String ?? ""
-            let store = (node["onlineStoreUrl"] as? String)
-                ?? "https://\(PWCBackend.shopDomain)/products/\(handle)"
             let image = (node["featuredImage"] as? [String: Any])?["url"] as? String
             let money = (node["priceRange"] as? [String: Any])?["minVariantPrice"] as? [String: Any]
+            let variant = ((node["variants"] as? [String: Any])?["edges"] as? [[String: Any]])?
+                .first?["node"] as? [String: Any]
 
             return ShopProduct(
                 id: id,
@@ -210,9 +215,35 @@ enum Shopify {
                 price: format(amount: money?["amount"] as? String,
                               currency: money?["currencyCode"] as? String),
                 imageURL: image.flatMap(URL.init(string:)),
-                storeURL: URL(string: store)
+                variantID: variant?["id"] as? String,
+                available: variant?["availableForSale"] as? Bool ?? true
             )
         }
+    }
+
+    /// Creates a Shopify cart holding this product and returns the hosted
+    /// checkout to hand off to Safari. Payment always happens on Shopify.
+    static func checkoutURL(for product: ShopProduct) async throws -> URL {
+        guard let variantID = product.variantID else { throw FireError.malformed }
+        let mutation = """
+        mutation { cartCreate(input: {lines: [{quantity: 1, merchandiseId: "\(variantID)"}]}) {
+          cart { checkoutUrl } userErrors { message } } }
+        """
+        var request = URLRequest(url: URL(string: "https://\(PWCBackend.shopDomain)/api/2024-10/graphql.json")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(PWCBackend.shopToken, forHTTPHeaderField: "X-Shopify-Storefront-Access-Token")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["query": mutation])
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataDict = root["data"] as? [String: Any],
+              let create = dataDict["cartCreate"] as? [String: Any],
+              let cart = create["cart"] as? [String: Any],
+              let url = (cart["checkoutUrl"] as? String).flatMap(URL.init(string:)) else {
+            throw FireError.malformed
+        }
+        return url
     }
 
     private static func format(amount: String?, currency: String?) -> String {
