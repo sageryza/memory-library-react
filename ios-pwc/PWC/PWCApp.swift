@@ -53,6 +53,10 @@ struct PWCApp: App {
 
 struct RootView: View {
     @StateObject private var moderation = Moderation()
+    @StateObject private var identity = Identity()
+    @StateObject private var feed = FeedStore()
+    @StateObject private var events = EventsStore()
+    @StateObject private var shop = ShopStore()
 
     var body: some View {
         EULAGate(
@@ -74,6 +78,10 @@ struct RootView: View {
             .tint(PWC.accent)
         }
         .environmentObject(moderation)
+        .environmentObject(identity)
+        .environmentObject(feed)
+        .environmentObject(events)
+        .environmentObject(shop)
         .preferredColorScheme(.dark)
     }
 }

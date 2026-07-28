@@ -1,12 +1,19 @@
 import SwiftUI
 
 struct ClubView: View {
+    @EnvironmentObject private var identity: Identity
+    @EnvironmentObject private var feed: FeedStore
+    @EnvironmentObject private var events: EventsStore
+
+    @FocusState private var editingHandle: Bool
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     PWCMasthead(title: "Club", subtitle: "Est. 2026")
                     membershipCard
+                    handleField
                     stats
                     Text("“A society for the appreciation of strangers.”")
                         .font(.custom("CormorantGaramond-Italic", size: 18))
@@ -17,6 +24,7 @@ struct ClubView: View {
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(PWC.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
@@ -32,9 +40,11 @@ struct ClubView: View {
             }
             Spacer(minLength: 24)
             Text("MEMBER").font(PWC.mono(9)).tracking(2.5).foregroundStyle(.white.opacity(0.6))
-            Text("@you").font(PWC.display(30, .medium)).foregroundStyle(.white)
+            Text(identity.displayHandle)
+                .font(PWC.display(30, .medium)).foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.6)
             HStack {
-                Text("NO. 0001").font(PWC.mono(11)).tracking(1).foregroundStyle(.white.opacity(0.8))
+                Text("SINCE \(memberSince)").font(PWC.mono(11)).tracking(1).foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Text("EST. 2026").font(PWC.mono(11)).tracking(1).foregroundStyle(.white.opacity(0.8))
             }
@@ -42,21 +52,46 @@ struct ClubView: View {
         .padding(22)
         .frame(height: 210)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [Color(hex: 0x1B2747), Color(hex: 0x0C1120)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        )
+        .background(Color(hex: 0x141C33))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(PWC.accent, lineWidth: 1.5))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    private var memberSince: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM yyyy"
+        return f.string(from: identity.memberSince).uppercased()
+    }
+
+    private var handleField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("HOW YOU SIGN YOUR NOTES")
+                .font(PWC.mono(9)).tracking(1.5).foregroundStyle(PWC.sage)
+            HStack(spacing: 10) {
+                Image(systemName: "signature").foregroundStyle(PWC.sage).frame(width: 18)
+                TextField("Anonymous", text: $identity.handle)
+                    .font(PWC.mono(14)).foregroundStyle(PWC.ink)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($editingHandle)
+                    .submitLabel(.done)
+                    .onSubmit { editingHandle = false }
+            }
+            .padding(12)
+            .background(PWC.card)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(PWC.line))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var stats: some View {
         HStack(spacing: 0) {
-            stat("4", "sightings")
+            stat("\(feed.sightings.count)", "sightings")
             hairline
-            stat("76", "nods")
+            stat("\(feed.totalNods)", "nods")
             hairline
-            stat("2", "meetups")
+            stat("\(events.usingSamples ? 0 : events.events.count)", "meetups")
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
