@@ -1,17 +1,86 @@
 import Foundation
 
 /// A live "watching now" sighting — the pulse of the club.
-struct Sighting: Identifiable {
-    let id = UUID()
+struct Sighting: Identifiable, Codable, Equatable {
+    var id = UUID()
     let handle: String      // member handle, e.g. "@quietobserver"
     let note: String        // "by the window at La La Land 👀"
     let place: String       // venue
     let neighborhood: String
-    let minutesAgo: Int
+    let createdAt: Date     // when it was posted — the age is derived, never frozen
     var nods: Int           // "nods" = reactions
     let watchingHere: Int   // how many members reported here recently
+    var isMine = false      // posted on this device, so it gets saved to disk
 
-    var ago: String { minutesAgo == 0 ? "now" : "\(minutesAgo)m" }
+    /// Seed initialiser for the sample feed, which is written as "N minutes old".
+    init(handle: String, note: String, place: String, neighborhood: String,
+         minutesAgo: Int, nods: Int, watchingHere: Int, isMine: Bool = false) {
+        self.init(handle: handle, note: note, place: place, neighborhood: neighborhood,
+                  createdAt: Date().addingTimeInterval(-Double(minutesAgo) * 60),
+                  nods: nods, watchingHere: watchingHere, isMine: isMine)
+    }
+
+    init(handle: String, note: String, place: String, neighborhood: String,
+         createdAt: Date, nods: Int, watchingHere: Int, isMine: Bool = false) {
+        self.handle = handle
+        self.note = note
+        self.place = place
+        self.neighborhood = neighborhood
+        self.createdAt = createdAt
+        self.nods = nods
+        self.watchingHere = watchingHere
+        self.isMine = isMine
+    }
+
+    var ago: String {
+        let minutes = Int(Date().timeIntervalSince(createdAt) / 60)
+        switch minutes {
+        case ..<1:     return "now"
+        case ..<60:    return "\(minutes)m"
+        case ..<1440:  return "\(minutes / 60)h"
+        default:       return "\(minutes / 1440)d"
+        }
+    }
+}
+
+/// Owns the feed and keeps this device's own sightings on disk, so a post
+/// survives the app being backgrounded, terminated by iOS, or relaunched.
+/// The sample sightings are re-seeded each launch and are never saved.
+@MainActor
+final class SightingStore: ObservableObject {
+    @Published var sightings: [Sighting] = [] { didSet { save() } }
+
+    private let key = "pwc.mySightings.v1"
+    private let defaults: UserDefaults
+    private var loading = false
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        loading = true
+        sightings = Self.load(from: defaults, key: key) + Mock.sightings
+        loading = false
+    }
+
+    func add(note: String, place: String, neighborhood: String) {
+        sightings.insert(
+            Sighting(handle: "@you", note: note, place: place, neighborhood: neighborhood,
+                     createdAt: Date(), nods: 0, watchingHere: 1, isMine: true),
+            at: 0
+        )
+    }
+
+    private static func load(from defaults: UserDefaults, key: String) -> [Sighting] {
+        guard let data = defaults.data(forKey: key),
+              let saved = try? JSONDecoder().decode([Sighting].self, from: data) else { return [] }
+        return saved.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func save() {
+        guard !loading else { return }
+        let mine = sightings.filter(\.isMine)
+        guard let data = try? JSONEncoder().encode(mine) else { return }
+        defaults.set(data, forKey: key)
+    }
 }
 
 /// An in-person meetup — turning the feed into a community.

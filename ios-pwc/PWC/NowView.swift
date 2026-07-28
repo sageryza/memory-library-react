@@ -2,7 +2,7 @@ import SwiftUI
 
 struct NowView: View {
     @EnvironmentObject private var moderation: Moderation
-    @State private var sightings = Mock.sightings
+    @StateObject private var store = SightingStore()
     @State private var composing = false
     @State private var reporting: Sighting?
     @State private var reported = false
@@ -19,7 +19,7 @@ struct NowView: View {
                     }
                     .padding(.top, 4)
                     postButton
-                    ForEach($sightings) { $s in
+                    ForEach($store.sightings) { $s in
                         if !moderation.isBlocked(s.handle) {
                             SightingCard(
                                 sighting: $s,
@@ -38,8 +38,7 @@ struct NowView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $composing) {
                 PostSightingView { note, place, hood in
-                    sightings.insert(.init(handle: "@you", note: note, place: place,
-                                           neighborhood: hood, minutesAgo: 0, nods: 0, watchingHere: 1), at: 0)
+                    store.add(note: note, place: place, neighborhood: hood)
                 }
             }
             .sheet(item: $reporting) { _ in
