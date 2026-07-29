@@ -75,16 +75,22 @@ final class SetBuilderModel: ObservableObject {
 private struct DrawingsTab: View {
     @ObservedObject var model: SetBuilderModel
     @State private var month: String? = nil   // nil = All
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
 
     private let cols = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
     private var shown: [SagediagramItem] {
-        guard let m = month else { return model.items }
-        return model.items.filter { $0.month == m }
+        var list = model.items
+        if let m = month { list = list.filter { $0.month == m } }
+        let q = query.trimmingCharacters(in: .whitespaces)
+        if !q.isEmpty { list = list.filter { $0.caption.localizedCaseInsensitiveContains(q) } }
+        return list
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            searchBar
             monthBar
             if model.loading && model.items.isEmpty {
                 Spacer(); ProgressView("Loading drawings…"); Spacer()
@@ -92,15 +98,45 @@ private struct DrawingsTab: View {
                 Spacer(); errorView(e); Spacer()
             } else {
                 ScrollView {
-                    LazyVGrid(columns: cols, spacing: 12) {
-                        ForEach(shown) { item in
-                            DrawingCell(item: item) { model.saveCaption(item.id, $0) }
+                    if shown.isEmpty {
+                        Text("No captions match “\(query)”")
+                            .font(.footnote).foregroundColor(.gray)
+                            .padding(.top, 40)
+                    } else {
+                        LazyVGrid(columns: cols, spacing: 12) {
+                            ForEach(shown) { item in
+                                DrawingCell(item: item) { model.saveCaption(item.id, $0) }
+                            }
                         }
+                        .padding(16)
                     }
-                    .padding(16)
                 }
             }
         }
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.footnote).foregroundColor(.gray)
+            TextField("Search captions", text: $query)
+                .font(.footnote)
+                .focused($searchFocused)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            if !query.isEmpty {
+                Button {
+                    query = ""; searchFocused = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.footnote).foregroundColor(.gray)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(Color(white: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 16).padding(.bottom, 8)
     }
 
     private var monthBar: some View {
