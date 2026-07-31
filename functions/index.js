@@ -2932,6 +2932,7 @@ exports.memoPrefs = onCall(async (request) => {
     const patch = {};
     if ('starred' in request.data) patch.starred = !!request.data.starred;
     if ('hidden' in request.data) patch.hidden = !!request.data.hidden;
+    if ('narration' in request.data) patch.narration = !!request.data.narration;
     if ('name' in request.data) patch.name = String(request.data.name || '').slice(0, 200);
     if (Object.keys(patch).length === 0) throw new HttpsError('invalid-argument', 'Nothing to set.');
     // merge:true deep-merges the nested map, so only the given fields of this one
