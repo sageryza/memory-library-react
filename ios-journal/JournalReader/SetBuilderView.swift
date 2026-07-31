@@ -43,13 +43,20 @@ final class SetBuilderModel: ObservableObject {
         selected.compactMap { id in items.first { $0.id == id } }
     }
 
-    func loadIfNeeded() async { if !loaded { await reload() } }
+    func loadIfNeeded() async {
+        if loaded { return }
+        // Show last launch's list straight away, then refresh behind it.
+        if items.isEmpty, let cached = SagediagramService.shared.cachedList(), !cached.isEmpty {
+            items = sortItems(cached)
+        }
+        await reload()
+    }
 
     func reload() async {
         loading = true; error = nil
         do {
-            items = try await SagediagramService.shared.list()
-                .sorted { (sagediagramMonthRank($0.month), $0.name) < (sagediagramMonthRank($1.month), $1.name) }
+            items = sortItems(try await SagediagramService.shared.list())
+            SagediagramService.shared.saveCache(items)
             loaded = true
         } catch {
             self.error = error.localizedDescription
@@ -57,9 +64,14 @@ final class SetBuilderModel: ObservableObject {
         loading = false
     }
 
+    private func sortItems(_ list: [SagediagramItem]) -> [SagediagramItem] {
+        list.sorted { (sagediagramMonthRank($0.month), $0.name) < (sagediagramMonthRank($1.month), $1.name) }
+    }
+
     func saveCaption(_ id: String, _ text: String) {
         guard let i = items.firstIndex(where: { $0.id == id }), items[i].caption != text else { return }
         items[i].caption = text
+        SagediagramService.shared.saveCache(items)
         Task { try? await SagediagramService.shared.setCaption(id: id, caption: text) }
     }
 
@@ -111,6 +123,7 @@ private struct DrawingsTab: View {
                         .padding(16)
                     }
                 }
+                .scrollDismissesKeyboard(.immediately)
             }
         }
     }
@@ -124,6 +137,15 @@ private struct DrawingsTab: View {
                 .submitLabel(.search)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .onSubmit { searchFocused = false }
+                // The bottom nav hides while the keyboard is up, so the keyboard
+                // needs its own way out: the standard Done bar above it.
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { searchFocused = false }
+                    }
+                }
             if !query.isEmpty {
                 Button {
                     query = ""; searchFocused = false
@@ -187,16 +209,10 @@ private struct DrawingCell: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AsyncImage(url: URL(string: item.url)) { phase in
-                switch phase {
-                case .success(let img): img.resizable().scaledToFit()
-                case .failure: Image(systemName: "photo").foregroundColor(.gray)
-                default: ProgressView()
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .background(Color.white)
+            CachedDrawingImage(url: item.url)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
+                .background(Color.white)
 
             TextField("", text: $text)
                 .font(.footnote)
@@ -256,8 +272,7 @@ private struct BuildSetTab: View {
                 .fill(Color(white: 0.96))
                 .aspectRatio(1, contentMode: .fit)
             if let item {
-                AsyncImage(url: URL(string: item.url)) { $0.resizable().scaledToFit() } placeholder: { ProgressView() }
-                    .padding(4)
+                CachedDrawingImage(url: item.url).padding(4)
             } else {
                 Image(systemName: "plus").foregroundColor(.gray)
             }
@@ -269,7 +284,7 @@ private struct BuildSetTab: View {
     private func thumb(_ item: SagediagramItem) -> some View {
         let sel = model.isSelected(item.id)
         return ZStack(alignment: .topTrailing) {
-            AsyncImage(url: URL(string: item.url)) { $0.resizable().scaledToFit() } placeholder: { ProgressView() }
+            CachedDrawingImage(url: item.url)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .background(Color.white)
