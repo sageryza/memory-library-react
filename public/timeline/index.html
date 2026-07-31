@@ -1484,7 +1484,8 @@ function entryHTML(s,i){
   const dot=`<span class="dot" style="background:var(--${s.type})"></span>`;
   const paras=s.text.split('\n').filter(t=>t.trim());
   const body=paras.map(t=>t.trim()==='@@PB@@'?'<hr class="pb">':`<p${s.draw?' class="nodraw"':''}>${t}</p>`).join('');
-  return `<div class="entry" data-idx="${i}"><p class="meta">${dot} ${s.date||''}</p>${body}</div>`;
+  const pg=`<button class="pgbtn" onclick="openScan(${s.page})" style="float:right;font:inherit;font-size:11px;padding:1px 8px;border-radius:6px;border:1px solid var(--line,#ccc);background:none;color:inherit;opacity:.65">page ${s.page}</button>`;
+  return `<div class="entry" data-idx="${i}"><p class="meta">${dot} ${s.date||''} ${pg}</p>${body}</div>`;
 }
 // Which entry sits at the top of the reader right now (its section index), so a
 // filter change can hold that spot instead of snapping back to the top.
@@ -1537,6 +1538,44 @@ window.focusPage=function(page){
     rw.scrollTop += (elR.top-rwR.top) - rw.clientHeight/2 + el.offsetHeight/2;  // center it
   }
   openOne(i);
+};
+
+// ── Scanned page viewer ──────────────────────────────────────────────────
+// Tap "page N" on an entry -> the actual scanned page from the master PDF,
+// with arrows to flip. The map+URLs come from a gated endpoint; the token is
+// asked for once and kept in localStorage.
+let PMAP=null;
+async function pmap(){
+  if(PMAP) return PMAP;
+  let tok=localStorage.getItem('studioToken');
+  if(!tok){ tok=prompt('studio token (once):')||''; if(!tok) return null; localStorage.setItem('studioToken',tok); }
+  try{
+    const r=await fetch('https://imageforge-q125.onrender.com/api/journal/map?token='+encodeURIComponent(tok));
+    if(r.status===401){ localStorage.removeItem('studioToken'); return null; }
+    PMAP=await r.json(); return PMAP;
+  }catch(e){ return null; }
+}
+window.openScan=async function(tp){
+  const m=await pmap(); if(!m||!m.pages[tp]) return;
+  let scan=m.pages[tp].scan;
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:#141210;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px';
+  const img=document.createElement('img');
+  img.style.cssText='max-width:100%;flex:1;min-height:0;object-fit:contain;border-radius:6px';
+  const bar=document.createElement('div');
+  bar.style.cssText='flex:0 0 auto;display:flex;gap:14px;align-items:center;padding:10px;color:#cfc8ba;font-size:15px';
+  const mk=(t,f)=>{const b=document.createElement('button');b.textContent=t;
+    b.style.cssText='font:inherit;padding:8px 18px;border-radius:6px;border:1px solid #cfc8ba;background:none;color:#cfc8ba';
+    b.onclick=e=>{e.stopPropagation();f()};return b;};
+  const lab=document.createElement('span');
+  function show(){ img.src=m.urls[scan]||''; lab.textContent='scan p'+scan+(m.pages[tp].sure?'':' · approximate'); }
+  bar.append(mk('←',()=>{if(scan>1){scan--;show();}}),lab,mk('→',()=>{if(scan<2336){scan++;show();}}));
+  o.append(img,bar);
+  o.onclick=()=>o.remove();
+  img.onclick=e=>e.stopPropagation();
+  bar.onclick=e=>e.stopPropagation();
+  document.body.appendChild(o);
+  show();
 };
 </script>
 </body>
