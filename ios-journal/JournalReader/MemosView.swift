@@ -39,6 +39,7 @@ struct ArchiveHit: Identifiable {
 struct MemoPref {
     var starred = false
     var hidden = false
+    var narration = false   // flagged to add to Story Room (as narration)
     var name: String?
 }
 
@@ -57,6 +58,7 @@ final class MemosStore: ObservableObject {
     @Published var source: Source = .both    // only used in semantic mode
     @Published var query = ""
     @Published var organize = false          // reveals star/hide controls + hidden memos
+    @Published var storyFilter = false       // show only memos flagged for Story Room
 
     @Published var listLoad: Load = .idle
     @Published var memos: [VoiceEntry] = []   // all, newest first
@@ -105,6 +107,7 @@ final class MemosStore: ObservableObject {
                 for (id, v) in raw {
                     m[id] = MemoPref(starred: (v["starred"] as? Bool) ?? false,
                                      hidden: (v["hidden"] as? Bool) ?? false,
+                                     narration: (v["narration"] as? Bool) ?? false,
                                      name: v["name"] as? String)
                 }
                 prefs = m
@@ -116,16 +119,19 @@ final class MemosStore: ObservableObject {
 
     func pref(_ id: String) -> MemoPref { prefs[id] ?? MemoPref() }
 
-    func setPref(id: String, starred: Bool? = nil, hidden: Bool? = nil, name: String? = nil) {
+    func setPref(id: String, starred: Bool? = nil, hidden: Bool? = nil,
+                 narration: Bool? = nil, name: String? = nil) {
         var p = prefs[id] ?? MemoPref()
         if let s = starred { p.starred = s }
         if let h = hidden { p.hidden = h }
+        if let nr = narration { p.narration = nr }
         if let n = name { p.name = n }
         prefs[id] = p  // optimistic
 
         var payload: [String: Any] = ["mode": "set", "id": id]
         if let s = starred { payload["starred"] = s }
         if let h = hidden { payload["hidden"] = h }
+        if let nr = narration { payload["narration"] = nr }
         if let n = name { payload["name"] = n }
         Task {
             do { try await ensureAuth(); _ = try await functions.httpsCallable("memoPrefs").call(payload) }
@@ -156,7 +162,8 @@ final class MemosStore: ObservableObject {
     /// What the browse list shows: hidden dropped (unless Organize is on),
     /// starred floated to the top, otherwise newest-first.
     var browseItems: [VoiceEntry] {
-        let base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
+        var base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
+        if storyFilter { base = base.filter { pref($0.id).narration } }
         return base.sorted { a, b in
             let sa = pref(a.id).starred, sb = pref(b.id).starred
             if sa != sb { return sa && !sb }
@@ -246,24 +253,36 @@ struct MemosView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
             Text("Voice Memos")
                 .font(.system(size: 22, weight: .bold)).foregroundColor(MemoTheme.ink)
             Spacer()
-            Button { withAnimation(.easeInOut(duration: 0.15)) { store.organize.toggle() } } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Organize").font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(store.organize ? .white : MemoTheme.sub)
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 6).fill(store.organize ? MemoTheme.accent : Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(store.organize ? .clear : MemoTheme.line))
+            // Story Room filter: show only the memos flagged for Story Room.
+            iconToggle(on: store.storyFilter, icon: "books.vertical",
+                       label: "Story Room", onColor: MemoTheme.entry) {
+                withAnimation(.easeInOut(duration: 0.15)) { store.storyFilter.toggle() }
             }
-            .buttonStyle(.plain)
+            iconToggle(on: store.organize, icon: "checklist",
+                       label: "Organize", onColor: MemoTheme.accent) {
+                withAnimation(.easeInOut(duration: 0.15)) { store.organize.toggle() }
+            }
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+    }
+
+    private func iconToggle(on: Bool, icon: String, label: String, onColor: Color,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(on ? .white : MemoTheme.sub)
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 6).fill(on ? onColor : Color.white))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(on ? .clear : MemoTheme.line))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Reliable keyboard dismissal — clears SwiftUI focus AND resigns the first
@@ -422,6 +441,9 @@ private struct MemoRow: View {
                     if p.starred {
                         Image(systemName: "star.fill").font(.system(size: 12)).foregroundColor(MemoTheme.gold)
                     }
+                    if p.narration {
+                        Image(systemName: "books.vertical.fill").font(.system(size: 12)).foregroundColor(MemoTheme.entry)
+                    }
                     Text(store.name(for: entry))
                         .font(.system(size: 16, weight: .semibold)).foregroundColor(MemoTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -462,21 +484,24 @@ private struct MemoRow: View {
 
     private var organizeControls: some View {
         HStack(spacing: 6) {
-            Button { store.setPref(id: entry.id, starred: !p.starred) } label: {
-                Image(systemName: p.starred ? "star.fill" : "star")
-                    .font(.system(size: 15)).foregroundColor(p.starred ? MemoTheme.gold : MemoTheme.sub)
-                    .frame(width: 34, height: 34)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
-            }.buttonStyle(.plain).accessibilityLabel(p.starred ? "Unstar" : "Star")
-            Button { store.setPref(id: entry.id, hidden: !p.hidden) } label: {
-                Image(systemName: p.hidden ? "eye.slash.fill" : "eye.slash")
-                    .font(.system(size: 15)).foregroundColor(p.hidden ? MemoTheme.accent : MemoTheme.sub)
-                    .frame(width: 34, height: 34)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
-            }.buttonStyle(.plain).accessibilityLabel(p.hidden ? "Unhide" : "Hide")
+            orgButton(on: p.starred, onIcon: "star.fill", offIcon: "star", onColor: MemoTheme.gold,
+                      label: p.starred ? "Unstar" : "Star") { store.setPref(id: entry.id, starred: !p.starred) }
+            orgButton(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical", onColor: MemoTheme.entry,
+                      label: p.narration ? "Remove from Story Room" : "Add to Story Room") { store.setPref(id: entry.id, narration: !p.narration) }
+            orgButton(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash", onColor: MemoTheme.accent,
+                      label: p.hidden ? "Unhide" : "Hide") { store.setPref(id: entry.id, hidden: !p.hidden) }
         }
+    }
+
+    private func orgButton(on: Bool, onIcon: String, offIcon: String, onColor: Color,
+                           label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: on ? onIcon : offIcon)
+                .font(.system(size: 15)).foregroundColor(on ? onColor : MemoTheme.sub)
+                .frame(width: 34, height: 34)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+        }.buttonStyle(.plain).accessibilityLabel(label)
     }
 
     private var playButton: some View {
@@ -592,11 +617,15 @@ struct MemoDetailView: View {
                     Text(audioError).font(.system(size: 13)).foregroundColor(.red)
                 }
 
-                // Star / hide
-                HStack(spacing: 10) {
+                // Star / Story Room / hide
+                HStack(spacing: 8) {
                     toggleChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
                                label: p.starred ? "Starred" : "Star", onColor: MemoTheme.gold) {
                         store.setPref(id: entry.id, starred: !p.starred)
+                    }
+                    toggleChip(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical",
+                               label: "Story Room", onColor: MemoTheme.entry) {
+                        store.setPref(id: entry.id, narration: !p.narration)
                     }
                     toggleChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
                                label: p.hidden ? "Hidden" : "Hide", onColor: MemoTheme.accent) {
