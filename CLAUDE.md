@@ -79,6 +79,10 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
 - **Claude may merge its own PRs.** Standing permission (July 2026): when a PR
   is ready, merge it without asking — then watch the post-merge workflows
   (deploys, TestFlight) and fix anything that breaks.
+- **Don't park PRs as drafts waiting for me to test.** Other chats work these
+  repos in parallel and need the work in `main` to build on — a lingering draft
+  blocks them (and invites merge clashes). Merge as soon as CI is green; I test
+  on TestFlight *after* the merge and you fold any fixes into a follow-up PR.
 - When blocked on a decision but other work can proceed, surface the decision
   and **keep building** in the meantime — don't stop and wait unless the decision
   affects everything. Prefer plain prose for those questions over the in-app
