@@ -5,7 +5,7 @@ import SwiftUI
 /// tool (ported from ImageForge's /set). `.timeline` (leftmost) is the journal
 /// timeline visualization.
 enum JournalTab: Int, CaseIterable, Identifiable {
-    case timeline, journal, record, towers, setBuilder, stickers
+    case timeline, journal, record, memos, towers, setBuilder, stickers
     var id: Int { rawValue }
 }
 
@@ -22,6 +22,7 @@ struct JournalNavBar: View {
             item(.timeline, symbol: "calendar.day.timeline.left", filled: "calendar.day.timeline.left", label: "Timeline")
             item(.journal,  symbol: "book.closed",     filled: "book.closed.fill",     label: "Journal")
             recordButton
+            item(.memos, symbol: "waveform", filled: "waveform", label: "Memos")
             towersItem(label: "Towers")
             item(.setBuilder, symbol: "rectangle.3.group", filled: "rectangle.3.group.fill", label: "Set")
         }

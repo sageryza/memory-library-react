@@ -15,7 +15,6 @@ import WebKit
 /// web view, which calls `focusPage(n)` to center that band and open its text.
 struct TimelineView: View {
     @EnvironmentObject private var router: AppRouter
-    @State private var showSearch = false
 
     // Matches the timeline's paper color (#ede4d0) so there's no flash of white
     // behind the web view while it loads.
@@ -26,38 +25,6 @@ struct TimelineView: View {
                         onConsumed: { router.timelineTargetPage = nil })
             .background(Self.paper)
             .ignoresSafeArea(edges: .top)
-            .overlay(alignment: .topTrailing) { searchButton }
-            .sheet(isPresented: $showSearch) {
-                NavigationStack {
-                    ArchiveSearchView(onSelectJournal: { page in
-                        showSearch = false
-                        router.timelineTargetPage = page
-                    })
-                        .navigationTitle("Search")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Done") { showSearch = false }
-                            }
-                        }
-                }
-            }
-    }
-
-    /// Opens semantic search over the voice memos + journal entries.
-    private var searchButton: some View {
-        Button { showSearch = true } label: {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Color(white: 0.28))
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(.white.opacity(0.92)))
-                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
-        }
-        .buttonStyle(.plain)
-        .padding(.trailing, 16)
-        .padding(.top, 56)
-        .accessibilityLabel("Search")
     }
 }
 

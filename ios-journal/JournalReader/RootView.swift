@@ -14,6 +14,7 @@ struct RootView: View {
             screen(.timeline) { TimelineView() }
             screen(.journal)  { ContentView() }
             screen(.record)   { RecordPlaceholder() }
+            screen(.memos)    { MemosView() }
             screen(.towers)     { TowersView() }
             screen(.setBuilder) { SetBuilderView() }
         }
