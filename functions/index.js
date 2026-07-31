@@ -2913,3 +2913,32 @@ exports.searchArchive = onCall(async (request) => {
   out.sort((a, b) => b.score - a.score);
   return { results: out.slice(0, limit) };
 });
+
+// --- Voice-memo user prefs (star / hide / rename) --------------------------
+// Sage's personal per-memo overlay on top of the read-only manifest. One user,
+// so a single doc holds a { <memoId>: {starred, hidden, name} } map. The
+// JournalReader Memos tab (and, later, a Deck Factory tab) read + write this so
+// stars/hides/renames sync across apps and survive reinstalls.
+const MEMO_PREFS_DOC = 'voiceMemoPrefs/default';
+
+exports.memoPrefs = onCall(async (request) => {
+  if (!(request.auth && request.auth.uid)) throw new HttpsError('unauthenticated', 'Sign in.');
+  const ref = db.doc(MEMO_PREFS_DOC);
+  const mode = (request.data && request.data.mode) || 'get';
+
+  if (mode === 'set') {
+    const id = String((request.data && request.data.id) || '').trim();
+    if (!id) throw new HttpsError('invalid-argument', 'A memo id is required.');
+    const patch = {};
+    if ('starred' in request.data) patch.starred = !!request.data.starred;
+    if ('hidden' in request.data) patch.hidden = !!request.data.hidden;
+    if ('name' in request.data) patch.name = String(request.data.name || '').slice(0, 200);
+    if (Object.keys(patch).length === 0) throw new HttpsError('invalid-argument', 'Nothing to set.');
+    // merge:true deep-merges the nested map, so only the given fields of this one
+    // memo change — other memos and this memo's other fields are untouched.
+    await ref.set({ prefs: { [id]: patch } }, { merge: true });
+  }
+
+  const snap = await ref.get();
+  return { prefs: (snap.exists && snap.data().prefs) || {} };
+});
