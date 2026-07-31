@@ -16,6 +16,7 @@ enum MemoTheme {
     static let memo   = Color(red: 0.60, green: 0.44, blue: 0.20)     // deep amber/brown
     static let entry  = Color(red: 0.33, green: 0.45, blue: 0.32)     // deep green (journal text)
     static let accent = Color(red: 0.84, green: 0.44, blue: 0.60)     // rose (semantic ON)
+    static let gold   = Color(red: 0.85, green: 0.62, blue: 0.20)     // star
 }
 
 /// One hit from the `searchArchive` Cloud Function — a memo (playable) or a
@@ -33,8 +34,16 @@ struct ArchiveHit: Identifiable {
     let score: Double
 }
 
-/// Backs the Memos tab: the full memo list (newest first, for browsing + keyword
-/// filtering) plus semantic search over the archive.
+/// Sage's per-memo overlay (starred / hidden / renamed), synced via the
+/// `memoPrefs` Cloud Function so it survives reinstalls and can reach Deck Factory.
+struct MemoPref {
+    var starred = false
+    var hidden = false
+    var name: String?
+}
+
+/// Backs the Memos tab: the full memo list (newest first, browse + keyword), the
+/// per-memo prefs, and semantic search over the archive.
 @MainActor
 final class MemosStore: ObservableObject {
     enum Source: String, CaseIterable, Identifiable {
@@ -47,9 +56,11 @@ final class MemosStore: ObservableObject {
     @Published var semantic = false          // false = keyword (text), true = meaning
     @Published var source: Source = .both    // only used in semantic mode
     @Published var query = ""
+    @Published var organize = false          // reveals star/hide controls + hidden memos
 
     @Published var listLoad: Load = .idle
-    @Published var memos: [VoiceEntry] = []   // all, newest first (browse + keyword)
+    @Published var memos: [VoiceEntry] = []   // all, newest first
+    @Published var prefs: [String: MemoPref] = [:]
 
     @Published var searching = false
     @Published var searchError: String?
@@ -58,9 +69,10 @@ final class MemosStore: ObservableObject {
     private lazy var functions = Functions.functions()
     private let storage = Storage.storage()
 
-    // MARK: browse list (manifest)
+    // MARK: load
 
     func loadIfNeeded() {
+        loadPrefs()
         switch listLoad { case .ready, .loading: return; default: load() }
     }
 
@@ -73,8 +85,6 @@ final class MemosStore: ObservableObject {
                     .data(maxSize: 25 * 1024 * 1024)
                 struct M: Codable { let memos: [VoiceEntry] }
                 let all = try JSONDecoder().decode(M.self, from: data).memos
-                // Everything with real content, newest first. Skip the silent/empty
-                // recordings so browsing isn't full of blanks.
                 memos = all
                     .filter { $0.cat != "empty" && ($0.date ?? "").isEmpty == false }
                     .sorted { ($0.date ?? "") > ($1.date ?? "") }
@@ -85,14 +95,72 @@ final class MemosStore: ObservableObject {
         }
     }
 
-    /// Keyword (plain text) filter over the loaded memos.
-    var keywordResults: [VoiceEntry] {
+    func loadPrefs() {
+        Task {
+            do {
+                try await ensureAuth()
+                let res = try await functions.httpsCallable("memoPrefs").call(["mode": "get"])
+                let raw = (res.data as? [String: Any])?["prefs"] as? [String: [String: Any]] ?? [:]
+                var m: [String: MemoPref] = [:]
+                for (id, v) in raw {
+                    m[id] = MemoPref(starred: (v["starred"] as? Bool) ?? false,
+                                     hidden: (v["hidden"] as? Bool) ?? false,
+                                     name: v["name"] as? String)
+                }
+                prefs = m
+            } catch { /* prefs stay empty; browse still works */ }
+        }
+    }
+
+    // MARK: prefs writes (optimistic + synced)
+
+    func pref(_ id: String) -> MemoPref { prefs[id] ?? MemoPref() }
+
+    func setPref(id: String, starred: Bool? = nil, hidden: Bool? = nil, name: String? = nil) {
+        var p = prefs[id] ?? MemoPref()
+        if let s = starred { p.starred = s }
+        if let h = hidden { p.hidden = h }
+        if let n = name { p.name = n }
+        prefs[id] = p  // optimistic
+
+        var payload: [String: Any] = ["mode": "set", "id": id]
+        if let s = starred { payload["starred"] = s }
+        if let h = hidden { payload["hidden"] = h }
+        if let n = name { payload["name"] = n }
+        Task {
+            do { try await ensureAuth(); _ = try await functions.httpsCallable("memoPrefs").call(payload) }
+            catch { /* keep the optimistic local value */ }
+        }
+    }
+
+    /// Display name: the custom name if set, else the auto title.
+    func name(for entry: VoiceEntry) -> String {
+        let n = prefs[entry.id]?.name
+        if let n, !n.isEmpty { return n }
+        return entry.title ?? "Untitled"
+    }
+
+    // MARK: browse list
+
+    /// Keyword filter over the memos (empty query → all).
+    private var keywordResults: [VoiceEntry] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return memos }
         return memos.filter {
-            ($0.title?.lowercased().contains(q) ?? false)
+            (name(for: $0).lowercased().contains(q))
             || ($0.transcript?.lowercased().contains(q) ?? false)
             || ($0.desc?.lowercased().contains(q) ?? false)
+        }
+    }
+
+    /// What the browse list shows: hidden dropped (unless Organize is on),
+    /// starred floated to the top, otherwise newest-first.
+    var browseItems: [VoiceEntry] {
+        let base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
+        return base.sorted { a, b in
+            let sa = pref(a.id).starred, sb = pref(b.id).starred
+            if sa != sb { return sa && !sb }
+            return (a.date ?? "") > (b.date ?? "")
         }
     }
 
@@ -124,6 +192,9 @@ final class MemosStore: ObservableObject {
         }
     }
 
+    /// The full manifest entry for an id (semantic hits lack the transcript).
+    func fullEntry(_ id: String) -> VoiceEntry? { memos.first { $0.id == id } }
+
     func audioURL(file: String) async throws -> URL {
         try await ensureAuth()
         return try await storage.reference(withPath: "memo-audio/\(file)").downloadURL()
@@ -134,37 +205,44 @@ final class MemosStore: ObservableObject {
     }
 }
 
-/// The Voice Memos tab: browse your recordings newest-first, filter them by text,
-/// or flip on ✨ to search by meaning (across memos and/or your journal).
+/// The Voice Memos tab: browse newest-first, filter by text, ✨ to search by
+/// meaning, and an Organize mode to star / hide. Tap a memo for its detail screen.
 struct MemosView: View {
     @EnvironmentObject private var router: AppRouter
     @StateObject private var store = MemosStore()
     @StateObject private var player = VoicePlayer()
     @FocusState private var focused: Bool
+    @State private var selected: VoiceEntry?
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            searchField
-            if store.semantic {
-                Picker("Source", selection: $store.source) {
-                    ForEach(MemosStore.Source.allCases) { Text($0.label).tag($0) }
+        NavigationStack {
+            VStack(spacing: 0) {
+                header
+                searchField
+                if store.semantic {
+                    Picker("Source", selection: $store.source) {
+                        ForEach(MemosStore.Source.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 12).padding(.bottom, 8)
+                    .onChange(of: store.source) { _, _ in store.runSemantic() }
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 12).padding(.bottom, 8)
-                .onChange(of: store.source) { _, _ in store.runSemantic() }
+                content
             }
-            content
+            .background(MemoTheme.paper.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(item: $selected) { entry in
+                MemoDetailView(entry: entry, store: store)
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { dismissKeyboard() }.tint(MemoTheme.accent)
+                }
+            }
         }
-        .background(MemoTheme.paper.ignoresSafeArea())
         .onAppear { store.loadIfNeeded() }
         .onChange(of: store.semantic) { _, on in if on { store.runSemantic() } else { store.hits = [] } }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { dismissKeyboard() }.tint(MemoTheme.accent)
-            }
-        }
     }
 
     private var header: some View {
@@ -172,6 +250,18 @@ struct MemosView: View {
             Text("Voice Memos")
                 .font(.system(size: 22, weight: .bold)).foregroundColor(MemoTheme.ink)
             Spacer()
+            Button { withAnimation(.easeInOut(duration: 0.15)) { store.organize.toggle() } } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Organize").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(store.organize ? .white : MemoTheme.sub)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 6).fill(store.organize ? MemoTheme.accent : Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(store.organize ? .clear : MemoTheme.line))
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
     }
@@ -199,7 +289,6 @@ struct MemosView: View {
                     Image(systemName: "xmark.circle.fill").foregroundColor(MemoTheme.sub.opacity(0.7))
                 }.buttonStyle(.plain)
             }
-            // ✨ meaning toggle (XI-style): filled rose when ON.
             Button { store.semantic.toggle() } label: {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .semibold))
@@ -222,14 +311,9 @@ struct MemosView: View {
     @ViewBuilder
     private var content: some View {
         let hasQuery = !store.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        if store.semantic && hasQuery {
-            semanticResults
-        } else {
-            browseList   // empty query, or keyword mode → the memo list (filtered live)
-        }
+        if store.semantic && hasQuery { semanticResults } else { browseList }
     }
 
-    // Browse (empty query) or keyword-filtered memo list.
     @ViewBuilder
     private var browseList: some View {
         switch store.listLoad {
@@ -245,14 +329,14 @@ struct MemosView: View {
                 }.padding(32)
             }
         case .ready:
-            let items = store.keywordResults
+            let items = store.browseItems
             if items.isEmpty {
                 centered { Text("No memos match.").foregroundColor(MemoTheme.sub) }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(items) { entry in
-                            MemoRow(entry: entry, store: store, player: player)
+                            MemoRow(entry: entry, store: store, player: player) { selected = $0 }
                             Divider().overlay(MemoTheme.line).padding(.leading, 66)
                         }
                     }.padding(.bottom, 24)
@@ -281,7 +365,8 @@ struct MemosView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(store.hits) { hit in
                         if hit.source == "memo" {
-                            MemoRow(entry: hit.asEntry, store: store, player: player, snippet: hit.snippet)
+                            MemoRow(entry: store.fullEntry(hit.id) ?? hit.asEntry,
+                                    store: store, player: player, snippet: hit.snippet) { selected = $0 }
                         } else {
                             JournalHitRow(hit: hit) { page in router.openTimeline(page: page) }
                         }
@@ -305,73 +390,92 @@ extension ArchiveHit {
     }
 }
 
-/// One memo: colored play disc, title, category chip, date, and a tap-to-expand
-/// transcript. Colors are deep enough to read on the cream background.
+/// One memo row: play disc, name, chip/date, and (in Organize mode) star + hide
+/// controls. Tapping the row opens its detail screen.
 private struct MemoRow: View {
     let entry: VoiceEntry
     @ObservedObject var store: MemosStore
     @ObservedObject var player: VoicePlayer
     var snippet: String? = nil
+    var onOpen: (VoiceEntry) -> Void
 
-    @State private var expanded = false
     @State private var loading = false
     @State private var audioError: String?
 
     private var isThis: Bool { player.currentID == entry.id }
     private var tint: Color { entry.cat == "dream" ? MemoTheme.dream : MemoTheme.memo }
+    private var p: MemoPref { store.pref(entry.id) }
     private var chip: String {
         switch entry.cat {
         case "dream": return "Dream"
         case "journal": return "Journal"
-        default: return (entry.cat).capitalized
+        default: return entry.cat.capitalized
         }
     }
     private var body2: String? { snippet ?? entry.desc }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
-                playButton
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.title ?? "Untitled")
+        HStack(alignment: .top, spacing: 12) {
+            playButton
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    if p.starred {
+                        Image(systemName: "star.fill").font(.system(size: 12)).foregroundColor(MemoTheme.gold)
+                    }
+                    Text(store.name(for: entry))
                         .font(.system(size: 16, weight: .semibold)).foregroundColor(MemoTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 8) {
-                        Text(chip)
-                            .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(tint))
-                        Text(VoiceDate.pretty(entry.date))
+                }
+                HStack(spacing: 8) {
+                    Text(chip)
+                        .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(tint))
+                    Text(VoiceDate.pretty(entry.date))
+                        .font(.system(size: 12, weight: .medium)).foregroundColor(MemoTheme.sub)
+                    if let d = entry.dur {
+                        Text(VoiceDate.duration(d))
                             .font(.system(size: 12, weight: .medium)).foregroundColor(MemoTheme.sub)
-                        if let d = entry.dur {
-                            Text(VoiceDate.duration(d))
-                                .font(.system(size: 12, weight: .medium)).foregroundColor(MemoTheme.sub)
-                        }
-                    }
-                    if let b = body2, !b.isEmpty, !expanded {
-                        Text(b).font(.system(size: 14)).foregroundColor(MemoTheme.sub)
-                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Spacer(minLength: 0)
-                if entry.transcript?.isEmpty == false {
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(MemoTheme.sub.opacity(0.7))
-                        .padding(.top, 4)
+                if let b = body2, !b.isEmpty {
+                    Text(b).font(.system(size: 14)).foregroundColor(MemoTheme.sub)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                if let audioError {
+                    Text(audioError).font(.system(size: 12)).foregroundColor(.red)
                 }
             }
-            if expanded, let t = entry.transcript, !t.isEmpty {
-                Text(t).font(.system(size: 15)).foregroundColor(MemoTheme.ink.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true).padding(.leading, 54)
-            }
-            if let audioError {
-                Text(audioError).font(.system(size: 12)).foregroundColor(.red).padding(.leading, 54)
+            Spacer(minLength: 0)
+            if store.organize {
+                organizeControls
+            } else {
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(MemoTheme.sub.opacity(0.6)).padding(.top, 4)
             }
         }
+        .opacity(store.organize && p.hidden ? 0.45 : 1)
         .padding(.horizontal, 16).padding(.vertical, 12)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if entry.transcript?.isEmpty == false { withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() } }
+        .onTapGesture { onOpen(entry) }
+    }
+
+    private var organizeControls: some View {
+        HStack(spacing: 6) {
+            Button { store.setPref(id: entry.id, starred: !p.starred) } label: {
+                Image(systemName: p.starred ? "star.fill" : "star")
+                    .font(.system(size: 15)).foregroundColor(p.starred ? MemoTheme.gold : MemoTheme.sub)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+            }.buttonStyle(.plain).accessibilityLabel(p.starred ? "Unstar" : "Star")
+            Button { store.setPref(id: entry.id, hidden: !p.hidden) } label: {
+                Image(systemName: p.hidden ? "eye.slash.fill" : "eye.slash")
+                    .font(.system(size: 15)).foregroundColor(p.hidden ? MemoTheme.accent : MemoTheme.sub)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+            }.buttonStyle(.plain).accessibilityLabel(p.hidden ? "Unhide" : "Hide")
         }
     }
 
@@ -442,5 +546,154 @@ private struct JournalHitRow: View {
         .padding(.horizontal, 16).padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture { if let p = page { onOpen(p) } }
+    }
+}
+
+/// One memo's own screen: play it, read its transcript, rename it, star/hide it,
+/// and (soon) send it to a Deck Factory movie.
+struct MemoDetailView: View {
+    let entry: VoiceEntry
+    @ObservedObject var store: MemosStore
+    @StateObject private var player = VoicePlayer()
+
+    @State private var name = ""
+    @State private var loading = false
+    @State private var audioError: String?
+    @FocusState private var editingName: Bool
+
+    private var full: VoiceEntry { store.fullEntry(entry.id) ?? entry }
+    private var p: MemoPref { store.pref(entry.id) }
+    private var tint: Color { entry.cat == "dream" ? MemoTheme.dream : MemoTheme.memo }
+    private var isThis: Bool { player.currentID == entry.id }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Play + name
+                HStack(alignment: .center, spacing: 14) {
+                    playButton
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Name this memo", text: $name)
+                            .font(.system(size: 20, weight: .bold)).foregroundColor(MemoTheme.ink)
+                            .focused($editingName)
+                            .submitLabel(.done)
+                            .onSubmit { commitName() }
+                        HStack(spacing: 8) {
+                            Text(VoiceDate.pretty(entry.date))
+                                .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
+                            if let d = entry.dur {
+                                Text(VoiceDate.duration(d))
+                                    .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
+                            }
+                        }
+                    }
+                }
+                if let audioError {
+                    Text(audioError).font(.system(size: 13)).foregroundColor(.red)
+                }
+
+                // Star / hide
+                HStack(spacing: 10) {
+                    toggleChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
+                               label: p.starred ? "Starred" : "Star", onColor: MemoTheme.gold) {
+                        store.setPref(id: entry.id, starred: !p.starred)
+                    }
+                    toggleChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
+                               label: p.hidden ? "Hidden" : "Hide", onColor: MemoTheme.accent) {
+                        store.setPref(id: entry.id, hidden: !p.hidden)
+                    }
+                }
+
+                Divider().overlay(MemoTheme.line)
+
+                // Transcript
+                if let t = full.transcript, !t.isEmpty {
+                    Text("Transcript").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
+                    Text(t).font(.system(size: 16)).foregroundColor(MemoTheme.ink.opacity(0.92))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("No transcript.").font(.system(size: 14)).foregroundColor(MemoTheme.sub)
+                }
+
+                Divider().overlay(MemoTheme.line)
+
+                // Send to (Deck Factory movie — coming soon)
+                Text("Send to").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
+                HStack(spacing: 10) {
+                    Image(systemName: "film").font(.system(size: 16)).foregroundColor(MemoTheme.sub)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("A Deck Factory movie").font(.system(size: 15, weight: .semibold)).foregroundColor(MemoTheme.ink)
+                        Text("Coming soon").font(.system(size: 12)).foregroundColor(MemoTheme.sub)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+                .opacity(0.7)
+            }
+            .padding(16)
+        }
+        .background(MemoTheme.paper.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    editingName = false
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    commitName()
+                }.tint(MemoTheme.accent)
+            }
+        }
+        .onAppear { name = store.name(for: entry) }
+        .onDisappear { commitName() }
+    }
+
+    private func commitName() {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard n != store.name(for: entry) else { return }
+        store.setPref(id: entry.id, name: n)
+    }
+
+    private func toggleChip(on: Bool, onIcon: String, offIcon: String, label: String,
+                            onColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: on ? onIcon : offIcon).font(.system(size: 14, weight: .semibold))
+                Text(label).font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(on ? .white : MemoTheme.sub)
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 8).fill(on ? onColor : Color.white))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? .clear : MemoTheme.line))
+        }.buttonStyle(.plain)
+    }
+
+    private var playButton: some View {
+        Button(action: play) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(tint).frame(width: 60, height: 60)
+                if loading { ProgressView().tint(.white) }
+                else {
+                    Image(systemName: (isThis && player.isPlaying) ? "pause.fill" : "play.fill")
+                        .font(.system(size: 22, weight: .bold)).foregroundColor(.white)
+                        .offset(x: (isThis && player.isPlaying) ? 0 : 2)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isThis && player.isPlaying ? "Pause" : "Play")
+    }
+
+    private func play() {
+        if isThis { player.togglePause(); return }
+        guard !full.file.isEmpty else { audioError = "Couldn’t find this recording."; return }
+        loading = true; audioError = nil
+        Task {
+            do { player.play(full, url: try await store.audioURL(file: full.file)) }
+            catch { audioError = "Couldn’t play this recording." }
+            loading = false
+        }
     }
 }

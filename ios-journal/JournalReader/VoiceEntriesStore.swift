@@ -6,7 +6,7 @@ import FirebaseStorage
 /// One voice memo from the archive, as stored in `memo-audio/manifest.json`.
 /// Only dreams + journals from 2024 on are surfaced (see `VoiceEntriesStore`);
 /// the recording itself lives at `memo-audio/<file>` in Firebase Storage.
-struct VoiceEntry: Codable, Identifiable {
+struct VoiceEntry: Codable, Identifiable, Hashable {
     let id: String
     let file: String
     let date: String?          // "yyyy-MM-dd"
