@@ -4,7 +4,7 @@ import FirebaseFunctions
 
 /// One drawing in the shared SAGEDIAGRAM pool (Firestore `sagediagram`),
 /// reached through the `sagediagram` Cloud Function.
-struct SagediagramItem: Identifiable, Equatable {
+struct SagediagramItem: Identifiable, Equatable, Codable {
     let id: String
     let name: String
     var month: String
@@ -48,6 +48,26 @@ final class SagediagramService {
                 url: url
             )
         }
+    }
+
+    // MARK: - Local cache of the list
+    //
+    // The callable takes a second or two on a cold launch, so the last list is
+    // kept on disk and shown immediately while a fresh one loads behind it.
+
+    private var cacheFile: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("sagediagram-list.json")
+    }
+
+    func cachedList() -> [SagediagramItem]? {
+        guard let data = try? Data(contentsOf: cacheFile) else { return nil }
+        return try? JSONDecoder().decode([SagediagramItem].self, from: data)
+    }
+
+    func saveCache(_ items: [SagediagramItem]) {
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        try? data.write(to: cacheFile, options: .atomic)
     }
 
     func setCaption(id: String, caption: String) async throws {
