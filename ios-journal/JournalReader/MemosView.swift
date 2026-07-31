@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Combine
 import AVFoundation
 import FirebaseAuth
 import FirebaseFunctions
@@ -221,6 +222,12 @@ struct MemosView: View {
     @FocusState private var focused: Bool
     @State private var selected: VoiceEntry?
 
+    // Auto-scroll pill: -1 = up, 0 = off, +1 = down. `visibleID` tracks the top
+    // memo so auto-scroll resumes from where you are.
+    @State private var autoDir = 0
+    @State private var visibleID: String?
+    @State private var autoTimer = Timer.publish(every: 1.1, on: .main, in: .common).autoconnect()
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -355,13 +362,39 @@ struct MemosView: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(items) { entry in
-                            MemoRow(entry: entry, store: store, player: player) { selected = $0 }
-                            Divider().overlay(MemoTheme.line).padding(.leading, 66)
+                            VStack(spacing: 0) {
+                                MemoRow(entry: entry, store: store, player: player) { selected = $0 }
+                                Divider().overlay(MemoTheme.line).padding(.leading, 66)
+                            }
+                            .id(entry.id)
                         }
-                    }.padding(.bottom, 24)
+                    }
+                    .scrollTargetLayout()
+                    .padding(.bottom, 24)
                 }
+                .scrollPosition(id: $visibleID)
+                .overlay(alignment: .trailing) {
+                    AutoScrollPill(dir: $autoDir).padding(.trailing, 8)
+                }
+                .onReceive(autoTimer) { _ in autoStep(ids: items.map { $0.id }) }
+                .onChange(of: autoDir) { _, d in if d != 0 { autoStep(ids: items.map { $0.id }) } }
             }
         }
+    }
+
+    /// Advance the top-visible memo one step in `autoDir`; stops at the ends.
+    private func autoStep(ids: [String]) {
+        guard autoDir != 0, !ids.isEmpty else { return }
+        let target: String
+        if let c = visibleID, let i = ids.firstIndex(of: c) {
+            let j = i + autoDir
+            if j < 0 || j >= ids.count { autoDir = 0; return }
+            target = ids[j]
+            if j == 0 || j == ids.count - 1 { autoDir = 0 }
+        } else {
+            target = autoDir > 0 ? ids[0] : ids[ids.count - 1]
+        }
+        withAnimation(.easeInOut(duration: 0.9)) { visibleID = target }
     }
 
     @ViewBuilder
@@ -398,6 +431,37 @@ struct MemosView: View {
 
     private func centered<V: View>(@ViewBuilder _ inner: () -> V) -> some View {
         VStack { Spacer(); inner(); Spacer() }.frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Floating auto-scroll control: chevrons that slowly scroll the list up or down;
+/// the active arrow becomes a pause. Sits on the right edge, clear of the header.
+struct AutoScrollPill: View {
+    @Binding var dir: Int   // -1 up, 0 off, +1 down
+
+    var body: some View {
+        VStack(spacing: 4) {
+            arrow(up: true)
+            arrow(up: false)
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.96)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MemoTheme.line))
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 1)
+    }
+
+    private func arrow(up: Bool) -> some View {
+        let d = up ? -1 : 1
+        let active = dir == d
+        return Button { dir = active ? 0 : d } label: {
+            Image(systemName: active ? "pause.fill" : (up ? "chevron.up" : "chevron.down"))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(active ? .white : MemoTheme.sub)
+                .frame(width: 36, height: 30)
+                .background(RoundedRectangle(cornerRadius: 9).fill(active ? MemoTheme.accent : Color.clear))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(up ? "Auto-scroll up" : "Auto-scroll down")
     }
 }
 
@@ -586,6 +650,27 @@ struct MemoDetailView: View {
     @State private var audioError: String?
     @FocusState private var editingName: Bool
 
+    @State private var autoDir = 0
+    @State private var visibleID: String?
+    @State private var autoTimer = Timer.publish(every: 1.1, on: .main, in: .common).autoconnect()
+
+    /// Transcript split into scrollable paragraphs (by line breaks, else ~320-char
+    /// chunks) so the auto-scroll pill can step through it.
+    private var transcriptParas: [String] {
+        guard let t = full.transcript, !t.isEmpty else { return [] }
+        let byLine = t.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if byLine.count > 1 { return byLine }
+        var chunks: [String] = []; var cur = ""
+        for s in t.components(separatedBy: ". ") {
+            let piece = s.hasSuffix(".") ? s : s + ". "
+            if cur.count + piece.count > 320 && !cur.isEmpty { chunks.append(cur.trimmingCharacters(in: .whitespaces)); cur = piece }
+            else { cur += piece }
+        }
+        if !cur.isEmpty { chunks.append(cur.trimmingCharacters(in: .whitespaces)) }
+        return chunks
+    }
+    private var scrollIDs: [String] { ["d-top"] + transcriptParas.indices.map { "d-t\($0)" } + ["d-send"] }
+
     private var full: VoiceEntry { store.fullEntry(entry.id) ?? entry }
     private var p: MemoPref { store.pref(entry.id) }
     private var tint: Color { entry.cat == "dream" ? MemoTheme.dream : MemoTheme.memo }
@@ -594,76 +679,33 @@ struct MemoDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Play + name
-                HStack(alignment: .center, spacing: 14) {
-                    playButton
-                    VStack(alignment: .leading, spacing: 4) {
-                        TextField("Name this memo", text: $name)
-                            .font(.system(size: 20, weight: .bold)).foregroundColor(MemoTheme.ink)
-                            .focused($editingName)
-                            .submitLabel(.done)
-                            .onSubmit { commitName() }
-                        HStack(spacing: 8) {
-                            Text(VoiceDate.pretty(entry.date))
-                                .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
-                            if let d = entry.dur {
-                                Text(VoiceDate.duration(d))
-                                    .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
-                            }
-                        }
-                    }
-                }
-                if let audioError {
-                    Text(audioError).font(.system(size: 13)).foregroundColor(.red)
-                }
-
-                // Star / Story Room / hide
-                HStack(spacing: 8) {
-                    toggleChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
-                               label: p.starred ? "Starred" : "Star", onColor: MemoTheme.gold) {
-                        store.setPref(id: entry.id, starred: !p.starred)
-                    }
-                    toggleChip(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical",
-                               label: "Story Room", onColor: MemoTheme.entry) {
-                        store.setPref(id: entry.id, narration: !p.narration)
-                    }
-                    toggleChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
-                               label: p.hidden ? "Hidden" : "Hide", onColor: MemoTheme.accent) {
-                        store.setPref(id: entry.id, hidden: !p.hidden)
-                    }
-                }
+                topBlock.id("d-top")
 
                 Divider().overlay(MemoTheme.line)
 
                 // Transcript
-                if let t = full.transcript, !t.isEmpty {
-                    Text("Transcript").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
-                    Text(t).font(.system(size: 16)).foregroundColor(MemoTheme.ink.opacity(0.92))
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
+                if transcriptParas.isEmpty {
                     Text("No transcript.").font(.system(size: 14)).foregroundColor(MemoTheme.sub)
+                } else {
+                    Text("Transcript").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
+                    ForEach(Array(transcriptParas.enumerated()), id: \.offset) { item in
+                        Text(item.element).font(.system(size: 16)).foregroundColor(MemoTheme.ink.opacity(0.92))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id("d-t\(item.offset)")
+                    }
                 }
 
                 Divider().overlay(MemoTheme.line)
 
-                // Send to (Deck Factory movie — coming soon)
-                Text("Send to").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
-                HStack(spacing: 10) {
-                    Image(systemName: "film").font(.system(size: 16)).foregroundColor(MemoTheme.sub)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("A Deck Factory movie").font(.system(size: 15, weight: .semibold)).foregroundColor(MemoTheme.ink)
-                        Text("Coming soon").font(.system(size: 12)).foregroundColor(MemoTheme.sub)
-                    }
-                    Spacer()
-                }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
-                .opacity(0.7)
+                sendToBlock.id("d-send")
             }
+            .scrollTargetLayout()
             .padding(16)
         }
+        .scrollPosition(id: $visibleID)
         .background(MemoTheme.paper.ignoresSafeArea())
+        .overlay(alignment: .trailing) { AutoScrollPill(dir: $autoDir).padding(.trailing, 8) }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -675,8 +717,86 @@ struct MemoDetailView: View {
                 }.tint(MemoTheme.accent)
             }
         }
+        .onReceive(autoTimer) { _ in autoStep() }
+        .onChange(of: autoDir) { _, d in if d != 0 { autoStep() } }
         .onAppear { name = store.name(for: entry) }
         .onDisappear { commitName() }
+    }
+
+    private var topBlock: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 14) {
+                playButton
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("Name this memo", text: $name)
+                        .font(.system(size: 20, weight: .bold)).foregroundColor(MemoTheme.ink)
+                        .focused($editingName)
+                        .submitLabel(.done)
+                        .onSubmit { commitName() }
+                    HStack(spacing: 8) {
+                        Text(VoiceDate.pretty(entry.date))
+                            .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
+                        if let d = entry.dur {
+                            Text(VoiceDate.duration(d))
+                                .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
+                        }
+                    }
+                }
+            }
+            if let audioError {
+                Text(audioError).font(.system(size: 13)).foregroundColor(.red)
+            }
+            HStack(spacing: 8) {
+                toggleChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
+                           label: p.starred ? "Starred" : "Star", onColor: MemoTheme.gold) {
+                    store.setPref(id: entry.id, starred: !p.starred)
+                }
+                toggleChip(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical",
+                           label: "Story Room", onColor: MemoTheme.entry) {
+                    store.setPref(id: entry.id, narration: !p.narration)
+                }
+                toggleChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
+                           label: p.hidden ? "Hidden" : "Hide", onColor: MemoTheme.accent) {
+                    store.setPref(id: entry.id, hidden: !p.hidden)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var sendToBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Send to").font(.system(size: 13, weight: .bold)).foregroundColor(MemoTheme.sub)
+            HStack(spacing: 10) {
+                Image(systemName: "film").font(.system(size: 16)).foregroundColor(MemoTheme.sub)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("A Deck Factory movie").font(.system(size: 15, weight: .semibold)).foregroundColor(MemoTheme.ink)
+                    Text("Coming soon").font(.system(size: 12)).foregroundColor(MemoTheme.sub)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+            .opacity(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func autoStep() {
+        guard autoDir != 0 else { return }
+        let ids = scrollIDs
+        guard ids.count > 1 else { autoDir = 0; return }
+        let target: String
+        if let c = visibleID, let i = ids.firstIndex(of: c) {
+            let j = i + autoDir
+            if j < 0 || j >= ids.count { autoDir = 0; return }
+            target = ids[j]
+            if j == 0 || j == ids.count - 1 { autoDir = 0 }
+        } else {
+            target = autoDir > 0 ? ids[0] : ids[ids.count - 1]
+        }
+        withAnimation(.easeInOut(duration: 0.9)) { visibleID = target }
     }
 
     private func commitName() {
