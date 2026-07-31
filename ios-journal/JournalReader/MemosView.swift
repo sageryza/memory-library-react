@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import AVFoundation
 import FirebaseAuth
 import FirebaseFunctions
@@ -158,6 +159,12 @@ struct MemosView: View {
         .background(MemoTheme.paper.ignoresSafeArea())
         .onAppear { store.loadIfNeeded() }
         .onChange(of: store.semantic) { _, on in if on { store.runSemantic() } else { store.hits = [] } }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { dismissKeyboard() }.tint(MemoTheme.accent)
+            }
+        }
     }
 
     private var header: some View {
@@ -169,15 +176,24 @@ struct MemosView: View {
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
     }
 
+    /// Reliable keyboard dismissal — clears SwiftUI focus AND resigns the first
+    /// responder, so it never needs a second tap (the field can't re-grab focus).
+    private func dismissKeyboard() {
+        focused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+    }
+
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundColor(MemoTheme.sub)
-            TextField(store.semantic ? "Search by meaning…" : "Search your memos…", text: $store.query)
+            TextField("", text: $store.query)
                 .focused($focused)
                 .foregroundColor(MemoTheme.ink)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
-                .onSubmit { if store.semantic { store.runSemantic() } }
+                .accessibilityLabel(store.semantic ? "Search by meaning" : "Search your memos")
+                .onSubmit { dismissKeyboard(); if store.semantic { store.runSemantic() } }
             if !store.query.isEmpty {
                 Button { store.query = ""; store.hits = [] } label: {
                     Image(systemName: "xmark.circle.fill").foregroundColor(MemoTheme.sub.opacity(0.7))
@@ -362,7 +378,7 @@ private struct MemoRow: View {
     private var playButton: some View {
         Button(action: play) {
             ZStack {
-                Circle().fill(tint).frame(width: 40, height: 40)
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(tint).frame(width: 40, height: 40)
                 if loading { ProgressView().tint(.white) }
                 else {
                     Image(systemName: (isThis && player.isPlaying) ? "pause.fill" : "play.fill")
@@ -400,7 +416,7 @@ private struct JournalHitRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                Circle().fill(MemoTheme.entry.opacity(0.20)).frame(width: 40, height: 40)
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MemoTheme.entry.opacity(0.20)).frame(width: 40, height: 40)
                 Image(systemName: "text.alignleft").font(.system(size: 15, weight: .semibold)).foregroundColor(MemoTheme.entry)
             }
             VStack(alignment: .leading, spacing: 4) {
