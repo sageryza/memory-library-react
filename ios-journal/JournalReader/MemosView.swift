@@ -61,6 +61,7 @@ final class MemosStore: ObservableObject {
     @Published var organize = false          // reveals star/hide controls + hidden memos
     @Published var storyFilter = false       // show only memos flagged for Story Room
     @Published var starFilter = false        // show only starred memos
+    @Published var hiddenFilter = false      // show only HIDDEN memos
     @Published var monthFilter: String?      // "yyyy-MM" — browse list shows only that month
 
     @Published var listLoad: Load = .idle
@@ -187,7 +188,9 @@ final class MemosStore: ObservableObject {
     /// always newest-first — starred memos keep their chronological place
     /// (the ★ header toggle filters to just them instead).
     var browseItems: [VoiceEntry] {
-        var base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
+        var base = keywordResults
+        if hiddenFilter { base = base.filter { pref($0.id).hidden } }
+        else if !organize { base = base.filter { !pref($0.id).hidden } }
         if storyFilter { base = base.filter { pref($0.id).narration } }
         if starFilter { base = base.filter { pref($0.id).starred } }
         if let m = monthFilter { base = base.filter { ($0.date ?? "").hasPrefix(m) } }
@@ -330,6 +333,11 @@ struct MemosView: View {
             iconToggle(on: store.starFilter, icon: store.starFilter ? "star.fill" : "star",
                        label: "Starred only", onColor: MemoTheme.gold) {
                 withAnimation(.easeInOut(duration: 0.15)) { store.starFilter.toggle() }
+            }
+            // Crossed-out eye = show only the memos she's hidden.
+            iconToggle(on: store.hiddenFilter, icon: store.hiddenFilter ? "eye.slash.fill" : "eye.slash",
+                       label: "Hidden only", onColor: MemoTheme.accent) {
+                withAnimation(.easeInOut(duration: 0.15)) { store.hiddenFilter.toggle() }
             }
             // Story Room filter: show only the memos flagged for Story Room.
             iconToggle(on: store.storyFilter, icon: "books.vertical",
@@ -801,11 +809,27 @@ struct MemoDetailView: View {
             HStack(alignment: .center, spacing: 14) {
                 playButton
                 VStack(alignment: .leading, spacing: 4) {
-                    TextField("Name this memo", text: $name)
-                        .font(.system(size: 20, weight: .bold)).foregroundColor(MemoTheme.ink)
-                        .focused($editingName)
-                        .submitLabel(.done)
-                        .onSubmit { commitName() }
+                    // The name is a live text field — tap it (or the pencil,
+                    // which makes the editability visible) to rename; the new
+                    // name saves on Done/tap-away and shows everywhere.
+                    HStack(spacing: 6) {
+                        TextField("Name this memo", text: $name)
+                            .font(.system(size: 20, weight: .bold)).foregroundColor(MemoTheme.ink)
+                            .focused($editingName)
+                            .submitLabel(.done)
+                            .onSubmit { commitName() }
+                        if !editingName {
+                            Button { editingName = true } label: {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(MemoTheme.sub)
+                                    .frame(width: 28, height: 28)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Rename this memo")
+                        }
+                    }
                     HStack(spacing: 8) {
                         Text(VoiceDate.pretty(entry.date))
                             .font(.system(size: 13, weight: .medium)).foregroundColor(MemoTheme.sub)
