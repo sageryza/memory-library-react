@@ -73,20 +73,25 @@ final class VoiceEntriesStore: ObservableObject {
 }
 
 /// Single shared audio player for the voice list — one memo at a time, plays
-/// through the earpiece/speaker even when the phone is on silent.
+/// through the earpiece/speaker even when the phone is on silent. Publishes the
+/// playhead (`currentTime`/`duration`) so a waveform can track it, and seeks.
 @MainActor
 final class VoicePlayer: ObservableObject {
     @Published var currentID: String?
     @Published var isPlaying = false
+    @Published var currentTime: Double = 0
+    @Published var duration: Double = 0
 
     private var player: AVPlayer?
     private var endObserver: NSObjectProtocol?
+    private var timeObserver: Any?
 
     func play(_ entry: VoiceEntry, url: URL) {
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         try? AVAudioSession.sharedInstance().setActive(true)
 
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        if let timeObserver { player?.removeTimeObserver(timeObserver); self.timeObserver = nil }
         let item = AVPlayerItem(url: url)
         let p = AVPlayer(playerItem: item)
         endObserver = NotificationCenter.default.addObserver(
@@ -94,9 +99,23 @@ final class VoicePlayer: ObservableObject {
         ) { [weak self] _ in
             self?.isPlaying = false
             self?.currentID = nil
+            self?.currentTime = 0
+        }
+        // Follow the playhead; the real duration lands once the item loads
+        // (until then `duration` holds the manifest's stored seconds).
+        timeObserver = p.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main
+        ) { [weak self] t in
+            guard let self else { return }
+            self.currentTime = max(0, t.seconds)
+            if let d = self.player?.currentItem?.duration.seconds, d.isFinite, d > 0 {
+                self.duration = d
+            }
         }
         player = p
         currentID = entry.id
+        currentTime = 0
+        duration = entry.dur.map(Double.init) ?? 0
         isPlaying = true
         p.play()
     }
@@ -105,5 +124,24 @@ final class VoicePlayer: ObservableObject {
         guard let player else { return }
         if isPlaying { player.pause(); isPlaying = false }
         else { player.play(); isPlaying = true }
+    }
+
+    /// Jump to an absolute position (clamped to the known duration).
+    func seek(to seconds: Double) {
+        guard let player else { return }
+        var t = max(0, seconds)
+        if duration > 0 { t = min(t, duration - 0.1) }
+        player.seek(to: CMTime(seconds: t, preferredTimescale: 600),
+                    toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTime = t
+    }
+
+    /// Skip forward/back by `seconds` (negative = back).
+    func skip(_ seconds: Double) { seek(to: currentTime + seconds) }
+
+    deinit {
+        // Swift 5 mode: safe to touch our own stored props while tearing down.
+        if let timeObserver { player?.removeTimeObserver(timeObserver) }
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
     }
 }

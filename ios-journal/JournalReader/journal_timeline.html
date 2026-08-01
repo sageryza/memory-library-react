@@ -49,19 +49,21 @@
 .entry hr.pb{border:0;border-top:1px dashed var(--ink);opacity:.3;height:0;margin:13px 22% 13px 0}
 .entry em{font-style:italic}
 .entry strong{font-weight:700}
-  /* Autoscroll pill — same mechanism as the DeckFactory apps: ▲/▶/▼ idle,
-     −/‖/+ while playing, 0.1–2× speed, with the speed shown below. */
-  .float{position:fixed; top:64px; right:14px; z-index:50; display:flex; flex-direction:column; gap:8px; align-items:center;}
-  .vseg{display:flex; flex-direction:column; width:46px; border:1.5px solid var(--ink); border-radius:999px;
+  /* Autoscroll pill — the shared DeckFactory pill (imageforge scripts/pill.py,
+     keep in sync): ▲/▶/▼ idle, −/‖/+ while playing, five discrete speeds
+     (Slow / Medium / Fast / Faster / Fastest, default Fast) shown below. */
+  .float{position:fixed; top:64px; right:14px; z-index:50; display:flex; flex-direction:column; gap:8px; align-items:center; transform:translateZ(0); will-change:transform;}
+  .vseg{display:flex; flex-direction:column; width:48px; border:1.5px solid var(--ink); border-radius:999px;
     overflow:hidden; background:var(--paper); box-shadow:0 2px 10px rgba(90,30,34,0.18);}
-  .vseg button{border:none; background:transparent; color:var(--ink); height:46px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; font-size:18px; padding:0;
-    -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent;}
+  .vseg button{border:none; background:transparent; color:var(--ink); width:48px; height:52px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
   .vseg button + button{border-top:1.5px solid var(--ink);}
   .vseg button.on{background:color-mix(in srgb, #7a4f9e 16%, var(--paper)); color:#7a4f9e;}
+  .vseg button.dim{opacity:.3;}
   .vseg button:focus-visible{outline:2px solid #7a4f9e; outline-offset:-2px;}
   .vseg button:active{transform:scale(0.94);}
-  #spd{font-family:-apple-system,sans-serif; font-size:10px; color:rgba(90,30,34,0.6); font-variant-numeric:tabular-nums;}
+  #spd{font-family:-apple-system,sans-serif; font-size:11px; font-weight:600; color:rgba(90,30,34,0.6); letter-spacing:.02em;}
 </style>
 </head>
 <body>
@@ -74,18 +76,20 @@
 </div>
 <div class="float">
   <div class="vseg">
-    <button id="vtop" aria-label="Scroll up / slower"></button>
+    <button id="vtop" aria-label="Scroll up, or slower while playing"></button>
     <button id="vmid" aria-label="Play or pause autoscroll"></button>
-    <button id="vbot" aria-label="Scroll down / faster"></button>
+    <button id="vbot" aria-label="Scroll down, or faster while playing"></button>
   </div>
-  <span id="spd">1.0&times;</span>
+  <span id="spd">Fast</span>
 </div>
 <script>
-// Autoscroll pill, ported exactly from the DeckFactory apps' Writing Room:
-// ▲/▶/▼ when idle (scroll up / play / scroll down), −/‖/+ while playing
-// (slower / pause / faster), default 1.0×, range 0.1–2×. Drives whichever pane
-// is scrollable — the reader when it holds an entry, otherwise the band rail —
-// and a tap on the reading area pauses it (tap-to-pause).
+// Autoscroll pill, ported from the shared DeckFactory pill (imageforge
+// scripts/pill.py — keep the speeds/behavior in sync): ▲/▶/▼ when idle
+// (scroll up / play / scroll down), −/‖/+ while playing (slower / pause /
+// faster) over five discrete speeds — Slow / Medium / Fast / Faster / Fastest,
+// starting on Fast. The one local difference: this page scrolls its inner
+// panes (the reader when it holds an entry, otherwise the band rail), not the
+// window. A tap on the reading area pauses it (tap-to-pause).
 (function(){
   var reader=document.getElementById('reader');
   var rail=document.querySelector('.railwrap');
@@ -98,7 +102,9 @@
    plus:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
    minus:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>'
   };
-  var playing=false, raf=null, last=null, speed=1, dir=1, acc=0;
+  var SPEEDS=[['Slow',0.5],['Medium',1.0],['Fast',1.9],['Faster',3.2],['Fastest',5.2]];
+  var playing=false, raf=null, last=null, si=2, dir=1, acc=0;
+  function spd(){ return SPEEDS[si][1]; }
   function target(){
     if(reader && reader.scrollHeight - reader.clientHeight > 4) return reader;
     return rail;
@@ -108,7 +114,7 @@
     var el=target();
     if(!el){ stop(); return; }
     if(last!=null){
-      acc += dir*(ts-last)/1000*42*speed;
+      acc += dir*(ts-last)/1000*42*spd();
       var move = acc>0 ? Math.floor(acc) : Math.ceil(acc);
       if(move!==0){ el.scrollTop+=move; acc-=move; }
       var atEnd = dir>0 ? (el.scrollTop + el.clientHeight >= el.scrollHeight-4) : (el.scrollTop<=2);
@@ -116,17 +122,24 @@
     }
     last=ts; raf=requestAnimationFrame(step);
   }
-  function showSpd(){ document.getElementById('spd').textContent=speed.toFixed(1)+'×'; }
+  function showSpd(){ document.getElementById('spd').textContent=SPEEDS[si][0]; }
   function paint(){
-    if(playing){ vtop.innerHTML=I.minus; vbot.innerHTML=I.plus; vmid.innerHTML=I.pause; vmid.classList.add('on'); }
-    else{ vtop.innerHTML=I.up; vbot.innerHTML=I.down; vmid.innerHTML=I.play; vmid.classList.remove('on'); }
+    if(playing){
+      vtop.innerHTML=I.minus; vbot.innerHTML=I.plus; vmid.innerHTML=I.pause; vmid.classList.add('on');
+      vtop.classList.toggle('dim', si===0); vbot.classList.toggle('dim', si===SPEEDS.length-1);
+    } else {
+      vtop.innerHTML=I.up; vbot.innerHTML=I.down; vmid.innerHTML=I.play; vmid.classList.remove('on');
+      vtop.classList.remove('dim'); vbot.classList.remove('dim');
+    }
     showSpd();
   }
   function start(d){ dir=d; playing=true; last=null; acc=0; paint(); raf=requestAnimationFrame(step); }
   function stop(){ playing=false; if(raf) cancelAnimationFrame(raf); paint(); }
-  vtop.onclick=function(){ if(playing){ speed=Math.max(.1,+(speed-0.1).toFixed(1)); showSpd(); } else start(-1); };
-  vbot.onclick=function(){ if(playing){ speed=Math.min(2,+(speed+0.1).toFixed(1)); showSpd(); } else start(1); };
+  vtop.onclick=function(){ if(playing){ si=Math.max(0,si-1); paint(); } else start(-1); };
+  vbot.onclick=function(){ if(playing){ si=Math.min(SPEEDS.length-1,si+1); paint(); } else start(1); };
   vmid.onclick=function(){ playing? stop() : start(dir||1); };
+  document.addEventListener('visibilitychange',function(){ if(document.hidden) stop(); });
+  window.addEventListener('pagehide',stop);
   paint();
   // Tapping the reading area toggles the scroll: pause while it's playing,
   // resume when it's stopped (the reader has no other tap action). Taps on the

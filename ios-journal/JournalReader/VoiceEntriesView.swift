@@ -243,6 +243,27 @@ enum VoiceDate {
     static func pretty(_ iso: String?) -> String { format(iso, "EEE, MMM d, yyyy") ?? (iso ?? "Undated") }
     static func monthYear(_ iso: String?) -> String { format(iso, "MMMM yyyy") ?? "Undated" }
 
+    private static let ymParser: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM"
+        return f
+    }()
+
+    private static func formatYM(_ ym: String, _ pattern: String) -> String? {
+        guard let d = ymParser.date(from: ym) else { return nil }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "en_US")
+        out.dateFormat = pattern
+        return out.string(from: d)
+    }
+
+    /// "2026-07" → "July" (for the month menu, where the year is the submenu).
+    static func monthName(_ ym: String) -> String { formatYM(ym, "MMMM") ?? ym }
+    /// "2026-07" → "July 2026".
+    static func monthYearLabel(_ ym: String) -> String { formatYM(ym, "MMMM yyyy") ?? ym }
+
     static func duration(_ seconds: Int) -> String {
         let m = seconds / 60, s = seconds % 60
         return String(format: "%d:%02d", m, s)

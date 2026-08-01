@@ -60,6 +60,7 @@ final class MemosStore: ObservableObject {
     @Published var query = ""
     @Published var organize = false          // reveals star/hide controls + hidden memos
     @Published var storyFilter = false       // show only memos flagged for Story Room
+    @Published var monthFilter: String?      // "yyyy-MM" — browse list shows only that month
 
     @Published var listLoad: Load = .idle
     @Published var memos: [VoiceEntry] = []   // all, newest first
@@ -160,11 +161,33 @@ final class MemosStore: ObservableObject {
         }
     }
 
+    /// The months that actually have memos, grouped by year, newest first —
+    /// what the calendar menu offers. Keys are "yyyy-MM".
+    var monthsByYear: [(year: String, months: [String])] {
+        var seen = Set<String>()
+        var all: [String] = []
+        for m in memos {
+            guard let d = m.date, d.count >= 7 else { continue }
+            let ym = String(d.prefix(7))
+            if seen.insert(ym).inserted { all.append(ym) }
+        }
+        all.sort(by: >)
+        var years: [String] = []
+        var map: [String: [String]] = [:]
+        for ym in all {
+            let y = String(ym.prefix(4))
+            if map[y] == nil { map[y] = []; years.append(y) }
+            map[y]?.append(ym)
+        }
+        return years.map { ($0, map[$0] ?? []) }
+    }
+
     /// What the browse list shows: hidden dropped (unless Organize is on),
     /// starred floated to the top, otherwise newest-first.
     var browseItems: [VoiceEntry] {
         var base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
         if storyFilter { base = base.filter { pref($0.id).narration } }
+        if let m = monthFilter { base = base.filter { ($0.date ?? "").hasPrefix(m) } }
         return base.sorted { a, b in
             let sa = pref(a.id).starred, sb = pref(b.id).starred
             if sa != sb { return sa && !sb }
@@ -208,6 +231,51 @@ final class MemosStore: ObservableObject {
         return try await storage.reference(withPath: "memo-audio/\(file)").downloadURL()
     }
 
+    // MARK: local audio (waveform + download)
+
+    private var audioCacheDir: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("memo-audio", isDirectory: true)
+    }
+
+    private func cachePath(for entry: VoiceEntry) -> URL {
+        audioCacheDir.appendingPathComponent((entry.file as NSString).lastPathComponent)
+    }
+
+    /// The already-downloaded recording, if we have it (no network).
+    func cachedAudioFile(for entry: VoiceEntry) -> URL? {
+        let dest = cachePath(for: entry)
+        return FileManager.default.fileExists(atPath: dest.path) ? dest : nil
+    }
+
+    /// The recording as a local file — downloaded once into the cache, reused
+    /// after that (the waveform and the Download button both read this).
+    func localAudioFile(for entry: VoiceEntry) async throws -> URL {
+        let dest = cachePath(for: entry)
+        if FileManager.default.fileExists(atPath: dest.path) { return dest }
+        try await ensureAuth()
+        try FileManager.default.createDirectory(at: audioCacheDir, withIntermediateDirectories: true)
+        _ = try await storage.reference(withPath: "memo-audio/\(entry.file)").writeAsync(toFile: dest)
+        return dest
+    }
+
+    /// A copy of the recording named after the memo (what lands in Files /
+    /// AirDrop when Sophie downloads it), in the temp dir.
+    func shareFile(for entry: VoiceEntry) async throws -> URL {
+        let local = try await localAudioFile(for: entry)
+        let ext = local.pathExtension.isEmpty ? "m4a" : local.pathExtension
+        var base = name(for: entry)
+        if let d = entry.date, !d.isEmpty { base = "\(d) \(base)" }
+        let bad = CharacterSet(charactersIn: "/\\:?%*|\"<>")
+        let safe = base.components(separatedBy: bad).joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(safe.isEmpty ? entry.id : safe).\(ext)")
+        try? FileManager.default.removeItem(at: tmp)
+        try FileManager.default.copyItem(at: local, to: tmp)
+        return tmp
+    }
+
     private func ensureAuth() async throws {
         if Auth.auth().currentUser == nil { try await Auth.auth().signInAnonymously() }
     }
@@ -221,12 +289,6 @@ struct MemosView: View {
     @StateObject private var player = VoicePlayer()
     @FocusState private var focused: Bool
     @State private var selected: VoiceEntry?
-
-    // Auto-scroll pill: -1 = up, 0 = off, +1 = down. `visibleID` tracks the top
-    // memo so auto-scroll resumes from where you are.
-    @State private var autoDir = 0
-    @State private var visibleID: String?
-    @State private var autoTimer = Timer.publish(every: 1.1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationStack {
@@ -315,6 +377,7 @@ struct MemosView: View {
                     Image(systemName: "xmark.circle.fill").foregroundColor(MemoTheme.sub.opacity(0.7))
                 }.buttonStyle(.plain)
             }
+            monthMenu
             Button { store.semantic.toggle() } label: {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .semibold))
@@ -332,6 +395,37 @@ struct MemosView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
         .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 8)
+    }
+
+    /// Filter the browse list to one month — a calendar menu grouped by year,
+    /// newest first; "All months" clears it.
+    private var monthMenu: some View {
+        Menu {
+            Button { store.monthFilter = nil } label: {
+                if store.monthFilter == nil { Label("All months", systemImage: "checkmark") }
+                else { Text("All months") }
+            }
+            ForEach(store.monthsByYear, id: \.year) { group in
+                Menu(group.year) {
+                    ForEach(group.months, id: \.self) { ym in
+                        Button { store.monthFilter = ym } label: {
+                            if store.monthFilter == ym { Label(VoiceDate.monthName(ym), systemImage: "checkmark") }
+                            else { Text(VoiceDate.monthName(ym)) }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "calendar")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(store.monthFilter != nil ? .white : MemoTheme.sub)
+                .frame(width: 32, height: 32)
+                .background(RoundedRectangle(cornerRadius: 6)
+                    .fill(store.monthFilter != nil ? MemoTheme.accent : Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 6)
+                    .stroke(store.monthFilter != nil ? .clear : MemoTheme.line))
+        }
+        .accessibilityLabel(store.monthFilter.map { "Showing \(VoiceDate.monthYearLabel($0))" } ?? "Filter by month")
     }
 
     @ViewBuilder
@@ -366,35 +460,17 @@ struct MemosView: View {
                                 MemoRow(entry: entry, store: store, player: player) { selected = $0 }
                                 Divider().overlay(MemoTheme.line).padding(.leading, 66)
                             }
-                            .id(entry.id)
                         }
                     }
-                    .scrollTargetLayout()
                     .padding(.bottom, 24)
                 }
-                .scrollPosition(id: $visibleID)
-                .overlay(alignment: .trailing) {
-                    AutoScrollPill(dir: $autoDir).padding(.trailing, 8)
+                // The shared Deck Factory pill: drives this list's scroll view
+                // continuously (five speeds); a tap anywhere on content stops it.
+                .overlay(alignment: .topTrailing) {
+                    AutoScrollPill().padding(.trailing, 8).padding(.top, 8)
                 }
-                .onReceive(autoTimer) { _ in autoStep(ids: items.map { $0.id }) }
-                .onChange(of: autoDir) { _, d in if d != 0 { autoStep(ids: items.map { $0.id }) } }
             }
         }
-    }
-
-    /// Advance the top-visible memo one step in `autoDir`; stops at the ends.
-    private func autoStep(ids: [String]) {
-        guard autoDir != 0, !ids.isEmpty else { return }
-        let target: String
-        if let c = visibleID, let i = ids.firstIndex(of: c) {
-            let j = i + autoDir
-            if j < 0 || j >= ids.count { autoDir = 0; return }
-            target = ids[j]
-            if j == 0 || j == ids.count - 1 { autoDir = 0 }
-        } else {
-            target = autoDir > 0 ? ids[0] : ids[ids.count - 1]
-        }
-        withAnimation(.easeInOut(duration: 0.9)) { visibleID = target }
     }
 
     @ViewBuilder
@@ -431,37 +507,6 @@ struct MemosView: View {
 
     private func centered<V: View>(@ViewBuilder _ inner: () -> V) -> some View {
         VStack { Spacer(); inner(); Spacer() }.frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// Floating auto-scroll control: chevrons that slowly scroll the list up or down;
-/// the active arrow becomes a pause. Sits on the right edge, clear of the header.
-struct AutoScrollPill: View {
-    @Binding var dir: Int   // -1 up, 0 off, +1 down
-
-    var body: some View {
-        VStack(spacing: 4) {
-            arrow(up: true)
-            arrow(up: false)
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.96)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MemoTheme.line))
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 1)
-    }
-
-    private func arrow(up: Bool) -> some View {
-        let d = up ? -1 : 1
-        let active = dir == d
-        return Button { dir = active ? 0 : d } label: {
-            Image(systemName: active ? "pause.fill" : (up ? "chevron.up" : "chevron.down"))
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(active ? .white : MemoTheme.sub)
-                .frame(width: 36, height: 30)
-                .background(RoundedRectangle(cornerRadius: 9).fill(active ? MemoTheme.accent : Color.clear))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(up ? "Auto-scroll up" : "Auto-scroll down")
     }
 }
 
@@ -638,8 +683,24 @@ private struct JournalHitRow: View {
     }
 }
 
-/// One memo's own screen: play it, read its transcript, rename it, star/hide it,
-/// and (soon) send it to a Deck Factory movie.
+/// A downloaded copy of a recording, ready for the share sheet.
+private struct SharedFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+/// The iOS share sheet (save to Files, AirDrop, etc.) for a downloaded memo.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+
+/// One memo's own screen: play it (waveform + scrub + 15s skips), download the
+/// recording, read its transcript, rename it, star/hide it, and (soon) send it
+/// to a Deck Factory movie.
 struct MemoDetailView: View {
     let entry: VoiceEntry
     @ObservedObject var store: MemosStore
@@ -650,12 +711,16 @@ struct MemoDetailView: View {
     @State private var audioError: String?
     @FocusState private var editingName: Bool
 
-    @State private var autoDir = 0
-    @State private var visibleID: String?
-    @State private var autoTimer = Timer.publish(every: 1.1, on: .main, in: .common).autoconnect()
+    // Playback extras: the waveform's amplitude buckets (computed from the
+    // downloaded audio), the finger's scrub position while dragging, and the
+    // downloaded copy handed to the share sheet.
+    @State private var waveSamples: [Float]?
+    @State private var scrubbing: Double?
+    @State private var shareItem: SharedFile?
+    @State private var preparingShare = false
 
-    /// Transcript split into scrollable paragraphs (by line breaks, else ~320-char
-    /// chunks) so the auto-scroll pill can step through it.
+    /// Transcript split into paragraphs (by line breaks, else ~320-char
+    /// chunks) so it reads comfortably.
     private var transcriptParas: [String] {
         guard let t = full.transcript, !t.isEmpty else { return [] }
         let byLine = t.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
@@ -669,7 +734,6 @@ struct MemoDetailView: View {
         if !cur.isEmpty { chunks.append(cur.trimmingCharacters(in: .whitespaces)) }
         return chunks
     }
-    private var scrollIDs: [String] { ["d-top"] + transcriptParas.indices.map { "d-t\($0)" } + ["d-send"] }
 
     private var full: VoiceEntry { store.fullEntry(entry.id) ?? entry }
     private var p: MemoPref { store.pref(entry.id) }
@@ -679,7 +743,7 @@ struct MemoDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                topBlock.id("d-top")
+                topBlock
 
                 Divider().overlay(MemoTheme.line)
 
@@ -692,20 +756,21 @@ struct MemoDetailView: View {
                         Text(item.element).font(.system(size: 16)).foregroundColor(MemoTheme.ink.opacity(0.92))
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .id("d-t\(item.offset)")
                     }
                 }
 
                 Divider().overlay(MemoTheme.line)
 
-                sendToBlock.id("d-send")
+                sendToBlock
             }
-            .scrollTargetLayout()
             .padding(16)
         }
-        .scrollPosition(id: $visibleID)
         .background(MemoTheme.paper.ignoresSafeArea())
-        .overlay(alignment: .trailing) { AutoScrollPill(dir: $autoDir).padding(.trailing, 8) }
+        // The shared Deck Factory pill (top-right, like every Deck Factory
+        // page); the top block reserves that corner so nothing sits under it.
+        .overlay(alignment: .topTrailing) {
+            AutoScrollPill().padding(.trailing, 8).padding(.top, 8)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -717,9 +782,11 @@ struct MemoDetailView: View {
                 }.tint(MemoTheme.accent)
             }
         }
-        .onReceive(autoTimer) { _ in autoStep() }
-        .onChange(of: autoDir) { _, d in if d != 0 { autoStep() } }
-        .onAppear { name = store.name(for: entry) }
+        .sheet(item: $shareItem) { item in ShareSheet(items: [item.url]) }
+        .onAppear {
+            name = store.name(for: entry)
+            loadWaveform()
+        }
         .onDisappear { commitName() }
     }
 
@@ -743,6 +810,9 @@ struct MemoDetailView: View {
                     }
                 }
             }
+
+            playerBlock
+
             if let audioError {
                 Text(audioError).font(.system(size: 13)).foregroundColor(.red)
             }
@@ -760,8 +830,123 @@ struct MemoDetailView: View {
                     store.setPref(id: entry.id, hidden: !p.hidden)
                 }
             }
+            downloadButton
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Reserve the pill's corner (Deck Factory rule: nothing tappable or
+        // draggable under the fixed top-right pill).
+        .padding(.trailing, 52)
+    }
+
+    // MARK: playback (waveform + scrub + skips)
+
+    /// The best total we know: the player's real duration once loaded, else the
+    /// manifest's stored seconds.
+    private var totalSeconds: Double {
+        if isThis, player.duration > 0 { return player.duration }
+        return Double(full.dur ?? 0)
+    }
+
+    private var playedFraction: Double {
+        if let s = scrubbing { return s }
+        guard isThis, totalSeconds > 0 else { return 0 }
+        return min(1, max(0, player.currentTime / totalSeconds))
+    }
+
+    private var playerBlock: some View {
+        VStack(spacing: 6) {
+            MemoWaveformView(samples: waveSamples, progress: playedFraction, tint: tint,
+                             onScrub: { f in scrubbing = f },
+                             onScrubEnd: { f in
+                                 scrubbing = nil
+                                 seek(toFraction: f)
+                             })
+            HStack(spacing: 8) {
+                Text(VoiceDate.duration(Int((isThis ? player.currentTime : 0).rounded())))
+                    .font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    .foregroundColor(MemoTheme.sub)
+                Spacer()
+                skipButton(-15, icon: "gobackward.15", label: "Back 15 seconds")
+                skipButton(15, icon: "goforward.15", label: "Forward 15 seconds")
+                Spacer()
+                Text(VoiceDate.duration(Int(totalSeconds.rounded())))
+                    .font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    .foregroundColor(MemoTheme.sub)
+            }
+        }
+    }
+
+    private func skipButton(_ seconds: Double, icon: String, label: String) -> some View {
+        Button {
+            if isThis { player.skip(seconds) } else { play() }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(MemoTheme.ink)
+                .frame(width: 44, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    /// Jump to a waveform position. If this memo isn't loaded in the player
+    /// yet, start it and land on the picked spot.
+    private func seek(toFraction f: Double) {
+        let total = totalSeconds
+        guard total > 0 else { return }
+        let t = f * total
+        if isThis {
+            player.seek(to: t)
+        } else {
+            play(startingAt: t)
+        }
+    }
+
+    /// Compute the waveform off the downloaded recording (cached after the
+    /// first visit, so this is usually instant).
+    private func loadWaveform() {
+        guard waveSamples == nil else { return }
+        Task {
+            guard let url = try? await store.localAudioFile(for: full) else { return }
+            waveSamples = await WaveformLoader.samples(from: url)
+        }
+    }
+
+    // MARK: download
+
+    private var downloadButton: some View {
+        Button(action: download) {
+            HStack(spacing: 6) {
+                if preparingShare {
+                    ProgressView().controlSize(.small).tint(MemoTheme.sub)
+                } else {
+                    Image(systemName: "square.and.arrow.down").font(.system(size: 14, weight: .semibold))
+                }
+                Text(preparingShare ? "Preparing…" : "Download recording")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(MemoTheme.sub)
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+        }
+        .buttonStyle(.plain)
+        .disabled(preparingShare)
+        .accessibilityLabel("Download this recording")
+    }
+
+    /// Fetch the audio (cache-first) and hand it to the share sheet, named
+    /// after the memo — save to Files, AirDrop, wherever.
+    private func download() {
+        guard !preparingShare else { return }
+        preparingShare = true
+        audioError = nil
+        Task {
+            do { shareItem = SharedFile(url: try await store.shareFile(for: full)) }
+            catch { audioError = "Couldn’t download this recording." }
+            preparingShare = false
+        }
     }
 
     private var sendToBlock: some View {
@@ -781,22 +966,6 @@ struct MemoDetailView: View {
             .opacity(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func autoStep() {
-        guard autoDir != 0 else { return }
-        let ids = scrollIDs
-        guard ids.count > 1 else { autoDir = 0; return }
-        let target: String
-        if let c = visibleID, let i = ids.firstIndex(of: c) {
-            let j = i + autoDir
-            if j < 0 || j >= ids.count { autoDir = 0; return }
-            target = ids[j]
-            if j == 0 || j == ids.count - 1 { autoDir = 0 }
-        } else {
-            target = autoDir > 0 ? ids[0] : ids[ids.count - 1]
-        }
-        withAnimation(.easeInOut(duration: 0.9)) { visibleID = target }
     }
 
     private func commitName() {
@@ -820,7 +989,7 @@ struct MemoDetailView: View {
     }
 
     private var playButton: some View {
-        Button(action: play) {
+        Button { play() } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(tint).frame(width: 60, height: 60)
                 if loading { ProgressView().tint(.white) }
@@ -835,13 +1004,19 @@ struct MemoDetailView: View {
         .accessibilityLabel(isThis && player.isPlaying ? "Pause" : "Play")
     }
 
-    private func play() {
-        if isThis { player.togglePause(); return }
+    private func play(startingAt seconds: Double? = nil) {
+        if isThis, seconds == nil { player.togglePause(); return }
         guard !full.file.isEmpty else { audioError = "Couldn’t find this recording."; return }
         loading = true; audioError = nil
         Task {
-            do { player.play(full, url: try await store.audioURL(file: full.file)) }
-            catch { audioError = "Couldn’t play this recording." }
+            do {
+                // Prefer the downloaded copy (the waveform loader fetched it);
+                // fall back to streaming from Storage.
+                let url = store.cachedAudioFile(for: full)
+                    ?? (try await store.audioURL(file: full.file))
+                player.play(full, url: url)
+                if let s = seconds { player.seek(to: s) }
+            } catch { audioError = "Couldn’t play this recording." }
             loading = false
         }
     }
