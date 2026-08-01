@@ -60,6 +60,7 @@ final class MemosStore: ObservableObject {
     @Published var query = ""
     @Published var organize = false          // reveals star/hide controls + hidden memos
     @Published var storyFilter = false       // show only memos flagged for Story Room
+    @Published var starFilter = false        // show only starred memos
     @Published var monthFilter: String?      // "yyyy-MM" — browse list shows only that month
 
     @Published var listLoad: Load = .idle
@@ -183,16 +184,14 @@ final class MemosStore: ObservableObject {
     }
 
     /// What the browse list shows: hidden dropped (unless Organize is on),
-    /// starred floated to the top, otherwise newest-first.
+    /// always newest-first — starred memos keep their chronological place
+    /// (the ★ header toggle filters to just them instead).
     var browseItems: [VoiceEntry] {
         var base = organize ? keywordResults : keywordResults.filter { !pref($0.id).hidden }
         if storyFilter { base = base.filter { pref($0.id).narration } }
+        if starFilter { base = base.filter { pref($0.id).starred } }
         if let m = monthFilter { base = base.filter { ($0.date ?? "").hasPrefix(m) } }
-        return base.sorted { a, b in
-            let sa = pref(a.id).starred, sb = pref(b.id).starred
-            if sa != sb { return sa && !sb }
-            return (a.date ?? "") > (b.date ?? "")
-        }
+        return base.sorted { ($0.date ?? "") > ($1.date ?? "") }
     }
 
     // MARK: semantic search
@@ -326,6 +325,12 @@ struct MemosView: View {
             Text("Voice Memos")
                 .font(.system(size: 22, weight: .bold)).foregroundColor(MemoTheme.ink)
             Spacer()
+            // ★ = show only starred (they stay in chronological order in the
+            // full list; this filters instead of floating them to the top).
+            iconToggle(on: store.starFilter, icon: store.starFilter ? "star.fill" : "star",
+                       label: "Starred only", onColor: MemoTheme.gold) {
+                withAnimation(.easeInOut(duration: 0.15)) { store.starFilter.toggle() }
+            }
             // Story Room filter: show only the memos flagged for Story Room.
             iconToggle(on: store.storyFilter, icon: "books.vertical",
                        label: "Story Room", onColor: MemoTheme.entry) {
@@ -339,19 +344,20 @@ struct MemosView: View {
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
     }
 
+    /// Icon-only header toggle (Sophie's the only user — no words needed);
+    /// the label survives as the accessibility name.
     private func iconToggle(on: Bool, icon: String, label: String, onColor: Color,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-                Text(label).font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundColor(on ? .white : MemoTheme.sub)
-            .padding(.horizontal, 9).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 6).fill(on ? onColor : Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(on ? .clear : MemoTheme.line))
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(on ? .white : MemoTheme.sub)
+                .frame(width: 36, height: 30)
+                .background(RoundedRectangle(cornerRadius: 6).fill(on ? onColor : Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(on ? .clear : MemoTheme.line))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     /// Reliable keyboard dismissal — clears SwiftUI focus AND resigns the first
@@ -816,21 +822,24 @@ struct MemoDetailView: View {
             if let audioError {
                 Text(audioError).font(.system(size: 13)).foregroundColor(.red)
             }
+            // Icon-only controls (no words): ★ turns gold, books green, eye
+            // rose, and the last one downloads via the share sheet.
             HStack(spacing: 8) {
-                toggleChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
-                           label: p.starred ? "Starred" : "Star", onColor: MemoTheme.gold) {
+                iconChip(on: p.starred, onIcon: "star.fill", offIcon: "star",
+                         onColor: MemoTheme.gold, label: p.starred ? "Unstar" : "Star") {
                     store.setPref(id: entry.id, starred: !p.starred)
                 }
-                toggleChip(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical",
-                           label: "Story Room", onColor: MemoTheme.entry) {
+                iconChip(on: p.narration, onIcon: "books.vertical.fill", offIcon: "books.vertical",
+                         onColor: MemoTheme.entry,
+                         label: p.narration ? "Remove from Story Room" : "Add to Story Room") {
                     store.setPref(id: entry.id, narration: !p.narration)
                 }
-                toggleChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
-                           label: p.hidden ? "Hidden" : "Hide", onColor: MemoTheme.accent) {
+                iconChip(on: p.hidden, onIcon: "eye.slash.fill", offIcon: "eye.slash",
+                         onColor: MemoTheme.accent, label: p.hidden ? "Unhide" : "Hide") {
                     store.setPref(id: entry.id, hidden: !p.hidden)
                 }
+                downloadButton
             }
-            downloadButton
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // Reserve the pill's corner (Deck Factory rule: nothing tappable or
@@ -917,17 +926,16 @@ struct MemoDetailView: View {
 
     private var downloadButton: some View {
         Button(action: download) {
-            HStack(spacing: 6) {
+            ZStack {
                 if preparingShare {
                     ProgressView().controlSize(.small).tint(MemoTheme.sub)
                 } else {
-                    Image(systemName: "square.and.arrow.down").font(.system(size: 14, weight: .semibold))
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(MemoTheme.sub)
                 }
-                Text(preparingShare ? "Preparing…" : "Download recording")
-                    .font(.system(size: 14, weight: .semibold))
             }
-            .foregroundColor(MemoTheme.sub)
-            .padding(.horizontal, 14).padding(.vertical, 9)
+            .frame(width: 40, height: 40)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
         }
@@ -974,18 +982,18 @@ struct MemoDetailView: View {
         store.setPref(id: entry.id, name: n)
     }
 
-    private func toggleChip(on: Bool, onIcon: String, offIcon: String, label: String,
-                            onColor: Color, action: @escaping () -> Void) -> some View {
+    /// Icon-only toggle: white square, icon tinted its color when on (the ★
+    /// literally turns gold). The label survives as the accessibility name.
+    private func iconChip(on: Bool, onIcon: String, offIcon: String, onColor: Color,
+                          label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: on ? onIcon : offIcon).font(.system(size: 14, weight: .semibold))
-                Text(label).font(.system(size: 14, weight: .semibold))
-            }
-            .foregroundColor(on ? .white : MemoTheme.sub)
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 8).fill(on ? onColor : Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? .clear : MemoTheme.line))
-        }.buttonStyle(.plain)
+            Image(systemName: on ? onIcon : offIcon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(on ? onColor : MemoTheme.sub)
+                .frame(width: 40, height: 40)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(MemoTheme.line))
+        }.buttonStyle(.plain).accessibilityLabel(label)
     }
 
     private var playButton: some View {
