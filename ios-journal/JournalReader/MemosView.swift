@@ -1011,9 +1011,11 @@ struct MemoDetailView: View {
         Task {
             do {
                 // Prefer the downloaded copy (the waveform loader fetched it);
-                // fall back to streaming from Storage.
-                let url = store.cachedAudioFile(for: full)
-                    ?? (try await store.audioURL(file: full.file))
+                // fall back to streaming from Storage. (Not `??` — its right
+                // side is an autoclosure, which can't hold `try await`.)
+                let url: URL
+                if let cached = store.cachedAudioFile(for: full) { url = cached }
+                else { url = try await store.audioURL(file: full.file) }
                 player.play(full, url: url)
                 if let s = seconds { player.seek(to: s) }
             } catch { audioError = "Couldn’t play this recording." }
