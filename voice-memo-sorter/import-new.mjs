@@ -12,13 +12,15 @@
 // Zero npm deps (Node 18+ built-in fetch/crypto). Needs `ffprobe`/`ffmpeg` on
 // PATH for durations + large-file handling (you already have these).
 //
-// SETUP (one time):
+// SETUP (one time, in your terminal):
 //   export OPENAI_API_KEY=sk-...
-//   have your Firebase service-account JSON for membry-df528 (never commit it)
+//   export STORY_FIREBASE_SERVICE_ACCOUNT='<the whole membry-df528 key JSON>'
+//   (or pass --sa /path/to/membry-key.json instead of the env var)
 //
 // USAGE:
-//   node import-new.mjs <serviceAccount.json> [folder] [--dry-run] [--limit N] [--max-min N]
-//     folder     defaults to ~/VoiceMemos  (or pass the macOS Voice Memos folder)
+//   node import-new.mjs [folder] [--sa <file>] [--dry-run] [--limit N] [--max-min N]
+//     folder     the folder with your recordings; defaults to ~/VoiceMemos
+//     --sa        service-account JSON file (else read from env — see above)
 //     --dry-run  list what WOULD be added (transcribes nothing, costs $0)
 //     --limit N  only do the first N new files (great for a first test: --limit 1)
 //     --max-min  skip recordings longer than N minutes (default 30)
@@ -38,17 +40,29 @@ const flags = new Set(argv.filter((a) => a.startsWith('--')));
 const pos = argv.filter((a) => !a.startsWith('--'));
 const opt = (name, def) => { const i = argv.indexOf(name); return i >= 0 && argv[i + 1] ? argv[i + 1] : def; };
 
-const saPath = pos[0];
-const folder = (pos[1] || path.join(os.homedir(), 'VoiceMemos')).replace(/^~/, os.homedir());
+const folder = (opt('--folder', pos[0]) || path.join(os.homedir(), 'VoiceMemos')).replace(/^~/, os.homedir());
 const dryRun = flags.has('--dry-run');
 const limit = Number(opt('--limit', Infinity));
 const maxMin = Number(opt('--max-min', 30));
 
-if (!saPath) { console.error('usage: node import-new.mjs <serviceAccount.json> [folder] [--dry-run] [--limit N] [--max-min N]'); process.exit(1); }
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_KEY && !dryRun) { console.error('Set OPENAI_API_KEY (or use --dry-run).'); process.exit(1); }
 
-const sa = JSON.parse(fs.readFileSync(saPath, 'utf8'));
+// Service account for membry-df528 (where the memos live). Resolve, in order:
+//   --sa <file>  →  STORY_FIREBASE_SERVICE_ACCOUNT (inline JSON)  →
+//   GOOGLE_APPLICATION_CREDENTIALS (file)  →  FIREBASE_SERVICE_ACCOUNT (inline)
+function loadSA() {
+  const p = opt('--sa', null);
+  if (p) return JSON.parse(fs.readFileSync(p.replace(/^~/, os.homedir()), 'utf8'));
+  if (process.env.STORY_FIREBASE_SERVICE_ACCOUNT) return JSON.parse(process.env.STORY_FIREBASE_SERVICE_ACCOUNT);
+  if (process.env.MEMBRY_FIREBASE_SERVICE_ACCOUNT) return JSON.parse(process.env.MEMBRY_FIREBASE_SERVICE_ACCOUNT);
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  return null;
+}
+const sa = loadSA();
+if (!sa) { console.error('No service account. Set STORY_FIREBASE_SERVICE_ACCOUNT (the membry-df528 key) in your env, or pass --sa <file>.'); process.exit(1); }
+if (sa.project_id !== 'membry-df528') { console.error(`This service account is for "${sa.project_id}", but the voice memos live in membry-df528. Use the membry key (STORY_FIREBASE_SERVICE_ACCOUNT), not the Deck Factory one.`); process.exit(1); }
 const BUCKET = process.env.BUCKET || `${sa.project_id}.firebasestorage.app`;
 const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.wav', '.aac', '.mp4', '.aiff', '.aif', '.caf', '.flac']);
 const MAX_API_BYTES = 24 * 1024 * 1024;
