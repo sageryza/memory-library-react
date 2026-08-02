@@ -19,6 +19,7 @@ import KeyboardSheet from './KeyboardSheet';
 import XiInfo from './XiInfo';
 import StoryPlayButton from './StoryPlayButton';
 import { useStoryRecorder, canRecord } from '../../xi/storyVoice';
+import { isIOS as isIOSDevice, openInApp } from '../../xi/appLinks';
 import './XiVersus.css';
 
 const VERSUS_HELP = (
@@ -372,13 +373,12 @@ export default function XiVersus() {
 
   // "Open in the XI app" — the app's own xi:// scheme link. Universal links
   // never fire from in-app browsers (Gmail's, notably), so turn-alert links
-  // opened there strand people on the web; the scheme link escapes anywhere.
-  // iOS only — that's where the app lives.
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-    (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
-  const openInApp = () => {
+  // opened there strand people on the web; the scheme link escapes anywhere,
+  // and openInApp falls through to the App Store when the app isn't
+  // installed. iOS only — that's where the app lives.
+  const openGameInApp = () => {
     const token = new URLSearchParams(window.location.search).get('i');
-    window.location.href = `xi://versus/${gameId}` + (token ? `?i=${encodeURIComponent(token)}` : '');
+    openInApp(`versus/${gameId}` + (token ? `?i=${encodeURIComponent(token)}` : ''));
   };
 
   // Open the OS share sheet (Messages, etc.) with the invite link; fall back to
@@ -433,8 +433,8 @@ export default function XiVersus() {
         </div>
       </div>
 
-      {isIOS && (
-        <button className="xiv-openapp" onClick={openInApp}>
+      {isIOSDevice() && (
+        <button className="xiv-openapp" onClick={openGameInApp}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" />
           </svg>
