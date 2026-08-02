@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The share extension's background URLSession needs a shared container.
+       Reuses the account-wide Deck Factory group (already registered) so the
+       only portal work is attaching it to the two journal App IDs. -->
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.com.sageryza.imageforge</string>
+  </array>
+</dict>
+</plist>

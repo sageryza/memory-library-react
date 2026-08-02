@@ -26,9 +26,16 @@ targets:
         product: FirebaseFunctions
       - package: Firebase
         product: FirebaseStorage
+      - target: JournalShare
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.journal
+        # App Group shared with JournalShare — what lets the share sheet hand
+        # its uploads to a background URLSession and dismiss immediately.
+        # Reuses Deck Factory's registered group; Sophie attaches it to the
+        # two journal App IDs in the portal (one-time, Aug 2026).
+        CODE_SIGN_ENTITLEMENTS: JournalReader/JournalReader.entitlements
         GENERATE_INFOPLIST_FILE: YES
         # Partial plist merged into the generated Info.plist — adds the mic /
         # speech usage strings and Files sharing.
@@ -45,5 +52,30 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+
+  # "Send to JournalReader" — share a scanned journal PDF from Genius Scan /
+  # Files straight onto the private journal-scans shelf (the server writes the
+  # file + manifest via /api/journal/upload-file on imageforge). Background
+  # URLSession via the shared App Group, so the sheet dismisses immediately.
+  JournalShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: JournalShare
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.journal.share
+        PRODUCT_NAME: JournalShare
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: JournalShare/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: "Send to JournalReader"
+        CODE_SIGN_ENTITLEMENTS: JournalShare/JournalShare.entitlements
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
