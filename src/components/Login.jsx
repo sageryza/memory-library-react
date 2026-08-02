@@ -133,6 +133,19 @@ const Login = () => {
     }
   };
 
+  // The Apple ID's email already belongs to an existing account (Sophie's
+  // case: her Apple ID and her Google account share one email). Sign into
+  // that account, then attach the Apple credential to it so both buttons
+  // reach the same account from now on.
+  const mergeAppleIntoExisting = async (appleError) => {
+    const appleCred = OAuthProvider.credentialFromError(appleError);
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    if (appleCred) {
+      try { await linkWithCredential(result.user, appleCred); }
+      catch { /* already linked or expired — they're signed in either way */ }
+    }
+  };
+
   const handleAppleSignIn = async () => {
     setError('');
     setLoading(true);
@@ -161,7 +174,16 @@ const Login = () => {
       }
       // Navigation is handled by the useEffect when auth state updates.
     } catch (error) {
-      if (error.code === 'auth/operation-not-allowed') {
+      if (error.code === 'auth/email-already-in-use' ||
+          error.code === 'auth/account-exists-with-different-credential') {
+        try {
+          await mergeAppleIntoExisting(error);
+        } catch (mergeError) {
+          if (mergeError.code !== 'auth/popup-closed-by-user' && mergeError.code !== 'auth/cancelled-popup-request') {
+            setError('This Apple ID uses the same email as an existing account — sign in with Google to reach it.');
+          }
+        }
+      } else if (error.code === 'auth/operation-not-allowed') {
         setError('Apple sign-in is not switched on for this site yet — try Google or email for now.');
       } else if (error.code === 'auth/credential-already-in-use') {
         setError('This Apple ID is already linked to another user.');
