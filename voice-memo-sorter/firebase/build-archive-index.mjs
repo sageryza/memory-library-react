@@ -53,6 +53,11 @@ const items = [];
   if (!r.ok) throw new Error('manifest fetch ' + r.status + ' ' + (await r.text()).slice(0, 200));
   const manifest = await r.json();
   for (const m of (manifest.memos || [])) {
+    // Skip no-content categories: their "text" is just a placeholder title
+    // ("(no speech — silent recording)" / "(too long — review by hand)"), and
+    // those bland embeddings drift near ANY query — they were what filled the
+    // results whenever a search had no real match.
+    if (m.cat === 'empty' || m.cat === 'toolong') continue;
     const text = [m.title, m.desc, m.transcript].filter(Boolean).join('. ').trim();
     if (!text) continue;
     // `file` + `dur` travel with the hit so JournalReader can stream the
