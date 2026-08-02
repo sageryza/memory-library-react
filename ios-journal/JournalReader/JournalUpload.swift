@@ -23,6 +23,33 @@ struct JournalScanRecord: Codable {
     var size: Int
     var url: String
     var uploadedAt: Double
+
+    init(month: String?, name: String, size: Int, url: String, uploadedAt: Double) {
+        self.month = month; self.name = name; self.size = size
+        self.url = url; self.uploadedAt = uploadedAt
+    }
+
+    // uploadedAt is seconds (Double) from this app and the server route, but
+    // one live record carries an ISO string — decode both, so a single odd
+    // record can't fail the whole index decode (which silently DROPPED every
+    // existing entry on the next manifest merge).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        month = try? c.decode(String.self, forKey: .month)
+        name = try c.decode(String.self, forKey: .name)
+        size = (try? c.decode(Int.self, forKey: .size)) ?? 0
+        url = (try? c.decode(String.self, forKey: .url)) ?? ""
+        if let d = try? c.decode(Double.self, forKey: .uploadedAt) {
+            uploadedAt = d
+        } else if let s = try? c.decode(String.self, forKey: .uploadedAt) {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let g = ISO8601DateFormatter()
+            uploadedAt = (f.date(from: s) ?? g.date(from: s))?.timeIntervalSince1970 ?? 0
+        } else {
+            uploadedAt = 0
+        }
+    }
 }
 
 /// Stores the system's background-session completion handler so uploads that
@@ -208,8 +235,37 @@ struct JournalUploadView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var uploader = JournalUploader.shared
     @State private var picking = false
+    // What's already on the journal-scans shelf, straight from the manifest —
+    // so "which journals are up there?" has an answer in the app (Aug 2026).
+    @State private var shelf: [JournalScanRecord] = []
+    @State private var shelfNote: String?
 
     private let accent = Color(red: 1.0, green: 0.7, blue: 0.8)
+
+    /// The share extension and iOS exports prefix filenames with UUIDs —
+    /// peel them all off so the shelf reads as her own titles.
+    private func cleanName(_ n: String) -> String {
+        var s = n
+        while s.count > 37, s.prefix(37).hasSuffix("-"),
+              UUID(uuidString: String(s.prefix(36))) != nil {
+            s = String(s.dropFirst(37))
+        }
+        return s
+    }
+
+    private func loadShelf() async {
+        if Auth.auth().currentUser == nil {
+            try? await Auth.auth().signInAnonymously()
+        }
+        let ref = Storage.storage().reference(withPath: "\(JournalUploadConfig.folder)/manifest.json")
+        guard let data = try? await ref.data(maxSize: 5 * 1024 * 1024),
+              let decoded = try? JSONDecoder().decode([JournalScanRecord].self, from: data) else {
+            shelfNote = "Couldn't read the shelf right now."
+            return
+        }
+        shelfNote = nil
+        shelf = decoded.sorted { $0.uploadedAt > $1.uploadedAt }
+    }
 
     var body: some View {
         NavigationView {
@@ -279,7 +335,42 @@ struct JournalUploadView: View {
                         .multilineTextAlignment(.center).padding(.horizontal, 28)
                 }
 
+                // ── On the shelf: what's already up there ──
+                if !shelf.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("On the shelf — \(shelf.count) scan\(shelf.count == 1 ? "" : "s")")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(.secondary)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 5) {
+                                ForEach(shelf, id: \.name) { r in
+                                    HStack(alignment: .firstTextBaseline) {
+                                        Text(cleanName(r.name))
+                                            .font(.footnote)
+                                            .lineLimit(1)
+                                        Spacer(minLength: 12)
+                                        Text("\(max(1, r.size / 1_000_000)) MB")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 200)
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.top, 6)
+                } else if let shelfNote {
+                    Text(shelfNote)
+                        .font(.caption).foregroundColor(.secondary)
+                        .padding(.horizontal, 28)
+                }
+
                 Spacer()
+            }
+            .task { await loadShelf() }
+            .onChange(of: uploader.phase) { _, newPhase in
+                if newPhase == .done { Task { await loadShelf() } }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

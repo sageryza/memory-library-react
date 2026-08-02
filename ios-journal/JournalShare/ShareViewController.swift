@@ -202,11 +202,16 @@ final class ShareViewController: UIViewController {
     }
 
     private func uploadRequest(for file: URL) -> URLRequest {
-        // The staged name carries a UUID prefix so re-shares can't collide in
-        // the outbox — strip it back off so the shelf keeps the real filename
-        // (that's the manifest key, and re-sharing should overwrite, not fork).
+        // The staged name carries our outbox UUID prefix AND iOS's own export
+        // UUID prefix — strip them ALL so the shelf keeps the real filename
+        // (that's the manifest key, and re-sharing should overwrite, not
+        // fork). Verified live Aug 2026: stripping only one layer left an ID
+        // on the shelf name.
         var name = file.lastPathComponent
-        if name.count > 37, name.prefix(37).hasSuffix("-") { name = String(name.dropFirst(37)) }
+        while name.count > 37, name.prefix(37).hasSuffix("-"),
+              UUID(uuidString: String(name.prefix(36))) != nil {
+            name = String(name.dropFirst(37))
+        }
         var comps = URLComponents(string: Self.server + "/api/journal/upload-file")!
         comps.queryItems = [.init(name: "filename", value: name)]
         var req = URLRequest(url: comps.url!)
