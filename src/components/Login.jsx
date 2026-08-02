@@ -112,6 +112,15 @@ const Login = () => {
         result = await signInWithPopup(auth, provider);
       }
 
+      // A parked Apple credential from a same-email conflict — attach it now
+      // that its account's owner is signed in, so the Apple button reaches
+      // this same account from then on.
+      if (pendingAppleCred) {
+        try { await linkWithCredential(result.user, pendingAppleCred); }
+        catch { /* already linked or expired — they're signed in either way */ }
+        setPendingAppleCred(null);
+      }
+
       // Get the additional user info which includes the Google profile
       const additionalInfo = getAdditionalUserInfo(result);
 
@@ -133,18 +142,12 @@ const Login = () => {
     }
   };
 
-  // The Apple ID's email already belongs to an existing account (Sophie's
-  // case: her Apple ID and her Google account share one email). Sign into
-  // that account, then attach the Apple credential to it so both buttons
-  // reach the same account from now on.
-  const mergeAppleIntoExisting = async (appleError) => {
-    const appleCred = OAuthProvider.credentialFromError(appleError);
-    const result = await signInWithPopup(auth, new GoogleAuthProvider());
-    if (appleCred) {
-      try { await linkWithCredential(result.user, appleCred); }
-      catch { /* already linked or expired — they're signed in either way */ }
-    }
-  };
+  // Parked Apple credential from a same-email conflict (the Apple ID's email
+  // already belongs to a Google account). iOS Safari blocks any popup not
+  // opened by a direct tap, so the Google sign-in that resolves the conflict
+  // can't be auto-opened here — the Google button's own tap finishes the
+  // merge instead.
+  const [pendingAppleCred, setPendingAppleCred] = useState(null);
 
   const handleAppleSignIn = async () => {
     setError('');
@@ -176,13 +179,8 @@ const Login = () => {
     } catch (error) {
       if (error.code === 'auth/email-already-in-use' ||
           error.code === 'auth/account-exists-with-different-credential') {
-        try {
-          await mergeAppleIntoExisting(error);
-        } catch (mergeError) {
-          if (mergeError.code !== 'auth/popup-closed-by-user' && mergeError.code !== 'auth/cancelled-popup-request') {
-            setError('This Apple ID uses the same email as an existing account — sign in with Google to reach it.');
-          }
-        }
+        setPendingAppleCred(OAuthProvider.credentialFromError(error));
+        setError('This Apple ID uses the same email as your Google account. Tap "Sign in with Google" below — that signs you in and connects Apple to your account.');
       } else if (error.code === 'auth/operation-not-allowed') {
         setError('Apple sign-in is not switched on for this site yet — try Google or email for now.');
       } else if (error.code === 'auth/credential-already-in-use') {
