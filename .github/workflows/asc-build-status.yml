@@ -24,7 +24,7 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-      BUNDLE_ID: com.sageryza.imageforge
+      BUNDLE_ID: com.sageryza.xi
     steps:
       - name: Install deps
         run: pip install --quiet pyjwt cryptography requests
