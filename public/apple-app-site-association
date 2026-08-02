@@ -10,7 +10,10 @@
           "/versus/*",
           "/xi/versus/*",
           "/v/*",
-          "/s/*"
+          "/s/*",
+          "/xi",
+          "/xi/board",
+          "/xi/stories"
         ]
       }
     ]

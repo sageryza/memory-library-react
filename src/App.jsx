@@ -67,12 +67,18 @@ function ShareRedirect() {
   return <Navigate to={`/share/${shareId}`} replace />;
 }
 
-// Pages people arrive at from shared links get the floating "Open in the XI
-// app" two-step TestFlight card (see OpenInAppBanner for the gating).
+// XI web surfaces get the floating "Open in the XI app" card (App Store era —
+// see OpenInAppBanner). Deliberately NOT on the versus game pages (they have
+// their own inline button, and a floating card would cover the board) and not
+// on /xi/deck-manager (Sophie's web-only tool).
 function OpenInAppRouteGate() {
   const { pathname } = useLocation();
-  const show = pathname.startsWith('/xi/versus') || pathname.startsWith('/share/');
-  return show ? <OpenInAppBanner /> : null;
+  if (pathname.startsWith('/xi/versus') || pathname.startsWith('/xi/deck-manager')) return null;
+  const onXi = pathname === '/xi' || pathname.startsWith('/xi/');
+  const share = pathname.match(/^\/share\/([^/]+)/);
+  if (!onXi && !share) return null;
+  // Deep-link shared boards straight to the board; XI pages open the app home.
+  return <OpenInAppBanner target={share ? `share/${share[1]}` : ''} lift={onXi} />;
 }
 
 function isXiHomeDomain() {

@@ -27,11 +27,12 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   // After sign-in, return wherever the visitor came from (?next=/xi/versus/…,
-  // set by pages that require an account) — else the conspiracy board.
+  // set by pages that require an account) — else the XI home screen (the
+  // conspiracy-board default predated XI).
   useEffect(() => {
     if (user && !authLoading && !isAnonymous) {
       const next = new URLSearchParams(window.location.search).get('next');
-      navigate(next && next.startsWith('/') ? next : '/conspiracy-board');
+      navigate(next && next.startsWith('/') ? next : '/xi');
     }
   }, [user, authLoading, isAnonymous, navigate]);
 
