@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   signInWithCredential,
+  signInWithCustomToken,
   GoogleAuthProvider,
   OAuthProvider,
   getAdditionalUserInfo,
@@ -12,7 +13,8 @@ import {
   EmailAuthProvider,
   linkWithPopup
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../firebase';
 import useAuth from '../hooks/useAuth';
 
 const Login = () => {
@@ -179,7 +181,20 @@ const Login = () => {
     } catch (error) {
       if (error.code === 'auth/email-already-in-use' ||
           error.code === 'auth/account-exists-with-different-credential') {
-        setPendingAppleCred(OAuthProvider.credentialFromError(error));
+        // The Apple ID's email already belongs to an existing account. Both
+        // providers verify their emails, so the server can merge them
+        // silently (mergeAppleSignIn: prove the Apple token, attach
+        // apple.com to the account that owns the email, sign in) — one tap
+        // total. The two-tap fallback below only shows if that throws.
+        const cred = OAuthProvider.credentialFromError(error);
+        if (cred?.idToken) {
+          try {
+            const res = await httpsCallable(functions, 'mergeAppleSignIn')({ idToken: cred.idToken });
+            await signInWithCustomToken(auth, res.data.token);
+            return; // navigation is handled by the useEffect
+          } catch { /* fall through to the two-tap fallback */ }
+        }
+        setPendingAppleCred(cred);
         setError('This Apple ID uses the same email as your Google account. Tap "Sign in with Google" below — that signs you in and connects Apple to your account.');
       } else if (error.code === 'auth/operation-not-allowed') {
         setError('Apple sign-in is not switched on for this site yet — try Google or email for now.');

@@ -2943,3 +2943,80 @@ exports.memoPrefs = onCall(async (request) => {
   const snap = await ref.get();
   return { prefs: (snap.exists && snap.data().prefs) || {} };
 });
+
+// ---------------------------------------------------------------------------
+// XI: mergeAppleSignIn — the silent same-email merge (the Supabase pattern).
+//
+// Sign in with Apple on an email that already belongs to a Google (or
+// verified-email) account errors client-side by design — the Firebase client
+// SDK never auto-links two federated providers. But both providers VERIFY
+// their emails, so the merge is safe to do server-side: prove the Apple token
+// is genuine, find the account that owns the email, attach apple.com to it,
+// and hand back a sign-in token. One tap total; the client's two-tap flow
+// (message + Google button) stays as the fallback if this throws.
+// ---------------------------------------------------------------------------
+
+// Apple's public signing keys, cached for an hour.
+let _appleKeys = { keys: null, at: 0 };
+async function appleSigningKey(kid) {
+  if (!_appleKeys.keys || Date.now() - _appleKeys.at > 3600e3) {
+    const res = await fetch('https://appleid.apple.com/auth/keys');
+    if (!res.ok) throw new HttpsError('unavailable', 'Apple keys unavailable');
+    _appleKeys = { keys: (await res.json()).keys || [], at: Date.now() };
+  }
+  return _appleKeys.keys.find((k) => k.kid === kid) || null;
+}
+
+// Verify an Apple ID token (RS256 against Apple's JWKS + iss/aud/exp) and
+// return its payload. Throws HttpsError on anything questionable.
+async function verifyAppleIdToken(idToken) {
+  const parts = String(idToken).split('.');
+  if (parts.length !== 3) throw new HttpsError('invalid-argument', 'Malformed token');
+  const [h, p, sig] = parts;
+  let header, payload;
+  try {
+    header = JSON.parse(Buffer.from(h, 'base64url').toString());
+    payload = JSON.parse(Buffer.from(p, 'base64url').toString());
+  } catch { throw new HttpsError('invalid-argument', 'Malformed token'); }
+  const jwk = await appleSigningKey(header.kid);
+  if (!jwk) throw new HttpsError('failed-precondition', 'Unknown Apple signing key');
+  const key = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+  const ok = crypto.verify('RSA-SHA256', Buffer.from(h + '.' + p), key, Buffer.from(sig, 'base64url'));
+  if (!ok) throw new HttpsError('permission-denied', 'Bad token signature');
+  if (payload.iss !== 'https://appleid.apple.com') throw new HttpsError('permission-denied', 'Bad issuer');
+  // aud = the Services ID (web) or the app bundle id (native).
+  if (!['com.sageryza.xi.web', 'com.sageryza.xi'].includes(payload.aud)) {
+    throw new HttpsError('permission-denied', 'Token is for a different app');
+  }
+  if (!(payload.exp * 1000 > Date.now())) throw new HttpsError('deadline-exceeded', 'Token expired');
+  return payload;
+}
+
+exports.mergeAppleSignIn = onCall({ cors: true, timeoutSeconds: 30 }, async (req) => {
+  const payload = await verifyAppleIdToken(req.data?.idToken || '');
+  const email = (payload.email || '').toLowerCase();
+  const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+  // No verified email = nothing safe to match on (incl. Hide My Email relays
+  // that match no one). The client falls back to the two-tap flow.
+  if (!email || !emailVerified) throw new HttpsError('failed-precondition', 'No verified email on the Apple ID');
+
+  const { getAuth } = require('firebase-admin/auth');
+  const auth = getAuth();
+  let existing;
+  try { existing = await auth.getUserByEmail(email); }
+  catch { throw new HttpsError('not-found', 'No existing account with this email'); }
+
+  // Merge only into an account that PROVED it owns the email: a Google
+  // identity with the same email, or a verified email/password account. An
+  // unverified password account could be a squatter — never hand it out.
+  const ownsEmail = existing.emailVerified ||
+    existing.providerData.some((pd) => pd.providerId === 'google.com' && (pd.email || '').toLowerCase() === email);
+  if (!ownsEmail) throw new HttpsError('failed-precondition', 'Existing account has not verified this email');
+
+  if (!existing.providerData.some((pd) => pd.providerId === 'apple.com')) {
+    await auth.updateUser(existing.uid, {
+      providerToLink: { providerId: 'apple.com', uid: payload.sub, email },
+    });
+  }
+  return { token: await auth.createCustomToken(existing.uid) };
+});
