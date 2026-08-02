@@ -2901,13 +2901,22 @@ exports.searchArchive = onCall(async (request) => {
   if (!key) throw new HttpsError('failed-precondition', 'No OpenAI key configured.');
   const [qVec, items] = await Promise.all([embedText(key, query), loadArchiveIndex()]);
   const qLower = query.toLowerCase();
+  // Literal-match boost over the FULL text. The old +0.05 only looked at the
+  // 200-char snippet, so a word deep in a transcript earned nothing — a memo
+  // that literally says "envelope" ranked below junk whose embedding happened
+  // to drift near the query. A verbatim term now outranks any cosine drift.
+  const qTerms = [...new Set(qLower.split(/[^a-z0-9']+/).filter((w) => w.length >= 3))];
   const out = [];
   for (const it of items) {
     if (!it.vector) continue;
     if (source !== 'both' && it.source !== source) continue;
     let score = cosineSim(qVec, it.vector);
-    if ((it.snippet || '').toLowerCase().includes(qLower)) score += 0.05;
-    const { vector, ...meta } = it;
+    const hay = `${it.title || ''} ${it.text || ''} ${it.snippet || ''}`.toLowerCase();
+    let matched = 0;
+    for (const t of qTerms) if (hay.includes(t)) { matched += 1; score += 0.12; }
+    if (qTerms.length > 1 && matched === qTerms.length) score += 0.1; // every term present
+    if (qTerms.length > 1 && hay.includes(qLower)) score += 0.1;      // whole phrase verbatim
+    const { vector, text, ...meta } = it;
     out.push({ ...meta, score });
   }
   out.sort((a, b) => b.score - a.score);
