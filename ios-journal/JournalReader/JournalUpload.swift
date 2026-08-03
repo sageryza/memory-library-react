@@ -1,4 +1,5 @@
 import SwiftUI
+import PDFKit
 import UniformTypeIdentifiers
 import FirebaseAuth
 import FirebaseStorage
@@ -50,6 +51,15 @@ struct JournalScanRecord: Codable {
             uploadedAt = 0
         }
     }
+}
+
+/// Shelf covers, kept for the app's lifetime so re-opening the sheet doesn't
+/// re-download them. A cover is page 1 of the scan, rendered server-side at
+/// its true aspect ratio and stored PRIVATE beside the PDF
+/// (`journal-scans/thumbs/<name>.png`) — read with the signed-in user's token,
+/// never a public URL.
+enum JournalCovers {
+    static var cache: [String: UIImage] = [:]
 }
 
 /// Stores the system's background-session completion handler so uploads that
@@ -136,12 +146,34 @@ final class JournalUploader: NSObject, ObservableObject, URLSessionDataDelegate 
                 let task = session.uploadTask(with: req, fromFile: dest)
                 task.taskDescription = "\(name)|\(size)"
                 task.resume()
+                Task.detached(priority: .utility) { await Self.makeCover(name: name, pdf: dest) }
                 queued += 1
                 append("↑ uploading \(name) (\(size / 1_000_000) MB) — you can leave the app, it keeps going")
             }
             remaining = queued
             if queued == 0 { phase = .failed("Nothing could be read to upload.") }
         }
+    }
+
+    /// Stand the book up on the shelf: page 1 as a ~500px-wide PNG at the
+    /// page's TRUE shape, stored beside the scan. The server renders this for
+    /// anything shared in through the share sheet; PDFs picked here go
+    /// straight to Storage and never touch the server, so they render it on
+    /// device (PDFKit, costs nothing, the page loads lazily so a huge scan is
+    /// fine). A cover that doesn't make it just leaves a plain slot on the
+    /// shelf — `scripts/journal-thumbs.js` fills those in.
+    private static func makeCover(name: String, pdf: URL) async {
+        guard let doc = PDFDocument(url: pdf), let page = doc.page(at: 0) else { return }
+        let box = page.bounds(for: .mediaBox)
+        guard box.width > 0, box.height > 0 else { return }
+        let width: CGFloat = 500
+        let size = CGSize(width: width, height: (width * box.height / box.width).rounded())
+        guard let png = page.thumbnail(of: size, for: .mediaBox).pngData() else { return }
+        let ref = Storage.storage()
+            .reference(withPath: "\(JournalUploadConfig.folder)/thumbs/\(name).png")
+        let meta = StorageMetadata()
+        meta.contentType = "image/png"
+        _ = try? await ref.putDataAsync(png, metadata: meta)
     }
 
     // MARK: URLSession delegate (background queue)
@@ -239,8 +271,11 @@ struct JournalUploadView: View {
     // so "which journals are up there?" has an answer in the app (Aug 2026).
     @State private var shelf: [JournalScanRecord] = []
     @State private var shelfNote: String?
+    @State private var covers: [String: UIImage] = JournalCovers.cache
 
     private let accent = Color(red: 1.0, green: 0.7, blue: 0.8)
+    private let bookHeight: CGFloat = 116
+    private let bookGap: CGFloat = 12
 
     /// The share extension and iOS exports prefix filenames with UUIDs —
     /// peel them all off so the shelf reads as her own titles.
@@ -251,6 +286,62 @@ struct JournalUploadView: View {
             s = String(s.dropFirst(37))
         }
         return s
+    }
+
+    /// The title on the shelf label — her own name for it, no extension.
+    private func title(_ r: JournalScanRecord) -> String {
+        let n = cleanName(r.name)
+        return n.lowercased().hasSuffix(".pdf") ? String(n.dropLast(4)) : n
+    }
+
+    /// Rough chronological order read off the filename — nothing stamps the
+    /// real journal date. Takes the START month and day ("Sep 6 - Oct 9 big
+    /// boy" → Sep 6). A 4-digit year in the name wins; without one the journal
+    /// is taken as the 2025 season, which is what puts "january 3 - january
+    /// 2026" after "Nov 4th". Journals with no date in the name ("kraft
+    /// journals 2") sit at the end, in the order they were sent up.
+    private func sortKey(_ r: JournalScanRecord) -> Double {
+        let n = title(r).lowercased()
+        let chars = Array(n)
+        let months = ["january", "february", "march", "april", "may", "june",
+                      "july", "august", "september", "october", "november", "december"]
+
+        var hit: (at: Int, month: Int)?
+        for (i, m) in months.enumerated() {
+            for probe in [m, String(m.prefix(3))] {
+                guard let range = n.range(of: probe) else { continue }
+                let at = n.distance(from: n.startIndex, to: range.lowerBound)
+                if at > 0, chars[at - 1].isLetter { continue }        // must start a word
+                if hit == nil || at < hit!.at { hit = (at, i + 1) }
+            }
+        }
+        guard let hit else { return 9e9 + r.uploadedAt }
+
+        // First run of digits after the month word is the day ("Sep 6", "Oct 17th").
+        var day = 1
+        var digits = ""
+        var j = hit.at + 3
+        while j < chars.count, j < hit.at + 18 {
+            if chars[j].isNumber { digits.append(chars[j]); if digits.count == 2 { break } }
+            else if !digits.isEmpty { break }
+            j += 1
+        }
+        if let d = Int(digits), (1...31).contains(d) { day = d }
+
+        // A real year anywhere in the name overrides the assumed season.
+        var year = 2025
+        var k = 0
+        while k + 3 < chars.count {
+            if chars[k].isNumber, chars[k + 1].isNumber, chars[k + 2].isNumber, chars[k + 3].isNumber,
+               let v = Int(String(chars[k...(k + 3)])), (1990...2100).contains(v),
+               k == 0 || !chars[k - 1].isNumber,
+               k + 4 >= chars.count || !chars[k + 4].isNumber {
+                year = v
+                break
+            }
+            k += 1
+        }
+        return Double(year * 10_000 + hit.month * 100 + day)
     }
 
     private func loadShelf() async {
@@ -264,7 +355,97 @@ struct JournalUploadView: View {
             return
         }
         shelfNote = nil
-        shelf = decoded.sorted { $0.uploadedAt > $1.uploadedAt }
+        shelf = decoded.sorted { sortKey($0) < sortKey($1) }
+        await loadCovers(shelf)
+    }
+
+    /// Pull each cover in turn (they're ~150KB) so books stand up one by one
+    /// instead of the shelf waiting on the slowest.
+    private func loadCovers(_ records: [JournalScanRecord]) async {
+        for r in records where covers[r.name] == nil {
+            let ref = Storage.storage()
+                .reference(withPath: "\(JournalUploadConfig.folder)/thumbs/\(r.name).png")
+            guard let data = try? await ref.data(maxSize: 4 * 1024 * 1024),
+                  let img = UIImage(data: data) else { continue }
+            JournalCovers.cache[r.name] = img
+            covers[r.name] = img
+        }
+    }
+
+    // ── shelf layout ──
+    // Books keep their real proportions: every cover is the same HEIGHT and
+    // takes whatever width its page shape gives it, so a fat journal is wide
+    // and a slim one is narrow. Widths are measured here, then rows are filled
+    // left to right until the next book won't fit.
+
+    private struct ShelfBook: Identifiable {
+        let rec: JournalScanRecord
+        let width: CGFloat
+        var id: String { rec.name }
+    }
+
+    private func rows(width: CGFloat) -> [[ShelfBook]] {
+        guard width > 0 else { return [] }
+        var out: [[ShelfBook]] = []
+        var row: [ShelfBook] = []
+        var used: CGFloat = 0
+        for r in shelf {
+            // Until a cover arrives, hold a plain portrait slot for it.
+            var ratio: CGFloat = 0.72
+            if let img = covers[r.name], img.size.height > 0 {
+                ratio = min(1.6, max(0.35, img.size.width / img.size.height))
+            }
+            let w = min(width, (bookHeight * ratio).rounded())
+            if !row.isEmpty, used + bookGap + w > width {
+                out.append(row); row = []; used = 0
+            }
+            used += (row.isEmpty ? 0 : bookGap) + w
+            row.append(ShelfBook(rec: r, width: w))
+        }
+        if !row.isEmpty { out.append(row) }
+        return out
+    }
+
+    private func shelfBody(width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Array(rows(width: width).enumerated()), id: \.offset) { _, row in
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .bottom, spacing: bookGap) {
+                        ForEach(row) { b in
+                            if let img = covers[b.rec.name] {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: b.width, height: bookHeight)
+                                    .clipped()
+                                    .overlay(Rectangle().strokeBorder(Color.primary.opacity(0.14),
+                                                                      lineWidth: 0.5))
+                            } else {
+                                Rectangle()
+                                    .fill(Color.primary.opacity(0.06))
+                                    .frame(width: b.width, height: bookHeight)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    Rectangle()                                  // the shelf: just a line
+                        .fill(Color.primary.opacity(0.22))
+                        .frame(height: 1)
+                    HStack(alignment: .top, spacing: bookGap) {
+                        ForEach(row) { b in
+                            Text(title(b.rec))
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                                .frame(width: b.width, alignment: .leading)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.top, 5)
+                }
+            }
+        }
     }
 
     var body: some View {
@@ -335,28 +516,19 @@ struct JournalUploadView: View {
                         .multilineTextAlignment(.center).padding(.horizontal, 28)
                 }
 
-                // ── On the shelf: what's already up there ──
+                // ── On the shelf: the journals already up there, standing on
+                // their covers in rough date order ──
                 if !shelf.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("On the shelf — \(shelf.count) scan\(shelf.count == 1 ? "" : "s")")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("On the shelf — \(shelf.count) journal\(shelf.count == 1 ? "" : "s")")
                             .font(.footnote.weight(.semibold))
                             .foregroundColor(.secondary)
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 5) {
-                                ForEach(shelf, id: \.name) { r in
-                                    HStack(alignment: .firstTextBaseline) {
-                                        Text(cleanName(r.name))
-                                            .font(.footnote)
-                                            .lineLimit(1)
-                                        Spacer(minLength: 12)
-                                        Text("\(max(1, r.size / 1_000_000)) MB")
-                                            .font(.footnote)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
+                        GeometryReader { geo in
+                            ScrollView {
+                                shelfBody(width: geo.size.width)
+                                    .padding(.bottom, 16)
                             }
                         }
-                        .frame(maxHeight: 200)
                     }
                     .padding(.horizontal, 28)
                     .padding(.top, 6)
@@ -364,9 +536,10 @@ struct JournalUploadView: View {
                     Text(shelfNote)
                         .font(.caption).foregroundColor(.secondary)
                         .padding(.horizontal, 28)
+                    Spacer()
+                } else {
+                    Spacer()
                 }
-
-                Spacer()
             }
             .task { await loadShelf() }
             .onChange(of: uploader.phase) { _, newPhase in
