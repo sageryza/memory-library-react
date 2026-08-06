@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dream app mockup D — Mechanism pass (wireframe)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden] { display:none !important; }
+  :root { --bg:#f2f2f0; --panel:#ffffff; --line:#c9c9c4; --ink:#222220; --dim:#8a8a84;
+          --ann:#3f66a8; --ghost:#e3e3df; }
+  body { background:var(--bg); color:var(--ink);
+         font:15px/1.5 -apple-system, "Helvetica Neue", sans-serif; padding-bottom:104px; }
+  svg.i { width:20px; height:20px; stroke:currentColor; stroke-width:1.8; fill:none;
+          stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
+
+  header { padding:18px 56px 10px 18px; }
+  .eyebrow { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); }
+  h1 { font-size:19px; font-weight:700; margin-top:3px; }
+  .note { font-size:12.5px; color:var(--dim); margin-top:3px; }
+
+  main { padding:6px 14px 0; }
+  .ann { display:inline-block; background:var(--ann); color:#fff; font-size:11px; font-weight:700;
+         letter-spacing:.06em; border-radius:6px; padding:3px 9px; margin:16px 0 6px; }
+  .mech { font-size:13px; color:var(--ann); font-style:italic; margin:2px 2px 10px; }
+
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+          padding:13px 14px; margin-bottom:12px; position:relative; }
+  .row { display:flex; align-items:center; gap:9px; }
+  .dot { width:24px; height:24px; border-radius:50%; background:var(--ghost); flex:none; }
+  .bar { height:9px; border-radius:3px; background:var(--ghost); }
+  .name { font-size:13px; font-weight:600; }
+  .when { font-size:12px; color:var(--dim); margin-left:auto; }
+
+  .ximg { border:1px solid var(--line); border-radius:6px; background:#fafaf8; margin-top:10px;
+          position:relative; display:flex; align-items:center; justify-content:center; color:#b9b9b2; }
+  .ximg svg { position:absolute; inset:0; width:100%; height:100%; }
+  .ximg svg line { stroke:#dcdcd6; stroke-width:1.5; }
+  .ximg .lbl { position:relative; font-size:11.5px; background:#fafaf8; padding:2px 8px; }
+
+  .btn { display:block; width:100%; background:var(--ink); color:#fff; border:none; border-radius:6px;
+         padding:12px 16px; font:600 14.5px -apple-system, sans-serif; margin-top:12px; }
+  .btn.sub { background:var(--panel); color:var(--ink); border:1px solid var(--ink); }
+  .btn[disabled] { opacity:.4; }
+  .chip { font-size:11px; font-weight:700; border:1px solid var(--line); border-radius:6px;
+          padding:2px 8px; color:var(--dim); }
+  .chip.on { border-color:var(--ink); color:var(--ink); background:var(--ghost); }
+
+  .veilwrap { position:relative; }
+  .veil { position:absolute; inset:0; z-index:2; background:#f2f2f0b8; display:flex;
+          align-items:center; justify-content:center; }
+  .veil span { border:1.5px dashed var(--dim); border-radius:6px; padding:8px 16px; font-size:13px;
+               font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+               background:var(--bg); }
+
+  .toggle { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #eeeee9; }
+  .toggle:last-of-type { border-bottom:none; }
+  .toggle .lab { font-size:14px; }
+  .toggle .st { margin-left:auto; border:1px solid var(--line); background:var(--panel); color:var(--dim);
+                border-radius:6px; padding:5px 12px; font:600 12.5px -apple-system, sans-serif; min-width:76px; }
+  .toggle .st.pub { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .warn { font-size:12.5px; color:#a04d3a; margin-top:8px; }
+
+  textarea { width:100%; border:1px solid var(--line); border-radius:6px; background:#fafaf8;
+             font:15px/1.55 -apple-system, sans-serif; color:var(--ink); padding:11px; min-height:96px;
+             resize:none; outline:none; }
+  .capline { display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .mic { width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:var(--panel);
+         color:var(--ink); display:flex; align-items:center; justify-content:center; flex:none; }
+  .capline .btn { margin-top:0; }
+
+  .drawing { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:13.5px; color:var(--dim); }
+  .pulse { width:10px; height:10px; border-radius:50%; background:var(--ann); animation:pu 1s infinite alternate; }
+  @keyframes pu { from { opacity:.25; } to { opacity:1; } }
+  .panels { display:flex; gap:10px; margin-top:10px; }
+  .panels .ximg { flex:1; margin-top:0; }
+
+  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em;
+           text-transform:uppercase; border-radius:6px; padding:3px 8px; margin-left:8px; }
+  .badge.pub { background:var(--ink); color:#fff; }
+  .badge.priv { background:var(--ghost); color:var(--dim); }
+
+  .foot { font-size:12.5px; color:var(--dim); font-style:italic; margin:2px 2px 18px; }
+  .stars { background:none; border:none; font:inherit; font-size:13px; color:var(--dim);
+           display:flex; align-items:center; gap:7px; margin-top:10px; padding:0; }
+  .stars.on { color:var(--ink); }
+  .stars.on svg.i { fill:var(--ink); }
+
+  nav { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; align-items:center;
+        justify-content:space-around; background:var(--panel); border-top:1px solid var(--line);
+        padding:8px 26px calc(10px + env(safe-area-inset-bottom)); }
+  nav button { background:none; border:none; color:var(--dim); font:11px -apple-system, sans-serif;
+               display:flex; flex-direction:column; align-items:center; gap:3px; padding:2px 10px; }
+  nav button.here { color:var(--ink); }
+  nav .mid { width:48px; height:48px; border-radius:50%; background:var(--ink); color:#fff;
+             align-items:center; justify-content:center; margin-top:-14px; border:none; display:flex; }
+  nav .mid svg.i { width:24px; height:24px; stroke-width:2.2; }
+
+  .toast { position:fixed; left:50%; bottom:110px; transform:translateX(-50%); z-index:30;
+           background:var(--ink); color:#fff; border-radius:6px; padding:9px 18px; font-size:13.5px;
+           font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Dream app · mechanism pass</div>
+  <h1>How it works — no styling, just the moving parts</h1>
+  <div class="note">Tap it through: share a dream → draw it → open today's feed.</div>
+</header>
+
+<main>
+  <section id="scr-feed"></section>
+  <section id="scr-share" hidden></section>
+  <section id="scr-mine" hidden></section>
+</main>
+
+<nav>
+  <button id="nav-feed" class="here"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg>feed</button>
+  <button id="nav-share" class="mid" aria-label="Share a dream"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+  <button id="nav-mine"><svg class="i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>my dreams</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+document.addEventListener('pointerdown', function(){ if(window.__scrollStop) window.__scrollStop(); }, true);
+
+const STAR = '<svg class="i" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>';
+const MIC = '<svg class="i" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
+
+// ---- app state (the mechanisms) ----
+const S = {
+  sharedToday: false,     // the reciprocity gate
+  myText: '',
+  saved: false,           // dream captured into the journal
+  drawn: false, drawing: false,
+  pub: { words: true, p1: true, p2: false },  // what's public — per panel, words optional
+};
+
+function ximg(label, h){ return '<div class="ximg" style="height:'+(h||110)+'px">' +
+  '<svg preserveAspectRatio="none"><line x1="0" y1="0" x2="100%" y2="100%"/><line x1="100%" y1="0" x2="0" y2="100%"/></svg>' +
+  '<span class="lbl">'+label+'</span></div>'; }
+function ghostCard(){ return '<div class="card"><div class="row"><span class="dot"></span>' +
+  '<span class="bar" style="width:76px"></span><span class="when bar" style="width:52px"></span></div>' +
+  ximg('illustration', 92) +
+  '<div class="bar" style="margin-top:10px;width:92%"></div><div class="bar" style="margin-top:6px;width:64%"></div></div>'; }
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 2100); }
+
+// ---- screens ----
+const scrFeed = document.getElementById('scr-feed');
+const scrShare = document.getElementById('scr-share');
+const scrMine = document.getElementById('scr-mine');
+
+function renderFeed(){
+  if (!S.sharedToday) {
+    scrFeed.innerHTML =
+      '<div class="ann">1 · THE GATE</div>' +
+      '<div class="mech">You see the feed the same way everyone else got into it: by sharing. Seven dreams are in there — sealed until yours is too.</div>' +
+      '<div class="veilwrap"><div class="veil"><span>sealed · 7 dreams</span></div>' +
+      ghostCard() + ghostCard() + '</div>' +
+      '<button class="btn" id="gateGo">share a dream to open today’s feed</button>' +
+      '<div class="foot" style="margin-top:10px">Opens for the rest of the day. Seals again tomorrow morning — tomorrow’s feed costs tomorrow’s dream.</div>';
+    document.getElementById('gateGo').addEventListener('click', () => go('share'));
+    return;
+  }
+  const mine =
+    '<div class="card"><div class="row"><span class="dot" style="background:#222220"></span>' +
+    '<span class="name">you</span><span class="when">just now</span></div>' +
+    (S.pub.words ? '<p style="margin-top:9px">'+esc(S.myText)+'</p>'
+                 : '<div class="foot" style="margin:9px 0 0">words kept private — you shared just the picture</div>') +
+    (S.drawn ? '<div class="panels">' + (S.pub.p1 ? ximg('panel 1 · public', 96) : '') +
+               (S.pub.p2 ? ximg('panel 2 · public', 96) : '') + '</div>' : '') +
+    '<button class="stars">'+STAR+'<span>0 felt this</span></button></div>';
+  scrFeed.innerHTML =
+    '<div class="ann">5 · TODAY’S FEED</div>' +
+    '<div class="mech">Open. Yours leads, newest first after that — and each card is exactly what that dreamer switched public, nothing more.</div>' +
+    mine +
+    feedCard('wren', 'this morning', 'I was on a bus and I saw Shayna sitting in the back so I went to sit with her and we talked about flourless chocolate cake', true, 12) +
+    feedCard('moth', 'this morning', 'Elephants are crispy and sometimes I take them to the couch. I think I was holding them like bread.', false, 18) +
+    feedCard('felix', 'last night', null, true, 7) +
+    '<div class="foot">felix shared just a panel — no words. moth shared just words — no picture. Both are complete posts.</div>';
+  scrFeed.querySelectorAll('.stars').forEach(b => b.addEventListener('click', () => {
+    const on = b.classList.toggle('on'); const s = b.querySelector('span');
+    s.textContent = (parseInt(s.textContent) + (on ? 1 : -1)) + ' felt this';
+  }));
+}
+function feedCard(name, when, words, pic, stars){
+  return '<div class="card"><div class="row"><span class="dot"></span><span class="name">'+name+'</span>' +
+    '<span class="when">'+when+'</span></div>' +
+    (words ? '<p style="margin-top:9px">'+words+'</p>' : '') +
+    (pic ? ximg('illustration', 96) : '') +
+    '<button class="stars">'+STAR+'<span>'+stars+' felt this</span></button></div>';
+}
+
+function renderShare(){
+  if (!S.saved) {
+    scrShare.innerHTML =
+      '<div class="ann">2 · CAPTURE</div>' +
+      '<div class="mech">The just-woke-up moment: one box, a mic, nothing required but the dream. It saves into <b>my dreams</b> first — private — sharing is a separate, deliberate step.</div>' +
+      '<div class="card"><textarea id="cap" placeholder="what did you dream?"></textarea>' +
+      '<div class="capline"><button class="mic" aria-label="Dictate">'+MIC+'</button>' +
+      '<button class="btn" id="saveBtn" style="flex:1">save to my dreams</button></div>' +
+      '<div class="foot" style="margin:10px 0 0">The mic dictates straight into the box — she talks, it types.</div></div>';
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      const t = document.getElementById('cap').value.trim();
+      if (!t) { document.getElementById('cap').focus(); return; }
+      S.myText = t; S.saved = true; renderShare(); renderMine(); toast('saved — it’s in my dreams');
+      window.scrollTo(0, 0);
+    });
+    return;
+  }
+  let drawBlock;
+  if (S.drawing) {
+    drawBlock = '<div class="drawing"><span class="pulse"></span>drawing your dream…</div>' +
+      '<div class="foot" style="margin:8px 0 0">Background job — leave the app, the panels land here and in <b>my dreams</b> when they’re done.</div>';
+  } else if (S.drawn) {
+    drawBlock = '<div class="panels">'+ximg('panel 1', 96)+ximg('panel 2', 96)+'</div>' +
+      '<div class="foot" style="margin:8px 0 0">Long dreams can draw as several panels — each one shares on its own.</div>';
+  } else {
+    drawBlock = '<button class="btn sub" id="drawBtn">draw it</button>' +
+      '<div class="foot" style="margin:8px 0 0">Optional — words alone can open the feed. Drawing runs in the background and costs a few cents, so it’s a choice, not a step.</div>';
+  }
+  const locked = S.sharedToday;
+  scrShare.innerHTML =
+    '<div class="ann">2 · CAPTURE</div>' +
+    '<div class="card"><div class="row"><span class="name">your dream</span><span class="when">this morning</span>' +
+    (locked ? '<span class="badge pub">public today</span>' : '<span class="badge priv">private</span>') + '</div>' +
+    '<p style="margin-top:9px">'+esc(S.myText)+'</p></div>' +
+    '<div class="ann">3 · ILLUSTRATE</div>' +
+    '<div class="mech">Turn the telling into pictures — same dream, drawn.</div>' +
+    '<div class="card">'+drawBlock+'</div>' +
+    '<div class="ann">4 · CHOOSE WHAT’S PUBLIC</div>' +
+    '<div class="mech">Public is per piece: the words and each panel flip on their own. Any one of them is enough to open the feed.</div>' +
+    '<div class="card">' +
+    toggleRow('words', 'your words', S.pub.words, locked) +
+    (S.drawn ? toggleRow('p1', 'panel 1', S.pub.p1, locked) + toggleRow('p2', 'panel 2', S.pub.p2, locked) : '') +
+    (locked
+      ? '<div class="foot" style="margin:10px 0 0">Shared — public until midnight, then it’s yours alone again.</div>'
+      : '<button class="btn" id="shareBtn">share to today’s feed</button><div class="warn" id="warn" hidden>switch at least one thing public first</div>') +
+    '</div>';
+  if (!S.drawn && !S.drawing) document.getElementById('drawBtn')?.addEventListener('click', () => {
+    S.drawing = true; renderShare();
+    setTimeout(() => { S.drawing = false; S.drawn = true; renderShare(); renderMine(); toast('drawn — 2 panels'); }, 2800);
+  });
+  scrShare.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
+    if (locked) return;
+    const k = b.dataset.t; S.pub[k] = !S.pub[k]; renderShare();
+  }));
+  document.getElementById('shareBtn')?.addEventListener('click', () => {
+    const anything = S.pub.words || (S.drawn && (S.pub.p1 || S.pub.p2));
+    if (!anything) { document.getElementById('warn').hidden = false; return; }
+    S.sharedToday = true; renderFeed(); renderShare(); renderMine();
+    go('feed'); toast('the feed is open');
+  });
+}
+function toggleRow(key, label, on, locked){
+  return '<div class="toggle"><span class="lab">'+label+'</span>' +
+    '<button class="st'+(on?' pub':'')+'" data-t="'+key+'"'+(locked?' disabled':'')+'>'+(on?'public':'private')+'</button></div>';
+}
+
+function renderMine(){
+  const today = !S.saved ? '' :
+    '<div class="card"><div class="row"><span class="name">this morning</span>' +
+    (S.sharedToday ? '<span class="badge pub">public today</span>' : '<span class="badge priv">private</span>') + '</div>' +
+    '<p style="margin-top:9px">'+esc(S.myText)+'</p>' +
+    (S.drawn ? '<div class="panels">'+ximg('panel 1'+(S.pub.p1&&S.sharedToday?' · public':''), 84)+ximg('panel 2'+(S.pub.p2&&S.sharedToday?' · public':''), 84)+'</div>' : '') +
+    '</div>';
+  scrMine.innerHTML =
+    '<div class="ann">6 · MY DREAMS</div>' +
+    '<div class="mech">The whole journal lives here, private by default. Sharing is an exception you grant for a day — per dream, per panel; the entry itself never leaves.</div>' +
+    today +
+    '<div class="card"><div class="row"><span class="name">august 4</span><span class="badge priv">was public aug 4</span></div>' +
+    '<p style="margin-top:9px">i was a mouse churning into soft butter. i changed into a shape i didn’t choose and it was warm and i wasn’t scared.</p>' +
+    ximg('panel 1 · drawn', 84) + '</div>' +
+    '<div class="card"><div class="row"><span class="name">august 2</span><span class="badge priv">never shared</span></div>' +
+    '<p style="margin-top:9px">something about a staircase that kept adding steps while I climbed it.</p>' +
+    '<button class="btn sub">draw it</button>' +
+    '<div class="foot" style="margin:8px 0 0">Old dreams can be drawn any time — illustration isn’t tied to the day you post.</div></div>';
+}
+
+function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ---- bottom nav ----
+const tabs = { feed: scrFeed, share: scrShare, mine: scrMine };
+function go(which){
+  for (const k in tabs) tabs[k].hidden = (k !== which);
+  document.getElementById('nav-feed').classList.toggle('here', which === 'feed');
+  document.getElementById('nav-mine').classList.toggle('here', which === 'mine');
+  window.scrollTo(0, 0);
+}
+document.getElementById('nav-feed').addEventListener('click', () => go('feed'));
+document.getElementById('nav-share').addEventListener('click', () => go('share'));
+document.getElementById('nav-mine').addEventListener('click', () => go('mine'));
+
+renderFeed(); renderShare(); renderMine();
+</script>
+</body>
+</html>
