@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dream app mockup E — plain site</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden] { display:none !important; }
+  :root { --bg:#fafafa; --panel:#ffffff; --line:#e6e6e3; --ink:#1f1f1e; --dim:#8b8b86; --acc:#5b4b8a; }
+  body { background:var(--bg); color:var(--ink);
+         font:15px/1.55 -apple-system, "Helvetica Neue", sans-serif; padding-bottom:104px; }
+  svg.i { width:20px; height:20px; stroke:currentColor; stroke-width:1.8; fill:none;
+          stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
+
+  header { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line);
+           padding:15px 56px 11px 18px; display:flex; align-items:baseline; gap:10px; }
+  .wordmark { font-size:21px; font-weight:800; letter-spacing:-.02em; }
+  .today { font-size:13px; color:var(--dim); }
+
+  main { padding:14px 14px 0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:14px 15px; margin-bottom:12px; }
+  .row { display:flex; align-items:center; gap:9px; }
+  .av { width:26px; height:26px; border-radius:50%; flex:none; display:flex; align-items:center;
+        justify-content:center; font-size:11.5px; font-weight:700; color:#fff; }
+  .name { font-size:13.5px; font-weight:600; }
+  .when { font-size:12.5px; color:var(--dim); margin-left:auto; }
+  .card p { margin-top:9px; }
+  .card img { width:100%; display:block; border-radius:8px; margin-top:10px; background:#f0f0ee; }
+  .panels2 { display:flex; gap:8px; margin-top:10px; }
+  .panels2 img { margin-top:0; }
+  .stars { background:none; border:none; font:inherit; font-size:13px; color:var(--dim);
+           display:flex; align-items:center; gap:7px; margin-top:11px; padding:0; }
+  .stars.on { color:var(--acc); }
+  .stars.on svg.i { fill:var(--acc); }
+
+  .btn { display:block; width:100%; background:var(--acc); color:#fff; border:none; border-radius:6px;
+         padding:12px 16px; font:600 15px -apple-system, sans-serif; margin-top:12px; }
+  .btn.sub { background:var(--panel); color:var(--acc); border:1px solid var(--acc); }
+
+  .sealwrap { position:relative; overflow:hidden; border-radius:10px; }
+  .sealed { filter:blur(7px); pointer-events:none; user-select:none; }
+  .sealmsg { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; }
+  .sealmsg .inner { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+                    padding:22px 20px; margin:0 26px; text-align:center; }
+  .sealmsg .big { font-size:17px; font-weight:700; }
+  .sealmsg .sml { font-size:13.5px; color:var(--dim); margin-top:5px; }
+
+  textarea { width:100%; border:1px solid var(--line); border-radius:8px; background:var(--panel);
+             font:16px/1.6 -apple-system, sans-serif; color:var(--ink); padding:12px; min-height:120px;
+             resize:none; outline:none; }
+  textarea:focus { border-color:var(--acc); }
+  .capline { display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .mic { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--panel);
+         color:var(--acc); display:flex; align-items:center; justify-content:center; flex:none; }
+  .capline .btn { margin-top:0; }
+  .h2 { font-size:16px; font-weight:700; margin:20px 2px 10px; }
+
+  .drawing { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:14px; color:var(--dim); }
+  .pulse { width:9px; height:9px; border-radius:50%; background:var(--acc); animation:pu 1s infinite alternate; }
+  @keyframes pu { from { opacity:.25; } to { opacity:1; } }
+  .skel { border-radius:8px; background:#eeeeec; animation:pu 1.1s infinite alternate; }
+
+  .share-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f0f0ed; }
+  .share-item:last-of-type { border-bottom:none; }
+  .share-item .lab { font-size:14.5px; }
+  .share-item .thumb { width:34px; height:34px; border-radius:6px; object-fit:cover; flex:none; margin-top:0; }
+  .share-item .st { margin-left:auto; border:1px solid var(--line); background:var(--panel); color:var(--dim);
+                    border-radius:6px; padding:6px 13px; font:600 13px -apple-system, sans-serif; min-width:78px; }
+  .share-item .st.pub { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em;
+           text-transform:uppercase; border-radius:6px; padding:3px 8px; margin-left:auto; }
+  .badge.pub { background:var(--acc); color:#fff; }
+  .badge.priv { background:#efefec; color:var(--dim); }
+  .quiet { font-size:13px; color:var(--dim); margin-top:9px; }
+
+  nav { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; align-items:center;
+        justify-content:space-around; background:var(--panel); border-top:1px solid var(--line);
+        padding:8px 26px calc(10px + env(safe-area-inset-bottom)); }
+  nav button { background:none; border:none; color:var(--dim); font:11px -apple-system, sans-serif;
+               display:flex; flex-direction:column; align-items:center; gap:3px; padding:2px 10px; }
+  nav button.here { color:var(--acc); }
+  nav .mid { width:50px; height:50px; border-radius:50%; background:var(--acc); color:#fff;
+             align-items:center; justify-content:center; margin-top:-16px; border:none; display:flex; }
+  nav .mid svg.i { width:25px; height:25px; stroke-width:2.2; }
+
+  .toast { position:fixed; left:50%; bottom:112px; transform:translateX(-50%); z-index:30;
+           background:var(--ink); color:#fff; border-radius:6px; padding:9px 18px; font-size:13.5px;
+           font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">dreams</span>
+  <span class="today">wednesday, august 6</span>
+</header>
+
+<main>
+  <section id="scr-feed"></section>
+  <section id="scr-share" hidden></section>
+  <section id="scr-mine" hidden></section>
+</main>
+
+<nav>
+  <button id="nav-feed" class="here"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg>feed</button>
+  <button id="nav-share" class="mid" aria-label="Share a dream"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+  <button id="nav-mine"><svg class="i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>my dreams</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+document.addEventListener('pointerdown', function(){ if(window.__scrollStop) window.__scrollStop(); }, true);
+
+const STAR = '<svg class="i" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>';
+const MIC = '<svg class="i" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
+
+const PANEL1 = 'https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785026660251-a683a588.webp';
+const PANEL2 = 'https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785035126092-5f2874bc.webp';
+const AV = { wren:'#7a9d8f', moth:'#b08aa0', felix:'#8a93b8', juniper:'#c2a06a', you:'#5b4b8a' };
+
+const OTHERS = [
+ { name:'wren', when:'this morning', stars:12,
+   words:'I dreamt that I was on a bus and that I saw Shayna sitting in the back and so I went to sit with her and then we talked about flourless chocolate cake',
+   imgs:['https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785820106233-925d1cc7.webp'] },
+ { name:'moth', when:'this morning', stars:18,
+   words:'Elephants are crispy and sometimes I take them to the couch. I think I was holding them like bread.', imgs:[] },
+ { name:'felix', when:'last night', stars:7, words:null,
+   imgs:['https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785173173487-cb358a50.webp'] },
+ { name:'juniper', when:'last night', stars:11,
+   words:'we were talking about the most amazing pastries — kind of a normal pastry, but you grind it up to this really special texture, and that goes in the middle of a little cake',
+   imgs:['https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785780688837-dd7c5a2e.webp'] },
+];
+
+const S = {
+  sharedToday: false,
+  myText: '', saved: false,
+  drawn: false, drawing: false,
+  oldDrawn: false, oldDrawing: false,
+  pub: { words: true, p1: true, p2: false },
+};
+const PANEL_OLD = 'https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785173168190-703c933e.webp';
+
+const toast = (msg) => { const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 2100); };
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const avatar = (name) => '<span class="av" style="background:'+(AV[name]||'#9a9a94')+'">'+name[0].toUpperCase()+'</span>';
+
+function dreamCard(d){
+  return '<div class="card"><div class="row">'+avatar(d.name)+'<span class="name">'+d.name+'</span>' +
+    '<span class="when">'+d.when+'</span></div>' +
+    (d.words ? '<p>'+d.words+'</p>' : '') +
+    (d.imgs.length === 2 ? '<div class="panels2"><img src="'+d.imgs[0]+'" alt=""><img src="'+d.imgs[1]+'" alt=""></div>'
+      : d.imgs.length === 1 ? '<img src="'+d.imgs[0]+'" alt="">' : '') +
+    '<button class="stars">'+STAR+'<span>'+d.stars+' felt this</span></button></div>';
+}
+
+const scrFeed = document.getElementById('scr-feed');
+const scrShare = document.getElementById('scr-share');
+const scrMine = document.getElementById('scr-mine');
+
+function renderFeed(){
+  if (!S.sharedToday) {
+    scrFeed.innerHTML =
+      '<div class="sealwrap"><div class="sealed">' + dreamCard(OTHERS[0]) + dreamCard(OTHERS[1]) + dreamCard(OTHERS[2]) + '</div>' +
+      '<div class="sealmsg"><div class="inner">' +
+      '<div class="big">7 dreams from last night</div>' +
+      '<div class="sml">Share one of yours to read them. The feed opens for the rest of the day.</div>' +
+      '<button class="btn" id="gateGo">share a dream</button>' +
+      '</div></div></div>';
+    document.getElementById('gateGo').addEventListener('click', () => go('share'));
+    return;
+  }
+  const myImgs = S.drawn ? [S.pub.p1 ? PANEL1 : null, S.pub.p2 ? PANEL2 : null].filter(Boolean) : [];
+  const mine = dreamCard({ name:'you', when:'just now', stars:0,
+    words: S.pub.words ? esc(S.myText) : null, imgs: myImgs });
+  scrFeed.innerHTML = mine + OTHERS.map(dreamCard).join('');
+  scrFeed.querySelectorAll('.stars').forEach(b => b.addEventListener('click', () => {
+    const on = b.classList.toggle('on'); const s = b.querySelector('span');
+    s.textContent = (parseInt(s.textContent) + (on ? 1 : -1)) + ' felt this';
+  }));
+}
+
+function renderShare(){
+  if (!S.saved) {
+    scrShare.innerHTML =
+      '<div class="h2" style="margin-top:6px">What did you dream?</div>' +
+      '<textarea id="cap" placeholder="let it spill out…"></textarea>' +
+      '<div class="capline"><button class="mic" aria-label="Dictate">'+MIC+'</button>' +
+      '<button class="btn" id="saveBtn" style="flex:1">save dream</button></div>';
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      const t = document.getElementById('cap').value.trim();
+      if (!t) { document.getElementById('cap').focus(); return; }
+      S.myText = t; S.saved = true; renderShare(); renderMine(); toast('saved to my dreams');
+      window.scrollTo(0, 0);
+    });
+    return;
+  }
+  const locked = S.sharedToday;
+  let drawBlock;
+  if (S.drawing) {
+    drawBlock = '<div class="drawing"><span class="pulse"></span>drawing your dream…</div>' +
+      '<div class="panels2"><div class="skel" style="flex:1;height:150px"></div><div class="skel" style="flex:1;height:150px"></div></div>' +
+      '<div class="quiet">You can leave — the drawing will be here when it’s done.</div>';
+  } else if (S.drawn) {
+    drawBlock = '<div class="panels2"><img src="'+PANEL1+'" alt=""><img src="'+PANEL2+'" alt=""></div>';
+  } else {
+    drawBlock = '<button class="btn sub" id="drawBtn" style="margin-top:0">draw it</button>';
+  }
+  scrShare.innerHTML =
+    '<div class="card"><div class="row">'+avatar('you')+'<span class="name">your dream</span>' +
+    (locked ? '<span class="badge pub">in today’s feed</span>' : '<span class="badge priv">private</span>') + '</div>' +
+    '<p>'+esc(S.myText)+'</p>' + drawBlock + '</div>' +
+    '<div class="h2">Share</div>' +
+    '<div class="card">' +
+    shareItem('words', 'your words', null, S.pub.words, locked) +
+    (S.drawn ? shareItem('p1', 'panel 1', PANEL1, S.pub.p1, locked) + shareItem('p2', 'panel 2', PANEL2, S.pub.p2, locked) : '') +
+    (locked ? '<div class="quiet">In today’s feed until midnight.</div>'
+            : '<button class="btn" id="shareBtn">share to today’s feed</button>') +
+    '</div>';
+  document.getElementById('drawBtn')?.addEventListener('click', () => {
+    S.drawing = true; renderShare();
+    setTimeout(() => { S.drawing = false; S.drawn = true; renderShare(); renderMine(); toast('your dream is drawn'); }, 3000);
+  });
+  scrShare.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
+    if (locked) return;
+    const k = b.dataset.t; S.pub[k] = !S.pub[k]; renderShare();
+  }));
+  document.getElementById('shareBtn')?.addEventListener('click', () => {
+    const anything = S.pub.words || (S.drawn && (S.pub.p1 || S.pub.p2));
+    if (!anything) { toast('pick at least one thing to share'); return; }
+    S.sharedToday = true; renderFeed(); renderShare(); renderMine();
+    go('feed'); toast('you’re in today’s feed');
+  });
+}
+function shareItem(key, label, thumb, on, locked){
+  return '<div class="share-item">' + (thumb ? '<img class="thumb" src="'+thumb+'" alt="">' : '') +
+    '<span class="lab">'+label+'</span>' +
+    '<button class="st'+(on?' pub':'')+'" data-t="'+key+'"'+(locked?' disabled':'')+'>'+(on?'public':'private')+'</button></div>';
+}
+
+function renderMine(){
+  const today = !S.saved ? '' :
+    '<div class="card"><div class="row"><span class="name">this morning</span>' +
+    (S.sharedToday ? '<span class="badge pub">in today’s feed</span>' : '<span class="badge priv">private</span>') + '</div>' +
+    '<p>'+esc(S.myText)+'</p>' +
+    (S.drawn ? '<div class="panels2"><img src="'+PANEL1+'" alt=""><img src="'+PANEL2+'" alt=""></div>' : '') +
+    '</div>';
+  scrMine.innerHTML =
+    '<div class="h2" style="margin-top:6px">My dreams</div>' +
+    today +
+    '<div class="card"><div class="row"><span class="name">august 4</span><span class="badge priv">private</span></div>' +
+    '<p>i was a mouse churning into soft butter. i changed into a shape i didn’t choose and it was warm and i wasn’t scared.</p>' +
+    '<img src="https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785442480053-c658987b.webp" alt=""></div>' +
+    '<div class="card"><div class="row"><span class="name">august 2</span><span class="badge priv">private</span></div>' +
+    '<p>something about a staircase that kept adding steps while I climbed it.</p>' +
+    (S.oldDrawing
+      ? '<div class="drawing"><span class="pulse"></span>drawing your dream…</div>' +
+        '<div class="skel" style="height:150px;margin-top:10px"></div>' +
+        '<div class="quiet">You can leave — the drawing will be here when it’s done.</div>'
+      : S.oldDrawn
+        ? '<img src="'+PANEL_OLD+'" alt="">'
+        : '<button class="btn sub" id="drawOld">draw it</button>') +
+    '</div>';
+  document.getElementById('drawOld')?.addEventListener('click', () => {
+    S.oldDrawing = true; renderMine();
+    setTimeout(() => { S.oldDrawing = false; S.oldDrawn = true; renderMine(); toast('your dream is drawn'); }, 3000);
+  });
+}
+
+const tabs = { feed: scrFeed, share: scrShare, mine: scrMine };
+function go(which){
+  for (const k in tabs) tabs[k].hidden = (k !== which);
+  document.getElementById('nav-feed').classList.toggle('here', which === 'feed');
+  document.getElementById('nav-mine').classList.toggle('here', which === 'mine');
+  window.scrollTo(0, 0);
+}
+document.getElementById('nav-feed').addEventListener('click', () => go('feed'));
+document.getElementById('nav-share').addEventListener('click', () => go('share'));
+document.getElementById('nav-mine').addEventListener('click', () => go('mine'));
+
+renderFeed(); renderShare(); renderMine();
+</script>
+</body>
+</html>
