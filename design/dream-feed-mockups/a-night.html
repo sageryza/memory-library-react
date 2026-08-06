@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dream feed mockup A — Night ink</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden] { display:none !important; }
+  :root {
+    --bg:#131022; --card:#1b1732; --line:#2b2547; --ink:#efe9dc;
+    --dim:#9d95bb; --gold:#d9b36a; --deep:#0e0b1b;
+  }
+  body { background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system, "Helvetica Neue", sans-serif;
+         padding-bottom:92px; }
+  .serif { font-family:Georgia, "Times New Roman", serif; }
+  svg.i { width:20px; height:20px; stroke:currentColor; stroke-width:1.8; fill:none;
+          stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
+
+  header { position:sticky; top:0; z-index:5; background:var(--bg); padding:16px 56px 10px 18px;
+           border-bottom:1px solid var(--line); }
+  .eyebrow { font-size:10px; letter-spacing:.24em; color:var(--gold); text-transform:uppercase; }
+  h1 { font-family:Georgia, serif; font-weight:400; font-size:27px; margin-top:3px; }
+  h1 svg.i { width:22px; height:22px; color:var(--gold); margin-left:4px; }
+
+  .ask { display:flex; align-items:center; gap:10px; margin:14px 18px 4px; padding:13px 14px;
+         background:var(--card); border:1px solid var(--line); border-radius:10px; color:var(--dim);
+         font-family:Georgia, serif; font-style:italic; font-size:16px; }
+  .ask svg.i { margin-left:auto; color:var(--gold); flex:none; }
+
+  .feed { margin-top:12px; }
+  .card { background:var(--card); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+          margin-bottom:14px; }
+  .card img { width:100%; display:block; background:var(--deep); }
+  .body { padding:13px 18px 15px; }
+  .who { display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--dim); }
+  .av { width:27px; height:27px; border-radius:50%; flex:none; display:flex; align-items:center;
+        justify-content:center; font-size:12px; font-weight:600; color:#1c1830; }
+  .who b { color:var(--ink); font-weight:600; }
+  .ttl { font-family:Georgia, serif; font-size:19px; font-weight:400; margin:9px 0 5px; }
+  .txt { color:#cfc8e2; }
+  .txt.clamped { display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+  .more { background:none; border:none; color:var(--gold); font:inherit; font-size:13px; padding:4px 0 0; }
+  .acts { display:flex; align-items:center; gap:22px; margin-top:11px; color:var(--dim); font-size:13px; }
+  .act { display:flex; align-items:center; gap:7px; background:none; border:none; color:inherit; font:inherit; }
+  .act.on { color:var(--gold); }
+  .act.on svg.i { fill:var(--gold); }
+
+  nav { position:fixed; left:0; right:0; bottom:0; z-index:6; display:flex; align-items:center;
+        justify-content:space-around; padding:10px 30px calc(14px + env(safe-area-inset-bottom));
+        background:var(--card); border-top:1px solid var(--line); color:var(--dim); }
+  nav .tab { background:none; border:none; color:inherit; padding:4px 10px; }
+  nav .tab.here { color:var(--gold); }
+  nav .post { width:46px; height:46px; border-radius:50%; background:var(--gold); color:#1c1830;
+              border:none; display:flex; align-items:center; justify-content:center; }
+  nav .post svg.i { width:24px; height:24px; stroke-width:2.2; }
+
+  .sheet { position:fixed; inset:0; z-index:20; background:var(--bg); display:flex; flex-direction:column; }
+  .sheet-head { display:flex; align-items:center; gap:12px; padding:16px 56px 12px 14px;
+                border-bottom:1px solid var(--line); }
+  .close { background:none; border:none; color:var(--dim); padding:6px; }
+  .sheet-head .serif { font-size:20px; }
+  .sheet textarea { flex:1; background:none; border:none; outline:none; resize:none; color:var(--ink);
+                    font-family:Georgia, serif; font-size:19px; line-height:1.6; padding:20px 20px 10px; }
+  .sheet textarea::placeholder { color:#5d5580; font-style:italic; }
+  .sheet-foot { display:flex; align-items:center; gap:14px; padding:12px 18px calc(16px + env(safe-area-inset-bottom));
+                border-top:1px solid var(--line); }
+  .micbtn { width:46px; height:46px; border-radius:50%; border:1px solid var(--line); background:var(--card);
+            color:var(--gold); display:flex; align-items:center; justify-content:center; }
+  .share { margin-left:auto; background:var(--gold); color:#1c1830; border:none; border-radius:6px;
+           padding:12px 26px; font-weight:600; font-size:15px; }
+  .toast { position:fixed; left:50%; bottom:104px; transform:translateX(-50%); z-index:30;
+           background:var(--gold); color:#1c1830; border-radius:6px; padding:9px 18px; font-size:13.5px;
+           font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">August 6 · waning full</div>
+  <h1 class="serif">dreams <svg class="i" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></h1>
+</header>
+
+<div class="ask" id="ask">what did you dream?
+  <svg class="i" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+</div>
+
+<div class="feed" id="feed"></div>
+
+<nav>
+  <button class="tab here" aria-label="Feed"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+  <button class="post" id="post" aria-label="Share a dream"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+  <button class="tab" aria-label="My dreams"><svg class="i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></button>
+</nav>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-head">
+    <button class="close" id="closeSheet" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <div class="serif">a new dream</div>
+  </div>
+  <textarea id="draft" placeholder="let it spill out…"></textarea>
+  <div class="sheet-foot">
+    <button class="micbtn" aria-label="Speak your dream"><svg class="i" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></button>
+    <button class="share" id="shareBtn">share</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">shared to the night's feed</div>
+
+<script>
+document.addEventListener('pointerdown', function(){ if(window.__scrollStop) window.__scrollStop(); }, true);
+
+const DREAMS = [
+ {handle:"wren", when:"this morning", title:"Bus Ride with Shayna", stars:12, replies:3,
+  text:"I dreamt that I was on a bus and that I saw Shayna sitting in the back and so I went to sit with her and then we talked about flourless chocolate cake",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785820106233-925d1cc7.webp"},
+ {handle:"felix", when:"this morning", title:"Coding and Flying", stars:7, replies:1,
+  text:"Then there was another dream I had before that. I don't remember the beginning, but basically I was running around trying to figure out coding, in and out of this building kind of black with tinted windows and sliding doors, and then I saw Lindsay talking to this girl, and I was like, oh, I'm just trying to finish this, and she was like…",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785173173487-cb358a50.webp"},
+ {handle:"sage", when:"this morning", title:"Mouse, then butter", stars:21, replies:5,
+  text:"i was a mouse churning into soft butter. i changed into a shape i didn’t choose and it was warm and i wasn’t scared.", img:null},
+ {handle:"clementine", when:"last night", title:"PCH Hotel and Cousins", stars:9, replies:2,
+  text:"And then, just now I had another quite long dream, and I remember, like, so, at one point, I was on the PCH, and I was like, hmm, where should I get off? I think I was trying to go home, but I didn't really want to. I accidentally got off at this, like, hotel, and it was, like, so perfect, because I could just sit by the pool, and it was, like, a really nice hotel, actually. And then I had a white car,",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785442480053-c658987b.webp"},
+ {handle:"night bus", when:"last night", title:"Building Ian's Barn", stars:4, replies:0,
+  text:"i dreamt that Ian was trying to get me to help him build a barn",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785795451826-fc0ee66f.webp"},
+ {handle:"moth", when:"yesterday", title:"Restaurant Conversation", stars:15, replies:4,
+  text:"I have this, I had this dream, let's see, I was, oh my gosh, okay, Benjamin was in it, Sandy was in it, there was this, like, restaurant, it might have been The Real Inn, and, or no, I think it was, like, a different restaurant, actually, but maybe I was with Rebecca or someone, and the last part was at the restaurant, so, I think we ran into Benjamin's friends, and it was, like, a couple,",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785264517749-59b99b5f.webp"},
+ {handle:"juniper", when:"2 days ago", title:"Pastries With Shayna", stars:11, replies:2,
+  text:"then I was like on this bus trying to figure out where to sit and I saw Shayna at the back So I went to sit next to her and we were talking about like the most amazing like pastries They had like something really special It's kind of like a normal pastry and then you like you grind it up to like this really special texture And then that's what goes in the middle And it was like this little cake…",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785780688837-dd7c5a2e.webp"},
+ {handle:"marigold", when:"2 days ago", title:"Crispy elephants", stars:18, replies:6,
+  text:"Elephants are crispy and sometimes I take them to the couch I think I was holding them like bread.", img:null},
+];
+const AV = ["#d9b36a","#b8a1d9","#8fb8a5","#d99a8f","#a1b8d9","#d9c98f"];
+const STAR = '<svg class="i" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>';
+const BUBBLE = '<svg class="i" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>';
+
+function card(d, i){
+  const el = document.createElement('article');
+  el.className = 'card';
+  const long = d.text.length > 260;
+  el.innerHTML =
+    (d.img ? '<img src="'+d.img+'" alt="">' : '') +
+    '<div class="body">' +
+      '<div class="who"><span class="av" style="background:'+AV[i % AV.length]+'">'+d.handle[0].toUpperCase()+'</span>' +
+      '<b>'+d.handle+'</b><span>·</span><span>'+d.when+'</span></div>' +
+      '<div class="ttl serif">'+d.title+'</div>' +
+      '<div class="txt'+(long?' clamped':'')+'">'+d.text+'</div>' +
+      (long?'<button class="more">read on</button>':'') +
+      '<div class="acts">' +
+        '<button class="act star">'+STAR+'<span>'+d.stars+' felt this</span></button>' +
+        '<span class="act">'+BUBBLE+'<span>'+d.replies+'</span></span>' +
+      '</div>' +
+    '</div>';
+  if (long) el.querySelector('.more').addEventListener('click', (e) => {
+    el.querySelector('.txt').classList.remove('clamped'); e.target.remove();
+  });
+  const star = el.querySelector('.star');
+  star.addEventListener('click', () => {
+    const n = star.querySelector('span'); const on = star.classList.toggle('on');
+    d.stars += on ? 1 : -1; n.textContent = d.stars + ' felt this';
+  });
+  return el;
+}
+const feed = document.getElementById('feed');
+DREAMS.forEach((d, i) => feed.appendChild(card(d, i)));
+
+// compose sheet — lock the page behind it, restore the exact spot on close
+const sheet = document.getElementById('sheet');
+let savedY = 0;
+function openSheet(){ savedY = window.scrollY; document.body.style.overflow = 'hidden'; sheet.hidden = false; document.getElementById('draft').focus(); }
+function closeSheet(){ sheet.hidden = true; document.body.style.overflow = ''; window.scrollTo(0, savedY); }
+document.getElementById('ask').addEventListener('click', openSheet);
+document.getElementById('post').addEventListener('click', openSheet);
+document.getElementById('closeSheet').addEventListener('click', closeSheet);
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const t = document.getElementById('draft').value.trim();
+  if (t) {
+    feed.prepend(card({handle:'you', when:'just now', title:'', text:t, img:null, stars:0, replies:0}, 0));
+    document.getElementById('draft').value = '';
+    const toast = document.getElementById('toast');
+    toast.style.opacity = 1; setTimeout(() => toast.style.opacity = 0, 1800);
+  }
+  closeSheet();
+  window.scrollTo(0, 0);
+});
+</script>
+</body>
+</html>

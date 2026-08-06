@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dream feed mockup C — Pastel wall</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden] { display:none !important; }
+  :root { --bg:#f6f2ec; --ink:#2e2a26; --dim:#94897b; --line:#e6ded1; }
+  body { background:var(--bg); color:var(--ink);
+         font:15px/1.5 -apple-system, "Helvetica Neue", sans-serif; padding-bottom:96px; }
+  svg.i { width:20px; height:20px; stroke:currentColor; stroke-width:1.8; fill:none;
+          stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
+
+  header { padding:22px 56px 14px 18px; }
+  h1 { font-size:31px; font-weight:800; letter-spacing:-.02em; }
+  h1 svg.i { width:24px; height:24px; stroke-width:2; margin-left:2px; }
+  .sub { color:var(--dim); font-size:14px; margin-top:2px; }
+
+  .wall { columns:2; column-gap:10px; padding:0 12px; }
+  .tile { break-inside:avoid; margin-bottom:10px; border-radius:14px; padding:9px 9px 11px;
+          width:100%; border:none; text-align:left; font:inherit; color:inherit; display:block; }
+  .tile img { width:100%; display:block; border-radius:8px; }
+  .tile .quote { font:italic 15px/1.5 Georgia, serif; padding:14px 6px 6px; }
+  .tile .t { font-weight:700; font-size:13.5px; padding:9px 4px 0; }
+  .tile .h { color:#00000059; font-size:11.5px; padding:2px 4px 0; }
+
+  .fab { position:fixed; right:18px; bottom:calc(20px + env(safe-area-inset-bottom)); z-index:8;
+         width:58px; height:58px; border-radius:50%; border:none; background:var(--ink); color:#f6f2ec;
+         display:flex; align-items:center; justify-content:center; }
+  .fab svg.i { width:26px; height:26px; stroke-width:2.2; }
+
+  .view { position:fixed; inset:0; z-index:20; overflow-y:auto; padding:0 0 40px; }
+  .view-head { position:sticky; top:0; display:flex; align-items:center; padding:14px 56px 10px 12px; }
+  .close { background:#00000014; border:none; color:var(--ink); width:40px; height:40px;
+           border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .view img { width:calc(100% - 36px); display:block; margin:4px auto 0; border-radius:12px; }
+  .view .inner { padding:18px 24px 8px; }
+  .view .t { font-size:24px; font-weight:800; letter-spacing:-.02em; }
+  .view .h { color:#00000066; font-size:13px; margin:4px 0 14px; }
+  .view .txt { font:16.5px/1.65 Georgia, serif; }
+  .feel { margin:20px 24px 0; background:var(--ink); color:#f6f2ec; border:none; border-radius:6px;
+          padding:13px 22px; font-weight:600; font-size:15px; display:flex; align-items:center; gap:9px; }
+  .feel.on { background:#b9563f; }
+  .feel.on svg.i { fill:#f6f2ec; }
+
+  .compose { position:fixed; inset:0; z-index:24; background:#f9efe2; display:flex; flex-direction:column; }
+  .compose textarea { flex:1; background:none; border:none; outline:none; resize:none; color:var(--ink);
+                      font:italic 19px/1.6 Georgia, serif; padding:16px 24px; }
+  .compose textarea::placeholder { color:#c4b49a; }
+  .compose-foot { display:flex; align-items:center; gap:14px;
+                  padding:12px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .micbtn { width:46px; height:46px; border-radius:50%; border:1px solid #dccdb2; background:#f6f2ec;
+            color:var(--ink); display:flex; align-items:center; justify-content:center; }
+  .share { margin-left:auto; background:var(--ink); color:#f6f2ec; border:none; border-radius:6px;
+           padding:12px 28px; font-weight:600; font-size:15px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>dreams <svg class="i" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></h1>
+  <div class="sub">what everyone dreamt last night</div>
+</header>
+
+<div class="wall" id="wall"></div>
+
+<button class="fab" id="fab" aria-label="Share a dream"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+
+<div class="view" id="view" hidden>
+  <div class="view-head"><button class="close" id="closeView" aria-label="Back"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div id="viewBody"></div>
+</div>
+
+<div class="compose" id="compose" hidden>
+  <div class="view-head"><button class="close" id="closeCompose" aria-label="Back"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <textarea id="draft" placeholder="what did you dream?"></textarea>
+  <div class="compose-foot">
+    <button class="micbtn" aria-label="Speak your dream"><svg class="i" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></button>
+    <button class="share" id="shareBtn">share it</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener('pointerdown', function(){ if(window.__scrollStop) window.__scrollStop(); }, true);
+
+const PASTELS = ["#f2d8d0","#dde7d3","#dbe3f2","#f4e5c3","#e7ddf2","#f2e0d0"];
+const DREAMS = [
+ {handle:"wren", when:"this morning", title:"bus ride with shayna",
+  text:"I dreamt that I was on a bus and that I saw Shayna sitting in the back and so I went to sit with her and then we talked about flourless chocolate cake",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785820106233-925d1cc7.webp", stars:12},
+ {handle:"sage", when:"this morning", title:"mouse, then butter",
+  text:"i was a mouse churning into soft butter. i changed into a shape i didn’t choose and it was warm and i wasn’t scared.", img:null, stars:21},
+ {handle:"felix", when:"this morning", title:"coding and flying",
+  text:"Then there was another dream I had before that. I don't remember the beginning, but basically I was running around trying to figure out coding, in and out of this building kind of black with tinted windows and sliding doors, and then I saw Lindsay talking to this girl, and I was like, oh, I'm just trying to finish this, and she was like…",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785173173487-cb358a50.webp", stars:7},
+ {handle:"night bus", when:"last night", title:"building ian's barn",
+  text:"i dreamt that Ian was trying to get me to help him build a barn",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785795451826-fc0ee66f.webp", stars:4},
+ {handle:"clementine", when:"last night", title:"pch hotel and cousins",
+  text:"And then, just now I had another quite long dream, and I remember, like, so, at one point, I was on the PCH, and I was like, hmm, where should I get off? I think I was trying to go home, but I didn't really want to. I accidentally got off at this, like, hotel, and it was, like, so perfect, because I could just sit by the pool, and it was, like, a really nice hotel, actually. And then I had a white car,",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785442480053-c658987b.webp", stars:9},
+ {handle:"marigold", when:"2 days ago", title:"crispy elephants",
+  text:"Elephants are crispy and sometimes I take them to the couch I think I was holding them like bread.", img:null, stars:18},
+ {handle:"moth", when:"yesterday", title:"restaurant conversation",
+  text:"I have this, I had this dream, let's see, I was, oh my gosh, okay, Benjamin was in it, Sandy was in it, there was this, like, restaurant, it might have been The Real Inn, and, or no, I think it was, like, a different restaurant, actually, but maybe I was with Rebecca or someone, and the last part was at the restaurant, so, I think we ran into Benjamin's friends, and it was, like, a couple,",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785264517749-59b99b5f.webp", stars:15},
+ {handle:"juniper", when:"2 days ago", title:"pastries with shayna",
+  text:"then I was like on this bus trying to figure out where to sit and I saw Shayna at the back So I went to sit next to her and we were talking about like the most amazing like pastries They had like something really special It's kind of like a normal pastry and then you like you grind it up to like this really special texture And then that's what goes in the middle And it was like this little cake…",
+  img:"https://storage.googleapis.com/deckfactory-43176.firebasestorage.app/movies/zines/1785780688837-dd7c5a2e.webp", stars:11},
+];
+const STAR = '<svg class="i" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>';
+
+const wall = document.getElementById('wall');
+function tile(d, i){
+  const el = document.createElement('button');
+  el.className = 'tile';
+  el.style.background = PASTELS[i % PASTELS.length];
+  el.innerHTML =
+    (d.img ? '<img src="'+d.img+'" alt="">' : '<div class="quote">“'+d.text+'”</div>') +
+    '<div class="t">'+d.title+'</div>' +
+    '<div class="h">'+d.handle+' · '+d.when+'</div>';
+  el.addEventListener('click', () => openView(d, i));
+  return el;
+}
+DREAMS.forEach((d, i) => wall.appendChild(tile(d, i)));
+
+// full-screen dream view — lock the wall behind it, come back to the same spot
+const view = document.getElementById('view');
+let savedY = 0;
+function lock(){ savedY = window.scrollY; document.body.style.overflow = 'hidden'; }
+function unlock(){ document.body.style.overflow = ''; window.scrollTo(0, savedY); }
+function openView(d, i){
+  lock();
+  view.style.background = PASTELS[i % PASTELS.length];
+  document.getElementById('viewBody').innerHTML =
+    (d.img ? '<img src="'+d.img+'" alt="">' : '') +
+    '<div class="inner"><div class="t">'+d.title+'</div>' +
+    '<div class="h">'+d.handle+' · '+d.when+'</div>' +
+    '<div class="txt">'+d.text+'</div></div>' +
+    '<button class="feel">'+STAR+'<span>'+d.stars+' felt this</span></button>';
+  const feel = document.getElementById('viewBody').querySelector('.feel');
+  feel.addEventListener('click', () => {
+    const on = feel.classList.toggle('on');
+    d.stars += on ? 1 : -1;
+    feel.querySelector('span').textContent = d.stars + ' felt this';
+  });
+  view.hidden = false; view.scrollTop = 0;
+}
+document.getElementById('closeView').addEventListener('click', () => { view.hidden = true; unlock(); });
+
+// compose
+const compose = document.getElementById('compose');
+document.getElementById('fab').addEventListener('click', () => { lock(); compose.hidden = false; document.getElementById('draft').focus(); });
+document.getElementById('closeCompose').addEventListener('click', () => { compose.hidden = true; unlock(); });
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const t = document.getElementById('draft').value.trim();
+  if (t) {
+    wall.prepend(tile({handle:'you', when:'just now', title:'a new dream', text:t, img:null, stars:0}, wall.children.length));
+    document.getElementById('draft').value = '';
+  }
+  compose.hidden = true; unlock(); window.scrollTo(0, 0);
+});
+</script>
+</body>
+</html>
