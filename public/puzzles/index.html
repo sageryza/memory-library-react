@@ -8,134 +8,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Zilla+Slab:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="puzzles.css">
 <style>
-/* ------------------------------------------------------------------
-   Puzzles — the hub.
-   Styled after the NYT Games look: white paper, black type, thin grey
-   rules, one slab-serif for titles and one grotesque for everything
-   else. ALL of the colour on the page lives inside the little square
-   game marks — nothing else is tinted. That contrast is the whole
-   trick: the page reads black-and-white, the games read as a set of
-   bright objects sitting on it.
+/* The hub is the one page that shows every game's mark at once, so it owns
+   the card and idea rows. Everything else it needs is in puzzles.css. */
 
-   House rules kept (they differ from NYT on purpose):
-     - no pills. Buttons are 6px rounded rectangles.
-     - no gradients anywhere. Flat solid fills only.
-   ------------------------------------------------------------------ */
-
-:root{
-  --ink:#121212;
-  --ink2:#5a5a5a;
-  --ink3:#8b8b8b;
-  --paper:#ffffff;
-  --line:#e2e2e2;
-  --line2:#121212;
-
-  /* one flat colour per game — the only colour on the page */
-  --c-memory:#3d8f6d;
-  --c-set:#7d5ba6;
-  --c-groups:#c9a227;
-  --c-strand:#3f7fbf;
-  --c-order:#c4603d;
-  --c-odd:#2f7d7a;
-  --c-crop:#a34e78;
-  --c-pair:#4a5fa8;
-  --c-mini:#5f7a3f;
-  --c-rebus:#b0603a;
-}
-
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--paper);
-  color:var(--ink);
-  font-family:'Libre Franklin',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;
-  -webkit-text-size-adjust:100%;
-}
-a{color:inherit;text-decoration:none}
-
-/* ---------- top rule bar ---------- */
-.topbar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 18px;
-  border-bottom:1px solid var(--line);
-  position:sticky;top:0;background:var(--paper);z-index:10;
-}
-.mark{
-  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
-  font-size:17px;letter-spacing:.02em;
-}
-.topdate{
-  font-size:11px;font-weight:600;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--ink2);
-}
-
-/* ---------- masthead ---------- */
-.wrap{max-width:960px;margin:0 auto;padding:0 18px}
-.mast{padding:34px 0 26px;text-align:center;border-bottom:1px solid var(--line)}
-.mast h1{
-  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
-  font-size:44px;line-height:1.02;margin:0;letter-spacing:-.01em;
-}
-.mast .date{
-  margin-top:12px;font-size:12px;font-weight:600;letter-spacing:.11em;
-  text-transform:uppercase;color:var(--ink2);
-}
-.mast .sub{
-  margin:14px auto 0;max-width:30em;font-size:15px;line-height:1.5;color:var(--ink2);
-}
-
-/* ---------- section headings ---------- */
-.sec{padding:28px 0 6px}
-.sec h2{
-  font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-  margin:0 0 2px;color:var(--ink);
-}
-.sec p{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
-
-/* ---------- the card grid ---------- */
 .grid{display:grid;grid-template-columns:1fr;gap:0;padding-bottom:8px}
-
-.card{
-  display:flex;align-items:center;gap:16px;
-  padding:20px 2px;
-  border-bottom:1px solid var(--line);
-}
+.card{display:flex;align-items:center;gap:16px;padding:20px 2px;border-bottom:1px solid var(--line)}
 .card:last-child{border-bottom:0}
-
-.icon{
-  flex:0 0 auto;width:64px;height:64px;border-radius:6px;
-  display:flex;align-items:center;justify-content:center;
-}
-.icon svg{width:38px;height:38px;display:block}
-
 .body{flex:1 1 auto;min-width:0}
-.body h3{
-  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
-  font-size:22px;line-height:1.15;margin:0 0 4px;
-}
+.body h3{font-family:'Zilla Slab',Georgia,serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 4px}
 .body p{margin:0;font-size:14px;line-height:1.45;color:var(--ink2)}
-.meta{
-  margin-top:7px;font-size:11px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--ink3);
-}
+.meta{margin-top:7px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.card .btn{align-self:center;padding:9px 18px}
 
-.play{
-  flex:0 0 auto;align-self:center;
-  display:inline-block;padding:9px 18px;border-radius:6px;
-  background:var(--ink);color:#fff;
-  font-size:13px;font-weight:600;letter-spacing:.02em;
-  border:1px solid var(--ink);
-}
-.play:active{opacity:.75}
-
-/* ---------- the ideas list (not built yet) ---------- */
 .ideas{display:grid;grid-template-columns:1fr;gap:0}
-.idea{
-  display:flex;align-items:flex-start;gap:14px;
-  padding:16px 2px;border-bottom:1px solid var(--line);
-}
+.idea{display:flex;align-items:flex-start;gap:14px;padding:16px 2px;border-bottom:1px solid var(--line)}
 .idea:last-child{border-bottom:0}
 .idea .icon{width:44px;height:44px;border-radius:6px;opacity:.9}
 .idea .icon svg{width:26px;height:26px}
@@ -147,15 +35,8 @@ a{color:inherit;text-decoration:none}
   letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);
 }
 
-footer{
-  border-top:1px solid var(--line2);margin-top:34px;padding:22px 0 44px;
-  text-align:center;font-size:12px;color:var(--ink3);line-height:1.6;
-}
-
 @media (min-width:720px){
-  .mast h1{font-size:60px}
   .grid{grid-template-columns:1fr 1fr;column-gap:34px}
-  .card{border-bottom:1px solid var(--line)}
   .ideas{grid-template-columns:1fr 1fr;column-gap:34px}
 }
 </style>
@@ -184,28 +65,22 @@ footer{
   <div class="grid">
 
     <div class="card">
-      <div class="icon" style="background:var(--c-memory)">
-        <!-- boggle trace: a 3x3 of dots with a path through it -->
-        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 25 L7 16 L16 16 L25 7"/>
-          <circle cx="7" cy="7" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="16" cy="7" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="25" cy="7" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="7" cy="16" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="16" cy="16" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="25" cy="16" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="7" cy="25" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="16" cy="25" r="1.9" fill="#fff" stroke="none"/>
-          <circle cx="25" cy="25" r="1.9" fill="#fff" stroke="none"/>
+      <div class="icon" style="background:var(--c-nine)">
+        <!-- nine faces, three to a row: the tray itself -->
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round">
+          <rect x="4"  y="4"  width="7.5" height="7.5" rx="1.2"/>
+          <rect x="16" y="4"  width="7.5" height="7.5" rx="1.2" fill="#fff"/>
+          <rect x="4"  y="16" width="7.5" height="7.5" rx="1.2" fill="#fff"/>
+          <rect x="16" y="16" width="7.5" height="7.5" rx="1.2"/>
+          <rect x="10" y="10" width="7.5" height="7.5" rx="1.2" fill="var(--c-nine)"/>
         </svg>
       </div>
       <div class="body">
-        <h3>Boggle Memory</h3>
-        <p>Trace the board, then trace it again from memory.</p>
-        <div class="meta">Daily</div>
+        <h3>XI Nine</h3>
+        <p>Boggle, but the dice are memories. Nine at once, against the clock.</p>
+        <div class="meta">Timed</div>
       </div>
-      <a class="play" href="#">Play</a>
+      <a class="btn btn-solid" href="nine/">Play</a>
     </div>
 
     <div class="card">
@@ -222,21 +97,55 @@ footer{
       </div>
       <div class="body">
         <h3>Set Pyramid</h3>
-        <p>Two cards at the base decide the one on top. Work out what it has to be.</p>
-        <div class="meta">Daily</div>
+        <p>Two objects at the base decide the one on top. Work out what it has to be &mdash; then watch it get drawn.</p>
+        <div class="meta">Open ended</div>
       </div>
-      <a class="play" href="#">Play</a>
+      <a class="btn btn-solid" href="https://imageforge-q125.onrender.com/set">Play</a>
     </div>
 
   </div>
 
   <!-- ============ IDEAS ============ -->
-  <div class="sec" style="border-top:1px solid var(--line2);margin-top:14px;padding-top:26px">
+  <div class="sec" style="border-top:1px solid var(--rule);margin-top:14px;padding-top:26px">
     <h2>On the bench</h2>
-    <p>Ideas for the rest of the page — nothing here is built yet.</p>
+    <p>Ideas for the rest of the page &mdash; nothing here is built yet.</p>
   </div>
 
   <div class="ideas">
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-worlds)">
+        <!-- a diagram laid over a concept: boxes wired together -->
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">
+          <circle cx="9" cy="9" r="4"/>
+          <rect x="19" y="19" width="9" height="9" rx="1.5" fill="#fff"/>
+          <path d="M12.2 12.2 L18.6 18.6"/>
+          <path d="M22 6 h6 M25 3 v6"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Possible Worlds</h3>
+        <p>You get a diagram and a concept that have nothing to do with each other, and you have to use the diagram to explain the concept. A game of confusing concepts and ambiguous abstractions.</p>
+        <span class="tag">Your idea</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-pretend)">
+        <!-- a thought about someone else's head -->
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M7 27 v-3 a5 5 0 0 1 5-5 h2 a5 5 0 0 1 5 5 v3"/>
+          <circle cx="13" cy="12" r="4.5"/>
+          <circle cx="24" cy="9" r="3.4" fill="#fff"/>
+          <circle cx="21.5" cy="14.5" r="1.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Pretend Land</h3>
+        <p>You watch what somebody did and guess the intention behind it. Theory of mind as a daily puzzle &mdash; the answer is never in the action itself.</p>
+        <span class="tag">Your idea</span>
+      </div>
+    </div>
 
     <div class="idea">
       <div class="icon" style="background:var(--c-groups)">
@@ -249,7 +158,7 @@ footer{
       </div>
       <div>
         <h3>Groups</h3>
-        <p>Sixteen of your drawings, four secret categories. Connections, but the tiles are pictures — so the category can be a mood, a line quality, a time of day.</p>
+        <p>Sixteen of your drawings, four secret categories. Connections, but the tiles are pictures &mdash; so the category can be a mood, a line quality, a time of day.</p>
         <span class="tag">Closest to what you have</span>
       </div>
     </div>
@@ -281,7 +190,7 @@ footer{
       </div>
       <div>
         <h3>Chronology</h3>
-        <p>Five things in the wrong order — put them back. You already have a chronology engine in this repo, so this is the cheapest one to build.</p>
+        <p>Five things in the wrong order &mdash; put them back. You already have a chronology engine in this repo, so this is the cheapest one to build.</p>
         <span class="tag">Cheapest to build</span>
       </div>
     </div>
@@ -297,7 +206,7 @@ footer{
       </div>
       <div>
         <h3>Odd One Out</h3>
-        <p>Four drawings, one doesn't belong — and you have to say why, not just which. The saying-why is the game.</p>
+        <p>Four drawings, one doesn't belong &mdash; and you have to say why, not just which. The saying-why is the game.</p>
         <span class="tag">Quick</span>
       </div>
     </div>
@@ -343,7 +252,7 @@ footer{
       </div>
       <div>
         <h3>The Tiny</h3>
-        <p>A 5&times;5 crossword you can finish standing up. Clues in your voice is the whole point — the grid is the easy half.</p>
+        <p>A 5&times;5 crossword you can finish standing up. Clues in your voice is the whole point &mdash; the grid is the easy half.</p>
         <span class="tag">Most work</span>
       </div>
     </div>
@@ -358,7 +267,7 @@ footer{
       </div>
       <div>
         <h3>Rebus</h3>
-        <p>A drawn visual pun that spells a phrase. Pure illustration — it plays entirely to what you already make.</p>
+        <p>A drawn visual pun that spells a phrase. Pure illustration &mdash; it plays entirely to what you already make.</p>
         <span class="tag">Pure drawing</span>
       </div>
     </div>
@@ -377,8 +286,7 @@ footer{
   var d = new Date();
   var long = d.toLocaleDateString('en-US',
     {weekday:'long', month:'long', day:'numeric', year:'numeric'});
-  var short = d.toLocaleDateString('en-US',
-    {month:'short', day:'numeric'});
+  var short = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
   document.getElementById('topdate').textContent = short;
   document.getElementById('mastdate').textContent = long;
   document.getElementById('footdate').textContent = long;
