@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XI Nine</title>
+<meta name="description" content="Boggle, but the dice are memories. Nine at once, against the clock.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Zilla+Slab:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../puzzles.css">
+<style>
+/* XI Nine — the only colour on this page is --accent (Boggle blue) and the
+   score coin. Everything else is black on white, per puzzles.css. */
+
+.bar{
+  display:flex;align-items:center;gap:16px;
+  padding:16px 0 14px;border-bottom:1px solid var(--line);
+}
+.clock{
+  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
+  font-size:38px;line-height:1;color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.clock.low{color:#b3443f}
+.clocklab{
+  font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink3);margin-top:5px;
+}
+/* the score is a coin, not a sentence — flat colours, no gradients */
+.coin{
+  margin-left:auto;width:52px;height:52px;border-radius:50%;
+  background:#c9a441;border:2px solid #a8842f;
+  box-shadow:inset 0 0 0 2px #d8b862;              /* the milled inner ring */
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
+  font-size:21px;color:#4a3a10;
+}
+
+.mins{padding:16px 0 4px}
+
+/* nine dice, three to a row — Boggle white with blue words, nothing 3D */
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 0}
+.cube{
+  position:relative;display:block;width:100%;
+  /* the 1px border is part of the box, so the padding is 100% MINUS the two
+     borders — an exact square whatever is printed on the face */
+  height:0;padding:calc(100% - 2px) 0 0;overflow:hidden;
+  background:var(--paper);border:1px solid #c3cfe0;border-radius:6px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.face{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:8px;
+  font-family:'Zilla Slab',Georgia,serif;font-weight:600;
+  font-size:13px;line-height:1.28;color:var(--accent);
+  text-wrap:balance;overflow:hidden;
+}
+.face.m{font-size:12px}
+.face.s{font-size:11px;line-height:1.24}
+.cube.sel{background:var(--accent);border-color:var(--accent)}
+.cube.sel .face{color:#fff}
+.cube.down{background:#f4f6fa;border-color:var(--line)}
+.cube.down .face{color:transparent}     /* face down, before the shake */
+.tray.over .cube{opacity:.4}
+
+.memo{min-height:88px;resize:vertical;font-family:'Zilla Slab',Georgia,serif}
+.row{display:flex;gap:10px;align-items:center;padding-top:12px}
+.row .spacer{flex:1 1 auto}
+
+.over{
+  border:1px solid var(--accent);border-left-width:4px;border-radius:6px;
+  padding:13px 14px;margin:14px 0 0;font-size:15.5px;line-height:1.5;
+}
+
+.plays{padding-top:6px}
+.play{border-top:1px solid var(--line);padding:12px 0}
+.pts{
+  font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);
+}
+.play .faces{font-size:13.5px;color:var(--ink2);padding:3px 0 2px}
+.play .txt{font-family:'Zilla Slab',Georgia,serif;font-size:16px;line-height:1.5}
+
+.best{
+  font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink3);padding-top:14px;
+}
+</style>
+</head>
+<body class="game" style="--accent:#1b4f9c">
+
+<div class="topbar">
+  <a class="topback" href="../">&larr; Puzzles</a>
+  <div class="mark">XI&nbsp;Nine</div>
+</div>
+
+<div class="wrap narrow">
+
+  <div class="mast">
+    <h1>XI Nine</h1>
+    <p class="sub">Boggle, but the dice are memories. Nine at once, against the clock &mdash; a point for every die you use, and they don't have to touch.</p>
+  </div>
+
+  <div class="bar">
+    <div>
+      <div class="clock" id="clock">3:00</div>
+      <div class="clocklab" id="clocklab">Left</div>
+    </div>
+    <div class="coin" id="coin">0</div>
+  </div>
+
+  <div class="mins" id="mins">
+    <div class="choices">
+      <button class="btn" data-m="1">1 min</button>
+      <button class="btn" data-m="2">2 min</button>
+      <button class="btn on" data-m="3">3 min</button>
+    </div>
+  </div>
+
+  <div class="tray" id="tray"></div>
+
+  <div class="over" id="over" hidden></div>
+
+  <textarea class="field memo" id="memo" placeholder="the memory"></textarea>
+  <div class="row">
+    <button class="btn btn-accent" id="savebtn" disabled>Bank it</button>
+    <div class="spacer"></div>
+    <button class="btn" id="startbtn">Start</button>
+  </div>
+
+  <div class="best" id="best" hidden></div>
+
+  <div id="playswrap" hidden>
+    <div class="sec"><h2>This round</h2></div>
+    <div class="plays" id="plays"></div>
+  </div>
+
+  <footer>XI Nine &mdash; part of <a href="../" style="text-decoration:underline">Puzzles</a>.</footer>
+
+</div>
+
+<script>
+(function () {
+  // Memories are still banked to the ImageForge chat feed so a chat can read
+  // them back later. It is cross-origin from here; the server reflects any
+  // origin, so this works — and it is wrapped in a catch so an offline phone
+  // still plays a full round.
+  var FEED = 'https://imageforge-q125.onrender.com/api/chatfeed/verdict';
+  var CHAT = 'new-session-b5902a';
+  var PLAY_SHEET = 'xi-nine-plays-v1';
+  var BEST_KEY = 'xi_nine_best_v1';
+
+  var DICE = [
+    { key:'event', faces:[
+      'dared myself','unlocked a secret','solved a mystery','made a decision',
+      'someone scared me','felt out of place' ] },
+    { key:'why', faces:[
+      'because I felt like it',"though I didn't want to",'so I could be by myself',
+      'in order to win','so that everyone could see','unlike everyone else' ] },
+    { key:'how', faces:[
+      'by accident','because I said so','despite the best advice',
+      'it was part of the plan','against my will',"to everyone's surprise" ] },
+    { key:'where', faces:[
+      'in class','during a vacation','at a birthday party','in a place of worship',
+      'at the scene of a crime','during a romantic dinner' ] },
+    { key:'event', faces:[
+      'told a lie','did something daring','watched someone cry','someone saved me',
+      'got in a fight','tricked someone' ] },
+    { key:'event', faces:[
+      'felt foolish','learned a lesson','told a white lie','cursed someone',
+      'kissed someone','wore a costume' ] }
+  ];
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  // the longest phrases step down a size so they always break inside the square
+  function fit(f){ return f.length > 22 ? 's' : (f.length > 15 ? 'm' : ''); }
+  function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+
+  // Nine dice out of six: one off each die first, so a tray always holds a why,
+  // a how and a where to build with, then three more at random. No face twice.
+  function shake(){
+    var out = [], seen = {};
+    function take(d){
+      for (var t = 0; t < 24; t++) {
+        var f = pick(d.faces);
+        if (!seen[f]) { seen[f] = 1; out.push({ die:d, face:f }); return; }
+      }
+    }
+    DICE.forEach(take);
+    for (var i = 0; i < 3; i++) take(pick(DICE));
+    return out;
+  }
+
+  var tray = [], picked = {}, state = 'idle', mins = 3, endAt = 0, tick = null;
+  var plays = [];
+
+  function $(id){ return document.getElementById(id); }
+  function total(){ return plays.reduce(function(n,p){ return n + p.points; }, 0); }
+
+  function paintTray(){
+    var el = $('tray');
+    el.classList.toggle('over', state === 'over');
+    el.innerHTML = tray.map(function (c, i) {
+      return '<button class="cube' + (state === 'idle' ? ' down' : '') +
+             (picked[i] ? ' sel' : '') + '" data-i="' + i + '" aria-pressed="' +
+             (picked[i] ? 'true' : 'false') + '">' +
+               '<span class="face ' + fit(c.face) + '">' + esc(c.face) + '</span>' +
+             '</button>';
+    }).join('');
+    $('savebtn').disabled = !Object.keys(picked).length || state !== 'run';
+  }
+
+  function paintClock(){
+    var left = state === 'run'
+      ? Math.max(0, Math.round((endAt - Date.now()) / 1000))
+      : mins * 60;
+    var c = $('clock');
+    c.textContent = Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2);
+    c.classList.toggle('low', state === 'run' && left <= 20);
+    $('clocklab').textContent = state === 'run' ? 'Left' : 'Round';
+    return left;
+  }
+
+  function paintBest(){
+    var b = 0;
+    try { b = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch (e) {}
+    var el = $('best');
+    if (!b) { el.setAttribute('hidden',''); return; }
+    el.removeAttribute('hidden');
+    el.textContent = 'Best round — ' + b + (b === 1 ? ' point' : ' points');
+  }
+
+  function paintPlays(){
+    $('coin').textContent = total();
+    var wrap = $('playswrap');
+    if (!plays.length) { wrap.setAttribute('hidden',''); return; }
+    wrap.removeAttribute('hidden');
+    $('plays').innerHTML = plays.slice().reverse().map(function (p) {
+      return '<div class="play">' +
+               '<div class="pts">' + p.points + (p.points === 1 ? ' point' : ' points') + '</div>' +
+               '<div class="faces">' + esc(p.faces.join(' · ')) + '</div>' +
+               (p.text ? '<div class="txt">' + esc(p.text) + '</div>' : '') +
+             '</div>';
+    }).join('');
+  }
+
+  function finish(){
+    state = 'over';
+    if (tick) { clearInterval(tick); tick = null; }
+    paintClock(); paintTray();
+    var t = total();
+    try {
+      var b = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
+      if (t > b) localStorage.setItem(BEST_KEY, String(t));
+    } catch (e) {}
+    paintBest();
+    var box = $('over');
+    box.removeAttribute('hidden');
+    box.textContent = 'Time. ' + t + (t === 1 ? ' point' : ' points') +
+                      ' from ' + plays.length + (plays.length === 1 ? ' memory' : ' memories') + '.';
+    $('startbtn').textContent = 'Play again';
+    $('mins').removeAttribute('hidden');
+  }
+
+  function start(){
+    tray = shake(); picked = {}; plays = []; state = 'run';
+    endAt = Date.now() + mins * 60 * 1000;
+    $('over').setAttribute('hidden','');
+    $('startbtn').textContent = 'Start';
+    $('mins').setAttribute('hidden','');
+    $('memo').value = '';
+    paintTray(); paintPlays(); paintClock();
+    if (tick) clearInterval(tick);
+    // the clock is read off a timestamp, not counted down, so a locked phone
+    // or a backgrounded tab can't make the round longer than it really was
+    tick = setInterval(function () { if (paintClock() <= 0) finish(); }, 250);
+  }
+
+  $('startbtn').addEventListener('click', start);
+
+  $('mins').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-m]');
+    if (!b) return;
+    mins = parseInt(b.getAttribute('data-m'), 10);
+    this.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    paintClock();
+  });
+
+  document.addEventListener('click', function (e) {
+    var cube = e.target.closest && e.target.closest('.cube');
+    if (!cube || state !== 'run') return;
+    var i = cube.getAttribute('data-i');
+    if (picked[i]) delete picked[i]; else picked[i] = true;
+    paintTray();
+  });
+
+  $('savebtn').addEventListener('click', function () {
+    if (state !== 'run') return;
+    var idx = Object.keys(picked);
+    if (!idx.length) return;
+    var memo = $('memo');
+    var play = {
+      at: new Date().toISOString(),
+      points: idx.length,
+      faces: idx.map(function (i) { return tray[i].face; }),
+      text: memo.value.trim()
+    };
+    plays.push(play);
+    fetch(FEED, {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        chat: CHAT, sheet: PLAY_SHEET, item: play.at,
+        text: play.points + ' pts · ' + play.faces.join(' · ') +
+              (play.text ? ' — ' + play.text : '')
+      })
+    }).catch(function () { /* offline — the round still plays */ });
+    picked = {}; memo.value = '';
+    paintTray(); paintPlays();
+  });
+
+  tray = shake();
+  paintTray(); paintClock(); paintPlays(); paintBest();
+})();
+</script>
+
+</body>
+</html>
