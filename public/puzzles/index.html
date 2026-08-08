@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Puzzles</title>
+<meta name="description" content="A small daily puzzle page.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Zilla+Slab:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ------------------------------------------------------------------
+   Puzzles — the hub.
+   Styled after the NYT Games look: white paper, black type, thin grey
+   rules, one slab-serif for titles and one grotesque for everything
+   else. ALL of the colour on the page lives inside the little square
+   game marks — nothing else is tinted. That contrast is the whole
+   trick: the page reads black-and-white, the games read as a set of
+   bright objects sitting on it.
+
+   House rules kept (they differ from NYT on purpose):
+     - no pills. Buttons are 6px rounded rectangles.
+     - no gradients anywhere. Flat solid fills only.
+   ------------------------------------------------------------------ */
+
+:root{
+  --ink:#121212;
+  --ink2:#5a5a5a;
+  --ink3:#8b8b8b;
+  --paper:#ffffff;
+  --line:#e2e2e2;
+  --line2:#121212;
+
+  /* one flat colour per game — the only colour on the page */
+  --c-memory:#3d8f6d;
+  --c-set:#7d5ba6;
+  --c-groups:#c9a227;
+  --c-strand:#3f7fbf;
+  --c-order:#c4603d;
+  --c-odd:#2f7d7a;
+  --c-crop:#a34e78;
+  --c-pair:#4a5fa8;
+  --c-mini:#5f7a3f;
+  --c-rebus:#b0603a;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Libre Franklin',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+}
+a{color:inherit;text-decoration:none}
+
+/* ---------- top rule bar ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;
+  border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--paper);z-index:10;
+}
+.mark{
+  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
+  font-size:17px;letter-spacing:.02em;
+}
+.topdate{
+  font-size:11px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink2);
+}
+
+/* ---------- masthead ---------- */
+.wrap{max-width:960px;margin:0 auto;padding:0 18px}
+.mast{padding:34px 0 26px;text-align:center;border-bottom:1px solid var(--line)}
+.mast h1{
+  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
+  font-size:44px;line-height:1.02;margin:0;letter-spacing:-.01em;
+}
+.mast .date{
+  margin-top:12px;font-size:12px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink2);
+}
+.mast .sub{
+  margin:14px auto 0;max-width:30em;font-size:15px;line-height:1.5;color:var(--ink2);
+}
+
+/* ---------- section headings ---------- */
+.sec{padding:28px 0 6px}
+.sec h2{
+  font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  margin:0 0 2px;color:var(--ink);
+}
+.sec p{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
+
+/* ---------- the card grid ---------- */
+.grid{display:grid;grid-template-columns:1fr;gap:0;padding-bottom:8px}
+
+.card{
+  display:flex;align-items:center;gap:16px;
+  padding:20px 2px;
+  border-bottom:1px solid var(--line);
+}
+.card:last-child{border-bottom:0}
+
+.icon{
+  flex:0 0 auto;width:64px;height:64px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+}
+.icon svg{width:38px;height:38px;display:block}
+
+.body{flex:1 1 auto;min-width:0}
+.body h3{
+  font-family:'Zilla Slab',Georgia,serif;font-weight:700;
+  font-size:22px;line-height:1.15;margin:0 0 4px;
+}
+.body p{margin:0;font-size:14px;line-height:1.45;color:var(--ink2)}
+.meta{
+  margin-top:7px;font-size:11px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink3);
+}
+
+.play{
+  flex:0 0 auto;align-self:center;
+  display:inline-block;padding:9px 18px;border-radius:6px;
+  background:var(--ink);color:#fff;
+  font-size:13px;font-weight:600;letter-spacing:.02em;
+  border:1px solid var(--ink);
+}
+.play:active{opacity:.75}
+
+/* ---------- the ideas list (not built yet) ---------- */
+.ideas{display:grid;grid-template-columns:1fr;gap:0}
+.idea{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:16px 2px;border-bottom:1px solid var(--line);
+}
+.idea:last-child{border-bottom:0}
+.idea .icon{width:44px;height:44px;border-radius:6px;opacity:.9}
+.idea .icon svg{width:26px;height:26px}
+.idea h3{font-family:'Zilla Slab',Georgia,serif;font-weight:700;font-size:17px;margin:0 0 3px;line-height:1.2}
+.idea p{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink2)}
+.idea .tag{
+  display:inline-block;margin-top:6px;padding:2px 7px;border-radius:6px;
+  border:1px solid var(--line);font-size:10px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);
+}
+
+footer{
+  border-top:1px solid var(--line2);margin-top:34px;padding:22px 0 44px;
+  text-align:center;font-size:12px;color:var(--ink3);line-height:1.6;
+}
+
+@media (min-width:720px){
+  .mast h1{font-size:60px}
+  .grid{grid-template-columns:1fr 1fr;column-gap:34px}
+  .card{border-bottom:1px solid var(--line)}
+  .ideas{grid-template-columns:1fr 1fr;column-gap:34px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="mark">Puzzles</div>
+  <div class="topdate" id="topdate"></div>
+</div>
+
+<div class="wrap">
+
+  <div class="mast">
+    <h1>Puzzles</h1>
+    <div class="date" id="mastdate"></div>
+    <p class="sub">Two puzzles so far, and a bench of ideas for what comes next.</p>
+  </div>
+
+  <!-- ============ LIVE GAMES ============ -->
+  <div class="sec">
+    <h2>Today</h2>
+    <p>The ones that exist.</p>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="icon" style="background:var(--c-memory)">
+        <!-- boggle trace: a 3x3 of dots with a path through it -->
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 25 L7 16 L16 16 L25 7"/>
+          <circle cx="7" cy="7" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="16" cy="7" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="25" cy="7" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="7" cy="16" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="16" cy="16" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="25" cy="16" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="7" cy="25" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="16" cy="25" r="1.9" fill="#fff" stroke="none"/>
+          <circle cx="25" cy="25" r="1.9" fill="#fff" stroke="none"/>
+        </svg>
+      </div>
+      <div class="body">
+        <h3>Boggle Memory</h3>
+        <p>Trace the board, then trace it again from memory.</p>
+        <div class="meta">Daily</div>
+      </div>
+      <a class="play" href="#">Play</a>
+    </div>
+
+    <div class="card">
+      <div class="icon" style="background:var(--c-set)">
+        <!-- set pyramid: two below, one above -->
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="9" r="5"/>
+          <circle cx="8" cy="23" r="5"/>
+          <circle cx="24" cy="23" r="5"/>
+          <path d="M11.5 19 L13.5 13.5"/>
+          <path d="M20.5 19 L18.5 13.5"/>
+        </svg>
+      </div>
+      <div class="body">
+        <h3>Set Pyramid</h3>
+        <p>Two cards at the base decide the one on top. Work out what it has to be.</p>
+        <div class="meta">Daily</div>
+      </div>
+      <a class="play" href="#">Play</a>
+    </div>
+
+  </div>
+
+  <!-- ============ IDEAS ============ -->
+  <div class="sec" style="border-top:1px solid var(--line2);margin-top:14px;padding-top:26px">
+    <h2>On the bench</h2>
+    <p>Ideas for the rest of the page — nothing here is built yet.</p>
+  </div>
+
+  <div class="ideas">
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-groups)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round">
+          <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+          <rect x="18" y="5" width="9" height="9" rx="1.5"/>
+          <rect x="5" y="18" width="9" height="9" rx="1.5"/>
+          <rect x="18" y="18" width="9" height="9" rx="1.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Groups</h3>
+        <p>Sixteen of your drawings, four secret categories. Connections, but the tiles are pictures — so the category can be a mood, a line quality, a time of day.</p>
+        <span class="tag">Closest to what you have</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-pair)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="3" y="8" width="10" height="16" rx="1.5"/>
+          <rect x="19" y="8" width="10" height="16" rx="1.5"/>
+          <path d="M14 16 L18 16 M16.4 14 L18.4 16 L16.4 18"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Literal / Metaphor</h3>
+        <p>Your movie formula as a puzzle. You get the literal panel, you pick which of four is its metaphor. Nobody else has this one.</p>
+        <span class="tag">Most yours</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-order)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round">
+          <path d="M4 16 H28"/>
+          <circle cx="8" cy="16" r="2.6" fill="#fff" stroke="none"/>
+          <circle cx="16" cy="16" r="2.6" fill="#fff" stroke="none"/>
+          <circle cx="24" cy="16" r="2.6" fill="#fff" stroke="none"/>
+          <path d="M8 9 V12 M16 20 V23 M24 9 V12"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Chronology</h3>
+        <p>Five things in the wrong order — put them back. You already have a chronology engine in this repo, so this is the cheapest one to build.</p>
+        <span class="tag">Cheapest to build</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-odd)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round">
+          <circle cx="10" cy="10" r="4.5"/>
+          <circle cx="22" cy="10" r="4.5"/>
+          <circle cx="10" cy="22" r="4.5"/>
+          <rect x="17" y="17" width="10" height="10" rx="1.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Odd One Out</h3>
+        <p>Four drawings, one doesn't belong — and you have to say why, not just which. The saying-why is the game.</p>
+        <span class="tag">Quick</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-crop)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="4" y="4" width="24" height="24" rx="2"/>
+          <rect x="11" y="11" width="10" height="10" rx="1" fill="#fff"/>
+          <path d="M11 11 L4 4 M21 11 L28 4 M11 21 L4 28 M21 21 L28 28"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Zoom Out</h3>
+        <p>Starts on a tiny crop of one picture. Every wrong guess pulls the camera back a little. Six guesses before you can see the whole thing.</p>
+        <span class="tag">Most addictive</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-strand)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 22 C6 14, 14 14, 14 22 C14 28, 26 28, 26 10"/>
+          <circle cx="6" cy="22" r="2.2" fill="#fff" stroke="none"/>
+          <circle cx="26" cy="10" r="2.2" fill="#fff" stroke="none"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Strand</h3>
+        <p>A themed word search where the words wander. Your version could hide the words inside one of your scanned pages.</p>
+        <span class="tag">Familiar</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-mini)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round">
+          <rect x="5" y="5" width="22" height="22" rx="1.5"/>
+          <path d="M5 12.3 H27 M5 19.6 H27 M12.3 5 V27 M19.6 5 V27"/>
+          <rect x="5" y="5" width="7.3" height="7.3" fill="#fff" stroke="none"/>
+          <rect x="19.6" y="19.6" width="7.4" height="7.4" fill="#fff" stroke="none"/>
+        </svg>
+      </div>
+      <div>
+        <h3>The Tiny</h3>
+        <p>A 5&times;5 crossword you can finish standing up. Clues in your voice is the whole point — the grid is the easy half.</p>
+        <span class="tag">Most work</span>
+      </div>
+    </div>
+
+    <div class="idea">
+      <div class="icon" style="background:var(--c-rebus)">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 16 C7 10, 13 10, 17 16 C13 22, 7 22, 3 16 Z"/>
+          <circle cx="10" cy="16" r="2.2" fill="#fff" stroke="none"/>
+          <path d="M21 16 h7 M24.5 12.5 v7"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Rebus</h3>
+        <p>A drawn visual pun that spells a phrase. Pure illustration — it plays entirely to what you already make.</p>
+        <span class="tag">Pure drawing</span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    A page of small puzzles.<br>
+    <span id="footdate"></span>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var d = new Date();
+  var long = d.toLocaleDateString('en-US',
+    {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  var short = d.toLocaleDateString('en-US',
+    {month:'short', day:'numeric'});
+  document.getElementById('topdate').textContent = short;
+  document.getElementById('mastdate').textContent = long;
+  document.getElementById('footdate').textContent = long;
+})();
+</script>
+
+</body>
+</html>
