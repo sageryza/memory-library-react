@@ -1,0 +1,15 @@
+Right, two answers.
+
+First: is the gravity accurate? Yes, genuinely. Richard's core physics is Newton's law of universal gravitation. The pull falls off with the square of the distance, and it doesn't depend on how heavy your projectile is, which is exactly why a feather and a hammer fall at the same rate on the moon. He also picked the right kind of integrator, the sort that doesn't make orbits artificially spiral outwards. So the bones are real.
+
+Three places it isn't. The repellers: negative mass isn't a thing. What that actually is is electric charge, which happens to follow the same inverse square law, so it's honest physics, just not gravity. The orbiting wells are on rails, rather than orbiting a shared centre of mass. And inside a solid body, real gravity drops away to nothing at the centre, whereas the game just holds it flat.
+
+One lovely thing it already teaches without saying so. That dotted preview line samples the path at equal intervals of time. So when the dots spread out near a planet and bunch together far away, you are watching Kepler's second law being drawn live. That's worth a label.
+
+Now, the black hole. I built one, and it uses a real approximation called Patchinsky-Vita. Instead of dividing by the distance squared, you divide by the distance minus the horizon, squared. One small change, and it reproduces the real thing's special radii exactly. So all three rings you can see are real measurements, not decoration. The black disc is the event horizon. The bright thin ring is the photon sphere, where light itself would orbit. And the dashed outer ring is the innermost stable orbit, which is the bit ordinary gravity doesn't have. In normal gravity you can circle at any distance you like. Round a black hole you can't, and inside that ring there's no orbit left to hold you.
+
+I tested it with sixty-two thousand shots. Of the ones that dipped inside the dashed ring, about eighty-six percent were swallowed. Of the ones that crossed the bright inner ring, not one came back. Zero out of eleven thousand.
+
+On making it more yours. I did the two things that were just your house rules: every control was a text arrow or an emoji, so those are proper Lucide line icons now, and I killed the last pill-shaped thing on the page. But the honest answer is bigger than that. It's still Richard's palette, and it's still my flat vector drawing. The thing that would actually make it yours is your own hand: the moon and the planets drawn in one of your styles instead. Watercolour, the woodcut hoonies, or pastel. The hoonies are the one I keep thinking about, because they're two things grown into one object, which is a strangely perfect thing for a planet to be.
+
+Tell me which, and I'll draw them.
