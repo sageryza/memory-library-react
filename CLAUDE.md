@@ -1,5 +1,33 @@
 # Project notes
 
+## App Store Connect — this repo holds the keys for EVERY app
+The ASC secrets (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`) live here, so the
+build/ship workflows for the other repos' apps run here too — including the ones
+whose source is in `sageryza/imageforge` (that workflow checks the other repo
+out; `imageforge_ref` picks the branch). Every workflow takes a **bundle id**,
+so none of them is tied to one app.
+- **`ios-*-testflight.yml`** — build + upload a build.
+- **`asc-metadata.yml`** (`ci/asc_metadata.py`) — read or write the App Store
+  listing: description, keywords, subtitle, promotional text, What's New, and
+  the App Review contact / demo account / notes. **Always run it with `dry_run`
+  ON first** — it prints the current values and names the app + version a write
+  would land on, which is the guard against editing the wrong app. Anything
+  without its own input (supportUrl, marketingUrl, privacyPolicyUrl, demo
+  account…) goes through `fields_json`, where `""` CLEARS a field. Writes save
+  on the version but do NOT submit it. Offline test: `python3
+  ci/test_asc_metadata.py` (stubs the API — no secrets, touches no real app).
+- **`asc-submit.yml`** (`ci/asc_submit_release.py`) — attach a build, set
+  What's New, submit to review. `resubmit:true` cancels an in-queue submission
+  first. Re-run safe.
+- **`asc-status.yml` / `check-review-status.yml`** — where a version or a build
+  currently stands.
+A version that failed review is editable again (state `REJECTED` /
+`METADATA_REJECTED` / `DEVELOPER_REJECTED`), so reworking and resubmitting is
+metadata + submit, no new version needed. **Two things Apple does NOT expose in
+the API**: the reviewer's rejection message and any Resolution Center reply —
+those stay with Sophie, so ask her to paste the message rather than guessing.
+Screenshot upload is possible via the API but is NOT built.
+
 ## Design rules (forever)
 - **No pills.** Never use fully-rounded / pill-shaped buttons or chips. Buttons
   are rounded rectangles — use `border-radius: 6px`. (Circular icon buttons like
