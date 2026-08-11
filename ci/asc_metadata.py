@@ -157,16 +157,36 @@ def patch_localizations(kind, locs, fields, locale, dry):
         die(f"no {kind} matched locale '{locale}'")
 
 
+def redact(name, val):
+    """These repos are PUBLIC and so are their Actions logs, so a dry run must
+    not print the review demo account's password or Sophie's phone number in
+    full — the first version of this script did, once, before this existed."""
+    if name == "demoAccountPassword":
+        return f"(set, {len(val)} chars — hidden, this log is public)"
+    if name == "contactPhone":
+        return f"…{val[-4:]}" if len(val) > 4 else "(set)"
+    if name == "contactEmail" and "@" in val:
+        user, _, dom = val.partition("@")
+        return f"{user[:2]}…@{dom}"
+    return None
+
+
 def show(attrs, names, label):
     print(f"\n--- {label} ---")
     for n in sorted(names):
         val = attrs.get(n)
         if val is None:
             print(f"  {n}: (unset)")
-        elif isinstance(val, str) and len(val) > 300:
-            print(f"  {n}: ({len(val)} chars) {val[:300]}…")
-        else:
-            print(f"  {n}: {val}")
+            continue
+        if isinstance(val, str):
+            hidden = redact(n, val)
+            if hidden is not None:
+                print(f"  {n}: {hidden}")
+                continue
+            if len(val) > 300:
+                print(f"  {n}: ({len(val)} chars) {val[:300]}…")
+                continue
+        print(f"  {n}: {val}")
 
 
 def main():
