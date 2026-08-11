@@ -38,8 +38,10 @@ def fake_api(method, path, tok, body=None):
             "locale": "en-US", "name": "Secretly a Witch", "subtitle": "old sub",
             "privacyPolicyUrl": None, "privacyPolicyText": None}}]}
     if path.startswith("/appStoreVersions/V9/appStoreReviewDetail"):
-        return 200, {"data": {"id": "RD1", "attributes": {"notes": "old notes",
-                                                          "contactEmail": "s@x.com"}}}
+        return 200, {"data": {"id": "RD1", "attributes": {
+            "notes": "old notes", "contactEmail": "sophie@example.com",
+            "contactPhone": "13109441304",
+            "demoAccountPassword": "hunter2secret"}}}
     if method in ("PATCH", "POST"):
         return 200, {"data": {"id": "new"}}
     raise AssertionError(f"unstubbed {method} {path}")
@@ -154,6 +156,16 @@ STATE["ver_state"] = "REJECTED"
 
 code, out = run(DRY_RUN="false", VERSION_STRING="7.7", DESCRIPTION="nope")
 check("missing version names what exists", code == 1 and "1.0" in out, out)
+
+print("7. a dry run never prints secrets — these logs are PUBLIC")
+code, out = run(DRY_RUN="true")
+check("demo password not printed", "hunter2secret" not in out, out)
+check("says it is hidden and why", "hidden, this log is public" in out)
+check("but confirms it is set", "13 chars" in out)
+check("phone shown as last 4 only",
+      "13109441304" not in out and "…1304" in out, out)
+check("email domain kept, user masked",
+      "sophie@example.com" not in out and "so…@example.com" in out, out)
 
 print()
 print("FAILED: " + ", ".join(fails) if fails else "all checks passed")
