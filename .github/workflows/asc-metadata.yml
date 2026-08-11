@@ -1,0 +1,84 @@
+name: ASC edit metadata
+
+# Reads or writes an app's App Store listing — description, keywords, subtitle,
+# promotional text, What's New, and the App Review contact / demo account /
+# notes — through the App Store Connect API, using the same secrets as the
+# build and submit workflows. This is what makes a listing editable from a chat
+# instead of only from App Store Connect in a browser.
+#
+# Run it with dry_run left ON first: that prints every current value and the
+# exact app + version a write would land on, and changes nothing.
+#
+# Metadata edits are saved on the version but NOT submitted. Send them to
+# review with the "ASC submit release" workflow afterwards.
+#
+# Only the six most-edited fields have their own input (GitHub caps
+# workflow_dispatch at ten). Everything else — supportUrl, marketingUrl,
+# privacyPolicyUrl, name, contactEmail, demoAccountName, demoAccountPassword,
+# demoAccountRequired — goes through fields_json, which also takes "" to CLEAR
+# a field. e.g. {"supportUrl": "https://secretlyawitch.com/support"}
+on:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: Bundle id (e.g. com.sageryza.secretlyawitch)
+        required: true
+      version:
+        description: Marketing version (blank = whichever version is editable)
+        required: false
+        default: ""
+      description:
+        description: App Store description (max 4000)
+        required: false
+        default: ""
+      keywords:
+        description: Keywords, comma separated (max 100 chars total)
+        required: false
+        default: ""
+      subtitle:
+        description: Subtitle (max 30)
+        required: false
+        default: ""
+      promotional_text:
+        description: Promotional text (max 170)
+        required: false
+        default: ""
+      whats_new:
+        description: What's New release notes (max 4000)
+        required: false
+        default: ""
+      review_notes:
+        description: Notes to the App Review team (max 4000)
+        required: false
+        default: ""
+      fields_json:
+        description: 'Any other fields as JSON, e.g. {"supportUrl":"https://…"}'
+        required: false
+        default: ""
+      dry_run:
+        description: Read only — print the current metadata and write nothing
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read/write App Store metadata
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_BUNDLE_ID: ${{ inputs.bundle }}
+          VERSION_STRING: ${{ inputs.version }}
+          DESCRIPTION: ${{ inputs.description }}
+          KEYWORDS: ${{ inputs.keywords }}
+          SUBTITLE: ${{ inputs.subtitle }}
+          PROMOTIONAL_TEXT: ${{ inputs.promotional_text }}
+          WHATS_NEW: ${{ inputs.whats_new }}
+          REVIEW_NOTES: ${{ inputs.review_notes }}
+          FIELDS_JSON: ${{ inputs.fields_json }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 ci/asc_metadata.py
