@@ -1,0 +1,2396 @@
+<title>Gravity Lock</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<style>
+  :root{
+    --void-950:#05070d;
+    --void-900:#0b0f1c;
+    --void-850:#111830;
+    --panel:rgba(12,17,32,0.86);
+    --panel-strong:rgba(10,14,28,0.95);
+    --line:rgba(150,165,210,0.16);
+    --line-strong:rgba(217,169,79,0.38);
+    --ink:#eef1f8;
+    --ink-dim:#8d96b8;
+    --ink-faint:#525b7d;
+    --brass:#d9a94f;
+    --brass-bright:#f2c877;
+    --brass-soft:rgba(217,169,79,0.14);
+    --violet:#9b8cf2;
+    --violet-soft:rgba(155,140,242,0.16);
+    --ember:#ef7a5c;
+    --ember-soft:rgba(239,122,92,0.16);
+    --teal:#6fe0c9;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', SFMono-Regular, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{
+    background:var(--void-950);
+    color:var(--ink);
+    font-family:var(--font-ui);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  canvas#game{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100vh;
+    touch-action:none;
+    cursor:crosshair;
+    z-index:0;
+    display:block;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    font-family:var(--font-ui);
+    font-size:13px;
+    letter-spacing:0.3px;
+    border-radius:6px;
+    padding:9px 16px;
+    border:1px solid var(--line-strong);
+    background:var(--brass-soft);
+    color:var(--brass-bright);
+    cursor:pointer;
+    transition:background 0.15s ease, transform 0.1s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover{ background:rgba(217,169,79,0.24); }
+  .btn:active{ transform:scale(0.97); }
+  .btn.ghost{ background:transparent; color:var(--ink-dim); border-color:var(--line); }
+  .btn.ghost:hover{ color:var(--ink); border-color:var(--line-strong); }
+  .btn.primary{ background:var(--brass); color:#1a1406; font-weight:600; border-color:var(--brass); }
+  .btn.primary:hover{ background:var(--brass-bright); }
+  .btn.armed{ background:rgba(239,122,92,0.22); color:var(--ember); border-color:var(--ember); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; pointer-events:none; }
+  .btn:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+
+  .icon-btn-lg{
+    width:38px; height:38px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink-dim);
+    font-size:16px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.15s ease;
+    flex:none;
+  }
+  .icon-btn-lg:hover{ border-color:var(--line-strong); color:var(--ink); }
+  .icon-btn-lg:disabled{ opacity:0.35; cursor:not-allowed; }
+
+  .icon-btn{
+    width:24px; height:24px;
+    border-radius:4px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-dim);
+    font-size:11px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.15s ease;
+    flex:none;
+  }
+  .icon-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
+  .icon-btn.armed{ background:rgba(239,122,92,0.22); color:var(--ember); border-color:var(--ember); }
+
+  /* ---------- Shared card look ---------- */
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px 18px;
+  }
+  .card .kicker{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    margin:0 0 6px;
+  }
+  .card h3{
+    font-family:var(--font-display);
+    font-weight:400;
+    font-size:19px;
+    margin:0 0 6px;
+    color:var(--ink);
+  }
+  .card p.hint{ margin:0; font-size:13px; line-height:1.5; color:var(--ink-dim); }
+  .card p.hint strong{ color:var(--brass-bright); font-weight:600; }
+  .panel-stack{ display:flex; flex-direction:column; gap:14px; }
+
+  .stat-row{ display:flex; gap:14px; font-family:var(--font-mono); }
+  .stat-row .stat{ flex:1; }
+  .stat-row .stat b{ display:block; font-size:19px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .stat-row .stat span{ font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-faint); }
+
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; text-align:center; }
+
+  .text-input{
+    width:100%;
+    background:var(--void-850);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:8px 10px;
+    color:var(--ink);
+    font-family:var(--font-ui);
+    font-size:13.5px;
+  }
+  .text-input:focus{ outline:2px solid var(--teal); outline-offset:1px; border-color:var(--line-strong); }
+
+  /* ---------- Sliders ---------- */
+  .slider-label{ display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--ink-dim); margin-bottom:5px; }
+  .slider-label span:last-child{ font-family:var(--font-mono); color:var(--ink); font-variant-numeric:tabular-nums; }
+  .num-wrap{ display:flex; align-items:center; gap:2px; }
+  .num-input{
+    width:60px;
+    background:var(--void-850);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:2px 4px;
+    color:var(--ink);
+    font-family:var(--font-mono);
+    font-size:12px;
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+    -moz-appearance:textfield;
+  }
+  .num-input::-webkit-outer-spin-button,
+  .num-input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+  }
+  .num-input:hover{ border-color:var(--line-strong); }
+  .num-input:focus{ outline:2px solid var(--teal); outline-offset:1px; border-color:var(--line-strong); }
+  .num-input:disabled{ opacity:0.35; cursor:not-allowed; }
+  input[type=range].slider{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:6px; border-radius:3px;
+    background:rgba(255,255,255,0.08);
+    outline:none; cursor:pointer; margin:0;
+  }
+  input[type=range].slider::-webkit-slider-runnable-track{ height:6px; border-radius:3px; background:rgba(255,255,255,0.08); }
+  input[type=range].slider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--brass-bright);
+    border:2px solid #1a1406;
+    box-shadow:0 0 8px rgba(217,169,79,0.55);
+    cursor:pointer; margin-top:-5px;
+  }
+  input[type=range].slider::-moz-range-track{ height:6px; border-radius:3px; background:rgba(255,255,255,0.08); }
+  input[type=range].slider::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--brass-bright); border:2px solid #1a1406; cursor:pointer; }
+  input[type=range].slider:disabled{ opacity:0.35; cursor:not-allowed; }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:fixed; top:0; left:0; right:0; height:54px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 14px;
+    background:rgba(7,10,20,0.72);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    z-index:20;
+  }
+  .topbar-title{
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:400;
+    margin:0;
+    white-space:nowrap;
+    flex:none;
+  }
+  .topbar-title .accent{ color:var(--brass); font-style:italic; }
+  .topbar-actions{ display:flex; align-items:center; gap:8px; }
+
+  .mode-tabs{
+    display:flex; gap:4px;
+    background:var(--void-850);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:3px;
+    flex:none;
+  }
+  .mode-tab{
+    background:transparent; border:none; border-radius:5px;
+    padding:7px 14px;
+    font-family:var(--font-ui); font-size:12px; letter-spacing:0.2px;
+    color:var(--ink-dim); cursor:pointer;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .mode-tab:hover{ color:var(--ink); }
+  .mode-tab.active{ background:var(--brass-soft); color:var(--brass-bright); }
+
+  /* ---------- HUD chip (top-left) ---------- */
+  .hud-chip{
+    position:fixed; top:68px; left:14px;
+    width:280px; max-width:calc(100vw - 28px);
+    z-index:15;
+  }
+
+  /* ---------- Floating properties panel (editor) ---------- */
+  .float-panel{
+    position:fixed; top:68px; right:14px;
+    width:270px; max-width:calc(100vw - 28px);
+    z-index:15;
+  }
+  .float-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .float-panel-head .kicker{ margin:0; }
+
+  /* ---------- Docks (bottom) ---------- */
+  .dock-caption{
+    position:fixed; bottom:96px; left:50%; transform:translateX(-50%);
+    font-size:10.5px; letter-spacing:0.4px; font-family:var(--font-mono);
+    color:var(--ink-faint);
+    background:rgba(7,10,20,0.55);
+    padding:3px 10px; border-radius:20px;
+    z-index:19; white-space:nowrap;
+  }
+  .dock{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:14px 20px;
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:center; gap:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 16px 40px -8px rgba(0,0,0,0.6);
+    z-index:20;
+    max-width:calc(100vw - 20px);
+  }
+  .dock-slider{ width:200px; flex:none; }
+  #btnFire{ margin-bottom:0; }
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:min(560px, calc(100vw - 40px)); }
+  .tool-btn{
+    font-family:var(--font-ui); font-size:12.5px;
+    padding:9px 12px; border-radius:6px;
+    border:1px solid var(--line);
+    background:var(--void-850);
+    color:var(--ink-dim);
+    cursor:pointer;
+    transition:all 0.15s ease;
+    white-space:nowrap;
+  }
+  .tool-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
+  .tool-btn.active{ border-color:var(--teal); color:var(--teal); background:rgba(111,224,201,0.1); }
+
+  .prop-row{ display:flex; justify-content:space-between; font-size:12px; color:var(--ink-dim); margin:10px 0 6px; }
+  .prop-row:first-child{ margin-top:0; }
+  .prop-val{ font-family:var(--font-mono); color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  /* ---------- Level select ---------- */
+  .level-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  .level-chip{
+    position:relative; aspect-ratio:1; border-radius:6px;
+    border:1px solid var(--line); background:var(--void-850);
+    color:var(--ink-dim); font-family:var(--font-mono); font-size:14px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .level-chip:hover{ border-color:var(--line-strong); color:var(--ink); }
+  .level-chip.active{ border-color:var(--brass); color:var(--brass-bright); background:var(--brass-soft); }
+  .level-chip.done::after{
+    content:''; position:absolute; top:4px; right:4px;
+    width:6px; height:6px; border-radius:50%;
+    background:var(--teal); box-shadow:0 0 6px var(--teal);
+  }
+
+  .custom-list{ display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  .custom-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:7px 9px; border-radius:6px; border:1px solid var(--line); background:var(--void-850);
+  }
+  .custom-row.active{ border-color:var(--brass); }
+  .custom-name{ font-size:12.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+  .done-dot{ width:6px;height:6px;border-radius:50%; background:var(--teal); box-shadow:0 0 6px var(--teal); flex:none; }
+  .custom-actions{ display:flex; gap:4px; flex:none; }
+
+  /* ---------- Legend ---------- */
+  .legend{ display:flex; flex-direction:column; gap:8px; }
+  .legend-item{ display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--ink-dim); }
+  .swatch{ width:11px;height:11px;border-radius:50%;flex:none; }
+  .swatch.attract{ background:var(--violet); box-shadow:0 0 8px var(--violet); }
+  .swatch.repel{ background:var(--ember); box-shadow:0 0 8px var(--ember); }
+  .swatch.target{ border:2px solid var(--brass); background:transparent; }
+  .swatch.wall{ border-radius:2px; background:#3a4266; }
+  .swatch.portal{ background:#5fb8ff; box-shadow:0 0 8px rgba(95,184,255,0.7); }
+  .swatch.wind{ border-radius:2px; background:rgba(150,215,245,0.55); border:1px solid rgba(150,215,245,0.9); }
+  .swatch.mirror{ border-radius:2px; background:rgba(180,220,255,0.5); border:1px solid rgba(210,235,255,0.85); }
+
+  kbd{
+    font-family:var(--font-mono); background:var(--void-850);
+    border:1px solid var(--line); border-radius:3px;
+    padding:1px 5px; font-size:10.5px; color:var(--ink-dim);
+  }
+
+  /* ---------- Drawer menu ---------- */
+  .drawer-backdrop{
+    position:fixed; inset:0; background:rgba(4,6,12,0.55);
+    z-index:30; opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+  }
+  .drawer-backdrop.show{ opacity:1; pointer-events:auto; }
+  .drawer{
+    position:fixed; top:0; right:0; height:100vh; width:340px; max-width:88vw;
+    background:var(--panel-strong);
+    border-left:1px solid var(--line-strong);
+    z-index:40;
+    transform:translateX(100%);
+    transition:transform 0.3s cubic-bezier(.25,.8,.35,1);
+    overflow-y:auto;
+    padding:16px 16px 30px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .drawer.open{ transform:translateX(0); }
+  .drawer-head{ display:flex; align-items:center; justify-content:space-between; }
+  .drawer-head .kicker{ margin:0; font-size:11px; letter-spacing:2px; }
+
+  /* ---------- Win overlay ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(5,7,13,0.6);
+    backdrop-filter:blur(3px);
+    opacity:0; pointer-events:none;
+    transition:opacity 0.35s ease;
+    z-index:50;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .overlay-card{
+    background:var(--panel-strong);
+    border:1px solid var(--line-strong);
+    border-radius:10px;
+    padding:26px 30px;
+    text-align:center;
+    min-width:260px;
+    transform:translateY(6px);
+    transition:transform 0.35s ease;
+    box-shadow:0 20px 50px -10px rgba(0,0,0,0.6);
+  }
+  .overlay.show .overlay-card{ transform:translateY(0); }
+  .overlay-card .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:2px; color:var(--teal); text-transform:uppercase; }
+  .overlay-card h2{ font-family:var(--font-display); font-weight:400; font-size:26px; margin:6px 0 14px; color:var(--brass-bright); }
+  .overlay-card .stats{ display:flex; gap:22px; justify-content:center; margin-bottom:18px; font-family:var(--font-mono); }
+  .overlay-card .stat b{ display:block; font-size:20px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .overlay-card .stat span{ font-size:10px; letter-spacing:1.5px; color:var(--ink-faint); text-transform:uppercase; }
+  .overlay-actions{ display:flex; gap:10px; justify-content:center; }
+
+  @media (max-width: 720px){
+    .topbar-title{ display:none; }
+    .dock-slider{ width:130px; }
+    .dock{ padding:10px 14px; gap:10px; }
+    .hud-chip{ width:220px; }
+    .float-panel{ width:220px; }
+    .level-grid{ grid-template-columns:repeat(6,1fr); }
+  }
+</style>
+
+<canvas id="game" aria-label="Gravity puzzle play field"></canvas>
+
+<header class="topbar">
+  <h1 class="topbar-title">Gravity <span class="accent">Lock</span></h1>
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabPlay">▶ Play</button>
+    <button class="mode-tab" id="tabEditor">✎ Editor</button>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn primary" id="btnTestChart" style="display:none;">Test</button>
+    <button class="btn ghost" id="btnSaveChart" style="display:none;">Save</button>
+    <button class="icon-btn-lg" id="menuBtn" title="Menu">☰</button>
+  </div>
+</header>
+
+<div class="hud-chip" id="hudChip">
+  <div class="card" id="normalInfo">
+    <p class="kicker" id="levelKicker">Puzzle 01 / 06</p>
+    <h3 id="levelName">First Light</h3>
+    <p class="hint" id="levelHint">Pull back from the pad and release toward the moon.</p>
+  </div>
+  <div class="card" id="testBanner" style="display:none;">
+    <p class="hint">Testing <strong id="testBannerName">Untitled Chart</strong> from the editor.</p>
+    <button class="btn ghost" id="btnBackToEditor" style="width:100%;margin-top:10px;">← Back to Editor</button>
+  </div>
+</div>
+
+<div class="float-panel" id="propsPanel" style="display:none;">
+  <div class="card">
+    <div class="float-panel-head">
+      <p class="kicker">Properties</p>
+      <button class="icon-btn" id="btnDeselect" title="Deselect">✕</button>
+    </div>
+    <div id="editorProps"><p class="hint">Choose a tool below to add a piece, or click an existing one to select it.</p></div>
+  </div>
+</div>
+
+<p class="dock-caption" id="footerNote">DRAG TO AIM &middot; RELEASE TO FIRE &middot; <kbd>R</kbd> RESET SHOT</p>
+
+<div class="dock" id="playDock">
+  <div class="dock-slider">
+    <div class="slider-label">
+      <span>Angle</span>
+      <span class="num-wrap"><input type="number" class="num-input" id="angleInput" min="-90" max="90" step="0.01" value="-45">°</span>
+    </div>
+    <input type="range" class="slider" id="angleSlider" min="-90" max="90" step="0.5" value="-45">
+  </div>
+  <div class="dock-slider">
+    <div class="slider-label">
+      <span>Power</span>
+      <span class="num-wrap"><input type="number" class="num-input" id="powerInput" min="0" max="100" step="0.01" value="50">%</span>
+    </div>
+    <input type="range" class="slider" id="powerSlider" min="0" max="100" step="0.5" value="50">
+  </div>
+  <button class="btn primary" id="btnFire" disabled>Fire</button>
+  <button class="icon-btn-lg" id="btnResetShot" title="Reset Shot">↺</button>
+</div>
+
+<div class="dock" id="editorDock" style="display:none;">
+  <div class="toolbar" id="toolbar">
+    <button class="tool-btn active" data-tool="select">Select</button>
+    <button class="tool-btn" data-tool="launcher">Launcher</button>
+    <button class="tool-btn" data-tool="target">Target</button>
+    <button class="tool-btn" data-tool="attract">+ Attractor</button>
+    <button class="tool-btn" data-tool="repel">+ Repeller</button>
+    <button class="tool-btn" data-tool="wall">+ Barrier</button>
+    <button class="tool-btn" data-tool="portal">+ Portal</button>
+    <button class="tool-btn" data-tool="wind">+ Wind</button>
+    <button class="tool-btn" data-tool="mirror">+ Mirror</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="eyebrow" id="overlayEyebrow">Flag Planted</div>
+    <h2 id="overlayTitle">Solved</h2>
+    <div class="stats">
+      <div class="stat"><b id="statAttempts">1</b><span>Shots</span></div>
+      <div class="stat"><b id="statBest">1</b><span>Best</span></div>
+    </div>
+    <div class="overlay-actions">
+      <button class="btn ghost" id="btnRetry">Retry</button>
+      <button class="btn primary" id="btnNext">Next Puzzle →</button>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <p class="kicker">Menu</p>
+    <button class="icon-btn" id="drawerClose" title="Close">✕</button>
+  </div>
+
+  <div id="playMenu" class="panel-stack">
+    <div class="card">
+      <p class="kicker">Current Run</p>
+      <div class="stat-row">
+        <div class="stat"><b id="statCurrentAttempts">0</b><span>Shots taken</span></div>
+        <div class="stat"><b id="statCurrentBest">—</b><span>Best run</span></div>
+      </div>
+      <button class="btn ghost" id="btnResetLevel" style="width:100%;margin-top:12px;">Reset Level</button>
+    </div>
+    <div class="card">
+      <p class="kicker">Star Chart</p>
+      <div class="level-grid" id="levelGrid"></div>
+      <p class="kicker" style="margin-top:16px;">Custom Charts</p>
+      <div class="custom-list" id="customList"></div>
+      <button class="btn ghost" id="btnNewChart" style="width:100%;margin-top:10px;">+ New Chart</button>
+    </div>
+  </div>
+
+  <div id="editorMenu" class="panel-stack" style="display:none;">
+    <div class="card">
+      <p class="kicker">Chart Name</p>
+      <input type="text" class="text-input" id="editorName" maxlength="40" value="Untitled Chart">
+    </div>
+    <div class="card">
+      <div class="btn-row">
+        <button class="btn ghost" id="btnClearChart">Clear</button>
+        <button class="btn ghost" id="btnExitEditor">Back to Charts</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="kicker">Legend</p>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch attract"></span> Attractor well — pulls in, may orbit</div>
+      <div class="legend-item"><span class="swatch repel"></span> Repeller well — pushes away, may orbit</div>
+      <div class="legend-item"><span class="swatch target"></span> The moon — land on it and plant the flag</div>
+      <div class="legend-item"><span class="swatch wall"></span> Debris barrier — destroys on contact</div>
+      <div class="legend-item"><span class="swatch portal"></span> Portal pair — enter one, exit its match</div>
+      <div class="legend-item"><span class="swatch wind"></span> Wind corridor — steady push while inside</div>
+      <div class="legend-item"><span class="swatch mirror"></span> Bounce mirror — reflects instead of destroying</div>
+    </div>
+    <p class="hint" style="margin-top:10px;">A well's brightness, ring count, and spin all grow with its pull strength.</p>
+  </div>
+</aside>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================== CONFIG ==============================
+  const W = 900, H = 600;
+  const MAX_PULL = 130;
+  const MIN_POWER_FRAC = 0.14;
+  const MAX_SPEED = 620;
+  const SUBSTEPS = 6;
+  const PROJECTILE_R = 5;
+  const OUT_MARGIN = 60;
+  const STORAGE_KEY = 'gravity-lock-progress-v1';
+  const CUSTOM_KEY = 'gravity-lock-custom-v1';
+
+  // ============================== LEVELS ==============================
+  const LEVELS = [
+    {
+      name: "First Light",
+      hint: "No wells to fight yet. Pull back from the pad and release straight toward the moon.",
+      launcher: {x:90, y:520},
+      target: {x:800, y:150, r:30},
+      wells: [],
+      walls: []
+    },
+    {
+      name: "First Bend",
+      hint: "A debris panel blocks the straight line. Aim up past the violet well and let its pull curve you back down onto the moon.",
+      launcher: {x:80, y:540},
+      target: {x:820, y:520, r:32},
+      wells: [
+        {x:430, y:300, core:24, glow:110, strength:7000000, type:'attract'}
+      ],
+      walls: [
+        {x:400, y:400, w:60, h:200}
+      ]
+    },
+    {
+      name: "Twin Pull",
+      hint: "Two attractors straddle your path. Weave between them — too straight and one will catch you.",
+      launcher: {x:80, y:300},
+      target: {x:820, y:300, r:26},
+      wells: [
+        {x:330, y:220, core:22, glow:95, strength:6000000, type:'attract'},
+        {x:570, y:380, core:22, glow:95, strength:6000000, type:'attract'}
+      ],
+      walls: []
+    },
+    {
+      name: "Push and Pull",
+      hint: "The ember well shoves you off course early. Let it deflect you, then trust the violet well to reel you back in toward the moon.",
+      launcher: {x:80, y:540},
+      target: {x:820, y:120, r:26},
+      wells: [
+        {x:420, y:450, core:22, glow:100, strength:-2000000, type:'repel'},
+        {x:650, y:230, core:22, glow:100, strength:7000000, type:'attract'}
+      ],
+      walls: []
+    },
+    {
+      name: "The Gauntlet",
+      hint: "Climb over the barrier on the violet well's pull, then thread down to the moon without straying into the ember well's reach.",
+      launcher: {x:70, y:300},
+      target: {x:830, y:300, r:22},
+      wells: [
+        {x:430, y:130, core:22, glow:100, strength:7000000, type:'attract'},
+        {x:650, y:430, core:24, glow:100, strength:-3000000, type:'repel'}
+      ],
+      walls: [
+        {x:430, y:250, w:50, h:220}
+      ]
+    },
+    {
+      name: "Binary Slingshot",
+      hint: "A close pair of wells warps the field between them. Find the line that slings you clear across to the smallest moon yet.",
+      launcher: {x:70, y:520},
+      target: {x:830, y:100, r:18},
+      wells: [
+        {x:430, y:330, core:20, glow:80, strength:5500000, type:'attract'},
+        {x:500, y:330, core:20, glow:80, strength:5500000, type:'attract'}
+      ],
+      walls: []
+    },
+    {
+      name: "Wormhole",
+      hint: "A wall splits the field clean in half. Find the exact angle that carries you into the near portal and out the far one, still aimed true.",
+      launcher: {x:80, y:500},
+      target: {x:820, y:300, r:26},
+      wells: [],
+      walls: [
+        {x:400, y:0, w:50, h:600}
+      ],
+      portals: [
+        {x:250, y:384, r:22, pairId:0},
+        {x:600, y:450, r:22, pairId:0}
+      ],
+      winds: [],
+      mirrors: []
+    },
+    {
+      name: "The Pendulum",
+      hint: "A well swings around a barrier at the field's center. Your power sets not just your speed but the moment you arrive — time it to catch the well where its pull carries you home.",
+      launcher: {x:70, y:300},
+      target: {x:830, y:300, r:22},
+      wells: [
+        {x:450, y:300, core:20, glow:80, strength:6000000, type:'attract', orbitRadius:90, orbitSpeed:1.2, orbitPhase:0}
+      ],
+      walls: [
+        {x:430, y:280, w:40, h:40}
+      ],
+      portals: [],
+      winds: [],
+      mirrors: []
+    },
+    {
+      name: "Downwind",
+      hint: "A current runs through the field's heart, always pushing the same way. Aim to let it carry you, not fight it — lead your shot the way a sailor leads the wind.",
+      launcher: {x:80, y:520},
+      target: {x:820, y:130, r:26},
+      wells: [],
+      walls: [],
+      portals: [],
+      winds: [
+        {x:320, y:0, w:220, h:600, angle:265, strength:420}
+      ],
+      mirrors: []
+    },
+    {
+      name: "Bank Shot",
+      hint: "The moon sits behind a barrier no straight line clears. Arc up into the glass overhead and let it send you back down on the far side.",
+      launcher: {x:80, y:540},
+      target: {x:820, y:540, r:24},
+      wells: [],
+      walls: [
+        {x:400, y:400, w:60, h:200}
+      ],
+      portals: [],
+      winds: [],
+      mirrors: [
+        {x:340, y:150, w:220, h:18}
+      ]
+    }
+  ];
+
+  // ============================== PERSISTENCE ==============================
+  function loadProgress(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return {};
+  }
+  function saveProgress(p){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }catch(e){}
+  }
+  let progress = loadProgress();
+  function getProgress(key){ return progress[key] || {best:null, done:false}; }
+  function setProgress(key, data){ progress[key] = data; saveProgress(progress); }
+
+  function loadCustomLevels(){
+    try{
+      const raw = localStorage.getItem(CUSTOM_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return [];
+  }
+  function saveCustomLevels(){
+    try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customLevels)); }catch(e){}
+  }
+  let customLevels = loadCustomLevels();
+
+  function cloneLevel(lv){ return JSON.parse(JSON.stringify(lv)); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ============================== CANVAS SETUP (full viewport) ==============================
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let dprGlobal = 1, renderScale = 1, offsetX = 0, offsetY = 0;
+  let viewportStars = [];
+
+  function regenerateViewportStars(vw, vh){
+    viewportStars = [];
+    let seed = 4242;
+    function rnd(){ seed = (seed*9301+49297)%233280; return seed/233280; }
+    const count = Math.min(500, Math.round((vw*vh)/9000));
+    for(let i=0;i<count;i++){
+      viewportStars.push({ x: rnd()*vw, y: rnd()*vh, r: rnd()*1.4+0.3, a: rnd()*0.5+0.15, phase: rnd()*Math.PI*2 });
+    }
+  }
+
+  function fitCanvas(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dprGlobal = dpr;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    canvas.width = Math.round(vw*dpr);
+    canvas.height = Math.round(vh*dpr);
+    renderScale = Math.min(vw/W, vh/H);
+    offsetX = (vw - W*renderScale)/2;
+    offsetY = (vh - H*renderScale)/2;
+    regenerateViewportStars(vw, vh);
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  function pointerToLogical(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - offsetX) / renderScale,
+      y: (clientY - rect.top - offsetY) / renderScale
+    };
+  }
+
+  // ============================== STARFIELD (play-field texture) ==============================
+  const stars = [];
+  (function initStars(){
+    let seed = 1337;
+    function rnd(){ seed = (seed*9301+49297)%233280; return seed/233280; }
+    for(let i=0;i<140;i++){
+      stars.push({ x: rnd()*W, y: rnd()*H, r: rnd()*1.4+0.3, a: rnd()*0.5+0.15, phase: rnd()*Math.PI*2 });
+    }
+  })();
+
+  // ============================== STATE ==============================
+  let view = 'play';                 // 'play' | 'editor'
+  let levelSource = {type:'campaign', index:0};
+  let lastPlaySource = {type:'campaign', index:0};
+  let testingFromEditor = false;
+  let level = null;
+  let projectile = null;             // {x,y,vx,vy,trail:[]}
+  let aimAngle = -45;                // degrees, persistent aim direction
+  let aimPower = 0.5;                // 0..1, persistent pull fraction
+  let particles = [];
+  let status = 'idle';               // idle | flight | won | lost
+  let attemptsThisLevel = 0;
+  let flashMsg = null;                // {text, until}
+  let landing = null;                 // {mx,my,r,t0} — the flag-planting beat
+  let time = 0;
+
+  let editorLevel = null;
+  let editingCustomId = null;
+  let editorSelected = null;         // {type:'launcher'|'target'|'well'|'wall', index?}
+  let editorTool = 'select';
+  let editorDrag = null;             // {mode:'move', offX,offY} | {mode:'wall', startX,startY,curX,curY}
+  let drawerOpen = false;
+
+  function currentProgressKey(){
+    if(levelSource.type === 'campaign') return 'lvl'+levelSource.index;
+    if(levelSource.type === 'custom') return 'custom:'+levelSource.id;
+    return null;
+  }
+
+  function enterPlayLevel(levelObj, fromEditorTest){
+    view = 'play';
+    testingFromEditor = !!fromEditorTest;
+    level = levelObj;
+    projectile = null;
+    particles = [];
+    status = 'idle';
+    attemptsThisLevel = 0;
+    flashMsg = null;
+    landing = null;
+    aimPower = 0.5;
+    hideOverlay();
+    updateSidebar();
+    renderLevelGrid();
+    refreshAimDisplay();
+    syncModeUI();
+  }
+
+  function loadLevel(i){
+    const idx = Math.max(0, Math.min(LEVELS.length-1, i));
+    levelSource = {type:'campaign', index:idx};
+    lastPlaySource = levelSource;
+    enterPlayLevel(LEVELS[idx]);
+  }
+
+  function playCustomLevel(entry){
+    levelSource = {type:'custom', id:entry.id, name:entry.name};
+    lastPlaySource = levelSource;
+    const lv = normalizeLevel(cloneLevel(entry.data));
+    lv.name = entry.name;
+    enterPlayLevel(lv);
+  }
+
+  // ============================== PHYSICS ==============================
+  // A well's runtime position — static unless it carries an orbit, in which case
+  // (w.x, w.y) is the orbit CENTER and this computes where it actually sits at time t.
+  function wellPosAt(w, t){
+    if(w.orbitRadius){
+      const ang = (t/1000)*(w.orbitSpeed||0) + (w.orbitPhase||0);
+      return { x: w.x + Math.cos(ang)*w.orbitRadius, y: w.y + Math.sin(ang)*w.orbitRadius };
+    }
+    return { x: w.x, y: w.y };
+  }
+
+  function accelAt(x, y, t){
+    let ax=0, ay=0;
+    for(const w of level.wells){
+      const pos = wellPosAt(w, t);
+      const dx = pos.x-x, dy = pos.y-y;
+      const d2 = dx*dx+dy*dy;
+      const d = Math.sqrt(d2) || 0.0001;
+      const dClamped = Math.max(d, w.core*0.85);
+      const a = w.strength / (dClamped*dClamped);
+      ax += a*dx/d;
+      ay += a*dy/d;
+    }
+    for(const wd of (level.winds||[])){
+      if(x>=wd.x && x<=wd.x+wd.w && y>=wd.y && y<=wd.y+wd.h){
+        const rad = wd.angle*Math.PI/180;
+        ax += Math.cos(rad)*wd.strength;
+        ay += Math.sin(rad)*wd.strength;
+      }
+    }
+    return {ax, ay};
+  }
+
+  // returns null if no collision, else {type:'crash'|'hit'|'wall'|'out'}
+  function checkCollision(x, y, t){
+    for(const w of level.wells){
+      if(w.type === 'attract'){
+        const pos = wellPosAt(w, t);
+        const dx=pos.x-x, dy=pos.y-y;
+        if(dx*dx+dy*dy <= w.core*w.core) return {type:'crash'};
+      }
+    }
+    for(const wl of level.walls){
+      if(x >= wl.x && x <= wl.x+wl.w && y >= wl.y && y <= wl.y+wl.h) return {type:'wall'};
+    }
+    const t2 = level.target;
+    const tdx = t2.x-x, tdy = t2.y-y;
+    if(tdx*tdx+tdy*tdy <= (t2.r+PROJECTILE_R)*(t2.r+PROJECTILE_R)) return {type:'hit'};
+    if(x < -OUT_MARGIN || x > W+OUT_MARGIN || y < -OUT_MARGIN || y > H+OUT_MARGIN) return {type:'out'};
+    return null;
+  }
+
+  function findPortalPartner(portals, idx){
+    const pid = portals[idx].pairId;
+    for(let j=0;j<portals.length;j++){
+      if(j!==idx && portals[j].pairId===pid) return portals[j];
+    }
+    return null;
+  }
+
+  // teleports on entry into a linked portal; keeps velocity, relocates position
+  function tryTeleport(x, y, vx, vy){
+    const portals = level.portals;
+    if(!portals || portals.length<2) return null;
+    for(let i=0;i<portals.length;i++){
+      const p = portals[i];
+      const dx=p.x-x, dy=p.y-y;
+      if(dx*dx+dy*dy <= p.r*p.r){
+        const partner = findPortalPartner(portals, i);
+        if(!partner) continue;
+        const speed = Math.hypot(vx,vy) || 0.0001;
+        const dirx=vx/speed, diry=vy/speed;
+        return { x: partner.x + dirx*(partner.r+6), y: partner.y + diry*(partner.r+6) };
+      }
+    }
+    return null;
+  }
+
+  // reflects off a mirror's edge using the position just before this substep to infer which side was hit
+  function tryMirrorBounce(prevX, prevY, x, y, vx, vy){
+    const mirrors = level.mirrors;
+    if(!mirrors || !mirrors.length) return null;
+    for(const m of mirrors){
+      if(x>=m.x && x<=m.x+m.w && y>=m.y && y<=m.y+m.h){
+        const left=m.x, right=m.x+m.w, top=m.y, bottom=m.y+m.h;
+        const wasLeft = prevX < left, wasRight = prevX > right;
+        const wasAbove = prevY < top, wasBelow = prevY > bottom;
+        let hitX = wasLeft || wasRight;
+        let hitY = wasAbove || wasBelow;
+        if(hitX && hitY){
+          const distX = wasLeft ? left-prevX : prevX-right;
+          const distY = wasAbove ? top-prevY : prevY-bottom;
+          if(distX < distY) hitY=false; else hitX=false;
+        }
+        if(!hitX && !hitY) hitX = true;
+        let newVx=vx, newVy=vy, newX=x, newY=y;
+        if(hitX){ newVx=-vx; newX = wasLeft ? left-1 : right+1; }
+        if(hitY){ newVy=-vy; newY = wasAbove ? top-1 : bottom+1; }
+        return {x:newX, y:newY, vx:newVx, vy:newVy};
+      }
+    }
+    return null;
+  }
+
+  // checks portals then mirrors after a substep's move; returns an override or null
+  function applyRedirects(prevX, prevY, x, y, vx, vy){
+    const tp = tryTeleport(x, y, vx, vy);
+    if(tp) return {x:tp.x, y:tp.y, vx, vy, kind:'teleport'};
+    const mb = tryMirrorBounce(prevX, prevY, x, y, vx, vy);
+    if(mb) return {x:mb.x, y:mb.y, vx:mb.vx, vy:mb.vy, kind:'bounce'};
+    return null;
+  }
+
+  function simulateTrajectory(vx0, vy0, maxSteps){
+    const pts = [];
+    let x = level.launcher.x, y = level.launcher.y, vx = vx0, vy = vy0;
+    const dt = (1/60)/SUBSTEPS;
+    let simTime = time;
+    let result = null;
+    for(let step=0; step<maxSteps; step++){
+      for(let s=0; s<SUBSTEPS; s++){
+        const prevX = x, prevY = y;
+        const {ax, ay} = accelAt(x, y, simTime);
+        vx += ax*dt; vy += ay*dt;
+        x += vx*dt; y += vy*dt;
+        simTime += dt*1000;
+
+        const r = applyRedirects(prevX, prevY, x, y, vx, vy);
+        if(r){ x=r.x; y=r.y; vx=r.vx; vy=r.vy; }
+
+        const c = checkCollision(x, y, simTime);
+        if(c){ result = c.type; break; }
+      }
+      pts.push({x, y});
+      if(result) break;
+    }
+    return {pts, result};
+  }
+
+  // ============================== AIM (drag + sliders + numeric input) ==============================
+  const angleSlider = document.getElementById('angleSlider');
+  const powerSlider = document.getElementById('powerSlider');
+  const angleInput = document.getElementById('angleInput');
+  const powerInput = document.getElementById('powerInput');
+  const btnFire = document.getElementById('btnFire');
+
+  function aimPoint(){
+    const L = level.launcher;
+    const rad = aimAngle*Math.PI/180;
+    return { x: L.x - Math.cos(rad)*aimPower*MAX_PULL, y: L.y - Math.sin(rad)*aimPower*MAX_PULL };
+  }
+
+  // Angle is most sensitive to mouse movement right near the launcher (small radius),
+  // which is exactly where most shots sit at moderate power. Snap the angle exactly on
+  // first contact (satisfying "grab and point"), then dampen further movement so
+  // continued dragging fine-tunes the angle instead of whipping it around.
+  const ANGLE_SENSITIVITY = 0.35;
+  const MAX_ANGLE = 90; // can't aim backwards past straight up/down
+  let dragRawAngle = null; // radians, raw pointer direction from the previous move sample
+
+  function updateAimFromPointer(clientX, clientY, snap){
+    const p = pointerToLogical(clientX, clientY);
+    const L = level.launcher;
+    const dx = p.x-L.x, dy = p.y-L.y;
+    const rawDist = Math.sqrt(dx*dx+dy*dy) || 0.0001;
+    const dist = Math.min(rawDist, MAX_PULL);
+    const rawAngle = Math.atan2(-dy, -dx);
+
+    if(snap || dragRawAngle === null){
+      aimAngle = rawAngle * 180/Math.PI;
+    } else {
+      let delta = rawAngle - dragRawAngle;
+      if(delta > Math.PI) delta -= Math.PI*2;
+      else if(delta < -Math.PI) delta += Math.PI*2;
+      aimAngle += delta * ANGLE_SENSITIVITY * 180/Math.PI;
+    }
+    aimAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, aimAngle));
+    dragRawAngle = rawAngle;
+    aimPower = dist/MAX_PULL;
+    refreshAimDisplay();
+  }
+
+  function refreshAimDisplay(){
+    angleSlider.value = aimAngle.toFixed(2);
+    angleInput.value = aimAngle.toFixed(2);
+    powerSlider.value = (aimPower*100).toFixed(2);
+    powerInput.value = (aimPower*100).toFixed(2);
+    updateAimEnabled();
+  }
+  function updateAimEnabled(){
+    const enabled = view==='play' && status==='idle';
+    angleSlider.disabled = !enabled;
+    powerSlider.disabled = !enabled;
+    angleInput.disabled = !enabled;
+    powerInput.disabled = !enabled;
+    btnFire.disabled = !(enabled && aimPower >= MIN_POWER_FRAC);
+  }
+
+  angleSlider.addEventListener('input', ()=>{
+    aimAngle = parseFloat(angleSlider.value);
+    angleInput.value = aimAngle.toFixed(2);
+  });
+  powerSlider.addEventListener('input', ()=>{
+    aimPower = parseFloat(powerSlider.value)/100;
+    powerInput.value = (aimPower*100).toFixed(2);
+    updateAimEnabled();
+  });
+  angleInput.addEventListener('input', ()=>{
+    const v = parseFloat(angleInput.value);
+    if(!isNaN(v)){
+      aimAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, v));
+      angleSlider.value = aimAngle;
+    }
+  });
+  angleInput.addEventListener('change', ()=>{
+    aimAngle = Math.round(aimAngle*100)/100;
+    angleInput.value = aimAngle.toFixed(2);
+    angleSlider.value = aimAngle;
+  });
+  angleInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') angleInput.blur(); });
+  powerInput.addEventListener('input', ()=>{
+    const v = parseFloat(powerInput.value);
+    if(!isNaN(v)){
+      aimPower = Math.max(0, Math.min(100, v))/100;
+      powerSlider.value = aimPower*100;
+      updateAimEnabled();
+    }
+  });
+  powerInput.addEventListener('change', ()=>{
+    aimPower = Math.round(aimPower*10000)/10000;
+    powerInput.value = (aimPower*100).toFixed(2);
+    powerSlider.value = aimPower*100;
+    updateAimEnabled();
+  });
+  powerInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') powerInput.blur(); });
+  btnFire.addEventListener('click', ()=>{
+    if(status==='idle' && aimPower >= MIN_POWER_FRAC) fireCurrentAim();
+  });
+
+  function fireCurrentAim(){
+    const rad = aimAngle*Math.PI/180;
+    const speed = aimPower*MAX_SPEED;
+    launchProjectile(Math.cos(rad)*speed, Math.sin(rad)*speed);
+  }
+
+  // ============================== INPUT (canvas) ==============================
+  let pointerActive = false;
+
+  function onPointerDown(e){
+    if(view==='editor'){ onEditorPointerDown(e); return; }
+    if(status !== 'idle') return;
+    pointerActive = true;
+    dragRawAngle = null;
+    updateAimFromPointer(e.clientX, e.clientY, true);
+  }
+  function onPointerMove(e){
+    if(view==='editor'){ onEditorPointerMove(e); return; }
+    if(!pointerActive) return;
+    updateAimFromPointer(e.clientX, e.clientY, false);
+  }
+  function onPointerUp(e){
+    if(view==='editor'){ onEditorPointerUp(e); return; }
+    if(!pointerActive) return;
+    pointerActive = false;
+    dragRawAngle = null;
+    if(aimPower >= MIN_POWER_FRAC) fireCurrentAim();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+
+  window.addEventListener('keydown', (e)=>{
+    const typing = document.activeElement && (document.activeElement.tagName==='INPUT' || document.activeElement.tagName==='TEXTAREA');
+    if(typing) return;
+    if((e.key === 'r' || e.key === 'R') && view==='play'){ resetShot(); }
+    if((e.key === 'Delete' || e.key === 'Backspace') && view==='editor'){ deleteEditorSelected(); }
+    if(e.key === 'Escape'){
+      if(drawerOpen){ closeDrawer(); }
+      else if(view==='editor' && editorSelected){ editorSelected=null; renderEditorPanel(); }
+    }
+  });
+
+  // ============================== GAME ACTIONS ==============================
+  function launchProjectile(vx, vy){
+    projectile = {x: level.launcher.x, y: level.launcher.y, vx, vy, trail: []};
+    status = 'flight';
+    attemptsThisLevel++;
+    updateSidebar();
+  }
+
+  function resetShot(){
+    if(status === 'flight' || status === 'lost'){
+      projectile = null;
+      spawnBurst(level.launcher.x, level.launcher.y, ['#525b7d'], 6, 0.5);
+    }
+    status = 'idle';
+    aimPower = 0.5;
+    flashMsg = null;
+    landing = null;
+    refreshAimDisplay();
+    updateSidebar();
+  }
+
+  function resetLevel(){
+    attemptsThisLevel = 0;
+    resetShot();
+    updateSidebar();
+  }
+
+  function onMiss(kind, x, y){
+    status = 'lost';
+    const colors = kind==='wall' ? ['#8892b8','#525b7d'] : ['#ef7a5c','#f2c877'];
+    spawnBurst(x, y, colors, 26, 1.6);
+    flashMsg = {text: kind==='wall' ? 'Shattered on debris' : kind==='crash' ? 'Lost to the well' : 'Drifted into the void', until: time+1200};
+    projectile = null;
+    setTimeout(()=>{ if(status==='lost'){ status='idle'; refreshAimDisplay(); } }, 650);
+  }
+
+  function onWin(){
+    status = 'won';
+    const t = level.target;
+    landing = { mx: t.x, my: t.y, r: t.r, t0: time };
+    // moon dust kicked up where he sets down
+    spawnBurst(t.x - t.r*0.42, t.y - t.r*0.9, ['#cfd2de','#e8ebf5','#f2c877','#ffffff'], 30, 1.3);
+    projectile = null;
+    const key = currentProgressKey();
+    if(key){
+      const lp = getProgress(key);
+      const best = lp.best==null ? attemptsThisLevel : Math.min(lp.best, attemptsThisLevel);
+      setProgress(key, {best, done:true});
+    }
+    updateSidebar();
+    renderLevelGrid();
+    // long enough to watch him stand up, raise the pole and unfurl the flag
+    setTimeout(showOverlay, LAND_SETTLE + LAND_POLE + LAND_FURL + 320);
+  }
+
+  function spawnBurst(x, y, colors, n, speedMul){
+    for(let i=0;i<n;i++){
+      const ang = Math.random()*Math.PI*2;
+      const spd = (40+Math.random()*140)*speedMul;
+      particles.push({
+        x, y,
+        vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+        life: 0.6+Math.random()*0.6, maxLife: 0.6+Math.random()*0.6,
+        color: colors[(Math.random()*colors.length)|0],
+        size: 1.5+Math.random()*2.5
+      });
+    }
+  }
+
+  // ============================== EDITOR ==============================
+  function newEditorTemplate(){
+    return {
+      name: 'Untitled Chart',
+      hint: '',
+      launcher: {x:90, y:520},
+      target: {x:800, y:150, r:28},
+      wells: [],
+      walls: [],
+      portals: [],
+      winds: [],
+      mirrors: []
+    };
+  }
+
+  // fills in arrays missing from levels saved before a feature existed
+  function normalizeLevel(lv){
+    if(!lv.portals) lv.portals = [];
+    if(!lv.winds) lv.winds = [];
+    if(!lv.mirrors) lv.mirrors = [];
+    return lv;
+  }
+
+  function getEditorObj(sel){
+    if(!sel) return null;
+    if(sel.type==='launcher') return editorLevel.launcher;
+    if(sel.type==='target') return editorLevel.target;
+    if(sel.type==='well') return editorLevel.wells[sel.index];
+    if(sel.type==='wall') return editorLevel.walls[sel.index];
+    if(sel.type==='portal') return editorLevel.portals[sel.index];
+    if(sel.type==='wind') return editorLevel.winds[sel.index];
+    if(sel.type==='mirror') return editorLevel.mirrors[sel.index];
+    return null;
+  }
+
+  function hitTestEditor(x, y){
+    const L = editorLevel.launcher;
+    if(Math.hypot(x-L.x, y-L.y) <= 16) return {type:'launcher'};
+    const T = editorLevel.target;
+    if(Math.hypot(x-T.x, y-T.y) <= T.r+6) return {type:'target'};
+    for(let i=editorLevel.wells.length-1; i>=0; i--){
+      const w = editorLevel.wells[i];
+      const pos = wellPosAt(w, time);
+      if(Math.hypot(x-pos.x, y-pos.y) <= w.core+6) return {type:'well', index:i};
+    }
+    for(let i=editorLevel.portals.length-1; i>=0; i--){
+      const p = editorLevel.portals[i];
+      if(Math.hypot(x-p.x, y-p.y) <= p.r+6) return {type:'portal', index:i};
+    }
+    for(let i=editorLevel.mirrors.length-1; i>=0; i--){
+      const m = editorLevel.mirrors[i];
+      if(x>=m.x && x<=m.x+m.w && y>=m.y && y<=m.y+m.h) return {type:'mirror', index:i};
+    }
+    for(let i=editorLevel.winds.length-1; i>=0; i--){
+      const wd = editorLevel.winds[i];
+      if(x>=wd.x && x<=wd.x+wd.w && y>=wd.y && y<=wd.y+wd.h) return {type:'wind', index:i};
+    }
+    for(let i=editorLevel.walls.length-1; i>=0; i--){
+      const wl = editorLevel.walls[i];
+      if(x>=wl.x && x<=wl.x+wl.w && y>=wl.y && y<=wl.y+wl.h) return {type:'wall', index:i};
+    }
+    return null;
+  }
+
+  function onEditorPointerDown(e){
+    const p = pointerToLogical(e.clientX, e.clientY);
+    const cx = Math.max(0, Math.min(W, p.x)), cy = Math.max(0, Math.min(H, p.y));
+
+    if(editorTool === 'select'){
+      const hit = hitTestEditor(cx, cy);
+      editorSelected = hit;
+      if(hit){
+        const obj = getEditorObj(hit);
+        editorDrag = {mode:'move', offX: cx-obj.x, offY: cy-obj.y};
+      } else {
+        editorDrag = null;
+      }
+      renderEditorPanel();
+    } else if(editorTool === 'launcher'){
+      editorLevel.launcher = {x:cx, y:cy};
+      editorSelected = {type:'launcher'};
+      editorTool = 'select';
+      renderEditorToolbar(); renderEditorPanel();
+    } else if(editorTool === 'target'){
+      const prevR = editorLevel.target ? editorLevel.target.r : 26;
+      editorLevel.target = {x:cx, y:cy, r:prevR};
+      editorSelected = {type:'target'};
+      editorTool = 'select';
+      renderEditorToolbar(); renderEditorPanel();
+    } else if(editorTool === 'attract' || editorTool === 'repel'){
+      const type = editorTool;
+      editorLevel.wells.push({x:cx, y:cy, core:22, glow:95, strength: type==='attract' ? 6000000 : -3000000, type});
+      editorSelected = {type:'well', index: editorLevel.wells.length-1};
+      editorTool = 'select';
+      renderEditorToolbar(); renderEditorPanel();
+    } else if(editorTool === 'portal'){
+      const pairId = nextPortalPairId();
+      editorLevel.portals.push({x:cx, y:cy, r:20, pairId});
+      editorSelected = {type:'portal', index: editorLevel.portals.length-1};
+      editorTool = 'select';
+      renderEditorToolbar(); renderEditorPanel();
+    } else if(editorTool === 'wall' || editorTool === 'wind' || editorTool === 'mirror'){
+      editorDrag = {mode:'rect', shape:editorTool, startX:cx, startY:cy, curX:cx, curY:cy};
+    }
+  }
+
+  function nextPortalPairId(){
+    const counts = {};
+    editorLevel.portals.forEach(p=>{ counts[p.pairId] = (counts[p.pairId]||0)+1; });
+    for(const pid in counts){ if(counts[pid]===1) return parseInt(pid,10); }
+    let maxId = -1;
+    editorLevel.portals.forEach(p=>{ if(p.pairId>maxId) maxId = p.pairId; });
+    return maxId+1;
+  }
+
+  function onEditorPointerMove(e){
+    if(!editorDrag) return;
+    const p = pointerToLogical(e.clientX, e.clientY);
+    const cx = Math.max(0, Math.min(W, p.x)), cy = Math.max(0, Math.min(H, p.y));
+    if(editorDrag.mode === 'move'){
+      const obj = getEditorObj(editorSelected);
+      let nx = cx - editorDrag.offX, ny = cy - editorDrag.offY;
+      const isRect = editorSelected.type==='wall' || editorSelected.type==='wind' || editorSelected.type==='mirror';
+      if(isRect){
+        nx = Math.max(0, Math.min(W-obj.w, nx));
+        ny = Math.max(0, Math.min(H-obj.h, ny));
+      } else {
+        nx = Math.max(0, Math.min(W, nx));
+        ny = Math.max(0, Math.min(H, ny));
+      }
+      obj.x = nx; obj.y = ny;
+    } else if(editorDrag.mode === 'rect'){
+      editorDrag.curX = cx; editorDrag.curY = cy;
+    }
+  }
+
+  function onEditorPointerUp(){
+    if(editorDrag && editorDrag.mode === 'rect'){
+      const x1 = Math.min(editorDrag.startX, editorDrag.curX), x2 = Math.max(editorDrag.startX, editorDrag.curX);
+      const y1 = Math.min(editorDrag.startY, editorDrag.curY), y2 = Math.max(editorDrag.startY, editorDrag.curY);
+      const w = Math.max(16, x2-x1), h = Math.max(16, y2-y1);
+      const shape = editorDrag.shape;
+      if(shape === 'wall'){
+        editorLevel.walls.push({x:x1, y:y1, w, h});
+        editorSelected = {type:'wall', index: editorLevel.walls.length-1};
+      } else if(shape === 'wind'){
+        editorLevel.winds.push({x:x1, y:y1, w, h, angle:0, strength:300});
+        editorSelected = {type:'wind', index: editorLevel.winds.length-1};
+      } else if(shape === 'mirror'){
+        editorLevel.mirrors.push({x:x1, y:y1, w, h});
+        editorSelected = {type:'mirror', index: editorLevel.mirrors.length-1};
+      }
+      editorTool = 'select';
+      renderEditorToolbar(); renderEditorPanel();
+    }
+    editorDrag = null;
+  }
+
+  function deleteEditorSelected(){
+    if(!editorSelected) return;
+    if(editorSelected.type === 'well') editorLevel.wells.splice(editorSelected.index, 1);
+    else if(editorSelected.type === 'wall') editorLevel.walls.splice(editorSelected.index, 1);
+    else if(editorSelected.type === 'portal') editorLevel.portals.splice(editorSelected.index, 1);
+    else if(editorSelected.type === 'wind') editorLevel.winds.splice(editorSelected.index, 1);
+    else if(editorSelected.type === 'mirror') editorLevel.mirrors.splice(editorSelected.index, 1);
+    else return;
+    editorSelected = null;
+    renderEditorPanel();
+  }
+
+  function editorSelRadius(sel){
+    if(sel.type === 'target') return editorLevel.target.r+10;
+    if(sel.type === 'well') return editorLevel.wells[sel.index].core+12;
+    if(sel.type === 'portal') return editorLevel.portals[sel.index].r+8;
+    return 22;
+  }
+
+  function isRectSelType(type){
+    return type==='wall' || type==='wind' || type==='mirror';
+  }
+
+  function drawEditorOverlay(){
+    if(editorSelected){
+      const obj = getEditorObj(editorSelected);
+      if(obj){
+        ctx.save();
+        ctx.strokeStyle = '#6fe0c9';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5,4]);
+        if(isRectSelType(editorSelected.type)){
+          ctx.strokeRect(obj.x-4, obj.y-4, obj.w+8, obj.h+8);
+        } else {
+          const pos = editorSelected.type==='well' ? wellPosAt(obj, time) : obj;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, editorSelRadius(editorSelected), 0, Math.PI*2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+    if(editorDrag && editorDrag.mode === 'rect'){
+      const x1 = Math.min(editorDrag.startX, editorDrag.curX), x2 = Math.max(editorDrag.startX, editorDrag.curX);
+      const y1 = Math.min(editorDrag.startY, editorDrag.curY), y2 = Math.max(editorDrag.startY, editorDrag.curY);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(217,169,79,0.7)';
+      ctx.fillStyle = 'rgba(217,169,79,0.1)';
+      ctx.setLineDash([4,4]);
+      ctx.fillRect(x1,y1,x2-x1,y2-y1);
+      ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+      ctx.restore();
+    }
+  }
+
+  function renderEditorToolbar(){
+    document.querySelectorAll('#toolbar .tool-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.tool === editorTool);
+    });
+    canvas.style.cursor = editorTool === 'select' ? 'default' : 'crosshair';
+  }
+
+  function updatePropsPanelVisibility(){
+    document.getElementById('propsPanel').style.display = (view==='editor' && editorSelected) ? '' : 'none';
+  }
+
+  function renderEditorPanel(){
+    updatePropsPanelVisibility();
+    const el = document.getElementById('editorProps');
+    if(!editorLevel || !editorSelected){
+      el.innerHTML = '<p class="hint">Choose a tool below to add a piece, or click an existing one to select it.</p>';
+      return;
+    }
+    if(editorSelected.type === 'launcher'){
+      el.innerHTML = '<p class="kicker">Launch Point</p><p class="hint">Drag to reposition. Every chart needs exactly one.</p>';
+      return;
+    }
+    if(editorSelected.type === 'target'){
+      const t = editorLevel.target;
+      el.innerHTML =
+        '<p class="kicker">Target Marker</p>' +
+        '<div class="prop-row"><label>Radius</label><span class="prop-val" id="pv-r">'+t.r+'</span></div>' +
+        '<input type="range" class="slider" id="p-r" min="12" max="50" step="1" value="'+t.r+'">';
+      document.getElementById('p-r').addEventListener('input', (e)=>{
+        t.r = parseFloat(e.target.value);
+        document.getElementById('pv-r').textContent = t.r;
+      });
+      return;
+    }
+    if(editorSelected.type === 'well'){
+      const w = editorLevel.wells[editorSelected.index];
+      const isAttract = w.type === 'attract';
+      const mag = Math.abs(w.strength);
+      const orbiting = !!w.orbitRadius;
+      el.innerHTML =
+        '<p class="kicker">'+(isAttract?'Attractor':'Repeller')+' Well</p>' +
+        '<div class="prop-row"><label>Strength</label><span class="prop-val" id="pv-s">'+(mag/1e6).toFixed(1)+'M</span></div>' +
+        '<input type="range" class="slider" id="p-s" min="1000000" max="9000000" step="100000" value="'+mag+'">' +
+        '<div class="prop-row"><label>Core</label><span class="prop-val" id="pv-c">'+w.core+'</span></div>' +
+        '<input type="range" class="slider" id="p-c" min="14" max="34" step="1" value="'+w.core+'">' +
+        '<div class="prop-row"><label>Field</label><span class="prop-val" id="pv-g">'+w.glow+'</span></div>' +
+        '<input type="range" class="slider" id="p-g" min="60" max="140" step="2" value="'+w.glow+'">' +
+        '<div class="prop-row" style="margin-top:14px;"><label>Orbit</label><span class="prop-val">'+(orbiting?'On':'Off')+'</span></div>' +
+        '<button class="btn ghost" id="p-orbit-toggle" style="width:100%;">'+(orbiting?'Disable Orbit':'Enable Orbit')+'</button>' +
+        (orbiting ?
+          '<div class="prop-row"><label>Radius</label><span class="prop-val" id="pv-or">'+w.orbitRadius+'</span></div>' +
+          '<input type="range" class="slider" id="p-or" min="20" max="180" step="2" value="'+w.orbitRadius+'">' +
+          '<div class="prop-row"><label>Speed</label><span class="prop-val" id="pv-os">'+(w.orbitSpeed!=null?w.orbitSpeed:1).toFixed(2)+'</span></div>' +
+          '<input type="range" class="slider" id="p-os" min="-3" max="3" step="0.05" value="'+(w.orbitSpeed!=null?w.orbitSpeed:1)+'">'
+        : '') +
+        '<button class="btn ghost" id="p-del" style="width:100%;margin-top:12px;">Remove Well</button>';
+      document.getElementById('p-s').addEventListener('input', (e)=>{
+        const m = parseFloat(e.target.value);
+        w.strength = (isAttract?1:-1)*m;
+        document.getElementById('pv-s').textContent = (m/1e6).toFixed(1)+'M';
+      });
+      document.getElementById('p-c').addEventListener('input', (e)=>{
+        w.core = parseFloat(e.target.value);
+        document.getElementById('pv-c').textContent = w.core;
+      });
+      document.getElementById('p-g').addEventListener('input', (e)=>{
+        w.glow = parseFloat(e.target.value);
+        document.getElementById('pv-g').textContent = w.glow;
+      });
+      document.getElementById('p-orbit-toggle').addEventListener('click', ()=>{
+        if(w.orbitRadius){
+          w.orbitRadius = 0;
+        } else {
+          w.orbitRadius = 60;
+          if(w.orbitSpeed==null) w.orbitSpeed = 1;
+          if(w.orbitPhase==null) w.orbitPhase = 0;
+        }
+        renderEditorPanel();
+      });
+      if(orbiting){
+        document.getElementById('p-or').addEventListener('input', (e)=>{
+          w.orbitRadius = parseFloat(e.target.value);
+          document.getElementById('pv-or').textContent = w.orbitRadius;
+        });
+        document.getElementById('p-os').addEventListener('input', (e)=>{
+          w.orbitSpeed = parseFloat(e.target.value);
+          document.getElementById('pv-os').textContent = w.orbitSpeed.toFixed(2);
+        });
+      }
+      document.getElementById('p-del').addEventListener('click', deleteEditorSelected);
+      return;
+    }
+    if(editorSelected.type === 'wall'){
+      const wl = editorLevel.walls[editorSelected.index];
+      el.innerHTML =
+        '<p class="kicker">Debris Barrier</p>' +
+        '<div class="prop-row"><label>Width</label><span class="prop-val" id="pv-w">'+Math.round(wl.w)+'</span></div>' +
+        '<input type="range" class="slider" id="p-w" min="16" max="400" step="2" value="'+wl.w+'">' +
+        '<div class="prop-row"><label>Height</label><span class="prop-val" id="pv-h">'+Math.round(wl.h)+'</span></div>' +
+        '<input type="range" class="slider" id="p-h" min="16" max="400" step="2" value="'+wl.h+'">' +
+        '<button class="btn ghost" id="p-del" style="width:100%;margin-top:12px;">Remove Barrier</button>';
+      document.getElementById('p-w').addEventListener('input', (e)=>{
+        wl.w = parseFloat(e.target.value);
+        document.getElementById('pv-w').textContent = Math.round(wl.w);
+      });
+      document.getElementById('p-h').addEventListener('input', (e)=>{
+        wl.h = parseFloat(e.target.value);
+        document.getElementById('pv-h').textContent = Math.round(wl.h);
+      });
+      document.getElementById('p-del').addEventListener('click', deleteEditorSelected);
+      return;
+    }
+    if(editorSelected.type === 'portal'){
+      const p = editorLevel.portals[editorSelected.index];
+      const linked = editorLevel.portals.some((x,i)=> i!==editorSelected.index && x.pairId===p.pairId);
+      el.innerHTML =
+        '<p class="kicker">Portal</p>' +
+        '<p class="hint">'+(linked ? 'Linked to its matching portal.' : 'Unlinked — place another portal to pair with it.')+'</p>' +
+        '<div class="prop-row" style="margin-top:10px;"><label>Radius</label><span class="prop-val" id="pv-pr">'+p.r+'</span></div>' +
+        '<input type="range" class="slider" id="p-pr" min="12" max="40" step="1" value="'+p.r+'">' +
+        '<button class="btn ghost" id="p-del" style="width:100%;margin-top:12px;">Remove Portal</button>';
+      document.getElementById('p-pr').addEventListener('input', (e)=>{
+        p.r = parseFloat(e.target.value);
+        document.getElementById('pv-pr').textContent = p.r;
+      });
+      document.getElementById('p-del').addEventListener('click', deleteEditorSelected);
+      return;
+    }
+    if(editorSelected.type === 'wind'){
+      const wd = editorLevel.winds[editorSelected.index];
+      el.innerHTML =
+        '<p class="kicker">Wind Corridor</p>' +
+        '<div class="prop-row"><label>Width</label><span class="prop-val" id="pv-ww">'+Math.round(wd.w)+'</span></div>' +
+        '<input type="range" class="slider" id="p-ww" min="16" max="500" step="2" value="'+wd.w+'">' +
+        '<div class="prop-row"><label>Height</label><span class="prop-val" id="pv-wh">'+Math.round(wd.h)+'</span></div>' +
+        '<input type="range" class="slider" id="p-wh" min="16" max="500" step="2" value="'+wd.h+'">' +
+        '<div class="prop-row"><label>Direction</label><span class="prop-val" id="pv-wa">'+Math.round(wd.angle)+'°</span></div>' +
+        '<input type="range" class="slider" id="p-wa" min="0" max="359" step="1" value="'+wd.angle+'">' +
+        '<div class="prop-row"><label>Strength</label><span class="prop-val" id="pv-ws">'+Math.round(wd.strength)+'</span></div>' +
+        '<input type="range" class="slider" id="p-ws" min="80" max="900" step="10" value="'+wd.strength+'">' +
+        '<button class="btn ghost" id="p-del" style="width:100%;margin-top:12px;">Remove Wind</button>';
+      document.getElementById('p-ww').addEventListener('input', (e)=>{
+        wd.w = parseFloat(e.target.value);
+        document.getElementById('pv-ww').textContent = Math.round(wd.w);
+      });
+      document.getElementById('p-wh').addEventListener('input', (e)=>{
+        wd.h = parseFloat(e.target.value);
+        document.getElementById('pv-wh').textContent = Math.round(wd.h);
+      });
+      document.getElementById('p-wa').addEventListener('input', (e)=>{
+        wd.angle = parseFloat(e.target.value);
+        document.getElementById('pv-wa').textContent = Math.round(wd.angle);
+      });
+      document.getElementById('p-ws').addEventListener('input', (e)=>{
+        wd.strength = parseFloat(e.target.value);
+        document.getElementById('pv-ws').textContent = Math.round(wd.strength);
+      });
+      document.getElementById('p-del').addEventListener('click', deleteEditorSelected);
+      return;
+    }
+    if(editorSelected.type === 'mirror'){
+      const m = editorLevel.mirrors[editorSelected.index];
+      el.innerHTML =
+        '<p class="kicker">Bounce Mirror</p>' +
+        '<div class="prop-row"><label>Width</label><span class="prop-val" id="pv-mw">'+Math.round(m.w)+'</span></div>' +
+        '<input type="range" class="slider" id="p-mw" min="16" max="400" step="2" value="'+m.w+'">' +
+        '<div class="prop-row"><label>Height</label><span class="prop-val" id="pv-mh">'+Math.round(m.h)+'</span></div>' +
+        '<input type="range" class="slider" id="p-mh" min="16" max="400" step="2" value="'+m.h+'">' +
+        '<button class="btn ghost" id="p-del" style="width:100%;margin-top:12px;">Remove Mirror</button>';
+      document.getElementById('p-mw').addEventListener('input', (e)=>{
+        m.w = parseFloat(e.target.value);
+        document.getElementById('pv-mw').textContent = Math.round(m.w);
+      });
+      document.getElementById('p-mh').addEventListener('input', (e)=>{
+        m.h = parseFloat(e.target.value);
+        document.getElementById('pv-mh').textContent = Math.round(m.h);
+      });
+      document.getElementById('p-del').addEventListener('click', deleteEditorSelected);
+      return;
+    }
+  }
+
+  function enterEditor(){
+    view = 'editor';
+    if(!editorLevel) editorLevel = newEditorTemplate();
+    level = editorLevel;
+    projectile = null;
+    particles = [];
+    flashMsg = null;
+    landing = null;
+    status = 'idle';
+    hideOverlay();
+    document.getElementById('editorName').value = editorLevel.name;
+    renderEditorToolbar();
+    renderEditorPanel();
+    syncModeUI();
+  }
+
+  function newCustomLevel(){
+    editorLevel = newEditorTemplate();
+    editingCustomId = null;
+    editorSelected = null;
+    editorTool = 'select';
+    enterEditor();
+  }
+
+  function editCustomLevel(entry){
+    editorLevel = normalizeLevel(cloneLevel(entry.data));
+    editorLevel.name = entry.name;
+    editingCustomId = entry.id;
+    editorSelected = null;
+    editorTool = 'select';
+    enterEditor();
+  }
+
+  function exitEditorToCharts(){
+    if(lastPlaySource.type === 'campaign'){ loadLevel(lastPlaySource.index); return; }
+    if(lastPlaySource.type === 'custom'){
+      const entry = customLevels.find(c=>c.id===lastPlaySource.id);
+      if(entry){ playCustomLevel(entry); return; }
+    }
+    loadLevel(0);
+  }
+
+  function exitEditorAndTest(){
+    levelSource = {type:'editor-test'};
+    enterPlayLevel(editorLevel, true);
+  }
+
+  function returnToEditorFromTest(){
+    enterEditor();
+  }
+
+  function saveCustomLevel(){
+    const name = (document.getElementById('editorName').value || '').trim() || 'Untitled Chart';
+    editorLevel.name = name;
+    const data = cloneLevel(editorLevel);
+    if(editingCustomId){
+      const entry = customLevels.find(c=>c.id===editingCustomId);
+      if(entry){ entry.name = name; entry.data = data; }
+    } else {
+      const id = 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      customLevels.push({id, name, data});
+      editingCustomId = id;
+    }
+    saveCustomLevels();
+    renderLevelGrid();
+    flashButton(document.getElementById('btnSaveChart'), 'Saved ✓');
+  }
+
+  function flashButton(btn, msg){
+    const original = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(()=>{ btn.textContent = original; }, 1200);
+  }
+
+  function armConfirm(btn, label, onConfirm){
+    if(btn.classList.contains('armed')){
+      clearTimeout(btn._armTimer);
+      btn.classList.remove('armed');
+      onConfirm();
+      return;
+    }
+    btn._armLabel = btn._armLabel || btn.textContent;
+    btn.classList.add('armed');
+    btn.textContent = label;
+    btn._armTimer = setTimeout(()=>{ btn.classList.remove('armed'); btn.textContent = btn._armLabel; }, 2500);
+  }
+
+  document.querySelectorAll('#toolbar .tool-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editorTool = btn.dataset.tool;
+      editorSelected = null;
+      renderEditorToolbar();
+      renderEditorPanel();
+    });
+  });
+  document.getElementById('editorName').addEventListener('input', (e)=>{
+    if(editorLevel) editorLevel.name = e.target.value;
+  });
+  document.getElementById('btnTestChart').addEventListener('click', exitEditorAndTest);
+  document.getElementById('btnSaveChart').addEventListener('click', saveCustomLevel);
+  document.getElementById('btnExitEditor').addEventListener('click', exitEditorToCharts);
+  document.getElementById('btnClearChart').addEventListener('click', (e)=>{
+    armConfirm(e.currentTarget, 'Click again to clear', ()=>{
+      editorLevel = newEditorTemplate();
+      editingCustomId = null;
+      editorSelected = null;
+      editorTool = 'select';
+      document.getElementById('editorName').value = editorLevel.name;
+      level = editorLevel;
+      renderEditorToolbar();
+      renderEditorPanel();
+    });
+  });
+  document.getElementById('btnDeselect').addEventListener('click', ()=>{
+    editorSelected = null;
+    renderEditorPanel();
+  });
+  document.getElementById('btnBackToEditor').addEventListener('click', returnToEditorFromTest);
+  document.getElementById('btnNewChart').addEventListener('click', ()=>{ newCustomLevel(); closeDrawer(); });
+
+  document.getElementById('tabPlay').addEventListener('click', ()=>{
+    if(view === 'editor') exitEditorToCharts();
+  });
+  document.getElementById('tabEditor').addEventListener('click', ()=>{
+    if(view === 'play') enterEditor();
+  });
+
+  // ============================== DRAWER ==============================
+  const drawerEl = document.getElementById('drawer');
+  const drawerBackdrop = document.getElementById('drawerBackdrop');
+  function openDrawer(){ drawerOpen = true; drawerEl.classList.add('open'); drawerBackdrop.classList.add('show'); }
+  function closeDrawer(){ drawerOpen = false; drawerEl.classList.remove('open'); drawerBackdrop.classList.remove('show'); }
+  document.getElementById('menuBtn').addEventListener('click', ()=> drawerOpen ? closeDrawer() : openDrawer());
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  drawerBackdrop.addEventListener('click', closeDrawer);
+
+  // ============================== UPDATE ==============================
+  let lastT = performance.now();
+  function update(dtMs){
+    const dt = Math.min(dtMs/1000, 1/30);
+    time += dtMs;
+
+    if(view==='play' && status === 'flight' && projectile){
+      const subDt = dt/SUBSTEPS;
+      for(let s=0; s<SUBSTEPS; s++){
+        const prevX = projectile.x, prevY = projectile.y;
+        const {ax, ay} = accelAt(projectile.x, projectile.y, time);
+        projectile.vx += ax*subDt;
+        projectile.vy += ay*subDt;
+        projectile.x += projectile.vx*subDt;
+        projectile.y += projectile.vy*subDt;
+
+        const r = applyRedirects(prevX, prevY, projectile.x, projectile.y, projectile.vx, projectile.vy);
+        if(r){
+          projectile.x = r.x; projectile.y = r.y; projectile.vx = r.vx; projectile.vy = r.vy;
+          if(r.kind === 'teleport') spawnBurst(r.x, r.y, ['#5fb8ff','#ff5fb8','#ffcf5f','#5fffb8'], 12, 0.9);
+          else spawnBurst(r.x, r.y, ['#d2ebff','#ffffff'], 8, 0.7);
+          projectile.trail = [];
+        }
+
+        const c = checkCollision(projectile.x, projectile.y, time);
+        if(c){
+          if(c.type === 'hit'){ onWin(); }
+          else { onMiss(c.type, projectile.x, projectile.y); }
+          break;
+        }
+      }
+      if(projectile){
+        projectile.trail.push({x:projectile.x, y:projectile.y});
+        if(projectile.trail.length > 46) projectile.trail.shift();
+      }
+    }
+
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.life -= dt;
+      if(p.life<=0){ particles.splice(i,1); continue; }
+      p.vx *= 0.96; p.vy *= 0.96;
+      p.x += p.vx*dt; p.y += p.vy*dt;
+    }
+  }
+
+  // ============================== RENDER ==============================
+  function draw(){
+    const vw = window.innerWidth, vh = window.innerHeight;
+
+    // ---- full-viewport background (raw pixel space) ----
+    ctx.setTransform(dprGlobal,0,0,dprGlobal,0,0);
+    ctx.clearRect(0,0,vw,vh);
+    // Flat night sky — no gradients anywhere in this build.
+    ctx.fillStyle = '#070b16';
+    ctx.fillRect(0,0,vw,vh);
+    for(const s of viewportStars){
+      const tw = 0.55 + 0.45*Math.sin(time*0.001 + s.phase);
+      ctx.globalAlpha = s.a * tw;
+      ctx.fillStyle = '#eef1f8';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // ---- game-space drawing (logical 900x600, centered/scaled) ----
+    ctx.setTransform(dprGlobal*renderScale,0,0,dprGlobal*renderScale, dprGlobal*offsetX, dprGlobal*offsetY);
+
+    // dot grid
+    ctx.strokeStyle = 'rgba(150,165,210,0.06)';
+    ctx.lineWidth = 1;
+    for(let x=0;x<=W;x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<=H;y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    // inner starfield texture
+    for(const s of stars){
+      const tw = 0.55 + 0.45*Math.sin(time*0.001 + s.phase + 3);
+      ctx.globalAlpha = s.a * tw * 0.7;
+      ctx.fillStyle = '#eef1f8';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    drawFrame();
+
+    if(!level) return;
+
+    drawWinds();
+    drawWalls();
+    drawMirrors();
+    drawPortals();
+    drawWells();
+    drawTarget();
+    drawLauncher();
+
+    if(view === 'play'){
+      if(status === 'idle' && aimPower > 0.001){
+        drawPrediction();
+        drawAimLine();
+      }
+      drawProjectileTrail();
+      drawLanding();
+      drawParticles();
+
+      if(flashMsg && time < flashMsg.until){
+        ctx.save();
+        ctx.font = '15px ' + getComputedStyle(document.body).fontFamily;
+        ctx.fillStyle = 'rgba(238,241,248,0.8)';
+        ctx.textAlign = 'center';
+        ctx.fillText(flashMsg.text, W/2, 44);
+        ctx.restore();
+      }
+    } else if(view === 'editor'){
+      drawEditorOverlay();
+    }
+  }
+
+  function drawFrame(){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(217,169,79,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5,0.5,W-1,H-1);
+    ctx.strokeStyle = 'rgba(217,169,79,0.75)';
+    ctx.lineWidth = 1.5;
+    const L = 18;
+    ctx.beginPath(); ctx.moveTo(0,L); ctx.lineTo(0,0); ctx.lineTo(L,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W-L,0); ctx.lineTo(W,0); ctx.lineTo(W,L); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W,H-L); ctx.lineTo(W,H); ctx.lineTo(W-L,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(L,H); ctx.lineTo(0,H); ctx.lineTo(0,H-L); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawWalls(){
+    for(const wl of level.walls){
+      ctx.save();
+      ctx.fillStyle = '#1a2140';
+      ctx.strokeStyle = 'rgba(150,165,210,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(wl.x, wl.y, wl.w, wl.h);
+      ctx.strokeRect(wl.x+0.5, wl.y+0.5, wl.w-1, wl.h-1);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(wl.x, wl.y, wl.w, wl.h);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(217,169,79,0.22)';
+      ctx.lineWidth = 6;
+      for(let d=-wl.h; d<wl.w+wl.h; d+=16){
+        ctx.beginPath();
+        ctx.moveTo(wl.x+d, wl.y);
+        ctx.lineTo(wl.x+d+wl.h, wl.y+wl.h);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.restore();
+    }
+  }
+
+  function drawWinds(){
+    for(const wd of (level.winds||[])){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(wd.x, wd.y, wd.w, wd.h); ctx.clip();
+      ctx.fillStyle = 'rgba(110,190,230,0.10)';
+      ctx.fillRect(wd.x, wd.y, wd.w, wd.h);
+
+      const rad = wd.angle*Math.PI/180;
+      const dirx = Math.cos(rad), diry = Math.sin(rad);
+      const spacing = 36;
+      const flow = time*0.06;
+      const off = flow % spacing;
+      ctx.strokeStyle = 'rgba(150,215,245,0.55)';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      for(let gx=wd.x-spacing; gx<wd.x+wd.w+spacing; gx+=spacing){
+        for(let gy=wd.y-spacing; gy<wd.y+wd.h+spacing; gy+=spacing){
+          const cx = gx + dirx*off, cy = gy + diry*off;
+          const s = 6;
+          ctx.beginPath();
+          ctx.moveTo(cx - dirx*s - diry*s*0.6, cy - diry*s + dirx*s*0.6);
+          ctx.lineTo(cx + dirx*s, cy + diry*s);
+          ctx.lineTo(cx - dirx*s + diry*s*0.6, cy - diry*s - dirx*s*0.6);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(150,215,245,0.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5,4]);
+      ctx.strokeRect(wd.x+0.5, wd.y+0.5, wd.w-1, wd.h-1);
+      ctx.restore();
+    }
+  }
+
+  function drawMirrors(){
+    for(const m of (level.mirrors||[])){
+      ctx.save();
+      ctx.fillStyle = 'rgba(180,220,255,0.20)';
+      ctx.fillRect(m.x, m.y, m.w, m.h);
+      ctx.strokeStyle = 'rgba(210,235,255,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(m.x+0.5, m.y+0.5, m.w-1, m.h-1);
+
+      ctx.save();
+      ctx.beginPath(); ctx.rect(m.x, m.y, m.w, m.h); ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 10;
+      const shineOffset = (time*0.06) % (m.w+m.h+40) - 20;
+      ctx.beginPath();
+      ctx.moveTo(m.x+shineOffset-m.h, m.y);
+      ctx.lineTo(m.x+shineOffset, m.y+m.h);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+    }
+  }
+
+  const PORTAL_COLORS = ['91,168,255', '255,207,95', '255,95,184', '95,255,184'];
+  function portalColor(pairId){ return PORTAL_COLORS[((pairId%PORTAL_COLORS.length)+PORTAL_COLORS.length)%PORTAL_COLORS.length]; }
+
+  function drawPortals(){
+    for(const p of (level.portals||[])){
+      const color = portalColor(p.pairId);
+      ctx.save();
+      for(let i=3;i>=1;i--){
+        ctx.fillStyle = `rgba(${color},0.10)`;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r*1.8*(i/3),0,Math.PI*2); ctx.fill();
+      }
+
+      ctx.setLineDash([3,5]);
+      ctx.strokeStyle = `rgba(${color},0.85)`;
+      ctx.lineWidth = 1.5;
+      ctx.lineDashOffset = time*0.05;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = `rgba(${color},0.4)`;
+      ctx.lineDashOffset = -time*0.03;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.6,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = `rgba(${color},0.9)`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  const STRENGTH_MIN = 500000, STRENGTH_MAX = 9000000;
+  function wellStrengthT(w){
+    return Math.max(0, Math.min(1, (Math.abs(w.strength)-STRENGTH_MIN)/(STRENGTH_MAX-STRENGTH_MIN)));
+  }
+
+  function drawWells(){
+    for(const w of level.wells){
+      const isAttract = w.type === 'attract';
+      const color = isAttract ? '155,140,242' : '239,122,92';
+      const t = wellStrengthT(w);
+      const pos = wellPosAt(w, time);
+      ctx.save();
+
+      // orbit path — a faint guide so its future position is predictable, not random
+      if(w.orbitRadius){
+        ctx.strokeStyle = `rgba(${color},0.22)`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2,5]);
+        ctx.beginPath(); ctx.arc(w.x, w.y, w.orbitRadius, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // field halo — stepped flat discs rather than a radial gradient; still
+      // brighter and denser for a stronger pull
+      const glowAlpha = 0.20 + t*0.22;
+      const STEPS = 5;
+      for(let i=STEPS; i>=1; i--){
+        const rr = w.glow * (i/STEPS);
+        ctx.fillStyle = `rgba(${color},${(glowAlpha*0.30).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(pos.x,pos.y,rr,0,Math.PI*2); ctx.fill();
+      }
+
+      // field rings — count and spin speed scale with strength, like isopotential contours
+      const ringCount = 1 + Math.round(t*3); // 1..4
+      const ringSpacing = 8;
+      const spinSpeed = 0.004 + t*0.012;
+      ctx.setLineDash([4,6]);
+      for(let i=0;i<ringCount;i++){
+        const r = w.core + 10 + i*ringSpacing;
+        const ringAlpha = Math.max(0.1, 0.55 - i*0.1);
+        ctx.strokeStyle = `rgba(${color},${ringAlpha})`;
+        ctx.lineWidth = 1.2;
+        ctx.lineDashOffset = -(time*spinSpeed) * (isAttract?1:-1);
+        ctx.beginPath(); ctx.arc(pos.x,pos.y,r,0,Math.PI*2); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // flat core + one flat highlight disc, no gradient
+      ctx.fillStyle = isAttract ? '#5d4fb8' : '#b5442e';
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,w.core,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = isAttract ? '#c9bdfb' : '#ffcabb';
+      ctx.beginPath(); ctx.arc(pos.x-w.core*0.28, pos.y-w.core*0.28, w.core*0.42, 0, Math.PI*2); ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // Craters in UNIT coordinates, hand-placed rather than random, so the same moon
+  // is drawn every frame at every radius instead of shimmering.
+  const CRATERS = [
+    {x:-0.36, y:-0.30, r:0.20},
+    {x: 0.20, y:-0.44, r:0.12},
+    {x: 0.36, y: 0.12, r:0.23},
+    {x:-0.14, y: 0.44, r:0.15},
+    {x:-0.58, y: 0.16, r:0.10},
+    {x: 0.04, y: 0.04, r:0.09},
+    {x:-0.30, y:-0.66, r:0.08}
+  ];
+
+  // The target IS the moon. Flat fills only — the shaded limb is a second flat
+  // disc clipped to the first, not a gradient.
+  function drawMoon(x, y, r){
+    ctx.save();
+    ctx.fillStyle = '#cfd2de';
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.clip();
+    ctx.fillStyle = '#a9adc0';
+    ctx.beginPath(); ctx.arc(x + r*0.62, y + r*0.42, r, 0, Math.PI*2); ctx.fill();
+    for(const c of CRATERS){
+      const cx = x + c.x*r, cy = y + c.y*r, cr = c.r*r;
+      ctx.fillStyle = 'rgba(120,125,148,0.55)';
+      ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(232,235,245,0.45)';
+      ctx.lineWidth = Math.max(0.6, cr*0.22);
+      ctx.beginPath(); ctx.arc(cx, cy, cr, Math.PI*0.85, Math.PI*1.75); ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = '#e8ebf5';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x,y,r-0.6,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTarget(){
+    const t = level.target;
+    const pulse = 1 + 0.06*Math.sin(time*0.004);
+    if(!landing){
+    ctx.save();
+    // approach halo — the only aiming affordance the moon keeps
+    ctx.strokeStyle = 'rgba(217,169,79,0.30)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,6]);
+    ctx.beginPath(); ctx.arc(t.x,t.y,t.r*1.7*pulse,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    }
+
+    drawMoon(t.x, t.y, t.r);
+  }
+
+  function drawLauncher(){
+    const L = level.launcher;
+    ctx.save();
+    ctx.fillStyle = 'rgba(217,169,79,0.12)';
+    ctx.beginPath(); ctx.arc(L.x,L.y,20,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#d9a94f';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(L.x,L.y,12,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#f2c877';
+    ctx.beginPath(); ctx.arc(L.x,L.y,4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawAimLine(){
+    const L = level.launcher;
+    const A = aimPoint();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(238,241,248,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,5]);
+    ctx.beginPath(); ctx.moveTo(L.x,L.y); ctx.lineTo(A.x,A.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#f2c877';
+    ctx.beginPath(); ctx.arc(A.x,A.y,7,0,Math.PI*2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(238,241,248,0.15)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(L.x,L.y,MAX_PULL,-Math.PI/2, -Math.PI/2+Math.PI*2, false); ctx.stroke();
+    ctx.strokeStyle = aimPower < MIN_POWER_FRAC ? 'rgba(239,122,92,0.7)' : '#6fe0c9';
+    ctx.beginPath(); ctx.arc(L.x,L.y,MAX_PULL,-Math.PI/2, -Math.PI/2+Math.PI*2*aimPower, false); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPrediction(){
+    if(aimPower < MIN_POWER_FRAC) return;
+    const rad = aimAngle*Math.PI/180;
+    const speed = aimPower*MAX_SPEED;
+    const {pts} = simulateTrajectory(Math.cos(rad)*speed, Math.sin(rad)*speed, 240);
+
+    ctx.save();
+    for(let i=0;i<pts.length;i+=3){
+      const alpha = 0.18 + 0.62 * (1 - i/pts.length);
+      ctx.fillStyle = `rgba(111,224,201,${alpha})`;
+      ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 3, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function roundRectPath(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.closePath();
+  }
+
+  // The man himself. Local coords: he stands about 16 units tall with his feet
+  // near y=+7 and the crown of the helmet near y=-9, centred on x=0, so a caller
+  // can rotate him around his middle in flight or stand him on a surface.
+  function drawAstronaut(x, y, rot, scale){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(scale, scale);
+
+    ctx.lineCap = 'round';
+
+    // life-support pack, peeking out behind the suit
+    ctx.fillStyle = '#9aa0b8';
+    roundRectPath(-3.6, -3.0, 7.2, 6.8, 2.2); ctx.fill();
+
+    // limbs
+    ctx.strokeStyle = '#eef1f8';
+    ctx.lineWidth = 3.0;
+    ctx.beginPath(); ctx.moveTo(-2.4,-1.0); ctx.lineTo(-6.0, 1.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( 2.4,-1.0); ctx.lineTo( 6.0, 0.6); ctx.stroke();
+    ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.moveTo(-1.7, 2.6); ctx.lineTo(-2.9, 6.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( 1.7, 2.6); ctx.lineTo( 3.1, 6.6); ctx.stroke();
+
+    // suit
+    ctx.fillStyle = '#f4f6fc';
+    roundRectPath(-3.3, -2.2, 6.6, 6.0, 2.4); ctx.fill();
+
+    // a flat brass chest patch so he reads as belonging to this palette
+    ctx.fillStyle = '#d9a94f';
+    roundRectPath(-1.5, -0.4, 3.0, 1.6, 0.6); ctx.fill();
+
+    // helmet + flat gold visor
+    ctx.fillStyle = '#fbfcff';
+    ctx.beginPath(); ctx.arc(0, -4.7, 4.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c8952f';
+    ctx.beginPath(); ctx.arc(0, -4.9, 2.9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f2c877';
+    ctx.beginPath(); ctx.arc(-0.9, -5.8, 1.1, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawProjectileTrail(){
+    if(!projectile) return;
+    const trail = projectile.trail;
+    ctx.save();
+    for(let i=0;i<trail.length;i++){
+      const t = i/trail.length;
+      ctx.fillStyle = `rgba(242,200,119,${0.30*t})`;
+      ctx.beginPath(); ctx.arc(trail[i].x, trail[i].y, 1+2.5*t, 0, Math.PI*2); ctx.fill();
+    }
+    // flat two-step halo instead of a radial gradient, so he stays findable
+    // against the starfield at small render scales
+    ctx.fillStyle = 'rgba(242,200,119,0.10)';
+    ctx.beginPath(); ctx.arc(projectile.x, projectile.y, 15, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.beginPath(); ctx.arc(projectile.x, projectile.y, 9, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // tumbling, because there is nothing out there to hold him upright
+    drawAstronaut(projectile.x, projectile.y, time*0.0022, 1.15);
+  }
+
+  // ---- the landing: he stands up on the moon and plants the flag ----
+  const LAND_SETTLE = 300, LAND_POLE = 380, LAND_FURL = 420;
+
+  // He always ends up standing UPRIGHT on the top of the moon with the flag beside
+  // him — the picture everybody already has in their head. Planting at the actual
+  // impact point was tried first and reads badly: a hit on the left limb leaves him
+  // lying sideways half-hidden behind the disc, with the flag lanced out into space.
+  function drawLanding(){
+    if(!landing) return;
+    const el = time - landing.t0;
+    const { mx, my, r } = landing;
+
+    // he is about four fifths of the moon tall, and never smaller than legible
+    const scale = Math.max(0.85, Math.min(1.9, r/19));
+    const stand = 7.9 * scale;   // his legs are round-capped strokes, so 7.9 puts the boots ON the rim
+
+    // both feet and pole sit ON the rim, so solve the circle for each x offset
+    const surfaceY = (ox) => my - Math.sqrt(Math.max(0, r*r - ox*ox));
+    const manOX  = -r*0.42;
+    const poleOX =  r*0.44;
+    const manY  = surfaceY(manOX);
+    const poleY = surfaceY(poleOX);
+
+    // he drops the last of the way in
+    const settle = Math.max(0, Math.min(1, el/LAND_SETTLE));
+    const drop = (1-settle)*(1-settle) * r * 1.4;
+
+    // pole rises, then the flag unfurls off it
+    const poleT = Math.max(0, Math.min(1, (el - LAND_SETTLE)/LAND_POLE));
+    const poleLen = r*0.95*poleT;
+    if(poleT > 0){
+      ctx.save();
+      ctx.strokeStyle = '#e8ebf5';
+      ctx.lineWidth = Math.max(1.3, r*0.05);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(mx+poleOX, poleY);
+      ctx.lineTo(mx+poleOX, poleY - poleLen);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const furlT = Math.max(0, Math.min(1, (el - LAND_SETTLE - LAND_POLE)/LAND_FURL));
+    if(furlT > 0){
+      const tipX = mx+poleOX, tipY = poleY - poleLen;
+      const flagW = r*0.62*furlT, flagH = r*0.36;
+      const wave = Math.sin(time*0.005)*r*0.045*furlT;   // no air out there, but it sells it
+      ctx.save();
+      ctx.fillStyle = '#d9a94f';
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX + flagW, tipY - wave);
+      ctx.lineTo(tipX + flagW, tipY + flagH - wave);
+      ctx.lineTo(tipX,         tipY + flagH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    drawAstronaut(mx + manOX, manY - stand - drop, 0, scale);
+  }
+
+  function drawParticles(){
+    ctx.save();
+    for(const p of particles){
+      const a = Math.max(0, p.life/p.maxLife);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ============================== LOOP ==============================
+  function frame(now){
+    const dtMs = now - lastT;
+    lastT = now;
+    update(dtMs);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // ============================== UI WIRING ==============================
+  const overlayEl = document.getElementById('overlay');
+  function showOverlay(){
+    document.getElementById('overlayTitle').textContent = 'Flag Planted';
+    document.getElementById('statAttempts').textContent = attemptsThisLevel;
+    const key = currentProgressKey();
+    const lp = key ? getProgress(key) : {best:null};
+    document.getElementById('statBest').textContent = lp.best != null ? lp.best : attemptsThisLevel;
+
+    const btnNext = document.getElementById('btnNext');
+    if(levelSource.type === 'campaign'){
+      if(levelSource.index < LEVELS.length-1){
+        btnNext.textContent = 'Next Puzzle →';
+        btnNext.disabled = false;
+        btnNext.onclick = ()=>{ hideOverlay(); loadLevel(levelSource.index+1); };
+      } else {
+        btnNext.textContent = 'Chart Complete ✓';
+        btnNext.disabled = true;
+        btnNext.onclick = null;
+      }
+    } else if(levelSource.type === 'custom'){
+      btnNext.textContent = 'Continue';
+      btnNext.disabled = false;
+      btnNext.onclick = ()=>{ hideOverlay(); };
+    } else {
+      btnNext.textContent = 'Back to Editor →';
+      btnNext.disabled = false;
+      btnNext.onclick = ()=>{ hideOverlay(); returnToEditorFromTest(); };
+    }
+    overlayEl.classList.add('show');
+  }
+  function hideOverlay(){
+    overlayEl.classList.remove('show');
+  }
+
+  document.getElementById('btnRetry').addEventListener('click', ()=>{
+    hideOverlay();
+    resetLevel();
+  });
+  document.getElementById('btnResetShot').addEventListener('click', resetShot);
+  document.getElementById('btnResetLevel').addEventListener('click', resetLevel);
+
+  function kickerText(){
+    if(levelSource.type === 'campaign') return `Puzzle ${String(levelSource.index+1).padStart(2,'0')} / ${String(LEVELS.length).padStart(2,'0')}`;
+    if(levelSource.type === 'custom') return 'Custom Chart';
+    return 'Test Flight';
+  }
+
+  function updateSidebar(){
+    document.getElementById('levelKicker').textContent = kickerText();
+    document.getElementById('levelName').textContent = level.name;
+    document.getElementById('levelHint').textContent = (level.hint && level.hint.trim()) ? level.hint : 'A gravity puzzle of your own design.';
+    document.getElementById('statCurrentAttempts').textContent = attemptsThisLevel;
+    const key = currentProgressKey();
+    const lp = key ? getProgress(key) : {best:null};
+    document.getElementById('statCurrentBest').textContent = lp.best != null ? lp.best : '—';
+    document.getElementById('testBanner').style.display = testingFromEditor ? '' : 'none';
+    document.getElementById('normalInfo').style.display = testingFromEditor ? 'none' : '';
+    if(testingFromEditor) document.getElementById('testBannerName').textContent = level.name;
+    updateAimEnabled();
+  }
+
+  function renderLevelGrid(){
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    LEVELS.forEach((lv, i)=>{
+      const btn = document.createElement('button');
+      const lp = getProgress('lvl'+i);
+      const active = levelSource.type==='campaign' && levelSource.index===i;
+      btn.className = 'level-chip' + (active?' active':'') + (lp.done?' done':'');
+      btn.textContent = String(i+1);
+      btn.title = lv.name;
+      btn.addEventListener('click', ()=>{ hideOverlay(); loadLevel(i); closeDrawer(); });
+      grid.appendChild(btn);
+    });
+
+    const list = document.getElementById('customList');
+    list.innerHTML = '';
+    if(customLevels.length === 0){
+      list.innerHTML = '<p class="hint">No custom charts yet.</p>';
+    } else {
+      customLevels.forEach(entry=>{
+        const lp = getProgress('custom:'+entry.id);
+        const active = levelSource.type==='custom' && levelSource.id===entry.id;
+        const row = document.createElement('div');
+        row.className = 'custom-row' + (active?' active':'');
+        row.innerHTML =
+          '<span class="custom-name">'+escapeHtml(entry.name)+(lp.done?'<span class="done-dot"></span>':'')+'</span>' +
+          '<span class="custom-actions">' +
+            '<button class="icon-btn" data-act="play" title="Play">▶</button>' +
+            '<button class="icon-btn" data-act="edit" title="Edit">✎</button>' +
+            '<button class="icon-btn" data-act="del" title="Delete">✕</button>' +
+          '</span>';
+        row.querySelector('[data-act="play"]').addEventListener('click', ()=>{ hideOverlay(); playCustomLevel(entry); closeDrawer(); });
+        row.querySelector('[data-act="edit"]').addEventListener('click', ()=>{ editCustomLevel(entry); closeDrawer(); });
+        const delBtn = row.querySelector('[data-act="del"]');
+        delBtn.addEventListener('click', ()=>{
+          armConfirm(delBtn, '✕?', ()=>{
+            customLevels = customLevels.filter(c=>c.id!==entry.id);
+            saveCustomLevels();
+            if(levelSource.type==='custom' && levelSource.id===entry.id) loadLevel(0);
+            renderLevelGrid();
+          });
+        });
+        list.appendChild(row);
+      });
+    }
+  }
+
+  function syncModeUI(){
+    document.getElementById('tabPlay').classList.toggle('active', view==='play');
+    document.getElementById('tabEditor').classList.toggle('active', view==='editor');
+    document.getElementById('playDock').style.display = view==='play' ? 'flex' : 'none';
+    document.getElementById('editorDock').style.display = view==='editor' ? 'flex' : 'none';
+    document.getElementById('playMenu').style.display = view==='play' ? 'flex' : 'none';
+    document.getElementById('editorMenu').style.display = view==='editor' ? 'flex' : 'none';
+    document.getElementById('hudChip').style.display = view==='play' ? '' : 'none';
+    document.getElementById('btnTestChart').style.display = view==='editor' ? '' : 'none';
+    document.getElementById('btnSaveChart').style.display = view==='editor' ? '' : 'none';
+    updatePropsPanelVisibility();
+    document.getElementById('footerNote').innerHTML = view==='editor'
+      ? 'CLICK TO PLACE &middot; DRAG TO MOVE &middot; <kbd>DEL</kbd> REMOVE'
+      : 'DRAG TO AIM &middot; RELEASE TO FIRE &middot; <kbd>R</kbd> RESET SHOT';
+    canvas.style.cursor = view==='editor' ? (editorTool==='select' ? 'default' : 'crosshair') : 'crosshair';
+  }
+
+  // ============================== INIT ==============================
+  fitCanvas();
+  loadLevel(0);
+  requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(frame); });
+})();
+</script>
