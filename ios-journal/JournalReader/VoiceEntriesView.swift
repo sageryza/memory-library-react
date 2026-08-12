@@ -5,7 +5,7 @@ import SwiftUI
 /// disc to play the recording — the source, in place of a scanned page.
 struct VoiceEntriesView: View {
     @StateObject private var store = VoiceEntriesStore()
-    @StateObject private var player = VoicePlayer()
+    @ObservedObject private var player = VoicePlayer.shared
     @State private var filter: Filter = .all
 
     enum Filter: String, CaseIterable, Identifiable {
