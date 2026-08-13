@@ -77,6 +77,18 @@ final class VoiceEntriesStore: ObservableObject {
 /// playhead (`currentTime`/`duration`) so a waveform can track it, and seeks.
 @MainActor
 final class VoicePlayer: ObservableObject {
+    /// THE player — every screen must use this one instance.
+    ///
+    /// "One memo at a time" is only true within a single VoicePlayer: starting
+    /// a memo replaces that instance's AVPlayer, but it cannot know about any
+    /// other instance. The list, the detail sheet and the voice-entries screen
+    /// each held their own `@StateObject VoicePlayer()`, so three recordings
+    /// could sound at once — tapping a second memo left the first one playing
+    /// underneath it (Sophie, Aug 2026). Bind with
+    /// `@ObservedObject private var player = VoicePlayer.shared`, never
+    /// `@StateObject private var player = VoicePlayer()`.
+    static let shared = VoicePlayer()
+
     @Published var currentID: String?
     @Published var isPlaying = false
     @Published var currentTime: Double = 0
@@ -90,6 +102,10 @@ final class VoicePlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         try? AVAudioSession.sharedInstance().setActive(true)
 
+        // Silence the outgoing recording before swapping it out. Dropping the
+        // last reference usually stops it, but "usually" is audible when it
+        // doesn't, so say it explicitly.
+        player?.pause()
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         if let timeObserver { player?.removeTimeObserver(timeObserver); self.timeObserver = nil }
         let item = AVPlayerItem(url: url)

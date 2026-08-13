@@ -288,7 +288,7 @@ final class MemosStore: ObservableObject {
 struct MemosView: View {
     @EnvironmentObject private var router: AppRouter
     @StateObject private var store = MemosStore()
-    @StateObject private var player = VoicePlayer()
+    @ObservedObject private var player = VoicePlayer.shared
     @FocusState private var focused: Bool
     @State private var selected: VoiceEntry?
 
@@ -718,7 +718,7 @@ private struct ShareSheet: UIViewControllerRepresentable {
 struct MemoDetailView: View {
     let entry: VoiceEntry
     @ObservedObject var store: MemosStore
-    @StateObject private var player = VoicePlayer()
+    @ObservedObject private var player = VoicePlayer.shared
 
     @State private var name = ""
     @State private var loading = false
