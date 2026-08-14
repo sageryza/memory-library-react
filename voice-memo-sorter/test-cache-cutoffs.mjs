@@ -55,6 +55,14 @@ check('cutoff dropped entirely — the long one comes back',
 check('--min-speech lowered — the silent one comes back too',
   wouldProcess(['--min-speech', '0.1']), ['long.m4a', 'quiet.m4a']);
 
+// --always: putting a file in the dump folder IS the decision to transcribe it.
+check('--always overrides the cutoff for that folder',
+  wouldProcess(['--max-minutes', '30', '--always', inDir]), ['long.m4a']);
+check('--always on an unrelated folder changes nothing',
+  wouldProcess(['--max-minutes', '30', '--always', path.join(root, 'elsewhere')]), []);
+check('--always does not resurrect a silent file',
+  wouldProcess(['--max-minutes', '30', '--always', inDir]).filter((f) => f === 'quiet.m4a'), []);
+
 fs.rmSync(root, { recursive: true, force: true });
 console.log(failed ? `\n${failed} failed` : '\nAll passed');
 process.exit(failed ? 1 : 0);

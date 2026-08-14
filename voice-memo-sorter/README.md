@@ -87,6 +87,20 @@ node transcribe-sort.mjs --in ~/VoiceMemos --out ./output
 It's **resumable** — already-processed files are cached, so you can Ctrl-C and
 re-run anytime; it picks up where it left off.
 
+## What would the long ones actually cost?
+
+Pass the cutoff to `--scan` and it prices the files it's currently setting
+aside — both as-is and, the number that matters, **once their silence is
+trimmed** (trimming is on by default, so that's what you'd really pay):
+
+```bash
+node transcribe-sort.mjs --in ~/VoiceMemos --out ./output --scan --max-minutes 30
+```
+
+Free, local, no API calls. The breakdown lands in `output/scan.md`.
+
+---
+
 The `empty` and `toolong` skips are re-checked against the current
 `--min-speech` / `--max-minutes` on every run, so **relaxing a cutoff re-queues
 the files it used to skip** — no need to delete `.cache.json` by hand. Raising
@@ -106,6 +120,7 @@ back up on the next run.
 | `--concurrency <n>` | `4` | How many files to process at once. |
 | `--min-speech <sec>` | `2` | Skip files with less than this much actual sound (the empty/sleep recordings). |
 | `--max-minutes <n>` | none | Skip files longer than n minutes — set aside under "Too long — review manually" (kept in order). Try 30 or 60. |
+| `--always <dir>` | none | Files under this folder ignore `--max-minutes` — putting one there *is* the decision to transcribe it, however long it runs. Repeatable. Silent files are still skipped; that costs nothing either way. |
 | `--no-trim` | trim on | By default, silence is stripped before transcribing so long sparse files only cost their speech. This disables it. |
 | `--hear-songs` / `--no-hear-songs` | on | For musical memos, also run an audio pass (`gpt-4o-audio`) that describes the melody / humming / mood — not just the words. |
 | `--transcribe-model` | `gpt-4o-transcribe` | Transcription model (alt: `whisper-1`). |
