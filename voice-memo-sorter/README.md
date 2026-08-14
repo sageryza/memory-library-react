@@ -87,6 +87,12 @@ node transcribe-sort.mjs --in ~/VoiceMemos --out ./output
 It's **resumable** — already-processed files are cached, so you can Ctrl-C and
 re-run anytime; it picks up where it left off.
 
+The `empty` and `toolong` skips are re-checked against the current
+`--min-speech` / `--max-minutes` on every run, so **relaxing a cutoff re-queues
+the files it used to skip** — no need to delete `.cache.json` by hand. Raising
+`--max-minutes 30` to `60` (or dropping the flag entirely) picks the long ones
+back up on the next run.
+
 ---
 
 ## Options
