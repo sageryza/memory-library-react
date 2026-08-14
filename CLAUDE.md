@@ -18,7 +18,18 @@ so none of them is tied to one app.
   ci/test_asc_metadata.py` (stubs the API — no secrets, touches no real app).
 - **`asc-submit.yml`** (`ci/asc_submit_release.py`) — attach a build, set
   What's New, submit to review. `resubmit:true` cancels an in-queue submission
-  first. Re-run safe.
+  first — and since 2026-08-14 also a REJECTED one (state
+  `UNRESOLVED_ISSUES`), which otherwise blocks forever: it counts as "open"
+  so the script reused it, but only `READY_FOR_REVIEW` ever gets submitted,
+  so every run ended "nothing to do". Re-run safe. **Apple's cancellation is
+  ASYNC (measured live 2026-08-14):** the run right after the cancel can 409
+  with `ITEM_PART_OF_ANOTHER_SUBMISSION` while the old submission finishes
+  canceling — that is not a failure of the fix; re-run the workflow once
+  (~1 min later, resubmit can be false then) and it goes through. That exact
+  sequence resubmitted Secretly a Witch after the 4.3(b) rejection.
+  **A first release (version 1.0 never shipped) has no What's New** — leave
+  `whats_new` empty on both workflows or risk a 409; Apple only shows the
+  field on updates.
 - **`asc-status.yml` / `check-review-status.yml`** — where a version or a build
   currently stands.
 A version that failed review is editable again (state `REJECTED` /
