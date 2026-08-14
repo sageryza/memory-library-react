@@ -25,6 +25,12 @@
 //   --max-minutes <n>   Skip files longer than n minutes — set them aside under
 //                       "Too long — review manually" (kept in order, not
 //                       transcribed). Default: no cap. Try 30 or 60.
+//                       With --scan, also reports what the files over the
+//                       cutoff would cost once their silence is trimmed.
+//   --always <dir>      Files under this folder ignore --max-minutes: putting
+//                       one there IS the decision to transcribe it, however
+//                       long it runs. Repeatable. (Silent files are still
+//                       skipped — that costs nothing either way.)
 //   --no-trim           Don't strip silence before transcribing. By default, when
 //                       ffmpeg is present, silence is trimmed so a 6-hour mostly-
 //                       empty file only costs the few seconds of real speech.
@@ -96,6 +102,7 @@ function parseArgs(argv) {
     concurrency: 4,
     minSpeech: 2,
     maxMinutes: Infinity,
+    always: [],
     trim: true,
     hearSongs: true,
     transcribeModel: 'gpt-4o-transcribe',
@@ -115,6 +122,7 @@ function parseArgs(argv) {
       case '--concurrency': a.concurrency = Math.max(1, parseInt(next(), 10)); break;
       case '--min-speech': a.minSpeech = parseFloat(next()); break;
       case '--max-minutes': a.maxMinutes = parseFloat(next()); break;
+      case '--always': a.always.push(path.resolve(next().replace(/^~/, os.homedir()))); break;
       case '--no-trim': a.trim = false; break;
       case '--hear-songs': a.hearSongs = true; break;
       case '--no-hear-songs': a.hearSongs = false; break;
@@ -240,6 +248,13 @@ async function loadCache(file) {
   catch { return {}; }
 }
 
+// Anything under an --always folder was put there deliberately to be
+// transcribed, so the length cap doesn't apply to it. The empty-skip still
+// does: a silent file has nothing to transcribe, and skipping it is free.
+function alwaysTranscribe(file, args) {
+  return args.always.some((dir) => file === dir || file.startsWith(dir + path.sep));
+}
+
 // The local skips (empty / too long) record a decision about the cutoffs in
 // force at the time, not a fact about the file. Cache them as-is and raising
 // --max-minutes (or lowering --min-speech) silently does nothing on a re-run,
@@ -249,7 +264,9 @@ function skipStillApplies(cached, args) {
   const a = cached.analysis;
   // No analysis means it was skipped without ffmpeg — nothing to re-check.
   if (!a) return true;
-  if (cached.skipped === 'toolong') return a.duration / 60 > args.maxMinutes;
+  if (cached.skipped === 'toolong') {
+    return !alwaysTranscribe(cached.file, args) && a.duration / 60 > args.maxMinutes;
+  }
   if (cached.skipped === 'empty') return a.speechSec < args.minSpeech;
   return true; // fully processed — always keep.
 }
@@ -433,7 +450,7 @@ async function writeOutputs(outDir, results) {
 }
 
 // Scan-only report — no API, just ffmpeg silence analysis.
-async function writeScanReport(outDir, rows, costPerMin) {
+async function writeScanReport(outDir, rows, costPerMin, maxMinutes = Infinity) {
   await fsp.mkdir(outDir, { recursive: true });
   await fsp.writeFile(path.join(outDir, 'scan.json'), JSON.stringify(rows, null, 2));
 
@@ -449,6 +466,21 @@ async function writeScanReport(outDir, rows, costPerMin) {
   md += `### Cost estimate\n`;
   md += `- Transcribing everything as-is: ~$${(totalAudioMin * costPerMin).toFixed(2)}\n`;
   md += `- Transcribing only the real sound (skip empties + trim silence): ~$${(speechMin * costPerMin).toFixed(2)}\n\n`;
+
+  // With a cutoff in play, the question is always "what would the ones I'm
+  // currently skipping actually cost?" — and the honest answer is the trimmed
+  // one, since silence-trimming is on by default.
+  const over = rows.filter((r) => r.duration / 60 > maxMinutes);
+  if (over.length) {
+    const overAudioMin = over.reduce((s, r) => s + r.duration, 0) / 60;
+    const overSpeechMin = over.reduce((s, r) => s + r.speechSec, 0) / 60;
+    md += `### Over the ${maxMinutes}-min cutoff (${over.length} files)\n`;
+    md += `These are the ones currently set aside untranscribed.\n\n`;
+    md += `- Their total length: **${fmtDur(overAudioMin * 60)}** → ~$${(overAudioMin * costPerMin).toFixed(2)} as-is\n`;
+    md += `- Their real sound: **${fmtDur(overSpeechMin * 60)}** → **~$${(overSpeechMin * costPerMin).toFixed(2)} trimmed**\n`;
+    md += `- Silence is ${(100 - (overSpeechMin / (overAudioMin || 1)) * 100).toFixed(0)}% of them\n\n`;
+  }
+
   md += `### Likely-empty recordings (would be skipped)\n\n`;
   for (const r of empties.sort((a, b) => b.duration - a.duration)) {
     md += `- ${path.basename(r.file)} — ${fmtDur(r.duration)} long, only ${r.speechSec.toFixed(1)}s of sound\n`;
@@ -458,7 +490,11 @@ async function writeScanReport(outDir, rows, costPerMin) {
     md += `- ${path.basename(r.file)} — ${fmtDur(r.duration)} long, ${fmtDur(r.speechSec)} sound (${((r.speechSec / (r.duration || 1)) * 100).toFixed(0)}%)\n`;
   }
   await fsp.writeFile(path.join(outDir, 'scan.md'), md);
-  return { empties: empties.length, totalAudioMin, speechMin };
+  return {
+    empties: empties.length, totalAudioMin, speechMin,
+    overCount: over.length,
+    overSpeechMin: over.reduce((s, r) => s + r.speechSec, 0) / 60,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -491,10 +527,13 @@ async function main() {
       if (done % 25 === 0) console.log(`  scanned ${done}/${files.length}…`);
       return { file, ...a };
     });
-    const sum = await writeScanReport(outDir, rows, COST_PER_MIN);
+    const sum = await writeScanReport(outDir, rows, COST_PER_MIN, args.maxMinutes);
     console.log(`\nScan done. ${sum.empties} likely-empty of ${rows.length}.`);
     console.log(`Total audio ${fmtDur(sum.totalAudioMin * 60)} · real sound ${fmtDur(sum.speechMin * 60)}.`);
     console.log(`Est. cost: ~$${(sum.totalAudioMin * COST_PER_MIN).toFixed(2)} as-is vs ~$${(sum.speechMin * COST_PER_MIN).toFixed(2)} skipping/trimming silence.`);
+    if (sum.overCount) {
+      console.log(`Over the ${args.maxMinutes}-min cutoff: ${sum.overCount} files · ~$${(sum.overSpeechMin * COST_PER_MIN).toFixed(2)} to transcribe them trimmed.`);
+    }
     console.log(`See ${path.join(outDir, 'scan.md')}`);
     return;
   }
@@ -549,7 +588,7 @@ async function main() {
           console.log(`  ○ skipped (empty): ${name} — ${fmtDur(analysis.duration)}, ${analysis.speechSec.toFixed(1)}s sound`);
           return;
         }
-        if (analysis.duration / 60 > args.maxMinutes) {
+        if (analysis.duration / 60 > args.maxMinutes && !alwaysTranscribe(w.file, args)) {
           const result = {
             file: w.file, recordedAt: w.recordedAt, transcript: '', analysis, skipped: 'toolong',
             sort: { category: 'toolong', title: `(too long — ${fmtDur(analysis.duration)}, review by hand)`, summary: `Over the ${args.maxMinutes}-min cutoff (${fmtDur(analysis.duration)}); set aside for manual review.`, tags: [], confidence: 1, is_musical: false, needs_review: false },
