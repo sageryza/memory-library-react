@@ -1,0 +1,49 @@
+{
+  "_comment": [
+    "Posts this chat's turns to the Deck Factory Chats feed. The hook BODY is not",
+    "here on purpose — its one source of truth is imageforge/.claude/hooks/post-to-feed.sh,",
+    "and the environment Setup script installs it to /home/user/.claude/hooks/.",
+    "This file only REGISTERS it, so the script can never drift between repos.",
+    "",
+    "Why this file has to exist: Claude Code loads project settings from the folder",
+    "the session STARTS in. The setup script assumes that is /home/user, but web",
+    "sessions on this repo start in /home/user/memory-library-react — one level down —",
+    "so /home/user/.claude/settings.json never registered and no turn from this repo",
+    "ever reached the feed.",
+    "",
+    "The guard keeps the hook silent when the script is absent (a local checkout, or",
+    "an environment that never ran the setup script): exit 0, no output, nothing blocked."
+  ],
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'H=/home/user/.claude/hooks/post-to-feed.sh; [ -f \"$H\" ] && exec bash \"$H\"; exit 0'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'H=/home/user/.claude/hooks/post-to-feed.sh; [ -f \"$H\" ] && exec bash \"$H\"; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'H=/home/user/.claude/hooks/post-to-feed.sh; [ -f \"$H\" ] && exec bash \"$H\"; exit 0'"
+          }
+        ]
+      }
+    ]
+  }
+}
