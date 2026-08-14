@@ -39,6 +39,9 @@
 //
 // Resumable: results are cached per file in <out>/.cache.json keyed by path+size+mtime,
 // so re-running skips work already done. Safe to Ctrl-C and resume.
+// The empty / too-long skips are NOT sticky: they are re-checked against the
+// current --min-speech / --max-minutes on every run, so relaxing a cutoff
+// re-queues the files it used to skip without clearing the cache by hand.
 
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -235,6 +238,20 @@ function cacheKey(file, stat) {
 async function loadCache(file) {
   try { return JSON.parse(await fsp.readFile(file, 'utf8')); }
   catch { return {}; }
+}
+
+// The local skips (empty / too long) record a decision about the cutoffs in
+// force at the time, not a fact about the file. Cache them as-is and raising
+// --max-minutes (or lowering --min-speech) silently does nothing on a re-run,
+// because the entry is already in the cache. So a cached skip only survives
+// while the CURRENT cutoffs would still skip it.
+function skipStillApplies(cached, args) {
+  const a = cached.analysis;
+  // No analysis means it was skipped without ffmpeg — nothing to re-check.
+  if (!a) return true;
+  if (cached.skipped === 'toolong') return a.duration / 60 > args.maxMinutes;
+  if (cached.skipped === 'empty') return a.speechSec < args.minSpeech;
+  return true; // fully processed — always keep.
 }
 
 // ---------------------------------------------------------------------------
@@ -486,14 +503,18 @@ async function main() {
   const cache = await loadCache(cacheFile);
 
   const work = [];
+  let requeued = 0;
   for (const file of files) {
     const stat = await fsp.stat(file);
     const key = cacheKey(file, stat);
-    if (cache[key]) continue;
+    const cached = cache[key];
+    if (cached && skipStillApplies(cached, args)) continue;
+    if (cached) { delete cache[key]; requeued++; }
     work.push({ file, stat, key, recordedAt: stat.mtime.toISOString().slice(0, 10) });
   }
   const todo = work.slice(0, args.limit);
-  console.log(`${Object.keys(cache).length} already cached · ${work.length} new · processing ${todo.length} this run.`);
+  const requeuedNote = requeued ? ` · ${requeued} re-queued (cutoff changed)` : '';
+  console.log(`${Object.keys(cache).length} already cached · ${work.length - requeued} new${requeuedNote} · processing ${todo.length} this run.`);
 
   if (args.dryRun) {
     for (const w of todo) console.log(`  would process: ${w.file}`);
