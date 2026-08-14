@@ -131,26 +131,15 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   to drop everything for — UNLESS it directly contradicts what's being built, or
   is explicitly about prioritization. Keep a visible list of the open items.
 
-## Audio messages (forever)
-- **Long replies also become voice notes.** Whenever a reply is long — it explains
-  multiple things, answers several questions, or asks several important questions —
-  ALSO generate an audio version and send it as an mp3 file alongside the text.
-- **Format: male British voice at 1.2x speed.** Generate with OpenAI TTS (model
-  `gpt-4o-mini-tts`, voice `onyx`, instructions: "warm, natural male British accent
-  (RP), conversational"), using `OPENAI_API_KEY` from the environment (ask Sage for
-  a key if it is not set). Then speed it up with `ffmpeg -filter:a "atempo=1.2"`
-  and send the mp3 to Sage.
-- Adapt the text for listening: skip URLs and code, read numbers naturally, keep
-  the wording otherwise faithful to the written message.
-
 ## Reply format (forever)
 - **TLDR first.** Start every substantive reply with a 1-3 line TLDR that answers
   the question(s) directly, before any detail.
 - **Current link(s) at the very bottom.** End every reply with the working link(s)
   for whatever is being built — the live page/artifact and the open PR — as full
   clickable links, so the latest link is always the last thing in the message.
-- **Audio when warranted.** If the message is long AND important, also attach the
-  voice-note version per the Audio messages rule (British male, 1.2x).
+- **No voice notes.** Long replies used to also ship as an mp3 (British male,
+  1.2x). Retired Aug 2026 — the Chats app renders any reply in the neural voice
+  on a ▶ tap, so generating one is duplicate work. Don't re-add it.
 
 ## Voice memo archive (where the data lives)
 - Sage's 993 transcribed voice memos (2021-2026) — transcripts, categories,
