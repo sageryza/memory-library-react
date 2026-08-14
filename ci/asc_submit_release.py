@@ -36,15 +36,22 @@ def main():
     print(f"app {bundle} -> {app_id}")
 
     # RESUBMIT=true: pull an in-queue submission back (loses the queue spot)
-    # so a newer build can be attached and submitted in its place.
+    # so a newer build can be attached and submitted in its place — and also
+    # clear a REJECTED submission (state UNRESOLVED_ISSUES), which otherwise
+    # blocks forever: it is "open", so step 4 reuses it, but it is past
+    # READY_FOR_REVIEW, so nothing ever submits it. Canceling it lets a fresh
+    # submission carry the reworked version to review (found live 2026-08-14
+    # on the Secretly a Witch 4.3(b) resubmission).
+    canceled_ids = set()
     if os.environ.get("RESUBMIT", "").lower() == "true":
         st, d = api("GET", f"/reviewSubmissions?filter[app]={app_id}&filter[state]="
-                           "WAITING_FOR_REVIEW,IN_REVIEW&limit=5", tok)
+                           "WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES&limit=5", tok)
         for sub in (d.get("data") or []) if st == 200 else []:
+            canceled_ids.add(sub["id"])
             st2, _ = api("PATCH", f"/reviewSubmissions/{sub['id']}", tok, {
                 "data": {"type": "reviewSubmissions", "id": sub["id"],
                          "attributes": {"canceled": True}}})
-            print(f"canceled in-queue submission {sub['id']} "
+            print(f"canceled open submission {sub['id']} "
                   f"(was {sub['attributes'].get('state')}): {st2}")
 
     # 1. The appStoreVersion for this version string (create if missing).
@@ -99,7 +106,10 @@ def main():
     # 4. Review submission: reuse an open one for this platform, else create.
     st, d = api("GET", f"/reviewSubmissions?filter[app]={app_id}&filter[state]="
                        "READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES&limit=5", tok)
-    sub = (d.get("data") or [None])[0] if st == 200 else None
+    # Skip anything canceled above — Apple can report the old state for a
+    # beat, and reusing a canceled submission would dead-end again.
+    sub = next((s for s in (d.get("data") or []) if s["id"] not in canceled_ids), None) \
+        if st == 200 else None
     if sub is None:
         st, d = api("POST", "/reviewSubmissions", tok, {
             "data": {"type": "reviewSubmissions", "attributes": {"platform": "IOS"},
