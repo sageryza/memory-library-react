@@ -9,6 +9,7 @@ import {
   initFight, look, tick, provoke, canProvoke, score, simulate, hand, TUNE,
 } from '../src/exes/fightModel.js';
 import { SCENARIOS, scenarioById } from '../src/exes/scenarios.js';
+import { makeEx, EXAMPLE_EXES, canFight, DIALS } from '../src/exes/roster.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, name) => {
@@ -153,6 +154,38 @@ console.log('\nevery scenario is well-formed');
   ok(allOk, 'every level has an id, a title and a setting, and no id repeats');
   ok(oneGoal, 'every goal has a label and a target');
   ok(rungsOk, 'every prop is well-formed, and every rung-3 prop is once-only');
+}
+
+console.log('\nthe roster is a creator, not a list of people');
+{
+  // Four fields in, a fighter out — this is the whole ship plan: her exes and
+  // a stranger's go in through the same door.
+  const e = makeEx({ name: 'Somebody', ego: 9, temper: 0, stamina: 3, signature: 'Fine.' });
+  ok(e.id === 'somebody', 'an id comes from the name');
+  ok(e.ego === 5 && e.temper === 1, 'dials clamp to 1..5 instead of throwing');
+
+  let threw = false;
+  try { makeEx({ name: '   ' }); } catch { threw = true; }
+  ok(threw, 'an ex needs a name');
+
+  const half = makeEx({ name: 'Half Filled' });
+  ok(half.ego === 3 && half.temper === 3 && half.stamina === 3, 'a half-filled creator still fights');
+  ok(half.signature === null, 'and an unwritten signature is null, not empty text');
+
+  ok(DIALS.length === 3, 'the creator screen has three dials');
+  ok(DIALS.every((d) => d.low && d.high), 'each dial says what it does at both ends');
+
+  ok(canFight(EXAMPLE_EXES), 'the examples can hold a fight');
+  ok(!canFight([EXAMPLE_EXES[0]]), 'one ex is not a fight');
+
+  // The examples are placeholders, so they must stay fictional.
+  const real = /doug|richard|sean|jonathan|chris/i;
+  ok(!real.test(JSON.stringify(EXAMPLE_EXES)), 'no real person is committed to this public repo');
+
+  // And they actually work in the engine.
+  const [a, b] = EXAMPLE_EXES;
+  const s2 = simulate({ a, b, scenario: scenarioById('restaurant'), rng: seeded(11) });
+  ok(s2.over && s2.beat > 0, 'two invented exes fight in the restaurant');
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
