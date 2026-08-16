@@ -110,6 +110,30 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   rule exists because a ~$19 batch (erasing handwriting from ~330 drawings via
   gpt-image-1 edits) was run without ever surfacing the price.
 
+## I'm almost never at my desktop — batch desktop tasks (Aug 2026)
+- **Never ask me to go to my computer.** I work from my phone, so "can you run
+  this on your Mac?" lands weeks late or never. A task that can only run there
+  gets **written down and batched**, not asked for.
+- **THE ONE LIST is `docs/desktop-tasks.md` in `sageryza/imageforge`** — one
+  queue for every chat in every repo, living in my Mac checkout (`~/imageforge`)
+  so the machine that has to run it already has it. It carries the entry
+  template and the rules; append to **OPEN** at the bottom with exact
+  copy-pasteable commands, no secrets, commit and push the same turn.
+  Working in THIS repo? Attach imageforge with `add_repo` and append there. If
+  you genuinely can't, put the finished task block verbatim in your reply and
+  say it still needs queueing.
+- **Say one line that you queued it** — I should know the pile grew without
+  having to ask, and without it turning into an ask. Then carry on with
+  everything that doesn't depend on it.
+- **When I'm at the computer** I say "open `docs/desktop-tasks.md` and run the
+  queue" and the terminal chat works it top to bottom.
+- **URGENT is the only interrupt** — I'm blocked without it, or it expires. Say
+  so plainly AND queue it anyway. "It would be faster" is not urgent.
+- **Desktop-only means:** YouTube downloads (cloud IPs are bot-blocked), my
+  logged-in browser / keychain / Photos library, a plugged-in device, files that
+  live only on the Mac, big uploads that need chunking on my home connection.
+  Anything a cloud session can do, a cloud session does.
+
 ## Working style
 - **Build only what I asked for — no extra features, buttons, or UI.** Don't add
   reset buttons, legends, toggles, settings, "helpful" panels, or any control I
