@@ -1,9 +1,12 @@
+/* Shared XI bottom nav, in the 2a language: a solid ink bar of icons only, the
+   active one gold. Heights here feed --navh in XiApp.css, which the double
+   frame and the scroll padding measure themselves against — change one, change
+   the other. */
 .xinav{
   position:fixed;left:0;right:0;bottom:0;z-index:9500;
-  display:flex;justify-content:space-around;align-items:flex-end;
-  background:rgba(243,234,217,.97);backdrop-filter:saturate(1.1) blur(2px);
-  border-top:0.5px solid #d8cdb6;
-  padding:7px 2px calc(6px + env(safe-area-inset-bottom,0px));
+  display:flex;justify-content:space-around;align-items:center;
+  background:#191411;
+  padding:11px 2px calc(10px + env(safe-area-inset-bottom,0px));
   transition:transform .2s ease;
 }
 .xinav.writing{transform:translateY(110%)}
@@ -11,12 +14,10 @@
 .xinav-btn{
   flex:1 1 0;min-width:0;
   background:none;border:none;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:#8a7d6e;font-family:'EB Garamond',serif;padding:2px 0;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(244,234,214,.5);padding:0;
 }
-.xinav-btn svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.xinav-btn span{font-size:10.5px;letter-spacing:.2px;line-height:1}
-/* Active = gold, like the app (XITheme.gold); a touch heavier stroke stands in
-   for the SF Symbols semibold weight. */
-.xinav-btn.on{color:#b08c36}
-.xinav-btn.on svg{stroke-width:2.1}
+.xinav-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+/* Today's sun carries the prototype's slightly heavier stroke. */
+.xinav-btn[aria-label="today"] svg{stroke-width:1.8}
+.xinav-btn.on{color:#e5b84b}
