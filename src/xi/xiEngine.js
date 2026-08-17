@@ -88,6 +88,10 @@ export function initXi(root, ctx) {
   // that day's deterministic pair, read-only cards but a live composer.
   let viewDay = dayNum();
   const isToday = () => viewDay === dayNum();
+  // "August 16" for a day index — the masthead's date line. Rebuilds the local
+  // midnight that dayNum() folded away, so it reads as the day you're looking at.
+  const dayLabel = (d) => new Date(d * 864e5 + new Date().getTimezoneOffset() * 6e4)
+    .toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
   const displayedPair = () => (isToday() ? S.shown : pairForDay(viewDay));
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
   // Start the two slots at opposite ends of the (shared) deck — event from the
@@ -129,18 +133,21 @@ export function initXi(root, ctx) {
     if (sanitizeShown()) await savePair();
   }
 
-  /* Today header — the app's "CARD OF THE DAY" row with ‹ › day arrows, then a
-     today-only row: undo (absolute left) · redraw · I got nothing. */
+  /* Today header — "CARD OF THE DAY" with ‹ › day arrows and the date beneath,
+     then a today-only row: undo (absolute left) · redraw · nothing.
+     The arrows are ours, not the redesign's: the prototype never modelled
+     browsing past days, so keeping them beats dropping a working feature. */
   function renderCenter() {
     const today = isToday();
     const arrows = '<div class="day-nav">'
       + '<button id="dayPrev" class="day-arrow" aria-label="Previous day">&lsaquo;</button>'
       + '<span class="day-title">CARD OF THE DAY</span>'
       + `<button id="dayNext" class="day-arrow" aria-label="Next day"${today ? ' disabled' : ''}>&rsaquo;</button>`
-      + '</div>';
+      + '</div>'
+      + `<div class="day-date">${esc(dayLabel(viewDay))}</div>`;
     const undo = (today && S.hist.length) ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
     const row = today
-      ? `<div class="redraw-row">${undo}<button class="redraw" id="newCardsBtn">redraw</button><button class="nothing" id="nothingBtn">I got nothing</button></div>`
+      ? `<div class="redraw-row">${undo}<button class="redraw" id="newCardsBtn">redraw</button><button class="nothing" id="nothingBtn">nothing</button></div>`
       : '<div class="redraw-row past"></div>';
     $('#center').innerHTML = arrows + row;
     $('#dayPrev').onclick = () => { viewDay -= 1; renderCenter(); renderToday(); };
@@ -205,15 +212,19 @@ export function initXi(root, ctx) {
   // The composer (textbox + Save) and the collected-memories list are rendered
   // separately so that, while writing, the cards + composer can be pinned above
   // the keyboard as one sheet and the memories tuck below.
-  // The bottom row mirrors the app's: today's collected count on the left
-  // (italic, never "0"), the quiet ink-outline Save on the right.
-  function composerHtml(one, todayN) {
-    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    const line = todayN > 0 ? `${todayN} ${todayN === 1 ? 'memory' : 'memories'} collected` : '';
-    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="composer-row"><span class="count-line">${line}</span><button class="btn small" id="saveBtn">Save</button></div></div>`;
+  // Just the lowercase italic save, right-aligned. The written-out count that
+  // used to sit on the left is gone: the fill bar directly above says the same
+  // thing, so the two were the same fact twice.
+  function composerHtml(one) {
+    const ph = one ? 'Write the memory&hellip;' : 'A memory that\'s both of these&hellip;';
+    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="composer-row"><button class="btn small" id="saveBtn">save</button></div></div>`;
   }
+  // The collected memories, each its own straight light-outlined card under a
+  // ruled COLLECTED label. Always returns the .today-mems wrapper, empty or not,
+  // because softUpdateToday() swaps this block by outerHTML.
   function memsHtml(arr) {
-    return `<div class="today-mems">`
+    if (!arr.length) return '<div class="today-mems"></div>';
+    return `<div class="today-mems"><div class="memhead"><span>COLLECTED</span><i></i></div>`
       + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
       + `</div>`;
   }
@@ -248,7 +259,7 @@ export function initXi(root, ctx) {
     const cnt = await todayCount();
     const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${shown.length}">` + shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}">${today ? `<button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button>` : ''}</div>`).join('') + `</div>`;
     const piggy = today ? piggyHtml(cnt) : '';
-    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${piggy}${composerHtml(one, cnt)}</div></div>` + memsHtml(arr);
+    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${piggy}${composerHtml(one)}</div></div>` + memsHtml(arr);
     if (today) {
       root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
       root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
@@ -276,7 +287,7 @@ export function initXi(root, ctx) {
       pig.classList.toggle('full', frac >= 1);
       pig.setAttribute('aria-label', piggyLabel(cnt));
     } else if (pig && !today) { pig.remove(); }
-    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one, cnt);
+    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one);
     const mems = $('#cardSlot .today-mems');
     if (mems) mems.outerHTML = memsHtml(arr); else $('#cardSlot').insertAdjacentHTML('beforeend', memsHtml(arr));
     wireSave();

@@ -2,9 +2,15 @@
    .xi-app so its generic selectors (button, textarea, .card, .row, …)
    can't leak into the rest of the library. Verbatim from xi_app_v1.html
    except for scoping and the full-screen container rule below. */
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Marcellus&display=swap');
 
-.xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable both-edges;padding-bottom:60px}
+.xi-app{position:fixed;inset:0;z-index:9000;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable both-edges;padding-bottom:calc(var(--navh) + env(safe-area-inset-bottom,0px) + 24px)}
+/* The double frame — 1.5px light outline at inset 10, 1px gilt at inset 14.
+   Fixed (not scrolled with the content) and pass-through, stopping just above
+   the bottom nav so the bar isn't boxed in on a real device. */
+.xi-app::before,.xi-app::after{content:'';position:fixed;pointer-events:none;z-index:9400;border-radius:2px;bottom:calc(var(--navh) + env(safe-area-inset-bottom,0px) + 10px)}
+.xi-app::before{left:10px;right:10px;top:10px;border:1.5px solid var(--line)}
+.xi-app::after{left:14px;right:14px;top:14px;border:1px solid var(--gold);bottom:calc(var(--navh) + env(safe-area-inset-bottom,0px) + 14px)}
 /* The engine's own bottom nav is retired — the shared React <XiNavBar/> replaces it. */
 .xi-app .botnav,.xi-app .navhandle{display:none!important}
 /* Tiny build stamp so you can tell a deployed version from a cached one. */
@@ -23,7 +29,12 @@
 .xi-genbtn{position:fixed;z-index:9550;left:50%;transform:translateX(-50%);bottom:72px;font-family:'EB Garamond',Georgia,serif;font-variant:small-caps;letter-spacing:.05em;font-size:.9rem;padding:9px 18px;background:#241d18;color:#fdf7ec;border:1px solid #241d18;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.28);cursor:pointer}
 .xi-genbtn:active{transform:translateX(-50%) scale(.98)}
 
-.xi-app{--bg:#F1E9D8;--paper:#FBF7EC;--ink:#241d18;--soft:#6b5d4f;--maroon:#241d18;--maroon-d:#000;--gold:#b08c36;--line:#d8ccb2;--sepia:#7a5a36}
+/* The 2a palette. Retuned in place rather than added alongside, so every XI
+   screen picks the new identity up through the variables it already uses; only
+   Today's LAYOUT is rebuilt below. --line is the light outline the redesign puts
+   on everything (explicit note: outlines are never black). --navh keeps the
+   frame and the scroll padding in step with the bottom nav's real height. */
+.xi-app{--bg:#f8f1e3;--paper:#fffdf6;--ink:#191411;--soft:#6b5d4f;--maroon:#191411;--maroon-d:#000;--gold:#b08c36;--line:#d9c9a6;--sepia:#7a5a36;--oxblood:#6e1423;--navgold:#e5b84b;--navh:44px}
 .xi-app *{box-sizing:border-box}
 .xi-app,.xi-app{margin:0}
 .xi-app{background:var(--bg);color:var(--ink);font-family:'EB Garamond',Georgia,serif;font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
@@ -275,3 +286,71 @@ button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .xi-app .botnav button{display:flex;flex-direction:column;align-items:center;gap:3px}
 .xi-app .botnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .xi-app .botnav .nlab{font-size:.58rem;font-variant:small-caps;letter-spacing:.04em}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   THE 2a TODAY SCREEN — "deco tarot, refined"
+   The redesign direction Sophie settled on (design/xi-redesign, option 2a,
+   after three rounds of her notes). Scoped to the masthead, #screen-today and
+   #cardSlot: the other screens take the palette above but keep their layout
+   until their own directions are picked.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Masthead — wide-tracked Marcellus XI over a gilt rule broken by an oxblood
+   lozenge. Centred, with the Curate deck toggles dropping underneath. */
+.xi-app .xi-brand{flex-direction:column;justify-content:center;gap:6px;padding-top:26px}
+.xi-app .logo{flex-direction:column;align-items:center;gap:6px}
+.xi-app .logo-xi{font-family:Marcellus,Georgia,serif;font-size:30px;line-height:1;letter-spacing:.42em;text-indent:.42em;color:var(--ink)}
+.xi-app .logo-rule{display:flex;align-items:center;justify-content:center;gap:10px}
+.xi-app .logo-rule i{display:block;width:54px;height:1px;background:var(--gold)}
+.xi-app .logo-rule b{display:block;width:6px;height:6px;background:var(--oxblood);transform:rotate(45deg)}
+.xi-app .brand-toggles{flex:none;width:100%}
+
+/* Today header — CARD OF THE DAY in oxblood Marcellus, the date italic beneath.
+   The ‹ › arrows stay (they browse past days) but read as quiet gilt marks. */
+.xi-app .today-head{margin-bottom:14px}
+.xi-app .day-nav{gap:14px;margin-top:12px}
+.xi-app .day-title{font-family:Marcellus,Georgia,serif;font-size:12px;letter-spacing:.3em;text-indent:.3em;color:var(--oxblood)}
+.xi-app .day-arrow{font-size:22px;padding:0 2px 3px;color:var(--gold);opacity:.75}
+.xi-app .day-arrow:disabled{opacity:.25}
+.xi-app .day-date{text-align:center;font-style:italic;font-size:14.5px;color:rgba(25,20,17,.55);margin-top:2px}
+
+/* The card pair — tilted ±2.5°, kept in their double frame: light outline
+   outside, gilt line inside, and one hard offset shadow each (oxblood left,
+   gilt right). No EVENT/TWIST labels and no prompt sentence repeated below. */
+.xi-app #cardSlot .cardrow{gap:14px;margin:26px 12px 0;padding:6px 0 10px;align-items:center}
+/* The widths above are cut for the base 10px gap; this row opens it to 14, so
+   each card has to give back the extra or the pair wraps to two lines. */
+.xi-app #cardSlot .cardrow[data-n="2"] .card,.xi-app #cardSlot .cardrow[data-n="4"] .card{flex:0 0 calc(50% - 7px)}
+.xi-app #cardSlot .cardrow[data-n="3"] .card{flex:0 0 calc(33.333% - 9.34px)}
+.xi-app #cardSlot .cardrow .card{background:var(--paper);border:1px solid var(--line);padding:6px;border-radius:0;margin:0}
+.xi-app #cardSlot .cardrow .card:nth-child(odd){transform:rotate(-2.5deg);box-shadow:4px 4px 0 var(--oxblood)}
+.xi-app #cardSlot .cardrow .card:nth-child(even){transform:rotate(2.5deg);box-shadow:4px 4px 0 var(--gold)}
+.xi-app #cardSlot .cardrow .card img{border:1px solid var(--gold);border-radius:0}
+.xi-app #cardSlot .cardrow .cardback{color:var(--soft)}
+
+/* redraw · nothing — quiet italic links. No borders, no underlines. */
+.xi-app .redraw-row{gap:22px;margin-top:18px;min-height:22px}
+.xi-app .redraw,.xi-app .nothing{font-family:inherit;font-style:italic;font-size:14px;letter-spacing:0;color:rgba(25,20,17,.45);background:none;border:none;border-radius:0;padding:2px 4px;margin:0;cursor:pointer;text-decoration:none;font-variant:normal}
+.xi-app .redraw:hover,.xi-app .nothing:hover{background:none;color:var(--ink)}
+
+/* The fill bar, above the write box — gilt on the card surface, five ticks. */
+.xi-app .piggy{height:9px;margin:18px 0 0;background:var(--paper);border:1px solid var(--gold);border-radius:5px}
+.xi-app .piggy-fill{background:var(--gold)}
+.xi-app .piggy i{background:rgba(25,20,17,.25)}
+
+/* The write box and its lowercase italic save. */
+.xi-app #cardSlot .composer{margin-top:10px;background:var(--paper);border:1px solid var(--line);padding:13px 15px}
+.xi-app #cardSlot .composer textarea{min-height:72px;margin:0;padding:0;background:none;border:none;border-radius:0;font-size:16.5px;resize:none}
+.xi-app #cardSlot .composer textarea:focus{outline:none;box-shadow:none;border:none}
+.xi-app #cardSlot .composer textarea::placeholder{font-style:italic;color:rgba(25,20,17,.4)}
+.xi-app #cardSlot .composer-row{justify-content:flex-end;margin-top:24px}
+.xi-app #cardSlot .composer .btn.small{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-variant:normal;font-size:15.5px;letter-spacing:.06em;padding:7px 22px;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:0}
+.xi-app #cardSlot .composer .btn.small:hover{background:#000;color:var(--bg)}
+
+/* Collected — a ruled oxblood label, then each memory straight on its own
+   light-outlined card. No tilt, no shadow. */
+.xi-app .today-mems{margin:22px 0 0}
+.xi-app .today-mems .memhead{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.xi-app .today-mems .memhead span{font-family:Marcellus,Georgia,serif;font-size:10px;letter-spacing:.24em;color:var(--oxblood)}
+.xi-app .today-mems .memhead i{flex:1;height:1px;background:var(--gold)}
+.xi-app .today-mems .mem{background:var(--paper);border:1px solid var(--line);border-radius:0;box-shadow:none;transform:none;padding:12px 14px;margin:0 0 12px;font-size:16px;line-height:1.45}
