@@ -12,6 +12,7 @@ struct CardArt: View {
     var capSize: CGFloat = 10     // caption fallback font size
     var pad: CGFloat = 2          // art inset from the card edge
     var blend: Bool = true        // multiply the line art over the cream/white tint
+    var capFont: Font? = nil      // override the fallback font (Today's deco text-card look)
 
     @State private var image: UIImage?
 
@@ -27,7 +28,7 @@ struct CardArt: View {
                 // Caption while loading / if the art never comes — a card always
                 // says what it is.
                 Text(card.cap)
-                    .font(.system(size: capSize, design: .serif))
+                    .font(capFont ?? .system(size: capSize, design: .serif))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(XITheme.ink)
                     .padding(4)

@@ -10,6 +10,15 @@
 	     with it. Nothing is sent anywhere to be transcribed. -->
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>So the words show up as you tell your story, right on your phone.</string>
+	<!-- The 2a redesign's two families (design/xi-redesign): Marcellus for the
+	     letterspaced small caps, EB Garamond for everything set in words.
+	     Bundled from Google Fonts (OFL) in Resources/Fonts. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Marcellus-Regular.ttf</string>
+		<string>EBGaramond.ttf</string>
+		<string>EBGaramond-Italic.ttf</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

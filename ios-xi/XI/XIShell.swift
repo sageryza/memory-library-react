@@ -31,19 +31,36 @@ struct XIShell: View {
     @ObservedObject private var deepLink = XIDeepLink.shared
 
     var body: some View {
-        // The nav is a real LAYOUT SIBLING below the screens, not a
-        // safeAreaInset: an inset added outside each screen's NavigationStack
-        // doesn't reliably reach the content inside it, so screens laid
-        // themselves out to the SCREEN bottom and slid behind the (opaque)
-        // bar — the Library's filter dropdown "stopping above the nav" kept
-        // measuring from the wrong bottom. As a sibling, every screen's
-        // height ends exactly at the bar's top, no propagation involved.
-        VStack(spacing: 0) {
-            screen
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            XiNavBar(selection: $tab)
+        Group {
+            if tab == .today {
+                // Today wears the 2a redesign (design/xi-redesign): its double
+                // frame runs the full height of the screen and the ink nav
+                // FLOATS over it, inset 11pt from the edges, exactly like the
+                // artboard. So on this tab the nav is an overlay, not a
+                // sibling — the frame's lines pass beneath the bar.
+                ZStack(alignment: .bottom) {
+                    TodayView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    nav
+                }
+                .background(XiDeco.cream.ignoresSafeArea())
+            } else {
+                // Everywhere else the nav is a real LAYOUT SIBLING below the
+                // screens, not a safeAreaInset: an inset added outside each
+                // screen's NavigationStack doesn't reliably reach the content
+                // inside it, so screens laid themselves out to the SCREEN
+                // bottom and slid behind the (opaque) bar — the Library's
+                // filter dropdown "stopping above the nav" kept measuring from
+                // the wrong bottom. As a sibling, every screen's height ends
+                // exactly at the bar's top, no propagation involved.
+                VStack(spacing: 0) {
+                    screen
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    nav
+                }
+                .background(XITheme.paper.ignoresSafeArea())
+            }
         }
-        .background(XITheme.paper.ignoresSafeArea())
         // Ignoring the keyboard's safe area keeps the bar bolted to the
         // bottom of the screen: the keyboard slides OVER it rather than
         // pushing it up.
@@ -62,6 +79,14 @@ struct XIShell: View {
                 if deepLink.pendingShareId != nil { tab = .library }
                 if deepLink.pendingVersusGameId != nil { tab = .versus }
             }
+    }
+
+    /// The 2a nav's floating margins — the artboard puts the bar at
+    /// left/right/bottom 11 (the bottom 11 lands above the home indicator).
+    private var nav: some View {
+        XiNavBar(selection: $tab)
+            .padding(.horizontal, 11)
+            .padding(.bottom, 11)
     }
 
     @ViewBuilder
