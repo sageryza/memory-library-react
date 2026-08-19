@@ -4,13 +4,16 @@ import SwiftUI
 /// with a composer to write one memory that is both of them.
 ///
 /// The screen is the settled "2a" direction from design/xi-redesign ("deco
-/// tarot, refined"), ported exactly from the Claude Design artboard: cream
-/// page inside a double frame, Marcellus masthead over a gilt rule broken by
-/// an oxblood lozenge, the day's pair tilted ±2.5° with hard offset shadows
-/// (oxblood left, gilt right), redraw/nothing as quiet italic links, the gilt
+/// tarot, refined"), ported from the Claude Design artboard: cream page inside
+/// a double frame, Marcellus masthead over a rule broken by a small lozenge,
+/// the day's pair tilted ±2.5°, redraw/nothing as quiet italic links, the gold
 /// fill bar above the write box, lowercase italic save on ink, and collected
-/// memories straight on their own light-outlined cards. Values come from the
-/// artboard, not from the old screen — see XiDeco in XITheme.swift.
+/// memories straight on their own light-outlined cards.
+///
+/// Three things came off the artboard afterwards, at Sophie's ask (Aug 2026):
+/// the pair's hard offset shadows, and the gold + oxblood accents — black and
+/// gray in their place, with the fill bar the one thing left gold. The nav is
+/// the app's own bar again, untouched. See XiDeco in XITheme.swift.
 struct TodayView: View {
     @ObservedObject private var curate = CurateStore.shared
 
@@ -41,7 +44,7 @@ struct TodayView: View {
 
     /// Pairs marked "nothing" (the design's quiet second link; the web app
     /// keeps the same record as xi2_misses). Toggling it turns the pair's
-    /// inner card lines oxblood — the web marks a miss the same way.
+    /// inner card lines black — the web marks a miss the same way.
     @State private var missed: Set<String> =
         Set(UserDefaults.standard.stringArray(forKey: "xi_missedPairs") ?? [])
 
@@ -80,11 +83,11 @@ struct TodayView: View {
             }
             // The artboard's 30px page margins.
             .padding(.horizontal, 30)
-            // The nav floats over this screen, so content always clears it;
-            // while writing, pad by the keyboard instead (the shell pins the
-            // nav by ignoring the keyboard's safe area, so avoidance is
-            // manual here) and scroll the composer up above it.
-            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 84)
+            // The nav is a sibling below this screen, so the page already ends
+            // above it; while writing, pad by the keyboard instead (the shell
+            // pins the nav by ignoring the keyboard's safe area, so avoidance
+            // is manual here) and scroll the composer up above it.
+            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 30)
             .frame(maxWidth: .infinity)
         }
         .onChange(of: kb.height) { h in
@@ -95,14 +98,15 @@ struct TodayView: View {
         }
         .background(XiDeco.cream.ignoresSafeArea())
         // The 2a double frame — fixed chrome the page scrolls beneath:
-        // 1.5px light at inset 10, 1px gilt at inset 14.
+        // 1.5px light at inset 10, 1px at inset 14 (gilt on the artboard, gray
+        // since the accents came off).
         .overlay(
             ZStack {
                 RoundedRectangle(cornerRadius: 2)
                     .strokeBorder(XiDeco.lightLine, lineWidth: 1.5)
                     .padding(10)
                 RoundedRectangle(cornerRadius: 2)
-                    .strokeBorder(XiDeco.gilt, lineWidth: 1)
+                    .strokeBorder(XiDeco.rule, lineWidth: 1)
                     .padding(14)
             }
             .allowsHitTesting(false)
@@ -125,7 +129,7 @@ struct TodayView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { writing = false }
-                    .font(.system(.body, design: .serif)).tint(XiDeco.gilt)
+                    .font(.system(.body, design: .serif)).tint(XiDeco.ink)
             }
         }
         .task { startIfNeeded(); await loadTotal() }
@@ -161,8 +165,8 @@ struct TodayView: View {
 
     // MARK: masthead + header
 
-    /// XI in wide-tracked Marcellus over a gilt rule broken by an oxblood
-    /// lozenge — the artboard's masthead. Tracking adds a trailing space per
+    /// XI in wide-tracked Marcellus over a rule broken by a small lozenge —
+    /// the artboard's masthead, in the neutral accents. Tracking adds a trailing space per
     /// glyph, so the leading padding recenters it (the CSS text-indent trick).
     private var masthead: some View {
         VStack(spacing: 0) {
@@ -172,10 +176,10 @@ struct TodayView: View {
                 .padding(.leading, 12.6)
                 .foregroundStyle(XiDeco.ink)
             HStack(spacing: 10) {
-                Rectangle().fill(XiDeco.gilt).frame(width: 54, height: 1)
-                Rectangle().fill(XiDeco.oxblood).frame(width: 6, height: 6)
+                Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
+                Rectangle().fill(XiDeco.mark).frame(width: 6, height: 6)
                     .rotationEffect(.degrees(45))
-                Rectangle().fill(XiDeco.gilt).frame(width: 54, height: 1)
+                Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
             }
             .padding(.top, 6)
         }
@@ -189,7 +193,7 @@ struct TodayView: View {
                 .font(XiDeco.marcellus(12))
                 .tracking(3.6)
                 .padding(.leading, 3.6)
-                .foregroundStyle(XiDeco.oxblood)
+                .foregroundStyle(XiDeco.mark)
                 .padding(.top, 12)
             Text(Date.now, format: .dateTime.month(.wide).day())
                 .font(XiDeco.garamondItalic(14.5))
@@ -203,8 +207,8 @@ struct TodayView: View {
 
     private var cardRow: some View {
         HStack(alignment: .center, spacing: 14) {
-            DecoTodayCard(card: event, tilt: -2.5, shadow: XiDeco.oxblood, missed: isMissed)
-            DecoTodayCard(card: twist, tilt: 2.5, shadow: XiDeco.gilt, missed: isMissed)
+            DecoTodayCard(card: event, tilt: -2.5, missed: isMissed)
+            DecoTodayCard(card: twist, tilt: 2.5, missed: isMissed)
         }
         .padding(.top, 26)
     }
@@ -221,7 +225,7 @@ struct TodayView: View {
             Button { toggleNothing() } label: {
                 Text("nothing")
                     .font(XiDeco.garamondItalic(14))
-                    .foregroundStyle(isMissed ? XiDeco.oxblood : XiDeco.ink.opacity(0.45))
+                    .foregroundStyle(isMissed ? XiDeco.mark : XiDeco.ink.opacity(0.45))
             }
         }
         .buttonStyle(.plain)
@@ -231,8 +235,9 @@ struct TodayView: View {
 
     // MARK: fill bar
 
-    /// The gilt fill bar (not diamonds) above the write box — five ticks, the
-    /// fill is the day's collected count out of five.
+    /// The gold fill bar (not diamonds) above the write box — five ticks, the
+    /// fill is the day's collected count out of five. The ONE element that
+    /// keeps its gilt: "keep the gold progress bar tho" (Sophie, Aug 2026).
     private var fillBar: some View {
         let goal = 5
         let frac = min(1.0, Double(totalCount) / Double(goal))
@@ -305,7 +310,7 @@ struct TodayView: View {
                 ShareToggleRow(isOn: $shareThisOne)
             }
             if let saveError {
-                Text(saveError).font(XiDeco.garamondItalic(13)).foregroundStyle(XiDeco.oxblood)
+                Text(saveError).font(XiDeco.garamondItalic(13)).foregroundStyle(XiDeco.ink)
             }
         }
         .padding(.top, 10)
@@ -320,8 +325,8 @@ struct TodayView: View {
                 HStack(spacing: 8) {
                     Text("COLLECTED")
                         .font(XiDeco.marcellus(10)).tracking(2.4)
-                        .foregroundStyle(XiDeco.oxblood)
-                    Rectangle().fill(XiDeco.gilt).frame(height: 1)
+                        .foregroundStyle(XiDeco.mark)
+                    Rectangle().fill(XiDeco.rule).frame(height: 1)
                 }
                 .padding(.bottom, 11)
                 VStack(alignment: .leading, spacing: 12) {
@@ -524,32 +529,31 @@ struct TodayView: View {
     }
 }
 
-/// One of the day's pair, exactly as the 2a artboard draws it: a tilted plate
-/// of card surface with a light outline, a hard offset shadow (oxblood on the
-/// left card, gilt on the right), and the art inside its own gilt line. While
-/// the art loads — or if it never comes — the caption shows in the artboard's
-/// text-card style. When the pair is marked "nothing", the inner line turns
-/// oxblood.
+/// One of the day's pair: a tilted plate of card surface with a light outline,
+/// the picture inside its own hairline. No drop shadow (Sophie took the
+/// oxblood/gilt pair off) and the hairline is gray rather than gilt.
+///
+/// `trimFrame` is what keeps that hairline the ONLY line around the picture:
+/// the card images each carry their own printed rule, which otherwise stacks a
+/// third border inside the plate. While the art loads — or if it never comes —
+/// the caption shows in the artboard's text-card style. When the pair is marked
+/// "nothing", the hairline goes full black.
 private struct DecoTodayCard: View {
     let card: XICard
     let tilt: Double
-    let shadow: Color
     let missed: Bool
 
     var body: some View {
         ZStack {
-            Rectangle().fill(shadow).offset(x: 4, y: 4)
-            ZStack {
-                XiDeco.surface
-                CardArt(card: card, capSize: 15, pad: 2,
-                        capFont: .custom("HelveticaNeue-Bold", fixedSize: 15))
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .overlay(Rectangle().strokeBorder(missed ? XiDeco.oxblood : XiDeco.gilt, lineWidth: 1))
-            .padding(6)
-            .background(XiDeco.surface)
-            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
+            XiDeco.surface
+            CardArt(card: card, capSize: 15, pad: 2,
+                    capFont: .custom("HelveticaNeue-Bold", fixedSize: 15), trimFrame: true)
         }
+        .aspectRatio(1, contentMode: .fit)
+        .overlay(Rectangle().strokeBorder(missed ? XiDeco.mark : XiDeco.cardLine, lineWidth: 1))
+        .padding(6)
+        .background(XiDeco.surface)
+        .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
         .rotationEffect(.degrees(tilt))
     }
 }
