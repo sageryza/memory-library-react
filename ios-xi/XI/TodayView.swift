@@ -1,27 +1,24 @@
 import SwiftUI
 
 /// "Card of the Day" — two cards (one event + one twist) drawn from the deck,
-/// with a composer to write one memory that is both of them. Mirrors the web
-/// `renderToday()`: New cards shuffles the pair, and memories already written
-/// for this exact pairing collect below.
+/// with a composer to write one memory that is both of them.
+///
+/// The screen is the settled "2a" direction from design/xi-redesign ("deco
+/// tarot, refined"), ported exactly from the Claude Design artboard: cream
+/// page inside a double frame, Marcellus masthead over a gilt rule broken by
+/// an oxblood lozenge, the day's pair tilted ±2.5° with hard offset shadows
+/// (oxblood left, gilt right), redraw/nothing as quiet italic links, the gilt
+/// fill bar above the write box, lowercase italic save on ink, and collected
+/// memories straight on their own light-outlined cards. Values come from the
+/// artboard, not from the old screen — see XiDeco in XITheme.swift.
 struct TodayView: View {
-    private let sepia = Color(red: 0.478, green: 0.353, blue: 0.212)   // #7A5A36
-    private let soft = Color(red: 0.420, green: 0.365, blue: 0.306)    // #6B5D4F
-    private let nothingRed = Color(red: 0.753, green: 0.224, blue: 0.169) // #c0392b
-    private let mauve = Color(red: 0.616, green: 0.420, blue: 0.478)   // lighter maroon / mauve #9D6C7A
-
     @ObservedObject private var curate = CurateStore.shared
 
-    /// Full-pool indices. The daily pair — like the Board of the Day, redraws,
-    /// and new Versus games — honors your Curate picks: the deterministic walk
-    /// draws only from the decks/cards you've kept, so curating shapes the
-    /// whole app (set midjourney-only → everything is midjourney).
+    /// Full-pool indices. The daily pair — like redraws and new Versus games —
+    /// honors your Curate picks: the deterministic walk draws only from the
+    /// decks/cards you've kept, so curating shapes the whole app.
     @State private var ev = 0
     @State private var tw = 0
-    @State private var hist: [(Int, Int)] = []
-    /// Which day's pair is showing — ‹ › browse past days like Board of the Day.
-    @State private var viewDay = BoardEngine.dayNumber()
-    private var isToday: Bool { viewDay == BoardEngine.dayNumber() }
 
     @State private var text = ""
     @State private var saving = false
@@ -42,11 +39,18 @@ struct TodayView: View {
     @State private var realOthers: [XIService.PublicOther] = []
     @State private var reportingOther: XIService.PublicOther?
 
-    private var event: XICard { isToday ? XIDeck.events[min(max(0, ev), XIDeck.events.count - 1)] : pairForDay(viewDay).0 }
-    private var twist: XICard { isToday ? XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] : pairForDay(viewDay).1 }
-    private var pairKey: String { "\(event.id)__\(twist.id)" }
+    /// Pairs marked "nothing" (the design's quiet second link; the web app
+    /// keeps the same record as xi2_misses). Toggling it turns the pair's
+    /// inner card lines oxblood — the web marks a miss the same way.
+    @State private var missed: Set<String> =
+        Set(UserDefaults.standard.stringArray(forKey: "xi_missedPairs") ?? [])
 
-    /// A day's pair: the event is THE card of the day — one shared card,
+    private var event: XICard { XIDeck.events[min(max(0, ev), XIDeck.events.count - 1)] }
+    private var twist: XICard { XIDeck.twists[min(max(0, tw), XIDeck.twists.count - 1)] }
+    private var pairKey: String { "\(event.id)__\(twist.id)" }
+    private var isMissed: Bool { missed.contains(pairKey) }
+
+    /// The day's pair: the event is THE card of the day — one shared card,
     /// identical for everyone in the world (XIDeck.anchorIndex), untouched by
     /// personal curation. The twist walks YOUR curated pool backward from the
     /// end, falling back to the full non-retired pool if curation emptied it.
@@ -59,32 +63,28 @@ struct TodayView: View {
         return (ei, ti)
     }
 
-    /// Deterministic daily pairing, honoring curation.
-    private func pairForDay(_ dn: Int) -> (XICard, XICard) {
-        let (ei, ti) = dayPairIndices(dn)
-        return (XIDeck.events[ei], XIDeck.twists[ti])
-    }
-
     @ObservedObject private var kb = KeyboardHeight.shared
 
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                masthead
                 header
                 cardRow
-                if isToday { piggyBar }
+                redrawRow
+                fillBar
                 composer.id("composer")
                 collected
                 others
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            // The shell pins the nav by ignoring the keyboard's safe area, so
-            // avoidance is manual here: pad by the keyboard height and scroll
-            // the composer up above it while writing.
-            .padding(.bottom, kb.height)
-            .frame(maxWidth: 560)
+            // The artboard's 30px page margins.
+            .padding(.horizontal, 30)
+            // The nav floats over this screen, so content always clears it;
+            // while writing, pad by the keyboard instead (the shell pins the
+            // nav by ignoring the keyboard's safe area, so avoidance is
+            // manual here) and scroll the composer up above it.
+            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 84)
             .frame(maxWidth: .infinity)
         }
         .onChange(of: kb.height) { h in
@@ -93,14 +93,31 @@ struct TodayView: View {
             }
         }
         }
-        .background(XITheme.paper.ignoresSafeArea())
+        .background(XiDeco.cream.ignoresSafeArea())
+        // The 2a double frame — fixed chrome the page scrolls beneath:
+        // 1.5px light at inset 10, 1px gilt at inset 14.
+        .overlay(
+            ZStack {
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(XiDeco.lightLine, lineWidth: 1.5)
+                    .padding(10)
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(XiDeco.gilt, lineWidth: 1)
+                    .padding(14)
+            }
+            .allowsHitTesting(false)
+        )
         // Tapping anywhere outside the text box dismisses the keyboard.
         .onTapGesture { writing = false }
+        // Settings must stay reachable (account deletion lives there — an App
+        // Store requirement), so the gear stays: the one thing on the screen
+        // the artboard doesn't draw, kept as quiet as the redraw links.
         .overlay(alignment: .topTrailing) {
             Button { showSettings = true } label: {
-                Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(soft)
+                Image(systemName: "gearshape").font(.system(size: 17))
+                    .foregroundStyle(XiDeco.ink.opacity(0.35))
             }
-            .padding(.top, 20).padding(.trailing, 18)
+            .padding(.top, 26).padding(.trailing, 26)
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .scrollDismissesKeyboard(.interactively)
@@ -108,7 +125,7 @@ struct TodayView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { writing = false }
-                    .font(.system(.body, design: .serif)).tint(XITheme.gold)
+                    .font(.system(.body, design: .serif)).tint(XiDeco.gilt)
             }
         }
         .task { startIfNeeded(); await loadTotal() }
@@ -142,105 +159,103 @@ struct TodayView: View {
         }
     }
 
-    // MARK: header
+    // MARK: masthead + header
 
-    /// Title row with ‹ › day arrows (same pattern as Board of the Day); the
-    /// redraw/undo controls sit on a row beneath, today only. The floating gear
-    /// lives top-right (see the overlay).
-    private var header: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 14) {
-                // No lower bound past day 1; arrows never wipe in-progress text.
-                Button { viewDay -= 1 } label: { Image(systemName: "chevron.left") }
-                    .disabled(viewDay <= 1)
-                Text("CARD OF THE DAY")
-                    .font(.system(.footnote, design: .monospaced)).foregroundStyle(XITheme.navInk)
-                Button { if !isToday { viewDay += 1 } } label: { Image(systemName: "chevron.right") }
-                    .disabled(isToday)
+    /// XI in wide-tracked Marcellus over a gilt rule broken by an oxblood
+    /// lozenge — the artboard's masthead. Tracking adds a trailing space per
+    /// glyph, so the leading padding recenters it (the CSS text-indent trick).
+    private var masthead: some View {
+        VStack(spacing: 0) {
+            Text("XI")
+                .font(XiDeco.marcellus(30))
+                .tracking(12.6)
+                .padding(.leading, 12.6)
+                .foregroundStyle(XiDeco.ink)
+            HStack(spacing: 10) {
+                Rectangle().fill(XiDeco.gilt).frame(width: 54, height: 1)
+                Rectangle().fill(XiDeco.oxblood).frame(width: 6, height: 6)
+                    .rotationEffect(.degrees(45))
+                Rectangle().fill(XiDeco.gilt).frame(width: 54, height: 1)
             }
-            .font(.system(.subheadline))
-            .tint(XITheme.gold)
-            .frame(maxWidth: .infinity)
-            if isToday {
-                HStack(spacing: 10) {
-                    if !hist.isEmpty {
-                        Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                            .foregroundStyle(soft)
-                    }
-                    Spacer()
-                    redrawButton
-                    Spacer()
-                    Color.clear.frame(width: hist.isEmpty ? 0 : 22, height: 1)
-                }
-            } else {
-                // Past days have no redraw row, so the cards rise into the
-                // floating gear's corner — keep the same clearance it gave.
-                Color.clear.frame(height: 16)
-            }
+            .padding(.top, 6)
         }
-        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 32)
     }
 
-    private var redrawButton: some View {
-        Button { newCards() } label: {
-            Text("redraw")
-                .font(.system(size: 13, design: .serif)).tracking(0.6)
-                .foregroundStyle(XITheme.ink)
-                .padding(.vertical, 6).padding(.horizontal, 14)
-                .background(
-                    LinearGradient(colors: [Color(red: 0.984, green: 0.953, blue: 0.878),
-                                            Color(red: 0.949, green: 0.878, blue: 0.729)],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sepia, lineWidth: 1))
+    private var header: some View {
+        VStack(spacing: 0) {
+            Text("CARD OF THE DAY")
+                .font(XiDeco.marcellus(12))
+                .tracking(3.6)
+                .padding(.leading, 3.6)
+                .foregroundStyle(XiDeco.oxblood)
+                .padding(.top, 12)
+            Text(Date.now, format: .dateTime.month(.wide).day())
+                .font(XiDeco.garamondItalic(14.5))
+                .foregroundStyle(XiDeco.ink.opacity(0.55))
+                .padding(.top, 2)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: cards
 
     private var cardRow: some View {
-        HStack(spacing: 10) {
-            TodayCard(card: event, isEvent: true)
-            TodayCard(card: twist, isEvent: false)
+        HStack(alignment: .center, spacing: 14) {
+            DecoTodayCard(card: event, tilt: -2.5, shadow: XiDeco.oxblood, missed: isMissed)
+            DecoTodayCard(card: twist, tilt: 2.5, shadow: XiDeco.gilt, missed: isMissed)
         }
+        .padding(.top, 26)
     }
 
-    // MARK: piggy bank
+    /// redraw / nothing — quiet italic links, no borders, no underlines
+    /// (explicit design note). "nothing" toggles the pair's miss mark.
+    private var redrawRow: some View {
+        HStack(spacing: 22) {
+            Button { newCards() } label: {
+                Text("redraw")
+                    .font(XiDeco.garamondItalic(14))
+                    .foregroundStyle(XiDeco.ink.opacity(0.45))
+            }
+            Button { toggleNothing() } label: {
+                Text("nothing")
+                    .font(XiDeco.garamondItalic(14))
+                    .foregroundStyle(isMissed ? XiDeco.oxblood : XiDeco.ink.opacity(0.45))
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 18)
+    }
 
-    /// The piggy-bank bar: a golden thermometer that fills as you collect
-    /// memories today — full at five. It sits under the cards and above the
-    /// text box so it's visible while you type.
-    private var piggyBar: some View {
+    // MARK: fill bar
+
+    /// The gilt fill bar (not diamonds) above the write box — five ticks, the
+    /// fill is the day's collected count out of five.
+    private var fillBar: some View {
         let goal = 5
         let frac = min(1.0, Double(totalCount) / Double(goal))
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 5).fill(XITheme.white)
                 // Always a sliver of gold at the very left, even at zero — the
                 // bar should show what it's going to do before you fill it.
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(LinearGradient(colors: [Color(red: 0.949, green: 0.800, blue: 0.451),
-                                                  Color(red: 0.788, green: 0.596, blue: 0.196)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .frame(width: max(7, geo.size.width * frac))
-                    .shadow(color: frac >= 1 ? XITheme.gold.opacity(0.6) : .clear, radius: 4)
-                // Thermometer ticks at each memory mark, so the five stops you're
-                // working toward are visible from the start. Drawn at explicit
-                // x positions (a Spacer-based HStack rendered too faint to
-                // read) and dark enough to show over both track and fill.
+                Rectangle().fill(XiDeco.gilt)
+                    .frame(width: max(5, geo.size.width * frac))
                 ForEach(1..<goal, id: \.self) { k in
-                    Rectangle()
-                        .fill(XITheme.ink.opacity(0.28))
+                    Rectangle().fill(XiDeco.ink.opacity(0.25))
                         .frame(width: 1)
                         .offset(x: geo.size.width * (Double(k) / Double(goal)) - 0.5)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 10)
-        .overlay(RoundedRectangle(cornerRadius: 5).stroke(XITheme.line, lineWidth: 0.5))
+        .frame(height: 9)
+        .background(XiDeco.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(XiDeco.gilt, lineWidth: 1))
         .animation(.easeOut(duration: 0.5), value: totalCount)
-        .padding(.top, 12)
+        .padding(.top, 18)
         .accessibilityLabel("\(min(totalCount, goal)) of \(goal) memories collected today")
     }
 
@@ -248,66 +263,52 @@ struct TodayView: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text("A memory that's both of these…")
-                        .font(.system(size: 16, design: .serif)).foregroundStyle(soft.opacity(0.7))
-                        .padding(.horizontal, 14).padding(.vertical, 14)
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Write the memory…")
+                            .font(XiDeco.garamondItalic(16.5))
+                            .foregroundStyle(XiDeco.ink.opacity(0.4))
+                            .padding(.horizontal, 15).padding(.top, 13)
+                    }
+                    // Fixed height so the editor scrolls INTERNALLY as you
+                    // type — the caret always stays visible instead of the box
+                    // growing past the bottom of the screen. (TextEditor adds
+                    // ~5pt/8pt of its own insets; the paddings land the text
+                    // on the artboard's 13px/15px.)
+                    TextEditor(text: $text)
+                        .focused($writing)
+                        .font(XiDeco.garamond(16.5)).foregroundStyle(XiDeco.ink)
+                        .frame(height: 66)
+                        .scrollContentBackground(.hidden)
+                        .padding(.horizontal, 10).padding(.top, 5)
                 }
-                // Fixed height so the editor scrolls INTERNALLY as you type —
-                // the caret always stays visible instead of the box growing
-                // past the bottom of the screen.
-                TextEditor(text: $text)
-                    .focused($writing)
-                    .font(.system(size: 16, design: .serif)).foregroundStyle(XITheme.ink)
-                    .frame(height: 120)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 9).padding(.vertical, 6)
+                HStack {
+                    Spacer()
+                    Button { Task { await save() } } label: {
+                        Text(saving ? "saving…" : "save")
+                            .font(XiDeco.garamondItalic(15.5))
+                            .tracking(0.93)
+                            .foregroundStyle(XiDeco.cream)
+                            .padding(.vertical, 7).padding(.horizontal, 22)
+                            .background(XiDeco.ink)
+                    }
+                    .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                }
+                .padding(.trailing, 15).padding(.bottom, 13)
             }
-            .background(XITheme.white)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(writing ? XITheme.gold : soft.opacity(0.7), lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .background(XiDeco.surface)
+            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
 
             if sharePrefs.mode == .ask {
                 ShareToggleRow(isOn: $shareThisOne)
             }
-            HStack(alignment: .center, spacing: 10) {
-                // Never says zero: before your first memory of the day it shows
-                // just the day's overall count; after, "1 memory collected / N".
-                Group {
-                    if totalCount == 0 {
-                        Text("\(XIRobots.othersCollectedToday(day: BoardEngine.dayNumber())) memories collected")
-                            .foregroundStyle(mauve)
-                    } else {
-                        HStack(spacing: 4) {
-                            Text("\(totalCount) \(totalCount == 1 ? "memory" : "memories") collected")
-                                .foregroundStyle(soft)
-                            Text("/ \(totalCount + XIRobots.othersCollectedToday(day: BoardEngine.dayNumber()))")
-                                .foregroundStyle(mauve)
-                        }
-                    }
-                }
-                .font(.system(size: 13, design: .serif).italic())
-                Spacer()
-                Button { Task { await save() } } label: {
-                    // The original quiet save — ink on paper with a thin ink
-                    // outline (reverted from gold/white at her request).
-                    Text(saving ? "Saving…" : "Save")
-                        .font(.system(size: 15, design: .serif)).tracking(0.5)
-                        .foregroundStyle(XITheme.ink)
-                        .padding(.vertical, 8).padding(.horizontal, 20)
-                        .background(XITheme.paper)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.ink, lineWidth: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
-            }
             if let saveError {
-                Text(saveError).font(.footnote).foregroundStyle(.red)
+                Text(saveError).font(XiDeco.garamondItalic(13)).foregroundStyle(XiDeco.oxblood)
             }
         }
-        .padding(.top, 12)
+        .padding(.top, 10)
     }
 
     // MARK: collected
@@ -315,21 +316,37 @@ struct TodayView: View {
     @ViewBuilder
     private var collected: some View {
         if !memories.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(memories) { m in
-                    Text(m.content)
-                        .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 13).padding(.vertical, 11)
-                        .background(XITheme.white)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text("COLLECTED")
+                        .font(XiDeco.marcellus(10)).tracking(2.4)
+                        .foregroundStyle(XiDeco.oxblood)
+                    Rectangle().fill(XiDeco.gilt).frame(height: 1)
+                }
+                .padding(.bottom, 11)
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(memories) { m in
+                        memoryCard {
+                            Text(m.content).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
             }
-            .padding(.top, 12)
-            .padding(.bottom, 30)
+            .padding(.top, 22)
         }
+    }
+
+    /// One collected memory, exactly as the artboard draws it: straight (no
+    /// tilt), card surface, light outline, no shadow, its own island.
+    private func memoryCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) { content() }
+            .font(XiDeco.garamond(16))
+            .lineSpacing(3.5)
+            .foregroundStyle(XiDeco.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(XiDeco.surface)
+            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
     }
 
     // MARK: others (display-only — AI-written memories that combine BOTH of the
@@ -348,12 +365,13 @@ struct TodayView: View {
     private var others: some View {
         // REAL people first, newest first — with report/block on each.
         if !visibleRealOthers.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(visibleRealOthers) { other in
-                    VStack(alignment: .leading, spacing: 4) {
+                    memoryCard {
                         HStack {
                             Text(other.byName)
-                                .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
+                                .font(XiDeco.garamondItalic(12))
+                                .foregroundStyle(XiDeco.ink.opacity(0.55))
                             Spacer()
                             Menu {
                                 Button { reportingOther = other } label: {
@@ -365,19 +383,14 @@ struct TodayView: View {
                                     Label("Block \(other.byName)", systemImage: "hand.raised")
                                 }
                             } label: {
-                                Image(systemName: "ellipsis").font(.caption).foregroundStyle(XITheme.line)
+                                Image(systemName: "ellipsis").font(.caption)
+                                    .foregroundStyle(XiDeco.lightLine)
                                     .padding(.horizontal, 4)
                             }
                         }
                         Text(other.content)
-                            .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 13).padding(.vertical, 11)
-                    .background(XITheme.white)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
             .padding(.top, 18)
@@ -386,8 +399,6 @@ struct TodayView: View {
         // pair has 5 real memories (Sage's transition rule).
         if visibleRealOthers.count < 5 {
             aiOthers
-        } else {
-            Color.clear.frame(height: 30)
         }
     }
 
@@ -396,49 +407,40 @@ struct TodayView: View {
         if !othersTexts.isEmpty {
             let authors = XIRobots.authors(for: pairKey, count: othersTexts.count)
             // Styled exactly like your own collected memories, with the writer's
-            // name on top in a neutral color.
-            VStack(alignment: .leading, spacing: 8) {
+            // name on top in a quiet italic.
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(othersTexts.enumerated()), id: \.offset) { i, text in
-                    VStack(alignment: .leading, spacing: 4) {
+                    memoryCard {
                         Text(authors[i])
-                            .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
+                            .font(XiDeco.garamondItalic(12))
+                            .foregroundStyle(XiDeco.ink.opacity(0.55))
                         Text(text)
-                            .font(.system(size: 15, design: .serif)).foregroundStyle(XITheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 13).padding(.vertical, 11)
-                    .background(XITheme.white)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
-            .padding(.top, 18).padding(.bottom, 30)
+            .padding(.top, 18)
         } else if othersLoading {
             // Placeholder cards while the AI writes a new pair's memories: the
             // authors are already known (deterministic per pair), and the text
             // area is blocked out at roughly its final size so the screen
             // doesn't shove around when the words arrive.
             let authors = XIRobots.authors(for: pairKey, count: 3)
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(0..<3, id: \.self) { i in
-                    VStack(alignment: .leading, spacing: 6) {
+                    memoryCard {
                         Text(authors[i])
-                            .font(.system(size: 12, design: .serif)).foregroundStyle(soft)
-                        RoundedRectangle(cornerRadius: 3).fill(XITheme.line.opacity(0.25))
+                            .font(XiDeco.garamondItalic(12))
+                            .foregroundStyle(XiDeco.ink.opacity(0.55))
+                        RoundedRectangle(cornerRadius: 3).fill(XiDeco.lightLine.opacity(0.35))
                             .frame(height: 9)
-                        RoundedRectangle(cornerRadius: 3).fill(XITheme.line.opacity(0.25))
+                        RoundedRectangle(cornerRadius: 3).fill(XiDeco.lightLine.opacity(0.35))
                             .frame(height: 9)
                             .padding(.trailing, 70)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 13).padding(.vertical, 11)
-                    .background(XITheme.white)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
-            .padding(.top, 18).padding(.bottom, 30)
+            .padding(.top, 18)
         }
     }
 
@@ -447,7 +449,7 @@ struct TodayView: View {
     private func startIfNeeded() {
         guard !started else { return }
         started = true
-        // The day's pair, drawn from your curated pools (same walk pairForDay uses).
+        // The day's pair, drawn from your curated pools.
         guard !XIDeck.events.isEmpty, !XIDeck.twists.isEmpty else { return }
         (ev, tw) = dayPairIndices(BoardEngine.dayNumber())
     }
@@ -469,16 +471,15 @@ struct TodayView: View {
     private func newCards() {
         // Only the twist redraws — the event is THE card of the day, the one
         // card everyone in the world shares (July 2026, "card of the day").
-        hist.append((ev, tw))
         let at = curate.allowedTwists
         tw = stepIndex(tw, poolSize: XIDeck.twists.count,
                        allowed: at.isEmpty ? CurateStore.liveIndices(XIDeck.twists) : at, step: -1)
         text = ""
     }
 
-    private func undo() {
-        guard let last = hist.popLast() else { return }
-        ev = last.0; tw = last.1
+    private func toggleNothing() {
+        if missed.contains(pairKey) { missed.remove(pairKey) } else { missed.insert(pairKey) }
+        UserDefaults.standard.set(Array(missed), forKey: "xi_missedPairs")
     }
 
     private func reload() async {
@@ -504,11 +505,9 @@ struct TodayView: View {
         saving = true; saveError = nil
         defer { saving = false }
         do {
-            // Stamp the memory with the day actually being VIEWED, so writing on
-            // a past day's pair doesn't get misattributed to today.
             let id = try await XIService.shared.saveMemory(
                 event: event, twist: twist, text: trimmed,
-                boardDay: viewDay, mode: "daily",
+                boardDay: BoardEngine.dayNumber(), mode: "daily",
                 share: sharePrefs.shareForSave(askToggle: shareThisOne))
             text = ""
             writing = false
@@ -525,19 +524,32 @@ struct TodayView: View {
     }
 }
 
-/// A single Today card — line-art image multiplied over its cream/white tint.
-private struct TodayCard: View {
+/// One of the day's pair, exactly as the 2a artboard draws it: a tilted plate
+/// of card surface with a light outline, a hard offset shadow (oxblood on the
+/// left card, gilt on the right), and the art inside its own gilt line. While
+/// the art loads — or if it never comes — the caption shows in the artboard's
+/// text-card style. When the pair is marked "nothing", the inner line turns
+/// oxblood.
+private struct DecoTodayCard: View {
     let card: XICard
-    let isEvent: Bool
+    let tilt: Double
+    let shadow: Color
+    let missed: Bool
 
     var body: some View {
         ZStack {
-            (isEvent ? XITheme.cream : XITheme.white)
-            CardArt(card: card, capSize: 12, pad: 2)
+            Rectangle().fill(shadow).offset(x: 4, y: 4)
+            ZStack {
+                XiDeco.surface
+                CardArt(card: card, capSize: 15, pad: 2,
+                        capFont: .custom("HelveticaNeue-Bold", fixedSize: 15))
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(Rectangle().strokeBorder(missed ? XiDeco.oxblood : XiDeco.gilt, lineWidth: 1))
+            .padding(6)
+            .background(XiDeco.surface)
+            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
         }
-        .aspectRatio(1, contentMode: .fit)
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(XITheme.line, lineWidth: 0.5))
+        .rotationEffect(.degrees(tilt))
     }
 }
