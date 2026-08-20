@@ -45,6 +45,61 @@ Screenshot upload is possible via the API but is NOT built.
   the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
   buttons.)
 
+## ShouldiMakeThis.com — the preorder / validation site (`shouldimakethis/`)
+The product-validation site: browse things Sophie is considering making, vote
+👍/👎, heart, preorder, invest a token amount — the point is the demand signal,
+which she reads on the private `/results` route. Original brief:
+`shouldimakethis/BRIEF.md`. It is **built and live** — Vite + React, real Google
+sign-in, Cloud-Function-maintained aggregates.
+
+- **Live at https://shouldimakethis.web.app** — a second Hosting site inside the
+  SAME Firebase project as the games (`membry-df528`), target `shouldimakethis`
+  in `firebase.json` / `.firebaserc`. `npm run build` in `shouldimakethis/`, then
+  `firebase deploy --only hosting:shouldimakethis`.
+- **Everything is namespaced `simt*`** so it can share the games' project without
+  colliding: `simtProducts/{pid}` aggregates plus per-user
+  `simtVotes|simtHearts|simtPreorders|simtInvestments/{uid}` subcollections, and
+  `simtSubmissions`. Storage uploads land in `simt-submissions/{uid}/`.
+- **Clients may NEVER write an aggregate.** `simtProducts/{pid}` is locked in
+  `firestore.rules`; the counts are maintained by atomic increments in
+  `functions/simt.js`. A client writes only the doc whose id is its own uid.
+- **The catalog is hardcoded** in `shouldimakethis/src/catalog.js` — by request.
+  Only interactions are stored. Product ids are permanent; renaming one orphans
+  every vote against it.
+- **User submissions default to `status:"pending"`** and are invisible until
+  approved from `/results`. Approve/reject lives there.
+- **`/results` is gated on `ADMIN_EMAIL` (`Results.jsx`)**, not on a uid — so it
+  survives a re-auth. It is not linked from the public nav.
+- **`authDomain` stays `membry-df528.firebaseapp.com`.** The project's Google
+  OAuth client only accepts the firebaseapp.com redirect helper — the same setup
+  incaseofamnesia.com uses. See the comment in `src/firebase.js` before changing
+  it.
+
+### The custom domain (measured 2026-08-20 — NOT yet pointed at this app)
+Sophie owns **shouldimakethis.com**, but it does not serve this site yet. What is
+actually live right now:
+- Apex `A` → `216.24.57.1` and `www` `CNAME` → `imageforge-q125.onrender.com`,
+  i.e. the domain is pointed at **Render / ImageForge** and serves the ImageForge
+  hub page. Render has a valid cert for it, so it was deliberately added to that
+  service at some point.
+- DNS is at **Hover** (`ns1/ns2.hover.com`), and the `MX` records
+  (`mx.hover.com.cust.hostedemail.com`) carry her email — **never touch them.**
+- There is **no TXT record**, so the Firebase custom-domain verification has
+  never been run.
+
+Pointing it here is four flips, all phone-doable, and none of them is code:
+1. **Firebase → Hosting → the `shouldimakethis` site → Add custom domain.** The
+   wizard issues a TXT for verification, then gives the A records. **Firebase
+   does not publish fixed IPs — use whatever that wizard shows**, don't paste
+   remembered ones.
+2. **Hover → DNS** — add the TXT, then replace the apex `A` and repoint `www` to
+   what the wizard gave. Leave `MX` alone.
+3. **Render → the ImageForge service → Settings → Custom Domains → remove**
+   `shouldimakethis.com` and `www`, or two services keep claiming the same name.
+4. **Firebase → Authentication → Settings → Authorized domains → add both
+   hostnames.** Skip this and Google sign-in fails on the new domain with
+   nothing in the UI explaining why — the same trap youwereinmydreams.com hit.
+
 ## Journal timeline — banding categories
 The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
 entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
