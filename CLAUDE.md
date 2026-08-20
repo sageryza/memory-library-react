@@ -86,6 +86,18 @@ actually live right now:
   (`mx.hover.com.cust.hostedemail.com`) carry her email — **never touch them.**
 - There is **no TXT record**, so the Firebase custom-domain verification has
   never been run.
+- **Firebase itself has never been told about this domain — measured through the
+  API, not inferred from DNS.** `GET
+  firebasehosting.googleapis.com/v1beta1/projects/membry-df528/sites/shouldimakethis/customDomains`
+  returns `{}`, and the project's only Hosting custom domain is
+  `incaseofamnesia.com` on the default site. In Auth, `shouldimakethis.web.app`
+  is an authorized domain but **`shouldimakethis.com` is not.**
+- **Do not take "a chat already added it to Firebase" at face value — a chat did
+  do exactly that, for a DIFFERENT domain.** `youwereinmydreams.com` and
+  `www.youwereinmydreams.com` were added to Auth's authorized domains by a
+  session on 2026-08-18/19, and that work fills the feed around those dates. It
+  is easy to remember as this domain having been handled. Re-run the two reads
+  above before believing any of these steps is done.
 
 Pointing it here is four flips, all phone-doable, and none of them is code:
 1. **Firebase → Hosting → the `shouldimakethis` site → Add custom domain.** The
