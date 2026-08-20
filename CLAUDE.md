@@ -75,30 +75,47 @@ sign-in, Cloud-Function-maintained aggregates.
   incaseofamnesia.com uses. See the comment in `src/firebase.js` before changing
   it.
 
-### The custom domain (measured 2026-08-20 — NOT yet pointed at this app)
-Sophie owns **shouldimakethis.com**, but it does not serve this site yet. What is
-actually live right now:
-- Apex `A` → `216.24.57.1` and `www` `CNAME` → `imageforge-q125.onrender.com`,
-  i.e. the domain is pointed at **Render / ImageForge** and serves the ImageForge
-  hub page. Render has a valid cert for it, so it was deliberately added to that
-  service at some point.
-- DNS is at **Hover** (`ns1/ns2.hover.com`), and the `MX` records
-  (`mx.hover.com.cust.hostedemail.com`) carry her email — **never touch them.**
-- There is **no TXT record**, so the Firebase custom-domain verification has
-  never been run.
+### The custom domain (Firebase side DONE 2026-08-20 — waiting on DNS)
+Sophie owns **shouldimakethis.com**. The Firebase half is finished; what remains
+is three records at Hover and one removal at Render, neither of which a chat can
+reach (no Hover API, no Render API key in the environment).
 
-Pointing it here is four flips, all phone-doable, and none of them is code:
-1. **Firebase → Hosting → the `shouldimakethis` site → Add custom domain.** The
-   wizard issues a TXT for verification, then gives the A records. **Firebase
-   does not publish fixed IPs — use whatever that wizard shows**, don't paste
-   remembered ones.
-2. **Hover → DNS** — add the TXT, then replace the apex `A` and repoint `www` to
-   what the wizard gave. Leave `MX` alone.
-3. **Render → the ImageForge service → Settings → Custom Domains → remove**
-   `shouldimakethis.com` and `www`, or two services keep claiming the same name.
-4. **Firebase → Authentication → Settings → Authorized domains → add both
-   hostnames.** Skip this and Google sign-in fails on the new domain with
-   nothing in the UI explaining why — the same trap youwereinmydreams.com hit.
+**Already done, via the Firebase Hosting + Identity Toolkit APIs with
+`STORY_FIREBASE_SERVICE_ACCOUNT`:**
+- `shouldimakethis.com` and `www.shouldimakethis.com` are custom domains on the
+  `shouldimakethis` Hosting site, `www` carrying `redirectTarget:
+  shouldimakethis.com` so it folds into the apex.
+- Both hostnames are in Auth's **authorized domains**, so Google sign-in works
+  the moment DNS lands. (Skipping this is the trap youwereinmydreams.com hit —
+  it fails with nothing in the UI to explain it.)
+
+**The exact records Firebase asks for**, read back from `requiredDnsUpdates`
+rather than remembered — Firebase issues these per domain:
+- `A` `shouldimakethis.com` -> **`199.36.158.100`** (replacing `216.24.57.1`)
+- `TXT` `shouldimakethis.com` -> **`hosting-site=shouldimakethis`**
+- `CNAME` `www.shouldimakethis.com` -> **`shouldimakethis.web.app`** (replacing
+  `imageforge-q125.onrender.com`)
+
+That A record is the same IP `shouldimakethis.web.app` itself resolves to, which
+is the sanity check that it is Firebase Hosting's front door and not a guess.
+
+**Still to do, both Sophie's:**
+1. **Hover -> DNS** (https://www.hover.com/domain/shouldimakethis.com) — the
+   three records above. The `MX` records (`mx.hover.com.cust.hostedemail.com`)
+   carry her email — **never touch them.**
+2. **Render -> ImageForge service -> Settings -> Custom Domains -> remove**
+   `shouldimakethis.com` and `www`. Sophie pointed the domain at Render herself
+   before the site had a home, and Render holds a live cert for it — which is
+   why the apex currently serves the ImageForge hub page.
+
+Until step 1 lands both domains sit at `hostState: HOST_MISMATCH`,
+`ownershipState: OWNERSHIP_MISSING`. That is expected, not an error. Re-read the
+state with `GET firebasehosting.googleapis.com/v1beta1/projects/membry-df528/sites/shouldimakethis/customDomains`.
+
+**Do not take "a chat already added it to Firebase" at face value for any OTHER
+domain** — a chat did exactly that on 2026-08-18/19, but for
+`youwereinmydreams.com`, and that work fills the feed around those dates. Read
+the API before believing a step is done.
 
 ## Journal timeline — banding categories
 The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
