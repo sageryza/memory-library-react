@@ -12,8 +12,14 @@
     "ever reached the feed.",
     "",
     "The guard keeps the hook silent when the script is absent (a local checkout, or",
-    "an environment that never ran the setup script): exit 0, no output, nothing blocked."
+    "an environment that never ran the setup script): exit 0, no output, nothing blocked.",
+    "",
+    "outputStyle Concise = the /concise output style, Sophie's ask (Aug 2026): every",
+    "chat leads with the result and keeps replies short. Committed here so every new",
+    "session on any account gets it; the imageforge settings.json and the environment",
+    "Setup script carry the same line."
   ],
+  "outputStyle": "Concise",
   "hooks": {
     "Stop": [
       {
