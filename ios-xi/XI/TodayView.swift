@@ -267,7 +267,11 @@ struct TodayView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 9)
+        // 14 rather than the artboard's 9 — half again as thick (Sophie, Aug
+        // 2026: "a bit thicker maybe 1.5 or two times"). The 5pt corner is
+        // left alone: it was nearly a full round at 9 tall and reads as a
+        // proper rounded rectangle at 14.
+        .frame(height: 14)
         .background(XiDeco.surface)
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(XiDeco.gilt, lineWidth: 1))
