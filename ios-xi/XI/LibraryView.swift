@@ -53,6 +53,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                masthead
                 searchBar
                 // The grid stays rendered — the filter panel drops down OVER it
                 // so the live-filtered cards remain visible beneath, and the
@@ -107,9 +108,11 @@ struct LibraryView: View {
             // Tapping outside the search box dismisses the keyboard (card taps
             // still win — child gestures take precedence).
             .onTapGesture { searchFocused = false }
-            .navigationTitle(store.selectedLibrary?.name ?? "Memory Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
+            // No nav bar: the page draws its own masthead, so Apple's bar
+            // would be a second title strip above it — and its monospaced
+            // caps were the wrong font in the first place. The two controls
+            // that lived up there ride the masthead now.
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -199,35 +202,6 @@ struct LibraryView: View {
     // MARK: toolbar
 
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(XITheme.navInk)
-        }
-        // Plain icons — no iOS 26 glass pill behind the toolbar buttons (same
-        // opt-out as the constellation and board screens).
-        if #available(iOS 26.0, *) {
-            ToolbarItemGroup(placement: .topBarLeading) {
-                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
-                    .tint(XITheme.gold)
-                    .buttonBorderShape(.roundedRectangle)
-                    .accessibilityLabel("New memory")
-            }
-            .sharedBackgroundVisibility(.hidden)
-            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
-                .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItemGroup(placement: .topBarLeading) {
-                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
-                    .tint(XITheme.gold)
-                    .buttonBorderShape(.roundedRectangle)
-                    .accessibilityLabel("New memory")
-            }
-            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
-        }
-    }
-
     private var libraryMenu: some View {
         Menu {
             Button { store.toggleSelectMode() } label: {
@@ -235,12 +209,54 @@ struct LibraryView: View {
             }
             Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
             Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
-        } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+        } label: { Image(systemName: "ellipsis") }
         .buttonBorderShape(.roundedRectangle)
-        .tint(.primary)
     }
 
     // MARK: bars
+
+    /// The design file's library masthead (`4a`/`3a` in
+    /// design/xi-redesign — "YOUR LIBRARY"): Marcellus, wide-tracked, over a
+    /// rule broken by a small lozenge. Same shape Today wears, and same
+    /// neutrals — the artboard drew the rules gilt and the lozenge oxblood,
+    /// and Sophie asked for the home screen's colours instead, so it reads
+    /// `XiDeco.rule` / `XiDeco.mark` like the masthead it is matching.
+    ///
+    /// The name is hers: the library she is inside, or "MEMORY LIBRARY".
+    /// Tracking adds a trailing space per glyph, so the leading padding
+    /// recentres it — the artboard's `text-indent` trick.
+    private var masthead: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
+                    .font(XiDeco.marcellus(13))
+                    .tracking(4.42)            // the artboard's .34em at 13px
+                    .padding(.leading, 4.42)
+                    .foregroundStyle(XiDeco.ink)
+                HStack(spacing: 10) {
+                    Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
+                    Rectangle().fill(XiDeco.mark).frame(width: 6, height: 6)
+                        .rotationEffect(.degrees(45))
+                    Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
+                }
+                .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity)
+            // The nav bar's two controls, kept exactly as they were and as
+            // quiet as Today's gear.
+            HStack {
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .accessibilityLabel("New memory")
+                Spacer()
+                libraryMenu
+            }
+            .font(.system(size: 17))
+            .tint(XiDeco.ink.opacity(0.45))
+            .foregroundStyle(XiDeco.ink.opacity(0.45))
+            .padding(.horizontal, 22)
+        }
+        .padding(.top, 14)
+    }
 
     private var searchBar: some View {
         HStack(spacing: 8) {
@@ -294,10 +310,9 @@ struct LibraryView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 40)
-            .background(XITheme.white)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(XiDeco.surface)
+            .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
 
             // Simplify / compact toggle lives OUTSIDE the box, right beside it —
             // same height as the search box.
@@ -306,10 +321,9 @@ struct LibraryView: View {
                     .font(.system(size: 18))
                     .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
                     .frame(width: 40, height: 40)
-                    .background(XITheme.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(XiDeco.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+                    .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
             }
             .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
         }
