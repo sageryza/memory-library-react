@@ -43,6 +43,12 @@ enum XiDeco {
     static let rule = ink.opacity(0.35)   // was gilt: the hairline rules
     static let cardLine = ink.opacity(0.3) // was gilt: the picture's edge inside the plate
 
+    /// The double frame's inner edge. The 1px rule sits at inset 14, so a
+    /// scrolling page inset by this much is clipped one point inside it and
+    /// vanishes AT the line instead of sliding past it. Content keeps the
+    /// artboard's page margins by measuring from here (30 - frameInset).
+    static let frameInset: CGFloat = 15
+
     /// Bundled Google fonts (see Resources/Fonts + Info.plist UIAppFonts).
     /// Fixed sizes on purpose — the artboard is the spec.
     static func marcellus(_ size: CGFloat) -> Font { .custom("Marcellus-Regular", fixedSize: size) }

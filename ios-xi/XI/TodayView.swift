@@ -81,13 +81,14 @@ struct TodayView: View {
                 collected
                 others
             }
-            // The artboard's 30px page margins.
-            .padding(.horizontal, 30)
+            // The artboard's 30px page margins, measured from the page edge —
+            // the scroll view already sits XiDeco.frameInset in from it.
+            .padding(.horizontal, 30 - XiDeco.frameInset)
             // The nav is a sibling below this screen, so the page already ends
             // above it; while writing, pad by the keyboard instead (the shell
             // pins the nav by ignoring the keyboard's safe area, so avoidance
             // is manual here) and scroll the composer up above it.
-            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 30)
+            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 30 - XiDeco.frameInset)
             .frame(maxWidth: .infinity)
         }
         .onChange(of: kb.height) { h in
@@ -96,8 +97,15 @@ struct TodayView: View {
             }
         }
         }
+        // The page is inset to the frame's inner edge so the SCROLL VIEW clips
+        // it there: the frame is drawn over the page, so without this the
+        // masthead slid up under the top line and went on being readable in
+        // the margin outside it — the line cutting across the letters instead
+        // of framing them (Sophie, Aug 2026: "it scrolls over content when it
+        // should be framing it"). Inset, content vanishes AT the line.
+        .padding(XiDeco.frameInset)
         .background(XiDeco.cream.ignoresSafeArea())
-        // The 2a double frame — fixed chrome the page scrolls beneath:
+        // The 2a double frame — fixed chrome the page is framed by:
         // 1.5px light at inset 10, 1px at inset 14 (gilt on the artboard, gray
         // since the accents came off).
         .overlay(
@@ -184,7 +192,7 @@ struct TodayView: View {
             .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 32)
+        .padding(.top, 32 - XiDeco.frameInset)
     }
 
     private var header: some View {
