@@ -105,13 +105,14 @@ struct TodayView: View {
         // should be framing it"). Inset, content vanishes AT the line.
         .padding(XiDeco.frameInset)
         .background(XiDeco.cream.ignoresSafeArea())
-        // The 2a double frame — fixed chrome the page is framed by:
-        // 1.5px light at inset 10, 1px at inset 14 (gilt on the artboard, gray
-        // since the accents came off).
+        // The 2a double frame — fixed chrome the page is framed by: 1.5px at
+        // inset 10, 1px at inset 14. The outer line is the artboard's tan, the
+        // one line that kept it when the gilt came off everything else; the
+        // inner one is ink.
         .overlay(
             ZStack {
                 RoundedRectangle(cornerRadius: XiDeco.corner)
-                    .strokeBorder(XiDeco.lightLine, lineWidth: 1.5)
+                    .strokeBorder(XiDeco.frameLine, lineWidth: 1.5)
                     .padding(10)
                 RoundedRectangle(cornerRadius: XiDeco.corner)
                     .strokeBorder(XiDeco.rule, lineWidth: 1)
