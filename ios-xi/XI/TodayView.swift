@@ -559,9 +559,9 @@ struct TodayView: View {
 ///
 /// `trimFrame` is what keeps that hairline the ONLY line around the picture:
 /// the card images each carry their own printed rule, which otherwise stacks a
-/// third border inside the plate. While the art loads — or if it never comes —
-/// the caption shows in the artboard's text-card style. When the pair is marked
-/// "nothing", the hairline goes full black.
+/// third border inside the plate. If the art never comes, the caption stands
+/// in for it, set like the caption printed on the pictures themselves. When
+/// the pair is marked "nothing", the hairline goes full black.
 private struct DecoTodayCard: View {
     let card: XICard
     let tilt: Double
@@ -570,8 +570,15 @@ private struct DecoTodayCard: View {
     var body: some View {
         ZStack {
             XiDeco.surface
-            CardArt(card: card, capSize: 15, pad: 2,
-                    capFont: .custom("HelveticaNeue-Bold", fixedSize: 15), trimFrame: true)
+            // The caption stands in for the picture, so it is set like the
+            // caption PRINTED on the pictures — Marcellus, spaced, in the
+            // page's ink. It was HelveticaNeue-Bold, the one bold sans on a
+            // page of serif, and it read as a system error rather than as a
+            // card (Sophie, Aug 2026: "the text was bold and didn't match the
+            // look").
+            CardArt(card: card, capSize: 13, pad: 2,
+                    capFont: XiDeco.marcellus(13), capTracking: 1.6,
+                    capColor: XiDeco.ink, trimFrame: true)
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(Rectangle().strokeBorder(missed ? XiDeco.mark : XiDeco.cardLine, lineWidth: 1))

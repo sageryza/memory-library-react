@@ -19,6 +19,8 @@ struct CardArt: View {
     var pad: CGFloat = 2          // art inset from the card edge
     var blend: Bool = true        // multiply the line art over the cream/white tint
     var capFont: Font? = nil      // override the fallback font (Today's deco text-card look)
+    var capTracking: CGFloat = 0  // letter-spacing for the fallback caption
+    var capColor: Color = XITheme.ink
     /// Trim the picture's OWN printed frame — a thin dark rule inside a white
     /// margin, baked into the card images themselves. Today's plate already
     /// draws the light edge and the gilt line, so the picture's rule lands a
@@ -47,8 +49,9 @@ struct CardArt: View {
                 // never show a picture still says what it is.
                 Text(card.cap)
                     .font(capFont ?? .system(size: capSize, design: .serif))
+                    .tracking(capTracking)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(XITheme.ink)
+                    .foregroundStyle(capColor)
                     .padding(4)
             }
             // Still loading: nothing. The picture replaces an empty plate
