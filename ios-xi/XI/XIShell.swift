@@ -84,19 +84,16 @@ struct ConstellationTab: View {
     @State private var loaded = false
 
     var body: some View {
-        Group {
-            if loaded {
-                ConstellationView(memories: memories, embedded: true)
-            } else {
-                ProgressView().tint(XITheme.gold)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(XITheme.paper.ignoresSafeArea())
+        // Mounted straight away, with the library still on its way: the board
+        // then loads its own doc IN PARALLEL with the memories fetch instead
+        // of after it, and an empty board's preview no longer waits on the
+        // whole library at all. The screen used to sit behind a spinner until
+        // every memory had been read (Sophie, Aug 2026).
+        ConstellationView(memories: memories, memoriesLoaded: loaded, embedded: true)
+            .task {
+                guard !loaded else { return }
+                memories = await XIService.shared.allMemories()
+                loaded = true
             }
-        }
-        .task {
-            guard !loaded else { return }
-            memories = await XIService.shared.allMemories()
-            loaded = true
-        }
     }
 }

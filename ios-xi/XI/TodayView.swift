@@ -81,13 +81,14 @@ struct TodayView: View {
                 collected
                 others
             }
-            // The artboard's 30px page margins.
-            .padding(.horizontal, 30)
+            // The artboard's 30px page margins, measured from the page edge —
+            // the scroll view already sits XiDeco.frameInset in from it.
+            .padding(.horizontal, 30 - XiDeco.frameInset)
             // The nav is a sibling below this screen, so the page already ends
             // above it; while writing, pad by the keyboard instead (the shell
             // pins the nav by ignoring the keyboard's safe area, so avoidance
             // is manual here) and scroll the composer up above it.
-            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 30)
+            .padding(.bottom, kb.height > 0 ? kb.height + 16 : 30 - XiDeco.frameInset)
             .frame(maxWidth: .infinity)
         }
         .onChange(of: kb.height) { h in
@@ -96,16 +97,23 @@ struct TodayView: View {
             }
         }
         }
+        // The page is inset to the frame's inner edge so the SCROLL VIEW clips
+        // it there: the frame is drawn over the page, so without this the
+        // masthead slid up under the top line and went on being readable in
+        // the margin outside it — the line cutting across the letters instead
+        // of framing them (Sophie, Aug 2026: "it scrolls over content when it
+        // should be framing it"). Inset, content vanishes AT the line.
+        .padding(XiDeco.frameInset)
         .background(XiDeco.cream.ignoresSafeArea())
-        // The 2a double frame — fixed chrome the page scrolls beneath:
+        // The 2a double frame — fixed chrome the page is framed by:
         // 1.5px light at inset 10, 1px at inset 14 (gilt on the artboard, gray
         // since the accents came off).
         .overlay(
             ZStack {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: XiDeco.corner)
                     .strokeBorder(XiDeco.lightLine, lineWidth: 1.5)
                     .padding(10)
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: XiDeco.corner)
                     .strokeBorder(XiDeco.rule, lineWidth: 1)
                     .padding(14)
             }
@@ -184,7 +192,7 @@ struct TodayView: View {
             .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 32)
+        .padding(.top, 32 - XiDeco.frameInset)
     }
 
     private var header: some View {
@@ -213,20 +221,24 @@ struct TodayView: View {
         .padding(.top, 26)
     }
 
-    /// redraw / nothing — quiet italic links, no borders, no underlines
-    /// (explicit design note). "nothing" toggles the pair's miss mark.
+    /// ONE quiet italic link — no border, no underline (explicit design note).
+    /// It was two, "redraw" and "nothing", and they asked the same thing twice
+    /// (Sophie, Aug 2026: "rather than having a redraw and nothing button just
+    /// make one button that says I got nothing … once they have added at least
+    /// one memory the button becomes 'new cards'"). Both labels draw new cards;
+    /// the word is what changed, and it changes with what she did with the pair
+    /// in front of her — nothing to say about it, or something already said.
+    /// "i got nothing" also keeps the old button's record: the pair is marked a
+    /// miss on the way past, the same mark the web keeps as xi2_misses.
     private var redrawRow: some View {
-        HStack(spacing: 22) {
-            Button { newCards() } label: {
-                Text("redraw")
-                    .font(XiDeco.garamondItalic(14))
-                    .foregroundStyle(XiDeco.ink.opacity(0.45))
-            }
-            Button { toggleNothing() } label: {
-                Text("nothing")
-                    .font(XiDeco.garamondItalic(14))
-                    .foregroundStyle(isMissed ? XiDeco.mark : XiDeco.ink.opacity(0.45))
-            }
+        let gotNothing = memories.isEmpty
+        return Button {
+            if gotNothing { markNothing() }
+            newCards()
+        } label: {
+            Text(gotNothing ? "i got nothing" : "new cards")
+                .font(XiDeco.garamondItalic(14))
+                .foregroundStyle(XiDeco.ink.opacity(0.45))
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
@@ -255,7 +267,11 @@ struct TodayView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 9)
+        // 14 rather than the artboard's 9 — half again as thick (Sophie, Aug
+        // 2026: "a bit thicker maybe 1.5 or two times"). The 5pt corner is
+        // left alone: it was nearly a full round at 9 tall and reads as a
+        // proper rounded rectangle at 14.
+        .frame(height: 14)
         .background(XiDeco.surface)
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(XiDeco.gilt, lineWidth: 1))
@@ -296,15 +312,16 @@ struct TodayView: View {
                             .tracking(0.93)
                             .foregroundStyle(XiDeco.cream)
                             .padding(.vertical, 7).padding(.horizontal, 22)
-                            .background(XiDeco.ink)
+                            .background(XiDeco.ink, in: RoundedRectangle(cornerRadius: XiDeco.corner))
                     }
                     .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
                 }
                 .padding(.trailing, 15).padding(.bottom, 13)
             }
-            .background(XiDeco.surface)
-            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
+            .background(XiDeco.surface, in: RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner)
+                .strokeBorder(XiDeco.lightLine, lineWidth: 1))
 
             if sharePrefs.mode == .ask {
                 ShareToggleRow(isOn: $shareThisOne)
@@ -342,7 +359,8 @@ struct TodayView: View {
     }
 
     /// One collected memory, exactly as the artboard draws it: straight (no
-    /// tilt), card surface, light outline, no shadow, its own island.
+    /// tilt), card surface, light outline, no shadow, its own island — and the
+    /// page frame's own 2pt corner (Sophie, Aug 2026).
     private func memoryCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 4) { content() }
             .font(XiDeco.garamond(16))
@@ -350,8 +368,9 @@ struct TodayView: View {
             .foregroundStyle(XiDeco.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(XiDeco.surface)
-            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
+            .background(XiDeco.surface, in: RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner)
+                .strokeBorder(XiDeco.lightLine, lineWidth: 1))
     }
 
     // MARK: others (display-only — AI-written memories that combine BOTH of the
@@ -482,8 +501,13 @@ struct TodayView: View {
         text = ""
     }
 
-    private func toggleNothing() {
-        if missed.contains(pairKey) { missed.remove(pairKey) } else { missed.insert(pairKey) }
+    /// Mark this pair a miss. One direction only now: the button that used to
+    /// toggle it draws new cards in the same tap, so there is no second tap to
+    /// un-mark with — and saying "i got nothing" about a pair you have left is
+    /// not something you take back by accident.
+    private func markNothing() {
+        guard !missed.contains(pairKey) else { return }
+        missed.insert(pairKey)
         UserDefaults.standard.set(Array(missed), forKey: "xi_missedPairs")
     }
 
@@ -535,9 +559,9 @@ struct TodayView: View {
 ///
 /// `trimFrame` is what keeps that hairline the ONLY line around the picture:
 /// the card images each carry their own printed rule, which otherwise stacks a
-/// third border inside the plate. While the art loads — or if it never comes —
-/// the caption shows in the artboard's text-card style. When the pair is marked
-/// "nothing", the hairline goes full black.
+/// third border inside the plate. If the art never comes, the caption stands
+/// in for it, set like the caption printed on the pictures themselves. When
+/// the pair is marked "nothing", the hairline goes full black.
 private struct DecoTodayCard: View {
     let card: XICard
     let tilt: Double
@@ -546,8 +570,15 @@ private struct DecoTodayCard: View {
     var body: some View {
         ZStack {
             XiDeco.surface
-            CardArt(card: card, capSize: 15, pad: 2,
-                    capFont: .custom("HelveticaNeue-Bold", fixedSize: 15), trimFrame: true)
+            // The caption stands in for the picture, so it is set like the
+            // caption PRINTED on the pictures — Marcellus, spaced, in the
+            // page's ink. It was HelveticaNeue-Bold, the one bold sans on a
+            // page of serif, and it read as a system error rather than as a
+            // card (Sophie, Aug 2026: "the text was bold and didn't match the
+            // look").
+            CardArt(card: card, capSize: 13, pad: 2,
+                    capFont: XiDeco.marcellus(13), capTracking: 1.6,
+                    capColor: XiDeco.ink, trimFrame: true)
         }
         .aspectRatio(1, contentMode: .fit)
         .overlay(Rectangle().strokeBorder(missed ? XiDeco.mark : XiDeco.cardLine, lineWidth: 1))

@@ -38,6 +38,9 @@ struct BoardSnapshot: Equatable {
 struct ConstellationView: View {
     @Environment(\.dismiss) private var dismiss
     let memories: [XIMemory]
+    /// False while the library is still being fetched — `memories` is empty
+    /// then because nothing has arrived yet, not because there is nothing.
+    var memoriesLoaded = true
     /// True when shown as its own tab (no "done" button to dismiss).
     var embedded = false
 
@@ -75,8 +78,9 @@ struct ConstellationView: View {
     @State private var showSaveConstellation = false
     @State private var constellationName = ""
 
-    init(memories: [XIMemory], embedded: Bool = false) {
+    init(memories: [XIMemory], memoriesLoaded: Bool = true, embedded: Bool = false) {
         self.memories = memories
+        self.memoriesLoaded = memoriesLoaded
         self.embedded = embedded
     }
 
@@ -114,6 +118,16 @@ struct ConstellationView: View {
                                 height: Self.canvasSize(placed.count).height)
                 }
                 if loaded && placed.isEmpty && pins.isEmpty { emptyBoard }
+                // A board with cards on it can't be drawn until the memories
+                // those cards ARE have arrived — otherwise its strings hang
+                // between nothing. An EMPTY board needs none of them, which
+                // is the whole point: its preview no longer waits on the
+                // library (Sophie, Aug 2026: "the constellation board screen
+                // takes quite a while to load the blurred image").
+                if !memoriesLoaded && !(loaded && placed.isEmpty && pins.isEmpty) {
+                    Color.white.ignoresSafeArea()
+                    ProgressView().tint(XITheme.gold)
+                }
                 if showMinimap && loaded && !(placed.isEmpty && pins.isEmpty) {
                     BoardMinimap(canvasSize: Self.canvasSize(placed.count),
                                  memoryDots: placed.compactMap { positions[$0] },
@@ -261,8 +275,11 @@ struct ConstellationView: View {
             guard !loaded else { return }
             let board = await XIService.shared.loadActiveBoard()
             apply(board)
-            boardsList = await XIService.shared.listBoards()
+            // The screen is ready HERE. The board LIST is only the switcher
+            // sheet's contents, behind a button — waiting for it cost the
+            // whole screen a round trip before anything could paint.
             loaded = true
+            Task { boardsList = await XIService.shared.listBoards() }
         }
         // A shared board was just imported (it's now the active board) — swap
         // to it even if this screen is already loaded and on screen.

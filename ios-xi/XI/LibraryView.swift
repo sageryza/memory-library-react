@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The XI archive — every memory you've written, mirroring the web Archive:
 /// text search, boolean hashtag filtering, advanced AND/OR/NOT search, smart &
@@ -52,6 +53,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                masthead
                 searchBar
                 // The grid stays rendered — the filter panel drops down OVER it
                 // so the live-filtered cards remain visible beneath, and the
@@ -98,13 +100,19 @@ struct LibraryView: View {
                 }
                 if store.selectMode { selectionBar }
             }
-            .background(XITheme.paper.ignoresSafeArea())
+            // The Today screen's cream, not the old parchment — the two screens
+            // are meant to read as one page now (Sophie, Aug 2026: "the cream
+            // background and white card thing that the card of the day screen
+            // already has so that they match").
+            .background(XiDeco.cream.ignoresSafeArea())
             // Tapping outside the search box dismisses the keyboard (card taps
             // still win — child gestures take precedence).
             .onTapGesture { searchFocused = false }
-            .navigationTitle(store.selectedLibrary?.name ?? "Memory Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
+            // No nav bar: the page draws its own masthead, so Apple's bar
+            // would be a second title strip above it — and its monospaced
+            // caps were the wrong font in the first place. The two controls
+            // that lived up there ride the masthead now.
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -191,37 +199,7 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: toolbar
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(XITheme.navInk)
-        }
-        // Plain icons — no iOS 26 glass pill behind the toolbar buttons (same
-        // opt-out as the constellation and board screens).
-        if #available(iOS 26.0, *) {
-            ToolbarItemGroup(placement: .topBarLeading) {
-                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
-                    .tint(XITheme.gold)
-                    .buttonBorderShape(.roundedRectangle)
-                    .accessibilityLabel("New memory")
-            }
-            .sharedBackgroundVisibility(.hidden)
-            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
-                .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItemGroup(placement: .topBarLeading) {
-                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
-                    .tint(XITheme.gold)
-                    .buttonBorderShape(.roundedRectangle)
-                    .accessibilityLabel("New memory")
-            }
-            ToolbarItem(placement: .topBarTrailing) { libraryMenu }
-        }
-    }
+    // MARK: the ⋯ menu
 
     private var libraryMenu: some View {
         Menu {
@@ -230,12 +208,54 @@ struct LibraryView: View {
             }
             Button { showLibraries = true } label: { Label("Libraries", systemImage: "building.columns") }
             Button { showTrash = true } label: { Label("Trash", systemImage: "trash") }
-        } label: { Image(systemName: "ellipsis").foregroundStyle(XITheme.gold) }
+        } label: { Image(systemName: "ellipsis") }
         .buttonBorderShape(.roundedRectangle)
-        .tint(.primary)
     }
 
     // MARK: bars
+
+    /// The design file's library masthead (`4a`/`3a` in
+    /// design/xi-redesign — "YOUR LIBRARY"): Marcellus, wide-tracked, over a
+    /// rule broken by a small lozenge. Same shape Today wears, and same
+    /// neutrals — the artboard drew the rules gilt and the lozenge oxblood,
+    /// and Sophie asked for the home screen's colours instead, so it reads
+    /// `XiDeco.rule` / `XiDeco.mark` like the masthead it is matching.
+    ///
+    /// The name is hers: the library she is inside, or "MEMORY LIBRARY".
+    /// Tracking adds a trailing space per glyph, so the leading padding
+    /// recentres it — the artboard's `text-indent` trick.
+    private var masthead: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text((store.selectedLibrary?.name ?? "Memory Library").uppercased())
+                    .font(XiDeco.marcellus(13))
+                    .tracking(4.42)            // the artboard's .34em at 13px
+                    .padding(.leading, 4.42)
+                    .foregroundStyle(XiDeco.ink)
+                HStack(spacing: 10) {
+                    Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
+                    Rectangle().fill(XiDeco.mark).frame(width: 6, height: 6)
+                        .rotationEffect(.degrees(45))
+                    Rectangle().fill(XiDeco.rule).frame(width: 54, height: 1)
+                }
+                .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity)
+            // The nav bar's two controls, kept exactly as they were and as
+            // quiet as Today's gear.
+            HStack {
+                Button { memSheet = .add } label: { Image(systemName: "photo.badge.plus") }
+                    .accessibilityLabel("New memory")
+                Spacer()
+                libraryMenu
+            }
+            .font(.system(size: 17))
+            .tint(XiDeco.ink.opacity(0.45))
+            .foregroundStyle(XiDeco.ink.opacity(0.45))
+            .padding(.horizontal, 22)
+        }
+        .padding(.top, 14)
+    }
 
     private var searchBar: some View {
         HStack(spacing: 8) {
@@ -289,10 +309,9 @@ struct LibraryView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 40)
-            .background(XITheme.white)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(XiDeco.surface)
+            .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
 
             // Simplify / compact toggle lives OUTSIDE the box, right beside it —
             // same height as the search box.
@@ -301,10 +320,9 @@ struct LibraryView: View {
                     .font(.system(size: 18))
                     .foregroundStyle(store.simplify ? XITheme.gold : XITheme.line)
                     .frame(width: 40, height: 40)
-                    .background(XITheme.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(XITheme.line.opacity(0.6)))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(XiDeco.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+                    .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
             }
             .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
         }
@@ -404,32 +422,38 @@ struct LibraryView: View {
             }
             .scrollDismissesKeyboard(.immediately)
         } else {
-            let cols = masonryColumns(store.filtered)
-            ScrollView {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(Array(cols.enumerated()), id: \.offset) { _, column in
-                        LazyVStack(spacing: 12) {
-                            ForEach(column) { m in
-                                MemoryCard(memory: m,
-                                           selectMode: store.selectMode,
-                                           selected: store.selectedIds.contains(m.id),
-                                           activeTags: Set(store.tagFilters.map(\.tag)),
-                                           onOpen: { open(m) },
-                                           onTag: { store.toggleTag($0) },
-                                           onEdit: m.isCommons ? nil : { memSheet = .edit(m) },
-                                           // Multi-statement closures: a bare `Task { … }` expression
-                                           // makes the optional-closure ternary ambiguous to infer.
-                                           onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) }; return },
-                                           onRemoveFromCommons: !m.isCommons ? nil : {
-                                               Task { await store.removeFromCommons(m.id) }; return
-                                           })
+            // The card's own width, so it can cap itself at a square: two
+            // columns inside the grid's 14pt margins with 12pt between them.
+            GeometryReader { geo in
+                let side = max(120, (geo.size.width - 28 - 12) / 2)
+                let cols = masonryColumns(store.filtered, cap: side)
+                ScrollView {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(Array(cols.enumerated()), id: \.offset) { _, column in
+                            LazyVStack(spacing: 12) {
+                                ForEach(column) { m in
+                                    MemoryCard(memory: m,
+                                               maxSide: side,
+                                               selectMode: store.selectMode,
+                                               selected: store.selectedIds.contains(m.id),
+                                               activeTags: Set(store.tagFilters.map(\.tag)),
+                                               onOpen: { open(m) },
+                                               onTag: { store.toggleTag($0) },
+                                               onEdit: m.isCommons ? nil : { memSheet = .edit(m) },
+                                               // Multi-statement closures: a bare `Task { … }` expression
+                                               // makes the optional-closure ternary ambiguous to infer.
+                                               onDelete: m.isCommons ? nil : { Task { await store.trash(m.id) }; return },
+                                               onRemoveFromCommons: !m.isCommons ? nil : {
+                                                   Task { await store.removeFromCommons(m.id) }; return
+                                               })
+                                }
                             }
                         }
                     }
+                    .padding(14)
                 }
-                .padding(14)
+                .scrollDismissesKeyboard(.immediately)
             }
-            .scrollDismissesKeyboard(.immediately)
         }
     }
 
@@ -446,10 +470,9 @@ struct LibraryView: View {
         }
             .frame(maxWidth: .infinity, minHeight: 96)
             .padding(8)
-            .background(XITheme.archiveCard)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XITheme.archiveBorder, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(XiDeco.surface)
+            .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XiDeco.lightLine, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
             .onTapGesture { open(m) }
             .contextMenu {
                 if !m.isCommons {
@@ -499,13 +522,16 @@ struct LibraryView: View {
 
     // MARK: masonry (pack cards into the shortest column so there are no gaps)
 
-    private func masonryColumns(_ items: [XIMemory], count: Int = 2) -> [[XIMemory]] {
+    /// `cap` is the square — a card can no longer be taller than it is wide,
+    /// so the balance must not credit a long memory with the height it used
+    /// to take, or one column ends up carrying every long one.
+    private func masonryColumns(_ items: [XIMemory], count: Int = 2, cap: CGFloat = .infinity) -> [[XIMemory]] {
         var cols = Array(repeating: [XIMemory](), count: count)
         var heights = Array(repeating: CGFloat(0), count: count)
         for m in items {
             let i = heights.enumerated().min { $0.element < $1.element }?.offset ?? 0
             cols[i].append(m)
-            heights[i] += estimatedHeight(m)
+            heights[i] += min(cap, estimatedHeight(m))
         }
         return cols
     }
@@ -535,6 +561,11 @@ struct LibraryView: View {
 
 private struct MemoryCard: View {
     let memory: XIMemory
+    /// The card's own width — and therefore its ceiling. A card may be a
+    /// square or shorter, never taller (Sophie, Aug 2026: "the memories have
+    /// to be a square or smaller, so just trunc them and have a see-more
+    /// button if the memory is longer than there's room for").
+    let maxSide: CGFloat
     let selectMode: Bool
     let selected: Bool
     let activeTags: Set<String>
@@ -547,31 +578,15 @@ private struct MemoryCard: View {
     var onRemoveFromCommons: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !memory.title.isEmpty {
-                Text(memory.title)
-                    .font(.system(.subheadline, design: .serif).weight(.medium))
-                    .foregroundStyle(XITheme.archiveTitle).lineLimit(3)
-            }
-            Text(memory.content)
-                .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveBody)
-                .lineLimit(9).fixedSize(horizontal: false, vertical: true)
-            if !memory.hashtags.isEmpty {
-                FlowTags(tags: Array(memory.hashtags.prefix(3)), active: activeTags, onTag: onTag)
-            }
-            if memory.isCommons {
-                HStack(spacing: 4) {
-                    Image(systemName: "person.crop.circle").font(.system(size: 10))
-                    Text(memory.authorName).font(.system(size: 11, design: .serif).italic())
-                }.foregroundStyle(XITheme.gold)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selected ? XITheme.maroon.opacity(0.06) : XITheme.archiveCard)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? XITheme.maroon : XITheme.archiveBorder, lineWidth: selected ? 2 : 1))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        let fit = lineBudget()
+        return face(lines: fit.lines, truncated: fit.truncated)
+        // The cap again, as a backstop: the budget is measured, so a card is
+        // already inside the square, and this is only here so a font the
+        // measurement reads differently can never push one past it.
+        .frame(maxWidth: .infinity, maxHeight: maxSide, alignment: .top)
+        .background(selected ? XITheme.maroon.opacity(0.06) : XiDeco.surface)
+        .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+        .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(selected ? XITheme.maroon : XiDeco.lightLine, lineWidth: selected ? 2 : 1))
         .overlay(alignment: .topTrailing) {
             if selectMode && !memory.isCommons {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -594,6 +609,80 @@ private struct MemoryCard: View {
                 }
             }
         }
+    }
+
+    /// How many lines of the memory fit inside the square, and whether
+    /// anything had to be cut. Measured against the REAL fonts (through
+    /// TextKit, at the card's own text width, so Dynamic Type is included)
+    /// rather than guessed from a character count — "see more" claiming words
+    /// were cut when they weren't is the failure worth spending this on.
+    private func lineBudget() -> (lines: Int?, truncated: Bool) {
+        let inner = maxSide - 28                     // the text column, past the padding
+        var used: CGFloat = 28                       // top + bottom padding
+        let titleFont = Self.cardFont(.subheadline)
+        let bodyFont = Self.cardFont(.footnote)
+        if !memory.title.isEmpty {
+            used += min(Self.textHeight(memory.title, font: titleFont, width: inner),
+                        titleFont.lineHeight * 3)    // the title's own lineLimit(3)
+            used += 8                                // the VStack's gap
+        }
+        // FlowTags stacks one chip per row: text + 6pt of padding, 4pt apart.
+        let tags = min(3, memory.hashtags.count)
+        if tags > 0 { used += CGFloat(tags) * 19 + CGFloat(tags - 1) * 4 + 8 }
+        if memory.isCommons { used += 15 + 8 }
+        let room = maxSide - used
+        let needed = Self.textHeight(memory.content, font: bodyFont, width: inner)
+        if needed <= room { return (nil, false) }
+        // "see more" costs a line of its own, so the words get what's left.
+        let lines = Int(floor((room - 24) / bodyFont.lineHeight))
+        return (max(1, lines), true)
+    }
+
+    /// The UIKit twin of `.system(style, design: .serif)`, for measuring.
+    private static func cardFont(_ style: UIFont.TextStyle) -> UIFont {
+        let base = UIFont.preferredFont(forTextStyle: style)
+        guard let d = base.fontDescriptor.withDesign(.serif) else { return base }
+        return UIFont(descriptor: d, size: base.pointSize)
+    }
+
+    private static func textHeight(_ s: String, font: UIFont, width: CGFloat) -> CGFloat {
+        guard width > 0 else { return 0 }
+        return (s as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font], context: nil).height
+    }
+
+    /// The card's face at a given line budget. `truncated` draws the "see
+    /// more" — a label on the card's own tap, not a second control, so
+    /// tapping it and tapping the card do the same thing.
+    private func face(lines: Int?, truncated: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !memory.title.isEmpty {
+                Text(memory.title)
+                    .font(.system(.subheadline, design: .serif).weight(.medium))
+                    .foregroundStyle(XITheme.archiveTitle).lineLimit(3)
+            }
+            Text(memory.content)
+                .font(.system(.footnote, design: .serif)).foregroundStyle(XITheme.archiveBody)
+                .lineLimit(lines).fixedSize(horizontal: false, vertical: true)
+            if truncated {
+                Text("see more")
+                    .font(.system(size: 12, design: .serif).italic())
+                    .foregroundStyle(XITheme.line)
+            }
+            if !memory.hashtags.isEmpty {
+                FlowTags(tags: Array(memory.hashtags.prefix(3)), active: activeTags, onTag: onTag)
+            }
+            if memory.isCommons {
+                HStack(spacing: 4) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 10))
+                    Text(memory.authorName).font(.system(size: 11, design: .serif).italic())
+                }.foregroundStyle(XITheme.gold)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -663,9 +752,13 @@ struct MemoryPopup: View {
                 .frame(maxHeight: 430)
             }
             .frame(maxWidth: 360)
-            .background(XITheme.paper)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(XITheme.line.opacity(0.6)))
+            // The card a memory opens INTO is the same white card it was on
+            // the shelf, with the same corner — the pop-up used to be
+            // parchment with a 12pt round, which read as a different object
+            // from the thing tapped.
+            .background(XiDeco.surface)
+            .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
             .shadow(color: .black.opacity(0.28), radius: 20, y: 8)
             .padding(.horizontal, 26)
         }
