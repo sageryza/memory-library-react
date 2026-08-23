@@ -33,13 +33,25 @@ enum XiDeco {
     static let ink = Color(red: 25 / 255, green: 20 / 255, blue: 17 / 255)        // #191411
     static let gilt = Color(red: 176 / 255, green: 140 / 255, blue: 54 / 255)     // #b08c36
     static let surface = Color(red: 255 / 255, green: 253 / 255, blue: 246 / 255) // #fffdf6 card surface
-    // #cacaca — GRAY, where the artboard drew #d9c9a6, a warm tan that read as
-    // gold beside the cream (Sophie, Aug 2026: "the cards and the memories and
-    // the text box are all outlined in gold, but instead they should be
-    // outlined in gray"). Same lightness as the tan it replaces, so nothing
-    // got heavier or lighter — it finishes the sweep that took the gilt off
-    // `mark`, `rule` and `cardLine` and left every OUTLINE behind.
-    static let lightLine = Color(red: 202 / 255, green: 202 / 255, blue: 202 / 255) // all outlines
+    // #cacaca — GRAY, where the artboard drew a warm tan that read as gold
+    // beside the cream (Sophie, Aug 2026: "the cards and the memories and the
+    // text box are all outlined in gold, but instead they should be outlined
+    // in gray"). Same lightness as the tan it replaces, so nothing got heavier
+    // or lighter. Everything INSIDE a page: the day cards, the write box, the
+    // search box.
+    static let lightLine = Color(red: 202 / 255, green: 202 / 255, blue: 202 / 255)
+
+    /// #d9c9a6 — the artboard's warm tan, and the ONE line that kept it. The
+    /// gray sweep took the page frame with it and Sophie asked for the frame
+    /// back in tan (Aug 2026): on a line that rings the whole page the warmth
+    /// belongs to the paper, where on a card it read as gold. Only Today's
+    /// double frame draws with this.
+    static let frameLine = Color(red: 217 / 255, green: 201 / 255, blue: 166 / 255)
+
+    /// #a8a8a8 — `lightLine` a clear step darker, for the Library's memory
+    /// cards (Sophie, Aug 2026). A white card on the cream shelf needs more
+    /// edge than one sitting inside Today's frame does.
+    static let cardOutline = Color(red: 168 / 255, green: 168 / 255, blue: 168 / 255)
 
     // Aug 2026, Sophie: "get rid of most of the gold and red accents so change
     // them to black or gray. keep the gold progress bar tho." So `gilt`

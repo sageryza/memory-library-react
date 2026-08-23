@@ -50,6 +50,15 @@ struct LibraryView: View {
                                 GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10)]
 
+    /// The design file's own numbers for the top of this page (3a/4a in
+    /// design/xi-redesign): the masthead 30 down from the top, then 16 to the
+    /// search row and 16 again to the cards, everything on 26pt side margins.
+    /// It had been 14/8/14 — tighter than the artboard everywhere, which is
+    /// what made the top read crowded (Sophie, Aug 2026).
+    private let pageMargin: CGFloat = 26
+    private let mastheadTop: CGFloat = 30
+    private let rowGap: CGFloat = 16
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -252,9 +261,9 @@ struct LibraryView: View {
             .font(.system(size: 17))
             .tint(XiDeco.ink.opacity(0.45))
             .foregroundStyle(XiDeco.ink.opacity(0.45))
-            .padding(.horizontal, 22)
+            .padding(.horizontal, pageMargin)
         }
-        .padding(.top, 14)
+        .padding(.top, mastheadTop)
     }
 
     private var searchBar: some View {
@@ -326,7 +335,7 @@ struct LibraryView: View {
             }
             .accessibilityLabel(store.simplify ? "Detailed view" : "Simplify view")
         }
-        .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 10)
+        .padding(.horizontal, pageMargin).padding(.top, rowGap)
     }
 
     private var activeBar: some View {
@@ -361,9 +370,9 @@ struct LibraryView: View {
                     }
                 }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, pageMargin)
         }
-        .padding(.bottom, 8)
+        .padding(.top, 12)
     }
 
     private var selectionBar: some View {
@@ -418,14 +427,15 @@ struct LibraryView: View {
             ScrollView {
                 LazyVGrid(columns: simplifyCols, spacing: 10) {
                     ForEach(store.filtered) { m in simplifyCard(m) }
-                }.padding(14)
+                }
+                .padding(.horizontal, pageMargin).padding(.top, rowGap).padding(.bottom, 14)
             }
             .scrollDismissesKeyboard(.immediately)
         } else {
             // The card's own width, so it can cap itself at a square: two
             // columns inside the grid's 14pt margins with 12pt between them.
             GeometryReader { geo in
-                let side = max(120, (geo.size.width - 28 - 12) / 2)
+                let side = max(120, (geo.size.width - pageMargin * 2 - 12) / 2)
                 let cols = masonryColumns(store.filtered, cap: side)
                 ScrollView {
                     HStack(alignment: .top, spacing: 12) {
@@ -450,7 +460,7 @@ struct LibraryView: View {
                             }
                         }
                     }
-                    .padding(14)
+                    .padding(.horizontal, pageMargin).padding(.top, rowGap).padding(.bottom, 14)
                 }
                 .scrollDismissesKeyboard(.immediately)
             }
@@ -472,7 +482,7 @@ struct LibraryView: View {
             .padding(8)
             .background(XiDeco.surface)
             .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
-            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XiDeco.lightLine, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(store.selectedIds.contains(m.id) ? XITheme.maroon : XiDeco.cardOutline, lineWidth: store.selectedIds.contains(m.id) ? 2 : 1))
             .onTapGesture { open(m) }
             .contextMenu {
                 if !m.isCommons {
@@ -586,7 +596,7 @@ private struct MemoryCard: View {
         .frame(maxWidth: .infinity, maxHeight: maxSide, alignment: .top)
         .background(selected ? XITheme.maroon.opacity(0.06) : XiDeco.surface)
         .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
-        .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(selected ? XITheme.maroon : XiDeco.lightLine, lineWidth: selected ? 2 : 1))
+        .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(selected ? XITheme.maroon : XiDeco.cardOutline, lineWidth: selected ? 2 : 1))
         .overlay(alignment: .topTrailing) {
             if selectMode && !memory.isCommons {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -758,7 +768,7 @@ struct MemoryPopup: View {
             // from the thing tapped.
             .background(XiDeco.surface)
             .clipShape(RoundedRectangle(cornerRadius: XiDeco.corner))
-            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.lightLine))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner).stroke(XiDeco.cardOutline))
             .shadow(color: .black.opacity(0.28), radius: 20, y: 8)
             .padding(.horizontal, 26)
         }
