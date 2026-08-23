@@ -199,9 +199,8 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: toolbar
+    // MARK: the ⋯ menu
 
-    @ToolbarContentBuilder
     private var libraryMenu: some View {
         Menu {
             Button { store.toggleSelectMode() } label: {
