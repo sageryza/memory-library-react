@@ -201,10 +201,19 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   queue" and the terminal chat works it top to bottom.
 - **URGENT is the only interrupt** — I'm blocked without it, or it expires. Say
   so plainly AND queue it anyway. "It would be faster" is not urgent.
-- **Desktop-only means:** YouTube downloads (cloud IPs are bot-blocked), my
-  logged-in browser / keychain / Photos library, a plugged-in device, files that
-  live only on the Mac, big uploads that need chunking on my home connection.
-  Anything a cloud session can do, a cloud session does.
+- **Desktop-only means:** my logged-in browser / keychain / Photos library, a
+  plugged-in device, files that live only on the Mac, big uploads that need
+  chunking on my home connection. Anything a cloud session can do, a cloud
+  session does.
+- **YouTube downloads came OFF that list on 2026-08-23.** This said "cloud IPs
+  are bot-blocked", and that sentence is why nobody built the endpoint. Measured
+  on the live Render box that day: metadata, a 3.4MB m4a and a 9.1MB 360p mp4,
+  all clean, no cookies. Send a video url to
+  `POST https://imageforge-q125.onrender.com/api/ytdl/grab {url, kind}` instead
+  of queueing it. It can regress — the blocking is YouTube's to change — and
+  then the grab answers `blocked:true` and the desktop queue is the fallback
+  again. `GET /api/ytdl/status?probe=1` re-measures. Full rules: the *Grab a
+  video* section of imageforge's CLAUDE.md.
 
 ## Working style
 - **Build only what I asked for — no extra features, buttons, or UI.** Don't add
