@@ -110,10 +110,10 @@ struct TodayView: View {
         // since the accents came off).
         .overlay(
             ZStack {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: XiDeco.corner)
                     .strokeBorder(XiDeco.lightLine, lineWidth: 1.5)
                     .padding(10)
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: XiDeco.corner)
                     .strokeBorder(XiDeco.rule, lineWidth: 1)
                     .padding(14)
             }
@@ -221,20 +221,24 @@ struct TodayView: View {
         .padding(.top, 26)
     }
 
-    /// redraw / nothing — quiet italic links, no borders, no underlines
-    /// (explicit design note). "nothing" toggles the pair's miss mark.
+    /// ONE quiet italic link — no border, no underline (explicit design note).
+    /// It was two, "redraw" and "nothing", and they asked the same thing twice
+    /// (Sophie, Aug 2026: "rather than having a redraw and nothing button just
+    /// make one button that says I got nothing … once they have added at least
+    /// one memory the button becomes 'new cards'"). Both labels draw new cards;
+    /// the word is what changed, and it changes with what she did with the pair
+    /// in front of her — nothing to say about it, or something already said.
+    /// "i got nothing" also keeps the old button's record: the pair is marked a
+    /// miss on the way past, the same mark the web keeps as xi2_misses.
     private var redrawRow: some View {
-        HStack(spacing: 22) {
-            Button { newCards() } label: {
-                Text("redraw")
-                    .font(XiDeco.garamondItalic(14))
-                    .foregroundStyle(XiDeco.ink.opacity(0.45))
-            }
-            Button { toggleNothing() } label: {
-                Text("nothing")
-                    .font(XiDeco.garamondItalic(14))
-                    .foregroundStyle(isMissed ? XiDeco.mark : XiDeco.ink.opacity(0.45))
-            }
+        let gotNothing = memories.isEmpty
+        return Button {
+            if gotNothing { markNothing() }
+            newCards()
+        } label: {
+            Text(gotNothing ? "i got nothing" : "new cards")
+                .font(XiDeco.garamondItalic(14))
+                .foregroundStyle(XiDeco.ink.opacity(0.45))
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
@@ -304,15 +308,16 @@ struct TodayView: View {
                             .tracking(0.93)
                             .foregroundStyle(XiDeco.cream)
                             .padding(.vertical, 7).padding(.horizontal, 22)
-                            .background(XiDeco.ink)
+                            .background(XiDeco.ink, in: RoundedRectangle(cornerRadius: XiDeco.corner))
                     }
                     .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
                 }
                 .padding(.trailing, 15).padding(.bottom, 13)
             }
-            .background(XiDeco.surface)
-            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
+            .background(XiDeco.surface, in: RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner)
+                .strokeBorder(XiDeco.lightLine, lineWidth: 1))
 
             if sharePrefs.mode == .ask {
                 ShareToggleRow(isOn: $shareThisOne)
@@ -350,7 +355,8 @@ struct TodayView: View {
     }
 
     /// One collected memory, exactly as the artboard draws it: straight (no
-    /// tilt), card surface, light outline, no shadow, its own island.
+    /// tilt), card surface, light outline, no shadow, its own island — and the
+    /// page frame's own 2pt corner (Sophie, Aug 2026).
     private func memoryCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 4) { content() }
             .font(XiDeco.garamond(16))
@@ -358,8 +364,9 @@ struct TodayView: View {
             .foregroundStyle(XiDeco.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(XiDeco.surface)
-            .overlay(Rectangle().strokeBorder(XiDeco.lightLine, lineWidth: 1))
+            .background(XiDeco.surface, in: RoundedRectangle(cornerRadius: XiDeco.corner))
+            .overlay(RoundedRectangle(cornerRadius: XiDeco.corner)
+                .strokeBorder(XiDeco.lightLine, lineWidth: 1))
     }
 
     // MARK: others (display-only — AI-written memories that combine BOTH of the
@@ -490,8 +497,13 @@ struct TodayView: View {
         text = ""
     }
 
-    private func toggleNothing() {
-        if missed.contains(pairKey) { missed.remove(pairKey) } else { missed.insert(pairKey) }
+    /// Mark this pair a miss. One direction only now: the button that used to
+    /// toggle it draws new cards in the same tap, so there is no second tap to
+    /// un-mark with — and saying "i got nothing" about a pair you have left is
+    /// not something you take back by accident.
+    private func markNothing() {
+        guard !missed.contains(pairKey) else { return }
+        missed.insert(pairKey)
         UserDefaults.standard.set(Array(missed), forKey: "xi_missedPairs")
     }
 

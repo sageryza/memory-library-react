@@ -4,9 +4,15 @@ import UIKit
 /// Card art that never leaves a card blank. AsyncImage tries exactly once and
 /// gives up forever on a network hiccup — on a flaky connection whole hands
 /// rendered as empty white squares. This loads through the shared URLCache
-/// (instant when the prefetch already warmed it), retries with backoff when
-/// the network drops a request, and shows the card's caption text until — or
-/// unless — the art arrives.
+/// (instant when the prefetch already warmed it) and retries with backoff when
+/// the network drops a request.
+///
+/// The caption is the fallback for a card that HAS no picture — it never shows
+/// while one is on its way (Sophie, Aug 2026: "the cards don't load
+/// immediately and it shows just the plain text before the card loads … it
+/// shouldn't show the plain text"). So it appears in exactly two cases: the
+/// card carries no `img` at all, or every retry has been spent and the art is
+/// genuinely not coming. In between, the plate simply stays empty.
 struct CardArt: View {
     let card: XICard
     var capSize: CGFloat = 10     // caption fallback font size
@@ -21,6 +27,12 @@ struct CardArt: View {
     var trimFrame: Bool = false
 
     @State private var image: UIImage?
+    /// Set once every retry is spent — the art is not coming, so the caption
+    /// takes over. Never true while a load is still in flight.
+    @State private var gaveUp = false
+
+    /// A card with no picture is its caption; there is nothing to wait for.
+    private var captionOnly: Bool { card.img == nil }
 
     var body: some View {
         ZStack {
@@ -30,15 +42,17 @@ struct CardArt: View {
                     if blend { art.blendMode(.multiply) } else { art }
                 }
                 .padding(pad)
-            } else {
-                // Caption while loading / if the art never comes — a card always
-                // says what it is.
+            } else if captionOnly || gaveUp {
+                // The card has no art, or it never arrived — a card that will
+                // never show a picture still says what it is.
                 Text(card.cap)
                     .font(capFont ?? .system(size: capSize, design: .serif))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(XITheme.ink)
                     .padding(4)
             }
+            // Still loading: nothing. The picture replaces an empty plate
+            // rather than a page of text.
         }
         .task(id: card.img) { await load() }
     }
@@ -46,6 +60,7 @@ struct CardArt: View {
     @MainActor
     private func load() async {
         image = nil
+        gaveUp = false
         guard let img = card.img,
               let url = URL(string: img.hasPrefix("http") ? img : XITheme.cardArtBase + img) else { return }
         let req = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
@@ -65,6 +80,8 @@ struct CardArt: View {
             // blank a card for the rest of the session.
             try? await Task.sleep(nanoseconds: UInt64(attempt) * 600_000_000)
         }
+        // Out of retries: fall back to the caption rather than an empty plate.
+        gaveUp = true
     }
 
     /// Crops off the picture's own printed frame. Scans in from each edge for

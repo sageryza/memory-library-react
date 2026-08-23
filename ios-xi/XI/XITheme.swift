@@ -43,6 +43,12 @@ enum XiDeco {
     static let rule = ink.opacity(0.35)   // was gilt: the hairline rules
     static let cardLine = ink.opacity(0.3) // was gilt: the picture's edge inside the plate
 
+    /// The corner radius of the page's outer frame — the artboard's 2pt, the
+    /// softest possible round. Shared so the boxes inside the page (the write
+    /// box, the collected cards, the save button) carry the same corner as the
+    /// frame around them (Sophie, Aug 2026) and can't drift apart from it.
+    static let corner: CGFloat = 2
+
     /// The double frame's inner edge. The 1px rule sits at inset 14, so a
     /// scrolling page inset by this much is clipped one point inside it and
     /// vanishes AT the line instead of sliding past it. Content keeps the
