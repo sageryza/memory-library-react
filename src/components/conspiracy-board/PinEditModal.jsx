@@ -58,7 +58,7 @@ export default function PinEditModal({ pin, onSave, onClose }) {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Enter pin description..."
+        placeholder="Pin description..."
         className="pin-edit-input"
       />
     </Modal>

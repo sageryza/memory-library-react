@@ -209,7 +209,7 @@ export default function VennDiagramModal({ connection, memories, isOpen, onClose
             <label htmlFor="connectionInsight">What do these memories have in common?</label>
             <textarea
               id="connectionInsight"
-              placeholder="Enter your insight about the connection between these memories..."
+              placeholder="Your insight..."
               value={insight}
               onChange={(e) => setInsight(e.target.value)}
               rows="3"
