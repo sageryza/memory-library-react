@@ -41,9 +41,14 @@ Screenshot upload is possible via the API but is NOT built.
 
 ## Design rules (forever)
 - **No pills.** Never use fully-rounded / pill-shaped buttons or chips. Buttons
-  are rounded rectangles — use `border-radius: 6px`. (Circular icon buttons like
-  the ♥/✕ curate toggles and dots are fine; the rule is about pill-shaped text
-  buttons.)
+  are rounded rectangles — use `border-radius: 6px`. **And a circle is not the
+  default for an icon button either (Sophie, 2026-08-24: "i prefer rounded
+  squares for buttons, or plain icons, rather than circles")** — a rounded
+  square at the house 6px, or the bare glyph; small round DOTS that are a mark
+  rather than a button (a status dot, a colour chip) are not this. This line
+  used to bless circular icon buttons as fine; that exception is retired —
+  imageforge's CLAUDE.md (*No pills* under Design rules) is the canonical copy
+  of this rule.
 
 ## ShouldiMakeThis.com — the preorder / validation site (`shouldimakethis/`)
 The product-validation site: browse things Sophie is considering making, vote
