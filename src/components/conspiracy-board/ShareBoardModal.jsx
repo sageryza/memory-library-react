@@ -117,7 +117,7 @@ export default function ShareBoardModal({
             <input
               id="recipientName"
               type="text"
-              placeholder="Enter their name (optional)"
+              placeholder="Their name (optional)"
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateLink()}

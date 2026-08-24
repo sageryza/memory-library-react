@@ -585,7 +585,7 @@ export default function ConstellationSidebar({
                       <div className="network-save-controls">
                         <input
                           type="text"
-                          placeholder="Enter name..."
+                          placeholder="Name..."
                           value={constellationName}
                           onChange={(e) => setConstellationName(e.target.value)}
                           onClick={(e) => e.stopPropagation()}

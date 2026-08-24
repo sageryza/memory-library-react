@@ -330,7 +330,7 @@ export default function UnifiedConstellation({
               <div className="save-section">
                 <input
                   type="text"
-                  placeholder="Enter constellation name..."
+                  placeholder="Constellation name..."
                   value={constellationName}
                   onChange={(e) => setConstellationName(e.target.value)}
                   className="name-input"

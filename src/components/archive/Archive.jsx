@@ -1273,7 +1273,7 @@ export default function Archive({ memories = [], memoriesLoading, addMemory, upd
                     type="text"
                     value={newHashtagInput}
                     onChange={(e) => setNewHashtagInput(e.target.value)}
-                    placeholder="Enter hashtag..."
+                    placeholder="Hashtag..."
                     autoFocus
                     className="hashtag-input"
                   />

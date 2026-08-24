@@ -191,7 +191,7 @@ const GroupDreamJournal = () => {
           <textarea
             ref={textareaRef}
             className="gdj-capture-field"
-            placeholder="Let it spill out…"
+            placeholder="I dreamt…"
             value={fieldValue}
             onChange={(e) => {
               if (!listening) setContent(e.target.value);
@@ -281,7 +281,7 @@ const GroupDreamJournal = () => {
             />
             <input
               className="gdj-input"
-              placeholder="Symbols, comma separated (e.g. water, flying)"
+              placeholder="Symbols, comma separated"
               value={symbolsText}
               onChange={(e) => setSymbolsText(e.target.value)}
             />

@@ -64,7 +64,7 @@ const GroupDreamJournalPreview = () => {
           <textarea
             ref={textareaRef}
             className="gdj-capture-field"
-            placeholder="Let it spill out…"
+            placeholder="I dreamt…"
             value={fieldValue}
             onChange={(e) => {
               if (!listening) setContent(e.target.value);
