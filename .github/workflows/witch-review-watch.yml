@@ -1,0 +1,68 @@
+name: Witch review watch
+
+# Daily check on whether Apple has reviewed "Secretly a Witch" yet.
+#
+# Sophie asked for a scheduled 1:00 pm PT check (2026-08-25). It runs the same
+# ci/asc_review_status.py the on-demand asc-status.yml runs, then does one thing
+# the on-demand one can't: it decides whether the answer is NEWS.
+#
+# A quiet day is silent. WAITING_FOR_REVIEW / IN_REVIEW / PREPARE_FOR_SUBMISSION
+# pass the job and nothing reaches her. ANY other state — approved, rejected,
+# pending developer release — FAILS the job on purpose, because a failed
+# scheduled workflow is the one signal GitHub emails the repo owner about
+# without anything else being wired up. The state is always in the run summary
+# either way.
+#
+# The cron is UTC, so 20:00 is 1:00 pm PDT — and 12:00 pm PST once the clocks
+# go back in November. Move it to '0 21 * * *' then if the hour matters.
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: Bundle id to watch
+        required: false
+        default: com.sageryza.secretlyawitch
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query App Store review state
+        id: query
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_BUNDLE_ID: ${{ inputs.bundle || 'com.sageryza.secretlyawitch' }}
+        run: |
+          python3 ci/asc_review_status.py | tee status.txt
+      - name: Report, and shout if anything changed
+        run: |
+          {
+            echo '## Secretly a Witch — App Store review'
+            echo
+            echo '```'
+            cat status.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # The newest appStoreVersions row is printed first.
+          state=$(grep -m1 '^version ' status.txt | sed 's/.*state=\([A-Z_]*\).*/\1/')
+          echo "current state: ${state:-unknown}"
+
+          case "$state" in
+            WAITING_FOR_REVIEW|IN_REVIEW|PREPARE_FOR_SUBMISSION|READY_FOR_REVIEW)
+              echo "Still waiting — nothing to report."
+              ;;
+            "")
+              echo "::error::Could not read a version state — see the log above."
+              exit 1
+              ;;
+            *)
+              echo "::error::Review state changed to $state — check App Store Connect."
+              exit 1
+              ;;
+          esac
