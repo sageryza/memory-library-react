@@ -123,6 +123,23 @@ final class VersusService {
         return id
     }
 
+    /// Register a tracked invite seat on an existing game. Invites are sent
+    /// one at a time now — each contact pick adds its seat the moment the
+    /// person is chosen, right before their Messages draft opens.
+    func addInvite(_ gameId: String, token: String, name: String) async throws {
+        guard uid != nil else { throw e("Sign in first.") }
+        _ = try await db.runTransaction { txn, errPtr -> Any? in
+            guard let gSnap = self.txnGet(txn, self.gameRef(gameId), errPtr), let g = gSnap.data() else {
+                errPtr?.pointee = self.e("Game not found."); return nil
+            }
+            var invites = (g["invites"] as? [[String: Any]]) ?? []
+            guard !invites.contains(where: { ($0["token"] as? String) == token }) else { return nil }
+            invites.append(["token": token, "name": name])
+            txn.updateData(["invites": invites, "updatedAt": FieldValue.serverTimestamp()], forDocument: self.gameRef(gameId))
+            return nil
+        }
+    }
+
     func joinGame(_ gameId: String, inviteToken: String? = nil) async throws {
         guard let uid = uid else { throw e("Sign in to join.") }
         guard Auth.auth().currentUser?.isAnonymous != true else {

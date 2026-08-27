@@ -2,12 +2,15 @@ import SwiftUI
 import ContactsUI
 import MessageUI
 
-/// The screen after "start a new game": set up who's playing BEFORE the game
-/// exists. One big person circle to start; + adds another (up to four). Fill a
-/// circle from your contacts to send them their own tracked invite text, or
-/// use the group-chat link (untracked), or just start the game and share
-/// however you like. Games are live from birth — no waiting room, no
-/// headcount, no lock: anyone with the link joins whenever they tap it.
+/// The screen after "start a new game": one big person circle to start; + adds
+/// another (up to four). Tapping a circle opens the contact picker, and picking
+/// a contact IMMEDIATELY opens a pre-addressed Messages draft with that
+/// person's own tracked invite link and an editable message — one pick, one
+/// text, no separate "send" step (Sophie, Aug 2026: "I click on their contact.
+/// Nothing happens… It should open up with a message screen that includes a
+/// link and some sort of message like join my game or whatever that they can
+/// edit"). The game is created on the first pick so the link exists to send.
+/// Games are live from birth — no waiting room, no headcount, no lock.
 struct VersusInviteView: View {
     var onCreated: (String) -> Void
 
@@ -15,43 +18,26 @@ struct VersusInviteView: View {
     @State private var slots: [InviteSlot] = [InviteSlot()]
     @State private var busy = false
     @State private var error: String?
-    // The per-person text queue: after the game is created, each picked contact
-    // gets their own pre-addressed Messages sheet with their unique link.
-    @State private var sendQueue: [PendingText] = []
     @State private var createdGameId: String?
-    // ONE sheet drives the whole flow (contact picker → composer(s) → share).
-    // Multiple isPresented sheets stacked on a view that's itself inside a
-    // sheet silently dropped presentations — the game got created but the
-    // Messages draft never appeared. An item-driven sheet can't desync.
-    @State private var sheet: ActiveSheet?
-    // What to do once the current sheet has fully animated away — presenting
-    // the next composer mid-dismissal is exactly the race that dropped it.
-    @State private var afterDismiss: (() -> Void)?
+    // The group-chat link still rides a SwiftUI sheet (UIActivityViewController
+    // hosts fine there). The contact picker and the Messages composer do NOT —
+    // see SystemPresenter below.
+    @State private var shareLink: ShareItem?
+    // The group-chat share ends the setup (you land in the game); the
+    // can't-text fallback share doesn't, so more friends can still be added.
+    @State private var finishAfterShare = false
+
+    struct ShareItem: Identifiable { let link: String; var id: String { link } }
 
     struct InviteSlot: Identifiable, Equatable {
         let id = UUID()
         var name: String = ""
         var phone: String = ""
+        /// The tracked seat's link token, set once the seat is registered on
+        /// the game — re-tapping a filled circle re-opens their text with the
+        /// SAME link, so a cancelled draft is two taps from resent.
+        var token: String?
         var isFilled: Bool { !name.isEmpty }
-    }
-
-    struct PendingText: Identifiable {
-        let id = UUID()
-        let recipient: String
-        let body: String
-    }
-
-    enum ActiveSheet: Identifiable {
-        case picker(Int)          // choosing a contact for slot i
-        case compose(PendingText) // one friend's pre-addressed Messages draft
-        case share(String)        // the group-chat link, via the share sheet
-        var id: String {
-            switch self {
-            case .picker(let i): return "picker-\(i)"
-            case .compose(let t): return "compose-\(t.id)"
-            case .share: return "share"
-            }
-        }
     }
 
     private static let maxFriends = 4
@@ -84,24 +70,13 @@ struct VersusInviteView: View {
                     }
                 }
 
-                Text("Tap a circle to pick from your contacts — each friend gets their own invite, and you'll see exactly who's joined.")
+                Text("Tap a circle, pick a friend, and their invite text opens right there — their own link, ready to send. Tap a filled circle to resend.")
                     .font(.system(.footnote, design: .serif))
                     .foregroundStyle(XITheme.line)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
 
                 VStack(spacing: 12) {
-                    if slots.contains(where: { $0.isFilled }) {
-                        Button { Task { await sendPersonalInvites() } } label: {
-                            Text(busy ? "setting up…" : "send the invites")
-                                .font(.system(.body, design: .serif))
-                                .frame(maxWidth: .infinity).padding(.vertical, 12)
-                                .background(XITheme.gold).foregroundStyle(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .disabled(busy)
-                    }
-
                     Button { Task { await sendGroupChatLink() } } label: {
                         Text("Send it to the group chat!")
                             .font(.system(.body, design: .serif))
@@ -112,10 +87,10 @@ struct VersusInviteView: View {
                     }
                     .disabled(busy)
 
-                    Button { Task { await startPlain() } } label: {
-                        Text("I'll start the game.")
+                    Button { Task { await goToGame() } } label: {
+                        Text(busy ? "setting up…" : (createdGameId == nil ? "I'll start the game." : "Go to the game"))
                             .font(.system(.body, design: .serif))
-                            .foregroundStyle(XITheme.line)
+                            .foregroundStyle(createdGameId == nil ? XITheme.line : XITheme.gold)
                     }
                     .disabled(busy)
                 }
@@ -133,48 +108,31 @@ struct VersusInviteView: View {
                         .font(.system(.headline, design: .serif)).foregroundStyle(XITheme.ink)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(XITheme.line).accessibilityLabel("Cancel")
+                    // Once invites are out the game is real — leaving the sheet
+                    // lands in it (otherwise the lobby would never remember a
+                    // game friends are already joining).
+                    Button {
+                        if createdGameId != nil { finish() } else { dismiss() }
+                    } label: { Image(systemName: "xmark") }
+                        .tint(XITheme.line).accessibilityLabel("Close")
                 }
             }
         }
         .tint(XITheme.gold)
-        .sheet(item: $sheet, onDismiss: {
-            if let action = afterDismiss {
-                afterDismiss = nil
-                action()
-            } else if !sendQueue.isEmpty {
-                // A composer was swiped away without its delegate firing —
-                // keep the queue moving rather than stranding the flow.
-                advanceQueue()
-            }
-        }) { s in
-            switch s {
-            case .picker(let i):
-                ContactPicker { name, phone in
-                    if slots.indices.contains(i) {
-                        slots[i].name = name
-                        slots[i].phone = phone
-                    }
-                    sheet = nil
-                }
-            case .compose(let t):
-                MessageComposer(recipient: t.recipient, body: t.body) {
-                    afterDismiss = { advanceQueue() }
-                    sheet = nil
-                }
-            case .share(let link):
-                ActivitySheet(items: ["Build a memory board with me in XI: \(link)"]) {
-                    afterDismiss = { finish() }
-                    sheet = nil
-                }
+        .sheet(item: $shareLink, onDismiss: {
+            // finish() only once the share sheet has fully gone — dismissing
+            // two stacked sheets at once is the race that drops one.
+            if finishAfterShare { finishAfterShare = false; finish() }
+        }) { item in
+            ActivitySheet(items: ["Build a memory board with me in XI: \(item.link)"]) {
+                shareLink = nil
             }
         }
     }
 
     private func personCircle(_ slot: InviteSlot, index: Int) -> some View {
         VStack(spacing: 6) {
-            Button { sheet = .picker(index) } label: {
+            Button { tapCircle(index) } label: {
                 Image(systemName: slot.isFilled ? "person.fill" : "person")
                     .font(.system(size: 30))
                     .foregroundStyle(slot.isFilled ? .white : XITheme.gold)
@@ -182,6 +140,7 @@ struct VersusInviteView: View {
                     .background(slot.isFilled ? XITheme.gold : XITheme.white, in: Circle())
                     .overlay(Circle().stroke(slot.isFilled ? XITheme.gold : XITheme.line, lineWidth: 1))
             }
+            .disabled(busy)
             Text(slot.isFilled ? slot.name : " ")
                 .font(.system(size: 12, design: .serif))
                 .foregroundStyle(XITheme.ink)
@@ -190,7 +149,7 @@ struct VersusInviteView: View {
         }
     }
 
-    // MARK: create + send
+    // MARK: the one-tap flow — pick a contact, their text opens
 
     private static func token() -> String { XIService.randomShareId() }
 
@@ -200,63 +159,71 @@ struct VersusInviteView: View {
         return s
     }
 
-    /// Each friend gets a unique tracked link; the game knows who accepted.
-    /// Only FILLED circles become tracked seats — an empty circle is not a
-    /// person (counting blanks is what used to wedge games).
-    private func sendPersonalInvites() async {
-        busy = true; error = nil
+    private func tapCircle(_ i: Int) {
+        error = nil
+        if slots.indices.contains(i), slots[i].isFilled {
+            // Re-send: same person, same link.
+            Task { await inviteAndCompose(i) }
+            return
+        }
+        SystemPresenter.shared.pickContact { name, phone in
+            guard slots.indices.contains(i) else { return }
+            slots[i].name = name
+            slots[i].phone = phone
+            Task { await inviteAndCompose(i) }
+        }
+    }
+
+    /// Make sure the game and this person's tracked seat exist, then open
+    /// their pre-addressed Messages draft. The Firestore round trips also give
+    /// the picker's dismissal time to finish before the composer presents.
+    private func inviteAndCompose(_ i: Int) async {
+        busy = true
         do {
-            let filled = slots.filter { $0.isFilled }
-            let invites = filled.map { (token: Self.token(), name: $0.name) }
-            let id = try await VersusService.shared.createGame(invites: invites)
-            createdGameId = id
-            // Queue a pre-addressed text per picked contact, each with their
-            // own link. (Apple requires a Send tap per message — the app can't
-            // text silently.)
-            sendQueue = zip(filled, invites).map { slot, inv in
-                PendingText(recipient: slot.phone,
-                            body: "Build a memory board with me in XI: \(link(id, token: inv.token))")
+            let id = try await ensureGame()
+            if slots[i].token == nil {
+                let token = Self.token()
+                try await VersusService.shared.addInvite(id, token: token, name: slots[i].name)
+                slots[i].token = token
             }
             busy = false
-            // A device that can't text would silently skip every composer —
-            // fall back to the share sheet instead of doing nothing at all.
-            if MessageComposer.canSend() {
-                advanceQueue()
+            guard let token = slots[i].token else { return }
+            let body = "Build a memory board with me in XI: \(link(id, token: token))"
+            if SystemPresenter.canText() {
+                SystemPresenter.shared.composeText(to: slots[i].phone, body: body) {}
             } else {
-                sendQueue = []
-                sheet = .share(link(id, token: nil))
+                // A device that can't text (no SIM, iPad) gets the share sheet
+                // with the same tracked link instead of silently doing nothing.
+                shareLink = ShareItem(link: link(id, token: token))
             }
         } catch { self.error = error.localizedDescription; busy = false }
+    }
+
+    private func ensureGame() async throws -> String {
+        if let id = createdGameId { return id }
+        let id = try await VersusService.shared.createGame()
+        createdGameId = id
+        return id
     }
 
     /// One shared link for the group chat — whoever taps it joins.
     private func sendGroupChatLink() async {
         busy = true; error = nil
         do {
-            let id = try await VersusService.shared.createGame()
-            createdGameId = id
+            let id = try await ensureGame()
             busy = false
-            sheet = .share(link(id, token: nil))
+            finishAfterShare = true
+            shareLink = ShareItem(link: link(id, token: nil))
         } catch { self.error = error.localizedDescription; busy = false }
     }
 
-    /// No invites now — straight into the game; share from there any time.
-    private func startPlain() async {
+    private func goToGame() async {
         busy = true; error = nil
         do {
-            let id = try await VersusService.shared.createGame()
-            createdGameId = id
+            _ = try await ensureGame()
             busy = false
             finish()
         } catch { self.error = error.localizedDescription; busy = false }
-    }
-
-    private func advanceQueue() {
-        if sendQueue.isEmpty {
-            if createdGameId != nil { finish() }
-        } else {
-            sheet = .compose(sendQueue.removeFirst())
-        }
     }
 
     private func finish() {
@@ -264,69 +231,97 @@ struct VersusInviteView: View {
             createdGameId = nil
             dismiss()
             onCreated(id)
+        } else {
+            dismiss()
         }
     }
 }
 
-// MARK: - UIKit bridges
+// MARK: - System screens, presented the UIKit way
 
-/// Apple's contact picker — returns only the person the user taps, so no
-/// contacts permission prompt is ever shown.
-private struct ContactPicker: UIViewControllerRepresentable {
-    var onPick: (String, String) -> Void
+/// Presents the contact picker and the Messages composer with a plain UIKit
+/// `present(_:)` from the top view controller. Both are REMOTE system view
+/// controllers, and hosting them as the root of a SwiftUI sheet (inside
+/// another sheet) is where the old flow died on device — tapping a contact
+/// did nothing at all. Presented natively, their delegates behave.
+@MainActor
+final class SystemPresenter: NSObject, CNContactPickerDelegate, MFMessageComposeViewControllerDelegate {
+    static let shared = SystemPresenter()
+    private override init() {}
 
-    func makeUIViewController(context: Context) -> CNContactPickerViewController {
+    private var onPick: ((String, String) -> Void)?
+    private var onComposeDone: (() -> Void)?
+
+    private var top: UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard let root = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+            ?? scene?.windows.first?.rootViewController else { return nil }
+        var vc = root
+        while let p = vc.presentedViewController, !p.isBeingDismissed { vc = p }
+        return vc
+    }
+
+    /// Present once the previous modal has fully gone — presenting mid-
+    /// dismissal is the race that silently drops system sheets. Retries a few
+    /// times rather than presenting into a dying controller.
+    private func presentWhenClear(_ vc: UIViewController, attempt: Int = 0) {
+        guard let host = top else { return }
+        if host.presentedViewController != nil || host.isBeingDismissed {
+            guard attempt < 12 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                self.presentWhenClear(vc, attempt: attempt + 1)
+            }
+            return
+        }
+        host.present(vc, animated: true)
+    }
+
+    // MARK: contact picker
+
+    /// Apple's picker returns only the person the user taps — no contacts
+    /// permission prompt is ever shown.
+    func pickContact(onPick: @escaping (String, String) -> Void) {
+        self.onPick = onPick
         let p = CNContactPickerViewController()
-        p.delegate = context.coordinator
-        return p
+        p.delegate = self
+        presentWhenClear(p)
     }
-    func updateUIViewController(_ vc: CNContactPickerViewController, context: Context) {}
-    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
 
-    final class Coordinator: NSObject, CNContactPickerDelegate {
-        let onPick: (String, String) -> Void
-        init(onPick: @escaping (String, String) -> Void) { self.onPick = onPick }
-        func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
-            let name = [contact.givenName, contact.familyName]
-                .filter { !$0.isEmpty }.joined(separator: " ")
-            let phone = contact.phoneNumbers.first?.value.stringValue ?? ""
-            onPick(name.isEmpty ? "Friend" : name, phone)
-        }
-        func contactPickerDidCancel(_ picker: CNContactPickerViewController) {}
+    func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
+        let name = [contact.givenName, contact.familyName]
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        let phone = contact.phoneNumbers.first?.value.stringValue ?? ""
+        let cb = onPick; onPick = nil
+        cb?(name.isEmpty ? "Friend" : name, phone)
     }
-}
 
-/// A pre-addressed, pre-filled Messages sheet — the user taps Send.
-private struct MessageComposer: UIViewControllerRepresentable {
-    let recipient: String
-    let body: String
-    var onDone: () -> Void
+    func contactPickerDidCancel(_ picker: CNContactPickerViewController) { onPick = nil }
 
-    static func canSend() -> Bool { MFMessageComposeViewController.canSendText() }
+    // MARK: messages composer
 
-    func makeUIViewController(context: Context) -> UIViewController {
-        guard MFMessageComposeViewController.canSendText() else {
-            let vc = UIViewController()
-            DispatchQueue.main.async { onDone() }
-            return vc
-        }
+    static func canText() -> Bool { MFMessageComposeViewController.canSendText() }
+
+    /// A pre-addressed, pre-filled Messages draft — the words are editable and
+    /// the user taps Send (Apple requires that tap; the app can't text
+    /// silently).
+    func composeText(to recipient: String, body: String, onDone: @escaping () -> Void) {
+        guard Self.canText() else { onDone(); return }
+        self.onComposeDone = onDone
         let mc = MFMessageComposeViewController()
-        mc.messageComposeDelegate = context.coordinator
+        mc.messageComposeDelegate = self
         if !recipient.isEmpty { mc.recipients = [recipient] }
         mc.body = body
-        return mc
+        presentWhenClear(mc)
     }
-    func updateUIViewController(_ vc: UIViewController, context: Context) {}
-    func makeCoordinator() -> Coordinator { Coordinator(onDone: onDone) }
 
-    final class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
-        let onDone: () -> Void
-        init(onDone: @escaping () -> Void) { self.onDone = onDone }
-        func messageComposeViewController(_ controller: MFMessageComposeViewController,
-                                          didFinishWith result: MessageComposeResult) {
-            controller.dismiss(animated: true)
-            onDone()
-        }
+    func messageComposeViewController(_ controller: MFMessageComposeViewController,
+                                      didFinishWith result: MessageComposeResult) {
+        controller.dismiss(animated: true)
+        let cb = onComposeDone; onComposeDone = nil
+        cb?()
     }
 }
 
