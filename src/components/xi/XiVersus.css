@@ -56,6 +56,8 @@
    matching the app's chips (rounded rectangle, not a pill). */
 .xiv-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 9px;border-radius:6px;background:#fff;border:0.5px solid #ccbd9e}
 .xiv-pill.on{background:#241d18;color:#f3ead9}
+/* Invited but not joined yet — a ghost of the chip they'll become. */
+.xiv-pill.pending{opacity:.55;border-style:dashed}
 .xiv-pill i{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
 
 .xiv-turn{text-align:center;font-variant:small-caps;letter-spacing:.05em;font-size:15px;padding:6px;color:#5b4f44}

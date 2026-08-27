@@ -136,7 +136,15 @@ final class VersusService {
                 errPtr?.pointee = self.e("Game not found."); return nil
             }
             let players = (g["players"] as? [[String: Any]]) ?? []
-            if players.contains(where: { ($0["uid"] as? String) == uid }) { return nil }
+            if players.contains(where: { ($0["uid"] as? String) == uid }) {
+                // Already in — still claim the tracked seat if this tap carried
+                // a token (a sign-in detour or a plain "join" can land the join
+                // before the token gets read; the seat must not stay "…").
+                if let claimed = Self.claimingInvites(g, token: inviteToken, uid: uid) {
+                    txn.updateData(["invites": claimed], forDocument: self.gameRef(gameId))
+                }
+                return nil
+            }
             // Games never lock — anyone with the invite link can join at any
             // point, even mid-game. (The creator can kick a wrong join.)
             let order = players.count
@@ -149,14 +157,10 @@ final class VersusService {
                 "stats.\(uid)": ["placed": 0, "stories": 0],
                 "updatedAt": FieldValue.serverTimestamp(),
             ]
-            // Tracked invite: mark this seat claimed so the waiting room can
-            // show exactly who's in.
-            if let token = inviteToken, !token.isEmpty {
-                var invites = (g["invites"] as? [[String: Any]]) ?? []
-                if let i = invites.firstIndex(where: { ($0["token"] as? String) == token && $0["claimedBy"] == nil }) {
-                    invites[i]["claimedBy"] = uid
-                    update["invites"] = invites
-                }
+            // Tracked invite: mark this seat claimed so the game shows exactly
+            // who's in.
+            if let claimed = Self.claimingInvites(g, token: inviteToken, uid: uid) {
+                update["invites"] = claimed
             }
             // Docs from older builds open as "waiting" (the retired fixed-
             // headcount format) — the first join brings them live for everyone.
@@ -166,6 +170,16 @@ final class VersusService {
             txn.updateData(update, forDocument: self.gameRef(gameId))
             return nil
         }
+    }
+
+    /// The invites array with this token's seat marked claimed, or nil when
+    /// there is nothing to claim (no token, unknown token, or already claimed).
+    private static func claimingInvites(_ g: [String: Any], token: String?, uid: String) -> [[String: Any]]? {
+        guard let token, !token.isEmpty else { return nil }
+        var invites = (g["invites"] as? [[String: Any]]) ?? []
+        guard let i = invites.firstIndex(where: { ($0["token"] as? String) == token && $0["claimedBy"] == nil }) else { return nil }
+        invites[i]["claimedBy"] = uid
+        return invites
     }
 
     /// Leave a game yourself: your hand slides back under the draw pile (the

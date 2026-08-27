@@ -457,8 +457,10 @@ export default function XiVersus() {
         // Playing needs a real account — anonymous guest sessions can watch,
         // not join (that's how nameless "Player" ghosts used to happen).
         <div className="xiv-join">
+          {/* The search rides into `next` so the ?i= invite token survives the
+              sign-in round trip — dropping it left tracked seats "…" forever. */}
           <button className="xiv-btn-sm"
-            onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus/' + gameId))}>
+            onClick={() => navigate('/login?next=' + encodeURIComponent('/xi/versus/' + gameId + window.location.search))}>
             Sign in to join this game
           </button>
         </div>
@@ -475,6 +477,16 @@ export default function XiVersus() {
               <button className="xiv-kick" aria-label={`Kick ${p.name} out`} title={`Kick ${p.name} out`}
                 onClick={() => doKick(p)}>✕</button>
             )}
+          </span>
+        ))}
+        {/* Tracked invites who haven't joined yet — the whole point of inviting
+            specific people is seeing who's in. This used to render only in the
+            retired waiting room, so on live games the invites were invisible.
+            A claimed seat shows as the player themselves, so only the
+            still-waiting ones get a ghost chip. */}
+        {(game.invites || []).filter((inv) => !inv.claimedBy).map((inv) => (
+          <span key={inv.token} className="xiv-pill pending" title="Invited — hasn't joined yet">
+            {inv.name || 'a friend'} …
           </span>
         ))}
       </div>
