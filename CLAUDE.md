@@ -210,15 +210,16 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   plugged-in device, files that live only on the Mac, big uploads that need
   chunking on my home connection. Anything a cloud session can do, a cloud
   session does.
-- **YouTube downloads came OFF that list on 2026-08-23.** This said "cloud IPs
-  are bot-blocked", and that sentence is why nobody built the endpoint. Measured
-  on the live Render box that day: metadata, a 3.4MB m4a and a 9.1MB 360p mp4,
-  all clean, no cookies. Send a video url to
-  `POST https://imageforge-q125.onrender.com/api/ytdl/grab {url, kind}` instead
-  of queueing it. It can regress — the blocking is YouTube's to change — and
-  then the grab answers `blocked:true` and the desktop queue is the fallback
-  again. `GET /api/ytdl/status?probe=1` re-measures. Full rules: the *Grab a
-  video* section of imageforge's CLAUDE.md.
+- **YouTube downloads: try the endpoint, but KEEP them on this list
+  (corrected 2026-08-27).** On 08-23 two successful downloads were read as
+  proof that "cloud IPs are bot-blocked" was stale, and this bullet said to
+  stop queueing them. Measured properly four days later: Render refused **3 of
+  4** distinct videos on every player client. Send a url to
+  `POST https://imageforge-q125.onrender.com/api/ytdl/grab {url, kind}` first —
+  it is one attempt and it fails honestly with `blocked:true` — and queue it
+  here when it does. A session container is luckier than Render (2 of 3 the
+  same minute), so a chat can also run yt-dlp itself and post the file. Full
+  rules: the *Grab a video* section of imageforge's CLAUDE.md.
 
 ## Working style
 - **Build only what I asked for — no extra features, buttons, or UI.** Don't add
