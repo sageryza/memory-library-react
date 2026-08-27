@@ -319,7 +319,13 @@ struct VersusGameView: View {
     /// the fix for a stray session joining as a phantom second you).
     @ViewBuilder
     private var playersRow: some View {
-        if let g = game, g.players.count > 1 {
+        // Tracked invites who haven't joined yet get a ghost chip beside the
+        // players — the whole point of inviting specific people is seeing
+        // who's in. This used to render only in the retired waiting room, so
+        // on live games the invites were invisible from the moment they were
+        // sent. A claimed seat shows as the player themselves.
+        let pending = game?.invites.filter { $0.claimedBy == nil } ?? []
+        if let g = game, g.players.count > 1 || !pending.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(g.players) { p in
@@ -345,6 +351,17 @@ struct VersusGameView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(XITheme.line, lineWidth: 0.5))
                     }
+                    ForEach(pending, id: \.token) { inv in
+                        Text("\(inv.name.isEmpty ? "a friend" : inv.name) …")
+                            .font(.system(.caption, design: .serif)).lineLimit(1)
+                            .foregroundStyle(XITheme.line)
+                            .padding(.vertical, 4).padding(.horizontal, 8)
+                            .background(XITheme.white.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6)
+                                .stroke(XITheme.line, style: StrokeStyle(lineWidth: 0.5, dash: [3])))
+                            .accessibilityLabel("\(inv.name.isEmpty ? "A friend" : inv.name) — invited, hasn't joined yet")
+                    }
                 }
                 .padding(.horizontal, 2)
             }
@@ -357,7 +374,11 @@ struct VersusGameView: View {
         VStack(spacing: 10) {
             Button {
                 run {
-                    try await VersusService.shared.joinGame(gameId)
+                    // A token from the tapped invite link may still be waiting
+                    // here — the lobby's auto-join fails while signed out, and
+                    // this button is the join that finally lands.
+                    try await VersusService.shared.joinGame(gameId, inviteToken: XIDeepLink.shared.versusInviteTokens[gameId])
+                    XIDeepLink.shared.versusInviteTokens[gameId] = nil
                     try await VersusService.shared.ensureHand(gameId)
                 }
             } label: {

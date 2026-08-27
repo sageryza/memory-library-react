@@ -16,6 +16,12 @@ final class XIDeepLink: ObservableObject {
     /// The `?i=` invite token that came with a Versus link, if any — claims a
     /// tracked invite seat when joining.
     @Published var pendingVersusInviteToken: String?
+    /// Invite tokens by game id, kept until a join actually claims the seat.
+    /// The pending token above is consumed by the lobby's auto-join — but that
+    /// join can fail (not signed in yet) or never run (the user taps "join
+    /// this game" later, from the game screen). Holding the token here means
+    /// any successful join can still claim the tracked seat.
+    var versusInviteTokens: [String: String] = [:]
 
     /// Pull the (kind, id, invite token) out of a universal link or an
     /// xi:// scheme link. Returns nil for links we don't own. kind is
@@ -52,6 +58,7 @@ final class XIDeepLink: ObservableObject {
     func handle(_ url: URL) -> Bool {
         guard let (kind, id, token) = Self.parse(url) else { return false }
         if kind == "versus" {
+            if let token, !token.isEmpty { versusInviteTokens[id] = token }
             pendingVersusInviteToken = token
             pendingVersusGameId = id
         } else {

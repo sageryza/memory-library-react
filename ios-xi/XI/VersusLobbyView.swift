@@ -112,12 +112,16 @@ struct VersusLobbyView: View {
         // tracked invite seat if the link carried a token).
         .task(id: deepLink.pendingVersusGameId) {
             guard let id = deepLink.pendingVersusGameId else { return }
-            let token = deepLink.pendingVersusInviteToken
+            // The per-game store survives a failed join (not signed in yet), so
+            // the "join this game" tap on the game screen can still claim the
+            // tracked seat later.
+            let token = deepLink.pendingVersusInviteToken ?? deepLink.versusInviteTokens[id]
             deepLink.pendingVersusGameId = nil
             deepLink.pendingVersusInviteToken = nil
             busy = true; error = nil
             do {
                 try await VersusService.shared.joinGame(id, inviteToken: token)
+                deepLink.versusInviteTokens[id] = nil
                 VersusRecents.remember(id)
                 recents = VersusRecents.list()
                 if let n = await VersusService.shared.otherPlayerNames(gameId: id) { names[id] = n }

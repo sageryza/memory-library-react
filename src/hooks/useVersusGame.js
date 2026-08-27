@@ -145,6 +145,17 @@ export async function createVersusGame(user, profile, invites = []) {
   return gameId;
 }
 
+// The invites array with this token's seat marked claimed, or null when there
+// is nothing to claim (no token, unknown token, or seat already claimed).
+function claimedInvites(data, inviteToken, uid) {
+  if (!inviteToken) return null;
+  const invites = [...(data.invites || [])];
+  const i = invites.findIndex((x) => x.token === inviteToken && !x.claimedBy);
+  if (i < 0) return null;
+  invites[i] = { ...invites[i], claimedBy: uid };
+  return invites;
+}
+
 // Add the current user to a game if they're not already in it. Games never
 // lock: anyone with the invite link can join at any time, even mid-game.
 export async function joinVersusGame(gameId, user, profile, inviteToken = null) {
@@ -156,6 +167,11 @@ export async function joinVersusGame(gameId, user, profile, inviteToken = null) 
   const data = snap.data();
   if ((data.players || []).some((p) => p.uid === user.uid)) { // already joined
     rememberVersusGame(gameId);
+    // Still claim the tracked seat: the sign-in detour (or joining via the
+    // plain button first) can land the join before the token gets read, and
+    // the seat must not stay "…" forever for someone who's already playing.
+    const invites = claimedInvites(data, inviteToken, user.uid);
+    if (invites) await updateDoc(ref, { invites });
     return;
   }
   rememberVersusGame(gameId);
@@ -173,11 +189,8 @@ export async function joinVersusGame(gameId, user, profile, inviteToken = null) 
     updatedAt: serverTimestamp(),
   };
   // Tracked invite: mark this seat claimed so the game shows who's accepted.
-  if (inviteToken) {
-    const invites = [...(data.invites || [])];
-    const i = invites.findIndex((x) => x.token === inviteToken && !x.claimedBy);
-    if (i >= 0) { invites[i] = { ...invites[i], claimedBy: user.uid }; update.invites = invites; }
-  }
+  const invites = claimedInvites(data, inviteToken, user.uid);
+  if (invites) update.invites = invites;
   // Docs from older app builds open as "waiting" (the old fixed-headcount
   // format) — the first join brings them live so everyone can play.
   if (statusOf(data) === 'waiting') update.status = 'active';
