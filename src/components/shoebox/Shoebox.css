@@ -244,6 +244,22 @@
   background: #c19a6b;              /* flat cork */
   transform-origin: 0 0;
 }
+
+/* ---- papers (per board — papers.js owns the list) --------------------
+   Each paper paints the cork AND the wall around it, so zooming out never
+   leaves a board floating on the wrong colour. The star tile is mirrored,
+   so it repeats with no seam; its size is fixed in px (never `cover`) —
+   the board is 1600 wide, so one tile spans it and the stars stay the size
+   she photographed them, whatever the board's height. */
+.sb-cork.pp-cork { background: #c19a6b; }
+.sb-boardwrap.pp-cork { background: #a5773f; }
+
+.sb-cork.pp-stars {
+  background: #16294a url(/shoebox/star-paper.webp) 0 0 / 1600px 1600px repeat;
+}
+.sb-boardwrap.pp-stars { background: #101d33; }
+/* The one bit of writing that sits ON the paper. */
+.pp-stars .sb-empty { color: #e6ebf7; }
 .sb-boardwrap.play .sb-cork {
   transition: transform 1.7s cubic-bezier(0.45, 0.05, 0.2, 1);
   will-change: transform;
@@ -380,10 +396,38 @@
   letter-spacing: 0.04em;
 }
 .sb-boardrow {
+  margin-bottom: 12px;
+}
+.sb-boardline {
   display: flex;
   align-items: stretch;
   gap: 8px;
-  margin-bottom: 8px;
+}
+/* The paper swatches, one row under each board. Rounded squares, never
+   circles; the lit one wears the house red. */
+.sb-paps {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 2px;
+}
+.sb-pap {
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid #d0c9b4;
+  padding: 0;
+  cursor: pointer;
+  background: #c19a6b;
+}
+.sb-pap.pp-cork { background: #c19a6b; }
+.sb-pap.pp-stars {
+  /* Zoomed right in, so a 30px swatch shows two or three whole stars
+     rather than navy speckle. */
+  background: #16294a url(/shoebox/star-paper.webp) 32% 36% / 1200% auto no-repeat;
+}
+.sb-pap.on {
+  border: 2px solid #800020;
+  box-shadow: 0 0 0 1px #fffdf3;
 }
 .sb-boardpick {
   flex: 1;

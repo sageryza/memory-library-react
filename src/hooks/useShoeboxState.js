@@ -5,7 +5,9 @@ import { db } from '../firebase';
 // Shoebox state: MULTIPLE boards, each its own corkboard — pins (where each
 // memory sits and its play order), strings (constellations, {ids:[...]} —
 // Firestore forbids nested arrays), and the board's own canvas size. New
-// boards are PORTRAIT (phone-shaped); the original board was landscape.
+// boards are PORTRAIT (phone-shaped); the original board was landscape. A
+// board also carries its own PAPER (`bg` — cork, star paper): the picker
+// lives in the Boards sheet and every board keeps its own.
 // Everything lives in ONE doc, users/{uid}/preferences/shoebox (the
 // preferences subcollection is already owner read/write in firestore.rules):
 // { boards: [{id, name, w, h, pins, strings}], current, pins, strings }
@@ -23,6 +25,10 @@ const normBoard = (b) => ({
   w: Number(b.w) > 0 ? Number(b.w) : LEGACY.w,
   h: Number(b.h) > 0 ? Number(b.h) : LEGACY.h,
   pins: Array.isArray(b.pins) ? b.pins : [],
+  // The paper is just a stored id — which papers exist is the page's
+  // business (papers.js), so an id this build doesn't know survives a
+  // round trip instead of being erased by an older page.
+  bg: typeof b.bg === 'string' && b.bg ? b.bg.slice(0, 20) : 'cork',
   strings: (Array.isArray(b.strings) ? b.strings : []).map((c) => ({ ids: chainIds(c) })),
 });
 
@@ -166,6 +172,14 @@ export default function useShoeboxState(userId) {
     strings: typeof next === 'function' ? next(b.strings) : next,
   })), [patchBoard]);
 
+  // Paper is set from the Boards sheet, where every board's swatches are on
+  // screen at once — so it names its board rather than patching the current
+  // one.
+  const setBoardPaper = useCallback((boardId, id) => update((st) => ({
+    ...st,
+    boards: st.boards.map((b) => (b.id === boardId ? { ...b, bg: String(id || 'cork').slice(0, 20) } : b)),
+  })), [update]);
+
   const selectBoard = useCallback((id) => update((st) => (
     st.boards.some((b) => b.id === id) ? { ...st, current: id } : st
   )), [update]);
@@ -185,6 +199,7 @@ export default function useShoeboxState(userId) {
   return {
     boards: state.boards, current: state.current, board,
     pins: board.pins, strings: board.strings,
-    setPins, setStrings, selectBoard, createBoard, deleteBoard, loaded, loadFailed,
+    setPins, setStrings, setBoardPaper,
+    selectBoard, createBoard, deleteBoard, loaded, loadFailed,
   };
 }
