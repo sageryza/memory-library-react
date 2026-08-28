@@ -85,7 +85,16 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [curStr, setCurStr] = useState(-1);
   const curStrRef = useRef(-1);
   const [playStep, setPlayStep] = useState(null); // null = not playing; -1 = whole board; 0.. = pins
-  const { pins, strings, setPins, setStrings, loaded } = useShoeboxState(userId);
+  const [boardsOpen, setBoardsOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const {
+    pins, strings, setPins, setStrings,
+    boards, board, current, selectBoard, createBoard, deleteBoard, loaded,
+  } = useShoeboxState(userId);
+  // The current board's own canvas — new boards are portrait, the original
+  // is landscape, and every bit of geometry reads these two.
+  const BW = board.w || BOARD_W;
+  const BH = board.h || BOARD_H;
 
   const chainIds = (c) => (c && c.ids) || (Array.isArray(c) ? c : []);
 
@@ -101,6 +110,20 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [cam, setCam] = useState(null); // null until the wrapper has a size
   const camRef = useRef(null);
   const panRef = useRef(null);
+  const currentRef = useRef(current);
+
+  // Switching boards resets the camera (each board remembers its own).
+  useEffect(() => {
+    currentRef.current = current;
+    camRef.current = null;
+    setCam(null);
+    panRef.current = null;
+    dragRef.current = null;
+    curStrRef.current = -1;
+    setCurStr(-1);
+    setOrdering(false);
+    setStringing(false);
+  }, [current]);
 
   const HEADER_H = 54; // the floating header band the fit centres below
   const fitCam = useCallback(() => {
@@ -108,13 +131,13 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     if (!el || !el.clientWidth) return { x: 0, y: HEADER_H, z: 0.15 };
     const vw = el.clientWidth;
     const vh = el.clientHeight;
-    const z = Math.max(0.05, Math.min(vw / BOARD_W, (vh - HEADER_H - 16) / BOARD_H) * 0.97);
+    const z = Math.max(0.05, Math.min(vw / BW, (vh - HEADER_H - 16) / BH) * 0.97);
     return {
-      x: (vw - BOARD_W * z) / 2,
-      y: HEADER_H + (vh - HEADER_H - BOARD_H * z) / 2,
+      x: (vw - BW * z) / 2,
+      y: HEADER_H + (vh - HEADER_H - BH * z) / 2,
       z,
     };
-  }, []);
+  }, [BW, BH]);
 
   // The board can go anywhere but never fully off screen.
   const clampCam = useCallback((c) => {
@@ -124,16 +147,16 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     const z = Math.min(1.6, Math.max(fitCam().z * 0.8, c.z));
     return {
       z,
-      x: Math.min(el.clientWidth - K, Math.max(K - BOARD_W * z, c.x)),
-      y: Math.min(el.clientHeight - K, Math.max(K - BOARD_H * z, c.y)),
+      x: Math.min(el.clientWidth - K, Math.max(K - BW * z, c.x)),
+      y: Math.min(el.clientHeight - K, Math.max(K - BH * z, c.y)),
     };
-  }, [fitCam]);
+  }, [fitCam, BW, BH]);
 
   const applyCam = useCallback((c) => {
     const cc = clampCam(c);
     camRef.current = cc;
     setCam(cc);
-    try { sessionStorage.setItem('shoeboxCam', JSON.stringify(cc)); } catch { /* ignore */ }
+    try { sessionStorage.setItem('shoeboxCam:' + (currentRef.current || ''), JSON.stringify(cc)); } catch { /* ignore */ }
   }, [clampCam]);
 
   // Zoom by a factor around a viewport point (the fingers, or the centre).
@@ -153,11 +176,11 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     if (view !== 'board' || camRef.current || !wrapRef.current) return;
     let c = null;
     try {
-      const raw = JSON.parse(sessionStorage.getItem('shoeboxCam'));
+      const raw = JSON.parse(sessionStorage.getItem('shoeboxCam:' + current));
       if (raw && [raw.x, raw.y, raw.z].every(Number.isFinite) && raw.z > 0) c = raw;
     } catch { /* ignore */ }
     applyCam(c || fitCam());
-  }, [view, applyCam, fitCam]);
+  }, [view, current, cam, applyCam, fitCam]);
 
   // One-finger pan on the background (a polaroid still drags itself).
   const onWrapDown = (e) => {
@@ -268,8 +291,8 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     const y = 140 + (Math.floor(n / 7) * 400) + ((hashOf(id + 'y') % 60) - 30);
     setPins((prev) => [...prev, {
       id,
-      x: Math.min(BOARD_W - CARD_W - 40, Math.max(20, x)),
-      y: Math.min(BOARD_H - CARD_H - 40, Math.max(20, y)),
+      x: Math.min(BW - CARD_W - 40, Math.max(20, x)),
+      y: Math.min(BH - CARD_H - 40, Math.max(20, y)),
       seq: null,
     }]);
   };
@@ -337,8 +360,8 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     const dy = (e.clientY - d.startY) / z;
     if (!d.moved && (Math.abs(dx) * z > 6 || Math.abs(dy) * z > 6)) d.moved = true;
     if (!d.moved) return;
-    const x = Math.min(BOARD_W - CARD_W - 10, Math.max(6, d.x + dx));
-    const y = Math.min(BOARD_H - CARD_H - 10, Math.max(6, d.y + dy));
+    const x = Math.min(BW - CARD_W - 10, Math.max(6, d.x + dx));
+    const y = Math.min(BH - CARD_H - 10, Math.max(6, d.y + dy));
     setPins((prev) => prev.map((p) => (p.id === d.id ? { ...p, x, y } : p)));
   };
   const onPinUp = (e, id) => {
@@ -375,15 +398,15 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     const vw = wrapRef.current.clientWidth;
     const vh = wrapRef.current.clientHeight;
     if (playStep === -1 || playStep >= playList.length) {
-      const s = Math.min(vw / BOARD_W, vh / BOARD_H) * 0.96;
-      return { x: (vw - BOARD_W * s) / 2, y: (vh - BOARD_H * s) / 2, s };
+      const s = Math.min(vw / BW, vh / BH) * 0.96;
+      return { x: (vw - BW * s) / 2, y: (vh - BH * s) / 2, s };
     }
     const pin = playList[playStep];
     const s = Math.min(2.3, (vw * 0.72) / CARD_W, (vh * 0.72) / CARD_H);
     const cx = pin.x + CARD_W / 2;
     const cy = pin.y + CARD_H / 2;
     return { x: vw / 2 - cx * s, y: vh / 2 - cy * s, s };
-  }, [playStep, playList]);
+  }, [playStep, playList, BW, BH]);
 
   useEffect(() => {
     if (playStep === null) return undefined;
@@ -422,6 +445,9 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
           </div>
           {view === 'board' && (
             <div className="sb-boardacts">
+              <button className="sb-act sb-boardname" onClick={() => setBoardsOpen(true)}>
+                {board.name} ▾
+              </button>
               <button className={`sb-act${stringing ? ' on' : ''}`} onClick={toggleStringing}>
                 {stringing ? 'Done tying' : 'String'}
               </button>
@@ -473,8 +499,8 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
           <div
             className="sb-cork"
             style={{
-              width: BOARD_W,
-              height: BOARD_H,
+              width: BW,
+              height: BH,
               transform: camera
                 ? `translate(${camera.x}px, ${camera.y}px) scale(${camera.s})`
                 : (cam ? `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})` : undefined),
@@ -483,7 +509,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
             {/* Red string constellations — drawn under the polaroids, tied
                 pinhead to pinhead in chain order, with a little sag so it
                 reads as string rather than a diagram line. */}
-            <svg className="sb-strings" width={BOARD_W} height={BOARD_H}>
+            <svg className="sb-strings" width={BW} height={BH}>
               {strings.map((chain, ci) => {
                 // Firestore can't hold nested arrays, so a stored chain is
                 // { ids: [...] }; a bare array is accepted too.
@@ -550,6 +576,48 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
         <p className="sb-orderhint">Tap polaroids one after another to tie them together. Tap a tied one to untie it.</p>
       )}
 
+      {boardsOpen && !playing && (
+        <div className="sb-scrim" onClick={() => setBoardsOpen(false)}>
+          <div className="sb-boards" onClick={(e) => e.stopPropagation()}>
+            <h2>Boards</h2>
+            {boards.map((b) => (
+              <div key={b.id} className={`sb-boardrow${b.id === current ? ' on' : ''}`}>
+                <button className="sb-boardpick" onClick={() => { selectBoard(b.id); setBoardsOpen(false); }}>
+                  <span className="sb-boardnm">{b.name}</span>
+                  <span className="sb-boardmeta">
+                    {(b.pins || []).length} pinned{Number(b.w) < Number(b.h) ? ' · portrait' : ''}
+                  </span>
+                </button>
+                {boards.length > 1 && (
+                  <button
+                    className="sb-boarddel"
+                    aria-label={`Delete ${b.name}`}
+                    onClick={() => {
+                      if (window.confirm(`Delete the board "${b.name}"? The polaroids stay in the Library.`)) {
+                        deleteBoard(b.id);
+                      }
+                    }}
+                  >✕</button>
+                )}
+              </div>
+            ))}
+            <div className="sb-newboard">
+              <input
+                value={newName}
+                placeholder="Name"
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <button
+                className="sb-act sb-primary"
+                onClick={() => { createBoard(newName.trim()); setNewName(''); setBoardsOpen(false); }}
+              >
+                New board
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {open && !playing && (
         <div className="sb-scrim" onClick={() => setOpenId(null)}>
           <div className="sb-detail" onClick={(e) => e.stopPropagation()}>
@@ -560,7 +628,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                 <button className="sb-act" onClick={() => { unpinMemory(open.id); }}>Take off the board</button>
               ) : (
                 <button className="sb-act sb-primary" onClick={() => { pinMemory(open.id); setOpenId(null); setView('board'); }}>
-                  Pin to the board
+                  Pin to “{board.name}”
                 </button>
               )}
               <button className="sb-act" onClick={() => setOpenId(null)}>Close</button>

@@ -348,6 +348,69 @@
 }
 .sb-detailacts { display: flex; gap: 10px; }
 
+/* ---- boards picker ---- */
+.sb-boardname { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-boards {
+  background: #fffdf3;
+  border: 1px solid #d6d0c0;
+  border-radius: 6px;
+  padding: 14px;
+  width: min(84vw, 340px);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.sb-boards h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.sb-boardrow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sb-boardpick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid #d0c9b4;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 15.5px;
+  color: #2c2620;
+  cursor: pointer;
+  text-align: left;
+}
+.sb-boardrow.on .sb-boardpick { border-color: #800020; }
+.sb-boardnm { font-weight: 600; }
+.sb-boardmeta { font-size: 12.5px; color: #8b8171; }
+.sb-boarddel {
+  width: 38px;
+  border: 1px solid #d0c9b4;
+  border-radius: 6px;
+  background: #fff;
+  color: #8b8171;
+  font-size: 15px;
+  cursor: pointer;
+}
+.sb-newboard { display: flex; gap: 8px; margin-top: 12px; }
+.sb-newboard input {
+  flex: 1;
+  border: 1px solid #d0c9b4;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 16px;   /* iOS zooms into anything smaller */
+  background: #fff;
+  min-width: 0;
+}
+
 @media (max-width: 480px) {
   .sb-grid { grid-template-columns: repeat(2, 1fr); gap: 22px 14px; }
   .sb-head { gap: 10px; }
