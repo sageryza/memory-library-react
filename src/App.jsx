@@ -32,6 +32,9 @@ const SharedBoardContainer = lazy(() => import('./components/shared-board/Shared
 // Lazy-loaded so XI's ~1.3 MB of bundled deck art is split into its own chunk
 // and only fetched when a user actually opens the /xi route.
 const XiApp = lazy(() => import('./components/xi/XiApp'))
+// Shoebox — the Polaroid version of the library (its own separate page; the
+// existing views are untouched).
+const Shoebox = lazy(() => import('./components/shoebox/Shoebox'))
 const XiVersus = lazy(() => import('./components/xi/XiVersus'))
 const BoardOfDay = lazy(() => import('./components/xi/BoardOfDay'))
 import './utils/importXiBackup' // Temporary: exposes window.importXiBackup() for one-time XI backup import
@@ -100,6 +103,7 @@ function PageTitle() {
       '/dream-journal': 'Group Dream Journal',
       '/public': 'Public Boards',
       '/xi': 'XI',
+      '/shoebox': 'Shoebox',
       '/login': 'Login'
     };
 
@@ -443,6 +447,18 @@ function App() {
           <Route
             path="/xi/versus/:gameId"
             element={<Suspense fallback={<LoadingSpinner />}><XiVersus /></Suspense>}
+          />
+          <Route
+            path="/shoebox"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Shoebox
+                  memories={memories}
+                  memoriesLoading={memoriesLoading}
+                  userId={user?.uid}
+                />
+              </Suspense>
+            }
           />
           <Route
             path="/login"
