@@ -10,9 +10,12 @@ import { db } from '../firebase';
 // { id: memoryId, x, y, seq: number|null }.
 export default function useShoeboxState(userId) {
   const [pins, setPinsRaw] = useState([]);
+  // Constellations: arrays of memory ids strung together with red string,
+  // drawn pin to pin in chain order. Stored beside the pins.
+  const [strings, setStringsRaw] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef(null);
-  const latest = useRef([]);
+  const latest = useRef({ pins: [], strings: [] });
   const dirty = useRef(false);
 
   useEffect(() => {
@@ -22,9 +25,12 @@ export default function useShoeboxState(userId) {
         try {
           const snap = await getDoc(doc(db, 'users', userId, 'preferences', 'shoebox'));
           if (dead) return;
-          const p = (snap.exists() && Array.isArray(snap.data().pins)) ? snap.data().pins : [];
-          latest.current = p;
+          const d = snap.exists() ? snap.data() : {};
+          const p = Array.isArray(d.pins) ? d.pins : [];
+          const s = Array.isArray(d.strings) ? d.strings : [];
+          latest.current = { pins: p, strings: s };
           setPinsRaw(p);
+          setStringsRaw(s);
           setLoaded(true);
           return;
         } catch (e) {
@@ -32,9 +38,9 @@ export default function useShoeboxState(userId) {
         }
       }
       try {
-        const raw = window.localStorage.getItem('shoeboxPins');
-        const p = raw ? JSON.parse(raw) : [];
-        if (!dead) { latest.current = p; setPinsRaw(p); }
+        const p = JSON.parse(window.localStorage.getItem('shoeboxPins') || '[]');
+        const s = JSON.parse(window.localStorage.getItem('shoeboxStrings') || '[]');
+        if (!dead) { latest.current = { pins: p, strings: s }; setPinsRaw(p); setStringsRaw(s); }
       } catch {
         if (!dead) setPinsRaw([]);
       }
@@ -43,28 +49,42 @@ export default function useShoeboxState(userId) {
     return () => { dead = true; };
   }, [userId]);
 
-  const write = useCallback((p) => {
+  const write = useCallback((cur) => {
     dirty.current = false;
     if (userId) {
       setDoc(
         doc(db, 'users', userId, 'preferences', 'shoebox'),
-        { pins: p, updatedAt: serverTimestamp() },
+        { pins: cur.pins, strings: cur.strings, updatedAt: serverTimestamp() },
         { merge: true },
       ).catch((e) => console.warn('shoebox: save failed', e));
     } else {
-      try { window.localStorage.setItem('shoeboxPins', JSON.stringify(p)); } catch { /* ignore */ }
+      try {
+        window.localStorage.setItem('shoeboxPins', JSON.stringify(cur.pins));
+        window.localStorage.setItem('shoeboxStrings', JSON.stringify(cur.strings));
+      } catch { /* ignore */ }
     }
   }, [userId]);
 
+  const scheduleSave = useCallback(() => {
+    dirty.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => write(latest.current), 700);
+  }, [write]);
+
   // Every update saves, debounced so a drag doesn't write per-move.
   const setPins = useCallback((next) => {
-    const p = typeof next === 'function' ? next(latest.current) : next;
-    latest.current = p;
-    dirty.current = true;
+    const p = typeof next === 'function' ? next(latest.current.pins) : next;
+    latest.current = { ...latest.current, pins: p };
     setPinsRaw(p);
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => write(p), 700);
-  }, [write]);
+    scheduleSave();
+  }, [scheduleSave]);
+
+  const setStrings = useCallback((next) => {
+    const s = typeof next === 'function' ? next(latest.current.strings) : next;
+    latest.current = { ...latest.current, strings: s };
+    setStringsRaw(s);
+    scheduleSave();
+  }, [scheduleSave]);
 
   // A pending save must survive her leaving the page mid-debounce.
   useEffect(() => {
@@ -83,5 +103,5 @@ export default function useShoeboxState(userId) {
     };
   }, [write]);
 
-  return { pins, setPins, loaded };
+  return { pins, strings, setPins, setStrings, loaded };
 }

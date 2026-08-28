@@ -80,7 +80,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [openId, setOpenId] = useState(null);
   const [ordering, setOrdering] = useState(false);
   const [playStep, setPlayStep] = useState(null); // null = not playing; -1 = whole board; 0.. = pins
-  const { pins, setPins, loaded } = useShoeboxState(userId);
+  const { pins, strings, setPins, loaded } = useShoeboxState(userId);
 
   const wrapRef = useRef(null);
   const dragRef = useRef(null);
@@ -283,6 +283,34 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               } : null),
             }}
           >
+            {/* Red string constellations — drawn under the polaroids, tied
+                pinhead to pinhead in chain order, with a little sag so it
+                reads as string rather than a diagram line. */}
+            <svg className="sb-strings" width={BOARD_W} height={BOARD_H}>
+              {strings.map((chain, ci) => {
+                const pts = (chain || [])
+                  .map((id) => pins.find((p) => p.id === id))
+                  .filter(Boolean)
+                  .map((p) => ({
+                    id: p.id,
+                    x: p.x + CARD_W / 2 + ((hashOf(p.id + 'p') % 26) - 13),
+                    y: p.y + 1,
+                  }));
+                const segs = [];
+                for (let i = 0; i + 1 < pts.length; i++) {
+                  const a = pts[i];
+                  const b = pts[i + 1];
+                  const sag = 22 + (hashOf(a.id + b.id) % 26);
+                  segs.push(
+                    <path
+                      key={a.id + b.id}
+                      d={`M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${Math.max(a.y, b.y) + sag} ${b.x} ${b.y}`}
+                    />,
+                  );
+                }
+                return <g key={ci}>{segs}</g>;
+              })}
+            </svg>
             {pinned.map((p) => {
               const m = byId[p.id];
               return (

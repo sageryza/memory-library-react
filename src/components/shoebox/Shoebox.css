@@ -211,6 +211,17 @@
   transition: transform 1.7s cubic-bezier(0.45, 0.05, 0.2, 1);
   will-change: transform;
 }
+.sb-strings {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+}
+.sb-strings path {
+  fill: none;
+  stroke: #a3271d;                  /* red string */
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
 .sb-pincard {
   position: absolute;
   touch-action: none;
