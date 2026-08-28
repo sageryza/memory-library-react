@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import useShoeboxState from '../../hooks/useShoeboxState';
 import './Shoebox.css';
@@ -85,6 +85,103 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const wrapRef = useRef(null);
   const dragRef = useRef(null);
 
+  // ---- board zoom (Sophie: "I can't zoom out with my fingers") ----------
+  // The board is its own zoomable surface: pinch anywhere on the cork, or
+  // the + / − / Fit buttons. iOS page zoom can never go below 1x, so the
+  // zoom has to live in the board itself. 0 = "fit the whole board",
+  // resolved once the wrapper has a size.
+  const [zoom, setZoom] = useState(() => {
+    try {
+      const z = parseFloat(sessionStorage.getItem('shoeboxZoom'));
+      return Number.isFinite(z) && z > 0 ? z : 0;
+    } catch { return 0; }
+  });
+  const zoomRef = useRef(zoom);
+  const pendScroll = useRef(null);
+
+  const fitZoom = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el || !el.clientWidth) return 0.15;
+    return Math.max(0.05, Math.min(el.clientWidth / BOARD_W, el.clientHeight / BOARD_H) * 0.97);
+  }, []);
+  const clampZ = useCallback((z) => Math.min(1.6, Math.max(fitZoom() * 0.8, z)), [fitZoom]);
+
+  // Apply a new zoom keeping a viewport point (default: the centre) fixed.
+  const applyZoom = useCallback((z1raw, atX, atY) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const z1 = clampZ(z1raw);
+    const z0 = zoomRef.current || z1;
+    const cx = atX != null ? atX : el.clientWidth / 2;
+    const cy = atY != null ? atY : el.clientHeight / 2;
+    pendScroll.current = {
+      x: ((el.scrollLeft + cx) / z0) * z1 - cx,
+      y: ((el.scrollTop + cy) / z0) * z1 - cy,
+    };
+    zoomRef.current = z1;
+    setZoom(z1);
+  }, [clampZ]);
+
+  // Scroll correction lands after the sizer has its new dimensions.
+  useLayoutEffect(() => {
+    zoomRef.current = zoom;
+    const el = wrapRef.current;
+    if (el && pendScroll.current) {
+      el.scrollLeft = pendScroll.current.x;
+      el.scrollTop = pendScroll.current.y;
+      pendScroll.current = null;
+    }
+    if (zoom > 0) { try { sessionStorage.setItem('shoeboxZoom', String(zoom)); } catch { /* ignore */ } }
+  }, [zoom]);
+
+  // First look at the board: the whole cork, all constellations visible.
+  useEffect(() => {
+    if (view === 'board' && zoomRef.current === 0 && wrapRef.current) {
+      const z = fitZoom();
+      zoomRef.current = z;
+      setZoom(z);
+    }
+  }, [view, fitZoom]);
+
+  // Pinch: two touches on the wrapper zoom around their midpoint. Native
+  // touch events (non-passive) because touchmove must preventDefault, and a
+  // second finger landing mid-card-drag cancels the drag.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || view !== 'board') return undefined;
+    let d0 = 0; let z0 = 1; let mid = null;
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onTS = (e) => {
+      if (e.touches.length === 2) {
+        dragRef.current = null;
+        d0 = dist(e.touches);
+        z0 = zoomRef.current || 1;
+        const r = el.getBoundingClientRect();
+        mid = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
+        };
+      }
+    };
+    const onTM = (e) => {
+      if (e.touches.length === 2 && d0) {
+        e.preventDefault();
+        applyZoom(z0 * (dist(e.touches) / d0), mid.x, mid.y);
+      }
+    };
+    const onTE = () => { d0 = 0; };
+    el.addEventListener('touchstart', onTS, { passive: true });
+    el.addEventListener('touchmove', onTM, { passive: false });
+    el.addEventListener('touchend', onTE);
+    el.addEventListener('touchcancel', onTE);
+    return () => {
+      el.removeEventListener('touchstart', onTS);
+      el.removeEventListener('touchmove', onTM);
+      el.removeEventListener('touchend', onTE);
+      el.removeEventListener('touchcancel', onTE);
+    };
+  }, [view, applyZoom]);
+
   // Handwriting face for the chins. A <link> so a failed font fetch degrades
   // to the cursive fallback instead of failing the route's CSS chunk.
   useEffect(() => {
@@ -151,9 +248,11 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const onPinMove = (e) => {
     const d = dragRef.current;
     if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (!d.moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) d.moved = true;
+    // Pointer deltas are screen pixels; the board may be zoomed out.
+    const z = zoomRef.current || 1;
+    const dx = (e.clientX - d.startX) / z;
+    const dy = (e.clientY - d.startY) / z;
+    if (!d.moved && (Math.abs(dx) * z > 6 || Math.abs(dy) * z > 6)) d.moved = true;
     if (!d.moved) return;
     const x = Math.min(BOARD_W - CARD_W - 10, Math.max(6, d.x + dx));
     const y = Math.min(BOARD_H - CARD_H - 10, Math.max(6, d.y + dy));
@@ -273,14 +372,18 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
       {(view === 'board' || playing) && (
         <div className={`sb-boardwrap${playing ? ' play' : ''}`} ref={wrapRef} onClick={playing ? stopPlay : undefined}>
+          {/* The sizer is the scrollable footprint at the current zoom; the
+              cork keeps its true pixel size and scales inside it, so pin
+              coordinates never change meaning. */}
+          <div className="sb-sizer" style={{ width: BOARD_W * (zoom || 1), height: BOARD_H * (zoom || 1) }}>
           <div
             className="sb-cork"
             style={{
               width: BOARD_W,
               height: BOARD_H,
-              ...(camera ? {
-                transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.s})`,
-              } : null),
+              transform: camera
+                ? `translate(${camera.x}px, ${camera.y}px) scale(${camera.s})`
+                : `scale(${zoom || 1})`,
             }}
           >
             {/* Red string constellations — drawn under the polaroids, tied
@@ -336,10 +439,19 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               <p className="sb-empty">Open a polaroid in the Library and pin it here.</p>
             )}
           </div>
-          {ordering && !playing && (
-            <p className="sb-orderhint">Tap polaroids in story order. Tap a number to clear it.</p>
-          )}
+          </div>
         </div>
+      )}
+
+      {view === 'board' && !playing && (
+        <div className="sb-zoomer">
+          <button className="sb-zbtn" onClick={() => applyZoom((zoomRef.current || 1) * 1.4)} aria-label="Zoom in">+</button>
+          <button className="sb-zbtn" onClick={() => applyZoom((zoomRef.current || 1) / 1.4)} aria-label="Zoom out">−</button>
+          <button className="sb-zbtn sb-zfit" onClick={() => applyZoom(fitZoom())} aria-label="Fit the whole board">Fit</button>
+        </div>
+      )}
+      {view === 'board' && ordering && !playing && (
+        <p className="sb-orderhint">Tap polaroids in story order. Tap a number to clear it.</p>
       )}
 
       {open && !playing && (
