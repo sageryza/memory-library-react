@@ -288,7 +288,9 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                 reads as string rather than a diagram line. */}
             <svg className="sb-strings" width={BOARD_W} height={BOARD_H}>
               {strings.map((chain, ci) => {
-                const pts = (chain || [])
+                // Firestore can't hold nested arrays, so a stored chain is
+                // { ids: [...] }; a bare array is accepted too.
+                const pts = ((chain && chain.ids) || (Array.isArray(chain) ? chain : []))
                   .map((id) => pins.find((p) => p.id === id))
                   .filter(Boolean)
                   .map((p) => ({
