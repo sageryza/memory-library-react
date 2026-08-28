@@ -10,10 +10,9 @@
 /* Tiny build stamp so you can tell a deployed version from a cached one. */
 .xi-build-stamp{position:fixed;top:3px;right:6px;z-index:9600;font-family:'EB Garamond',serif;font-size:9px;letter-spacing:.02em;color:rgba(36,29,24,.32);pointer-events:none}
 
-/* Top-right of the Today screen: the gear (Curate, matching the app's corner)
-   sits in the corner; the calendar (past days) rides just left of it. */
-.xi-cal{position:fixed;top:26px;right:max(56px,calc(50% - 195px + 56px));z-index:9550;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:rgba(25,20,17,.35);cursor:pointer}
-.xi-cal:hover{color:#191411}
+/* Top-right of the Today screen: the gear (Curate), and nothing else — the
+   app draws only a gear there. The calendar that used to ride beside it came
+   off at Sophie's ask (Aug 2026, "no calendar"). */
 .xi-cal svg{width:23px;height:23px}
 .xi-gear{position:fixed;top:26px;right:max(26px,calc(50% - 195px + 26px));z-index:9550;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:none;border:none;color:rgba(25,20,17,.35);cursor:pointer}
 .xi-gear:hover{color:#191411}
@@ -365,9 +364,7 @@ button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
    its own Marcellus masthead inside the frame, so two XI marks would stack. */
 .xi-app.on-today .xi-brand{display:none}
 
-/* The gear and the calendar are restyled in place at the top of this file —
-   they render only on Today, so they need no screen-scoped class. Both are
-   kept deliberately: the gear because settings/curation must stay reachable
-   (it is the one thing on the screen the artboard doesn't draw, kept as quiet
-   as the redraw link), the calendar because it is the only door to the
-   past-days grid now that the ‹ › day arrows are gone. */
+/* The gear is restyled in place at the top of this file — it renders only on
+   Today, so it needs no screen-scoped class. It is kept deliberately: settings
+   and curation must stay reachable, and it is the one thing on the screen the
+   artboard doesn't draw, so it is as quiet as the redraw link. */
