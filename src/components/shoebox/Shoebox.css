@@ -193,18 +193,17 @@
 .sb-float { position: absolute; top: 60px; left: 18px; z-index: 25; }
 
 /* ---- board ---- */
+/* The board is a free camera over the cork (pan with a finger, pinch to
+   zoom) — no native scrolling, so touch-action:none and overflow hidden. */
 .sb-boardwrap {
   position: absolute;
   inset: 0;
-  overflow: auto;
-  padding-top: 54px;
-  box-sizing: border-box;
+  overflow: hidden;
   background: #a5773f;
+  touch-action: none;
+  cursor: grab;
 }
-.sb-boardwrap.play { overflow: hidden; padding-top: 0; cursor: pointer; }
-/* No overflow clipping — during play the camera scales the cork far past
-   the sizer's zoomed-out footprint. */
-.sb-sizer { position: relative; }
+.sb-boardwrap.play { cursor: pointer; }
 .sb-zoomer {
   position: absolute;
   left: 12px;
