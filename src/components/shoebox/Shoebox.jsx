@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import useShoeboxState from '../../hooks/useShoeboxState';
+import { PAPERS, paperOf } from './papers';
 import './Shoebox.css';
 
 // Shoebox — the Polaroid version of the Memory Library. Two surfaces over the
@@ -88,9 +89,12 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [boardsOpen, setBoardsOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const {
-    pins, strings, setPins, setStrings,
+    pins, strings, setPins, setStrings, setBoardPaper,
     boards, board, current, selectBoard, createBoard, deleteBoard, loaded, loadFailed,
   } = useShoeboxState(userId);
+  // The board's own paper — cork, or her navy star paper. Each board keeps
+  // its own, so the wall around it changes with it.
+  const paper = paperOf(board.bg);
   // The current board's own canvas — new boards are portrait, the original
   // is landscape, and every bit of geometry reads these two.
   const BW = board.w || BOARD_W;
@@ -502,7 +506,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
       {(view === 'board' || playing) && (
         <div
-          className={`sb-boardwrap${playing ? ' play' : ''}`}
+          className={`sb-boardwrap ${paper.cls}${playing ? ' play' : ''}`}
           ref={wrapRef}
           onClick={playing ? stopPlay : undefined}
           onPointerDown={playing ? undefined : onWrapDown}
@@ -511,7 +515,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
           onPointerCancel={playing ? undefined : onWrapUp}
         >
           <div
-            className="sb-cork"
+            className={`sb-cork ${paper.cls}`}
             style={{
               width: BW,
               height: BH,
@@ -596,23 +600,41 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
             <h2>Boards</h2>
             {boards.map((b) => (
               <div key={b.id} className={`sb-boardrow${b.id === current ? ' on' : ''}`}>
-                <button className="sb-boardpick" onClick={() => { selectBoard(b.id); setBoardsOpen(false); }}>
-                  <span className="sb-boardnm">{b.name}</span>
-                  <span className="sb-boardmeta">
-                    {(b.pins || []).length} pinned{Number(b.w) < Number(b.h) ? ' · portrait' : ''}
-                  </span>
-                </button>
-                {boards.length > 1 && (
-                  <button
-                    className="sb-boarddel"
-                    aria-label={`Delete ${b.name}`}
-                    onClick={() => {
-                      if (window.confirm(`Delete the board "${b.name}"? The polaroids stay in the Library.`)) {
-                        deleteBoard(b.id);
-                      }
-                    }}
-                  >✕</button>
-                )}
+                <div className="sb-boardline">
+                  <button className="sb-boardpick" onClick={() => { selectBoard(b.id); setBoardsOpen(false); }}>
+                    <span className="sb-boardnm">{b.name}</span>
+                    <span className="sb-boardmeta">
+                      {(b.pins || []).length} pinned{Number(b.w) < Number(b.h) ? ' · portrait' : ''}
+                    </span>
+                  </button>
+                  {boards.length > 1 && (
+                    <button
+                      className="sb-boarddel"
+                      aria-label={`Delete ${b.name}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete the board "${b.name}"? The polaroids stay in the Library.`)) {
+                          deleteBoard(b.id);
+                        }
+                      }}
+                    >✕</button>
+                  )}
+                </div>
+                {/* Every board's paper is on screen at once — a swatch is a
+                    sibling of the row's button, never inside it (a button in
+                    a button would eat the tap). Picking one does NOT switch
+                    boards: she can re-paper a board she isn't standing on. */}
+                <div className="sb-paps">
+                  {PAPERS.map((pp) => (
+                    <button
+                      key={pp.id}
+                      className={`sb-pap ${pp.cls}${paperOf(b.bg).id === pp.id ? ' on' : ''}`}
+                      title={pp.name}
+                      aria-label={`${pp.name} for ${b.name}`}
+                      aria-pressed={paperOf(b.bg).id === pp.id}
+                      onClick={() => setBoardPaper(b.id, pp.id)}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
             <div className="sb-newboard">
