@@ -85,91 +85,122 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const wrapRef = useRef(null);
   const dragRef = useRef(null);
 
-  // ---- board zoom (Sophie: "I can't zoom out with my fingers") ----------
-  // The board is its own zoomable surface: pinch anywhere on the cork, or
-  // the + / − / Fit buttons. iOS page zoom can never go below 1x, so the
-  // zoom has to live in the board itself. 0 = "fit the whole board",
-  // resolved once the wrapper has a size.
-  const [zoom, setZoom] = useState(() => {
-    try {
-      const z = parseFloat(sessionStorage.getItem('shoeboxZoom'));
-      return Number.isFinite(z) && z > 0 ? z : 0;
-    } catch { return 0; }
-  });
-  const zoomRef = useRef(zoom);
-  const pendScroll = useRef(null);
+  // ---- the board camera (Sophie: "take up the whole screen, start in the
+  // center, and be able to go anywhere from there") ------------------------
+  // The board is a free camera over the cork, like a map: cam = where the
+  // cork's top-left sits on screen (x, y) and the scale (z). One finger on
+  // the background pans, pinch zooms around the fingers, + / − / Fit are the
+  // buttons. iOS page zoom can never go below 1x, so all of it lives here.
+  const [cam, setCam] = useState(null); // null until the wrapper has a size
+  const camRef = useRef(null);
+  const panRef = useRef(null);
 
-  const fitZoom = useCallback(() => {
+  const HEADER_H = 54; // the floating header band the fit centres below
+  const fitCam = useCallback(() => {
     const el = wrapRef.current;
-    if (!el || !el.clientWidth) return 0.15;
-    return Math.max(0.05, Math.min(el.clientWidth / BOARD_W, el.clientHeight / BOARD_H) * 0.97);
+    if (!el || !el.clientWidth) return { x: 0, y: HEADER_H, z: 0.15 };
+    const vw = el.clientWidth;
+    const vh = el.clientHeight;
+    const z = Math.max(0.05, Math.min(vw / BOARD_W, (vh - HEADER_H - 16) / BOARD_H) * 0.97);
+    return {
+      x: (vw - BOARD_W * z) / 2,
+      y: HEADER_H + (vh - HEADER_H - BOARD_H * z) / 2,
+      z,
+    };
   }, []);
-  const clampZ = useCallback((z) => Math.min(1.6, Math.max(fitZoom() * 0.8, z)), [fitZoom]);
 
-  // Apply a new zoom keeping a viewport point (default: the centre) fixed.
-  const applyZoom = useCallback((z1raw, atX, atY) => {
+  // The board can go anywhere but never fully off screen.
+  const clampCam = useCallback((c) => {
+    const el = wrapRef.current;
+    if (!el) return c;
+    const K = 120;
+    const z = Math.min(1.6, Math.max(fitCam().z * 0.8, c.z));
+    return {
+      z,
+      x: Math.min(el.clientWidth - K, Math.max(K - BOARD_W * z, c.x)),
+      y: Math.min(el.clientHeight - K, Math.max(K - BOARD_H * z, c.y)),
+    };
+  }, [fitCam]);
+
+  const applyCam = useCallback((c) => {
+    const cc = clampCam(c);
+    camRef.current = cc;
+    setCam(cc);
+    try { sessionStorage.setItem('shoeboxCam', JSON.stringify(cc)); } catch { /* ignore */ }
+  }, [clampCam]);
+
+  // Zoom by a factor around a viewport point (the fingers, or the centre).
+  const zoomAt = useCallback((f, atX, atY) => {
     const el = wrapRef.current;
     if (!el) return;
-    const z1 = clampZ(z1raw);
-    const z0 = zoomRef.current || z1;
-    const cx = atX != null ? atX : el.clientWidth / 2;
-    const cy = atY != null ? atY : el.clientHeight / 2;
-    pendScroll.current = {
-      x: ((el.scrollLeft + cx) / z0) * z1 - cx,
-      y: ((el.scrollTop + cy) / z0) * z1 - cy,
-    };
-    zoomRef.current = z1;
-    setZoom(z1);
-  }, [clampZ]);
+    const c = camRef.current || fitCam();
+    const z1 = Math.min(1.6, Math.max(fitCam().z * 0.8, c.z * f));
+    const k = z1 / c.z;
+    const mx = atX != null ? atX : el.clientWidth / 2;
+    const my = atY != null ? atY : el.clientHeight / 2;
+    applyCam({ z: z1, x: mx - (mx - c.x) * k, y: my - (my - c.y) * k });
+  }, [applyCam, fitCam]);
 
-  // Scroll correction lands after the sizer has its new dimensions.
+  // First look: the whole board, centred; a session remembers where she was.
   useLayoutEffect(() => {
-    zoomRef.current = zoom;
-    const el = wrapRef.current;
-    if (el && pendScroll.current) {
-      el.scrollLeft = pendScroll.current.x;
-      el.scrollTop = pendScroll.current.y;
-      pendScroll.current = null;
-    }
-    if (zoom > 0) { try { sessionStorage.setItem('shoeboxZoom', String(zoom)); } catch { /* ignore */ } }
-  }, [zoom]);
+    if (view !== 'board' || camRef.current || !wrapRef.current) return;
+    let c = null;
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('shoeboxCam'));
+      if (raw && [raw.x, raw.y, raw.z].every(Number.isFinite) && raw.z > 0) c = raw;
+    } catch { /* ignore */ }
+    applyCam(c || fitCam());
+  }, [view, applyCam, fitCam]);
 
-  // First look at the board: the whole cork, all constellations visible.
-  useEffect(() => {
-    if (view === 'board' && zoomRef.current === 0 && wrapRef.current) {
-      const z = fitZoom();
-      zoomRef.current = z;
-      setZoom(z);
-    }
-  }, [view, fitZoom]);
+  // One-finger pan on the background (a polaroid still drags itself).
+  const onWrapDown = (e) => {
+    if (playStep !== null || !camRef.current) return;
+    if (e.target.closest && e.target.closest('.sb-pincard')) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    panRef.current = { sx: e.clientX, sy: e.clientY, cx: camRef.current.x, cy: camRef.current.y };
+  };
+  const onWrapMove = (e) => {
+    const p = panRef.current;
+    if (!p || !camRef.current) return;
+    applyCam({ z: camRef.current.z, x: p.cx + e.clientX - p.sx, y: p.cy + e.clientY - p.sy });
+  };
+  const onWrapUp = () => { panRef.current = null; };
 
-  // Pinch: two touches on the wrapper zoom around their midpoint. Native
-  // touch events (non-passive) because touchmove must preventDefault, and a
-  // second finger landing mid-card-drag cancels the drag.
+  // Pinch: two touches zoom around their midpoint. Native, non-passive
+  // (touchmove must preventDefault); a second finger cancels any pan/drag.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || view !== 'board') return undefined;
-    let d0 = 0; let z0 = 1; let mid = null;
+    let pinch = null;
     const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
     const onTS = (e) => {
       if (e.touches.length === 2) {
         dragRef.current = null;
-        d0 = dist(e.touches);
-        z0 = zoomRef.current || 1;
+        panRef.current = null;
         const r = el.getBoundingClientRect();
-        mid = {
-          x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
-          y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
+        pinch = {
+          d0: dist(e.touches),
+          cam0: camRef.current || fitCam(),
+          mid: {
+            x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+            y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
+          },
         };
       }
     };
     const onTM = (e) => {
-      if (e.touches.length === 2 && d0) {
+      if (e.touches.length === 2 && pinch) {
         e.preventDefault();
-        applyZoom(z0 * (dist(e.touches) / d0), mid.x, mid.y);
+        const z1 = Math.min(1.6, Math.max(fitCam().z * 0.8, pinch.cam0.z * (dist(e.touches) / pinch.d0)));
+        const k = z1 / pinch.cam0.z;
+        applyCam({
+          z: z1,
+          x: pinch.mid.x - (pinch.mid.x - pinch.cam0.x) * k,
+          y: pinch.mid.y - (pinch.mid.y - pinch.cam0.y) * k,
+        });
       }
     };
-    const onTE = () => { d0 = 0; };
+    const onTE = () => { pinch = null; };
     el.addEventListener('touchstart', onTS, { passive: true });
     el.addEventListener('touchmove', onTM, { passive: false });
     el.addEventListener('touchend', onTE);
@@ -180,7 +211,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
       el.removeEventListener('touchend', onTE);
       el.removeEventListener('touchcancel', onTE);
     };
-  }, [view, applyZoom]);
+  }, [view, applyCam, fitCam]);
 
   // Handwriting face for the chins. A <link> so a failed font fetch degrades
   // to the cursive fallback instead of failing the route's CSS chunk.
@@ -249,7 +280,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     const d = dragRef.current;
     if (!d) return;
     // Pointer deltas are screen pixels; the board may be zoomed out.
-    const z = zoomRef.current || 1;
+    const z = (camRef.current && camRef.current.z) || 1;
     const dx = (e.clientX - d.startX) / z;
     const dy = (e.clientY - d.startY) / z;
     if (!d.moved && (Math.abs(dx) * z > 6 || Math.abs(dy) * z > 6)) d.moved = true;
@@ -316,9 +347,6 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     if (!playList.length) return;
     setOrdering(false);
     setOpenId(null);
-    // The camera transform is measured from 0,0 — a scrolled board would
-    // offset every shot by however far she had panned.
-    if (wrapRef.current) wrapRef.current.scrollTo(0, 0);
     setPlayStep(-1);
   };
   const stopPlay = () => setPlayStep(null);
@@ -371,11 +399,15 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
       )}
 
       {(view === 'board' || playing) && (
-        <div className={`sb-boardwrap${playing ? ' play' : ''}`} ref={wrapRef} onClick={playing ? stopPlay : undefined}>
-          {/* The sizer is the scrollable footprint at the current zoom; the
-              cork keeps its true pixel size and scales inside it, so pin
-              coordinates never change meaning. */}
-          <div className="sb-sizer" style={{ width: BOARD_W * (zoom || 1), height: BOARD_H * (zoom || 1) }}>
+        <div
+          className={`sb-boardwrap${playing ? ' play' : ''}`}
+          ref={wrapRef}
+          onClick={playing ? stopPlay : undefined}
+          onPointerDown={playing ? undefined : onWrapDown}
+          onPointerMove={playing ? undefined : onWrapMove}
+          onPointerUp={playing ? undefined : onWrapUp}
+          onPointerCancel={playing ? undefined : onWrapUp}
+        >
           <div
             className="sb-cork"
             style={{
@@ -383,7 +415,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               height: BOARD_H,
               transform: camera
                 ? `translate(${camera.x}px, ${camera.y}px) scale(${camera.s})`
-                : `scale(${zoom || 1})`,
+                : (cam ? `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})` : undefined),
             }}
           >
             {/* Red string constellations — drawn under the polaroids, tied
@@ -439,15 +471,14 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               <p className="sb-empty">Open a polaroid in the Library and pin it here.</p>
             )}
           </div>
-          </div>
         </div>
       )}
 
       {view === 'board' && !playing && (
         <div className="sb-zoomer">
-          <button className="sb-zbtn" onClick={() => applyZoom((zoomRef.current || 1) * 1.4)} aria-label="Zoom in">+</button>
-          <button className="sb-zbtn" onClick={() => applyZoom((zoomRef.current || 1) / 1.4)} aria-label="Zoom out">−</button>
-          <button className="sb-zbtn sb-zfit" onClick={() => applyZoom(fitZoom())} aria-label="Fit the whole board">Fit</button>
+          <button className="sb-zbtn" onClick={() => zoomAt(1.4)} aria-label="Zoom in">+</button>
+          <button className="sb-zbtn" onClick={() => zoomAt(1 / 1.4)} aria-label="Zoom out">−</button>
+          <button className="sb-zbtn sb-zfit" onClick={() => applyCam(fitCam())} aria-label="Fit the whole board">Fit</button>
         </div>
       )}
       {view === 'board' && ordering && !playing && (
