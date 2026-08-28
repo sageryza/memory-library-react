@@ -190,6 +190,20 @@
   border: 1px solid #8f2a20;
 }
 .sb-note { padding: 8px 2px; color: #6b6153; font-size: 15px; }
+.sb-warn {
+  position: absolute;
+  bottom: 14px; left: 64px; right: 12px;  /* clear of the zoom buttons */
+  z-index: 28;
+  margin: 0 auto;
+  max-width: 420px;
+  background: #fffdf3;
+  border: 1px solid #800020;
+  border-radius: 6px;
+  color: #2c2620;
+  padding: 8px 12px;
+  font-size: 14.5px;
+}
+.sb-warn a { color: #800020; }
 .sb-float { position: absolute; top: 60px; left: 18px; z-index: 25; }
 
 /* ---- board ---- */

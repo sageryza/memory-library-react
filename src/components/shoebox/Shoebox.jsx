@@ -89,7 +89,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [newName, setNewName] = useState('');
   const {
     pins, strings, setPins, setStrings,
-    boards, board, current, selectBoard, createBoard, deleteBoard, loaded,
+    boards, board, current, selectBoard, createBoard, deleteBoard, loaded, loadFailed,
   } = useShoeboxState(userId);
   // The current board's own canvas — new boards are portrait, the original
   // is landscape, and every bit of geometry reads these two.
@@ -461,6 +461,20 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
             </div>
           )}
         </header>
+      )}
+
+      {/* Why a board can look empty: signed out (this page can't tell you
+          anywhere else) or the account's boards failed to load. */}
+      {!playing && loaded && !userId && (
+        <p className="sb-warn">
+          You're signed out — this device shows its own local board.{' '}
+          <Link to="/login">Sign in</Link> and your real boards come back.
+        </p>
+      )}
+      {!playing && loadFailed && (
+        <p className="sb-warn">
+          Your boards didn't load (nothing is lost — nothing saves in this state). Check the connection and reload.
+        </p>
       )}
 
       {view === 'library' && !playing && (

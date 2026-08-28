@@ -44,22 +44,41 @@ const fromRaw = (d) => {
 export default function useShoeboxState(userId) {
   const [state, setState] = useState({ boards: [], current: '' });
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const latest = useRef(state);
   const dirty = useRef(false);
   const timer = useRef(null);
+  // A signed-in load that FAILED must never let a later save clobber the
+  // real boards with the blank default — writes stay blocked until a load
+  // succeeds (found live: an empty landscape board on a doc that was fine).
+  const blocked = useRef(false);
 
   useEffect(() => {
     let dead = false;
     (async () => {
       if (userId) {
-        try {
-          const snap = await getDoc(doc(db, 'users', userId, 'preferences', 'shoebox'));
-          const st = fromRaw(snap.exists() ? snap.data() : null);
-          if (!dead) { latest.current = st; setState(st); setLoaded(true); }
-          return;
-        } catch (e) {
-          console.warn('shoebox: load failed', e);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const snap = await getDoc(doc(db, 'users', userId, 'preferences', 'shoebox'));
+            if (dead) return;
+            const st = fromRaw(snap.exists() ? snap.data() : null);
+            blocked.current = false;
+            latest.current = st;
+            setState(st);
+            setLoadFailed(false);
+            setLoaded(true);
+            return;
+          } catch (e) {
+            console.warn('shoebox: load failed', e);
+            await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+            if (dead) return;
+          }
         }
+        // Signed in but unreadable: show the blank default read-only rather
+        // than falling through to this device's signed-out pile.
+        blocked.current = true;
+        if (!dead) { setLoadFailed(true); setLoaded(true); }
+        return;
       }
       let st = null;
       try {
@@ -74,13 +93,17 @@ export default function useShoeboxState(userId) {
           });
         } catch { st = fromRaw(null); }
       }
-      if (!dead) { latest.current = st; setState(st); setLoaded(true); }
+      if (!dead) { blocked.current = false; latest.current = st; setState(st); setLoaded(true); }
     })();
     return () => { dead = true; };
   }, [userId]);
 
   const write = useCallback((st) => {
     dirty.current = false;
+    if (blocked.current) {
+      console.warn('shoebox: not saving — the boards never loaded');
+      return;
+    }
     const cur = st.boards.find((b) => b.id === st.current) || st.boards[0] || { pins: [], strings: [] };
     if (userId) {
       setDoc(doc(db, 'users', userId, 'preferences', 'shoebox'), {
@@ -162,6 +185,6 @@ export default function useShoeboxState(userId) {
   return {
     boards: state.boards, current: state.current, board,
     pins: board.pins, strings: board.strings,
-    setPins, setStrings, selectBoard, createBoard, deleteBoard, loaded,
+    setPins, setStrings, selectBoard, createBoard, deleteBoard, loaded, loadFailed,
   };
 }
