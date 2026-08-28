@@ -245,6 +245,11 @@
   stroke-width: 2.5;
   stroke-linecap: round;
 }
+/* the string her taps are currently tying */
+.sb-strings g.cur path {
+  stroke: #7d150c;
+  stroke-width: 4;
+}
 .sb-pincard {
   position: absolute;
   touch-action: none;

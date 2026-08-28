@@ -79,8 +79,15 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const [filter, setFilter] = useState('developed');
   const [openId, setOpenId] = useState(null);
   const [ordering, setOrdering] = useState(false);
+  // String mode: tying constellations by hand. curStr = which chain her taps
+  // are currently extending (an index into strings; -1 = none yet).
+  const [stringing, setStringing] = useState(false);
+  const [curStr, setCurStr] = useState(-1);
+  const curStrRef = useRef(-1);
   const [playStep, setPlayStep] = useState(null); // null = not playing; -1 = whole board; 0.. = pins
-  const { pins, strings, setPins, loaded } = useShoeboxState(userId);
+  const { pins, strings, setPins, setStrings, loaded } = useShoeboxState(userId);
+
+  const chainIds = (c) => (c && c.ids) || (Array.isArray(c) ? c : []);
 
   const wrapRef = useRef(null);
   const dragRef = useRef(null);
@@ -266,7 +273,52 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
       seq: null,
     }]);
   };
-  const unpinMemory = (id) => setPins((prev) => prev.filter((p) => p.id !== id));
+  const unpinMemory = (id) => {
+    setPins((prev) => prev.filter((p) => p.id !== id));
+    // A polaroid leaving the board takes its knot with it.
+    setStrings((prev) => prev
+      .map((c) => chainIds(c).filter((x) => x !== id))
+      .filter((ids) => ids.length >= 2)
+      .map((ids) => ({ ids })));
+  };
+
+  // ---- tying strings by hand -------------------------------------------
+  // Tap polaroids one after another to tie them; tap a tied one to untie it.
+  // Tapping a member of another string merges that string with the one being
+  // built — which is also how "add one more to an existing constellation"
+  // works: tap the new card, then tap the constellation.
+  const stringTap = (id) => {
+    setStrings((prev) => {
+      const chains = prev.map((c) => [...chainIds(c)]);
+      const at = chains.findIndex((ids) => ids.includes(id));
+      let cur = curStrRef.current;
+      if (cur >= chains.length) cur = -1;
+      if (at === -1) {
+        if (cur >= 0) chains[cur].push(id);
+        else { chains.push([id]); cur = chains.length - 1; }
+      } else if (cur === -1) {
+        cur = at; // pick the string up
+      } else if (at === cur) {
+        chains[at] = chains[at].filter((x) => x !== id); // untie
+      } else {
+        chains[at] = chains[at].concat(chains[cur]); // tie two strings into one
+        chains.splice(cur, 1);
+        cur = at > cur ? at - 1 : at;
+      }
+      curStrRef.current = cur;
+      setCurStr(cur);
+      return chains.map((ids) => ({ ids }));
+    });
+  };
+  const pruneStrings = () => setStrings((prev) => prev
+    .map(chainIds).filter((ids) => ids.length >= 2).map((ids) => ({ ids })));
+  const toggleStringing = () => {
+    if (stringing) pruneStrings();
+    setStringing((s) => !s);
+    setOrdering(false);
+    curStrRef.current = -1;
+    setCurStr(-1);
+  };
 
   // ---- board dragging (tap = open, drag = move) --------------------------
   const onPinDown = (e, id) => {
@@ -303,6 +355,10 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
         const max = prev.reduce((m, p) => Math.max(m, p.seq == null ? 0 : p.seq), 0);
         return prev.map((p) => (p.id === id ? { ...p, seq: max + 1 } : p));
       });
+      return;
+    }
+    if (stringing) {
+      stringTap(id);
       return;
     }
     setOpenId(id);
@@ -366,7 +422,13 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
           </div>
           {view === 'board' && (
             <div className="sb-boardacts">
-              <button className={`sb-act${ordering ? ' on' : ''}`} onClick={() => setOrdering((o) => !o)}>
+              <button className={`sb-act${stringing ? ' on' : ''}`} onClick={toggleStringing}>
+                {stringing ? 'Done tying' : 'String'}
+              </button>
+              <button
+                className={`sb-act${ordering ? ' on' : ''}`}
+                onClick={() => { if (stringing) toggleStringing(); setOrdering((o) => !o); }}
+              >
                 {ordering ? 'Done ordering' : 'Order'}
               </button>
               <button className="sb-act sb-play" onClick={startPlay} disabled={!pinned.length}>▶ Play</button>
@@ -425,7 +487,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               {strings.map((chain, ci) => {
                 // Firestore can't hold nested arrays, so a stored chain is
                 // { ids: [...] }; a bare array is accepted too.
-                const pts = ((chain && chain.ids) || (Array.isArray(chain) ? chain : []))
+                const pts = chainIds(chain)
                   .map((id) => pins.find((p) => p.id === id))
                   .filter(Boolean)
                   .map((p) => ({
@@ -445,7 +507,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                     />,
                   );
                 }
-                return <g key={ci}>{segs}</g>;
+                return <g key={ci} className={stringing && ci === curStr ? 'cur' : undefined}>{segs}</g>;
               })}
             </svg>
             {pinned.map((p) => {
@@ -483,6 +545,9 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
       )}
       {view === 'board' && ordering && !playing && (
         <p className="sb-orderhint">Tap polaroids in story order. Tap a number to clear it.</p>
+      )}
+      {view === 'board' && stringing && !playing && (
+        <p className="sb-orderhint">Tap polaroids one after another to tie them together. Tap a tied one to untie it.</p>
       )}
 
       {open && !playing && (
