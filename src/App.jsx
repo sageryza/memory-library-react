@@ -456,6 +456,7 @@ function App() {
                   memories={memories}
                   memoriesLoading={memoriesLoading}
                   userId={user?.uid}
+                  authLoading={authLoading}
                 />
               </Suspense>
             }

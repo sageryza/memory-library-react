@@ -89,7 +89,7 @@ function Polaroid({ m, tilt = 0, chin = true }) {
   );
 }
 
-export default function Shoebox({ memories = [], memoriesLoading = false, userId = null }) {
+export default function Shoebox({ memories = [], memoriesLoading = false, userId = null, authLoading = false }) {
   const [view, setView] = useState(() => {
     try { return sessionStorage.getItem('shoeboxView') || 'library'; } catch { return 'library'; }
   });
@@ -107,7 +107,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   const {
     pins, strings, setPins, setStrings, setBoardPaper,
     boards, board, current, selectBoard, createBoard, deleteBoard, loaded, loadFailed,
-  } = useShoeboxState(userId);
+  } = useShoeboxState(userId, authLoading);
   // The board's own paper — cork, or her navy star paper. Each board keeps
   // its own, so the wall around it changes with it.
   const paper = paperOf(board.bg);
@@ -517,7 +517,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
       {/* Why a board can look empty: signed out (this page can't tell you
           anywhere else) or the account's boards failed to load. */}
-      {!playing && loaded && !userId && (
+      {!playing && loaded && !authLoading && !userId && (
         <p className="sb-warn">
           You're signed out — this device shows its own local board.{' '}
           <Link to="/login">Sign in</Link> and your real boards come back.
