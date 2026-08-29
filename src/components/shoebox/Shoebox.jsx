@@ -18,6 +18,17 @@ const BOARD_H = 1700;
 const CARD_W = 240;
 const CARD_H = Math.round(CARD_W * 107 / 88); // true 600-film proportions
 
+// ── HOW LONG THE PLAY SITS ON EACH CARD (Sophie, 2026-08-29: "only two
+// seconds per card"). A step is GLIDE + HOLD, so those two must add up to
+// the number she asked for — 900 + 1100 = 2000ms a card. The opening and
+// closing wide shots take the shorter WIDE_HOLD, since there is nothing to
+// read on them.
+// GLIDE IS ALSO THE CSS TRANSITION and the two must not drift, so it is
+// handed to the stylesheet as --sb-glide rather than written down twice.
+const GLIDE = 900;
+const HOLD = 1100;
+const WIDE_HOLD = 600;
+
 const stripHtml = (s) => String(s || '')
   .replace(/<br\s*\/?>/gi, ' ')
   .replace(/<[^>]+>/g, '')
@@ -414,15 +425,14 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
   useEffect(() => {
     if (playStep === null) return undefined;
-    const glide = 1700;
-    const hold = playStep === -1 ? 1200 : 2300;
+    const hold = playStep === -1 || playStep >= playList.length ? WIDE_HOLD : HOLD;
     const t = setTimeout(() => {
       setPlayStep((k) => {
         if (k === null) return null;
         if (k >= playList.length) return null;     // closing shot shown, done
         return k + 1 > playList.length - 1 && k !== -1 ? playList.length : k + 1;
       });
-    }, glide + hold);
+    }, GLIDE + hold);
     return () => clearTimeout(t);
   }, [playStep, playList.length]);
 
@@ -508,6 +518,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
         <div
           className={`sb-boardwrap ${paper.cls}${playing ? ' play' : ''}`}
           ref={wrapRef}
+          style={{ '--sb-glide': `${GLIDE}ms` }}
           onClick={playing ? stopPlay : undefined}
           onPointerDown={playing ? undefined : onWrapDown}
           onPointerMove={playing ? undefined : onWrapMove}
