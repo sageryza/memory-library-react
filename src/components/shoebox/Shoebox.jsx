@@ -18,21 +18,15 @@ const BOARD_H = 1700;
 const CARD_W = 240;
 const CARD_H = Math.round(CARD_W * 107 / 88); // true 600-film proportions
 
-// ── HOW LONG THE PLAY SITS ON EACH CARD (Sophie, 2026-08-29: "only two
-// seconds per card"). A step is GLIDE + HOLD, so those two must add up to
-// the number she asked for — 900 + 1100 = 2000ms a card. The opening and
-// closing wide shots take the shorter WIDE_HOLD, since there is nothing to
-// read on them.
+// ── HOW LONG THE PLAY SITS ON EACH CARD (Sophie, 2026-08-29: "for testing
+// make each picture just one second"). A step is GLIDE + HOLD, so the two
+// add up to her number — 500 + 500 = 1000ms a card. This is her TESTING
+// pace; the final pace is hers to call once the finale looks right.
 // GLIDE IS ALSO THE CSS TRANSITION and the two must not drift, so it is
 // handed to the stylesheet as --sb-glide rather than written down twice.
-const GLIDE = 900;
-const HOLD = 1100;
+const GLIDE = 500;
+const HOLD = 500;
 const WIDE_HOLD = 600;
-// The one card that is allowed to run long: the step that lights a
-// constellation. Its flicker is 1.15s on its own, so 2000ms would cut the
-// ignition off mid-animation — this is that flicker plus a beat to watch it
-// settle. Every other card is the two seconds she asked for.
-const IGNITE_HOLD = 2100;
 
 const stripHtml = (s) => String(s || '')
   .replace(/<br\s*\/?>/gi, ' ')
@@ -413,21 +407,22 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     return numbered.length ? numbered : pinned;
   }, [pinned]);
 
-  // THE CONSTELLATION FINALE (star paper only): once the camera has visited
-  // every polaroid in a string, that constellation IGNITES — pins become
-  // glowing stars, the string becomes glowing dashes, and it flickers on.
-  // Derived from playStep, so exiting play puts the board back by itself;
-  // on the closing wide shot every constellation is lit.
+  // THE CONSTELLATION FINALE (star paper only, 2026-08-29: "it shud happen
+  // only after it zooms out"): nothing lights during the walk — when the
+  // camera pulls back to the closing wide shot, EVERY constellation ignites
+  // at once, the pins become real four-point stars 3-5x the pin's size, and
+  // the polaroids fade into the night behind them. Derived from playStep, so
+  // ending play puts the board back by itself.
+  const finale = playStep !== null && playStep >= playList.length && paper.id === 'stars';
   const litChains = useMemo(() => {
     const lit = new Set();
-    if (playStep === null || playStep < 0 || paper.id !== 'stars') return lit;
-    const idx = new Map(playList.map((p, i) => [p.id, i]));
+    if (!finale) return lit;
+    const pinned2 = new Set(pins.map((p) => p.id));
     strings.forEach((c, ci) => {
-      const ids = chainIds(c).filter((id) => idx.has(id));
-      if (ids.length >= 2 && ids.every((id) => idx.get(id) <= playStep)) lit.add(ci);
+      if (chainIds(c).filter((id) => pinned2.has(id)).length >= 2) lit.add(ci);
     });
     return lit;
-  }, [playStep, playList, strings, paper.id]);
+  }, [finale, pins, strings]);
   const litIds = useMemo(() => {
     const s2 = new Set();
     strings.forEach((c, ci) => { if (litChains.has(ci)) chainIds(c).forEach((id) => s2.add(id)); });
@@ -451,19 +446,12 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
   useEffect(() => {
     if (playStep === null) return undefined;
-    // The step that completes a constellation holds a beat longer, so the
-    // ignition happens while she is still looking at it — the flicker alone
-    // is 1.15s (sbFlicker in Shoebox.css), which is longer than a whole
-    // ordinary card, so this exception has to survive the two-second rule.
-    const ignites = playStep >= 0 && paper.id === 'stars' && (() => {
-      const idx = new Map(playList.map((p, i) => [p.id, i]));
-      return strings.some((c) => {
-        const ids = chainIds(c).filter((id) => idx.has(id));
-        return ids.length >= 2 && Math.max(...ids.map((id) => idx.get(id))) === playStep;
-      });
-    })();
+    if (playStep >= playList.length && paper.id === 'stars') {
+      // The finale: the lit sky stays on screen until she taps out.
+      return undefined;
+    }
     const wide = playStep === -1 || playStep >= playList.length;
-    const hold = wide ? WIDE_HOLD : (ignites ? IGNITE_HOLD : HOLD);
+    const hold = wide ? WIDE_HOLD : HOLD;
     const t = setTimeout(() => {
       setPlayStep((k) => {
         if (k === null) return null;
@@ -472,7 +460,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
       });
     }, GLIDE + hold);
     return () => clearTimeout(t);
-  }, [playStep, playList.length]);
+  }, [playStep, playList.length, paper.id]);
 
   const startPlay = () => {
     if (!playList.length) return;
@@ -554,7 +542,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
       {(view === 'board' || playing) && (
         <div
-          className={`sb-boardwrap ${paper.cls}${playing ? ' play' : ''}`}
+          className={`sb-boardwrap ${paper.cls}${playing ? ' play' : ''}${finale ? ' finale' : ''}`}
           ref={wrapRef}
           style={{ '--sb-glide': `${GLIDE}ms` }}
           onClick={playing ? stopPlay : undefined}
@@ -618,6 +606,27 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                 >
                   <Polaroid m={m} tilt={tiltOf(p.id)} />
                   <span className="sb-pinhead" style={{ marginLeft: (hashOf(p.id + 'p') % 26) - 13 }} />
+                  {litIds.has(p.id) && (() => {
+                    // A real four-point star, 3-5x the 16px pin (56-72px,
+                    // varied per memory like real magnitudes), centred on
+                    // the spot the pin head occupied.
+                    const off = (hashOf(p.id + 'p') % 26) - 13;
+                    const sz = 56 + (hashOf(p.id + 's') % 17);
+                    return (
+                      <svg
+                        className="sb-star"
+                        viewBox="0 0 64 64"
+                        style={{
+                          left: `calc(50% + ${off}px)`, top: 1,
+                          width: sz, height: sz,
+                          marginLeft: -sz / 2, marginTop: -sz / 2,
+                        }}
+                      >
+                        <path d="M32 2 C36 22 42 28 62 32 C42 36 36 42 32 62 C28 42 22 36 2 32 C22 28 28 22 32 2 Z" />
+                        <circle cx="32" cy="32" r="5.5" fill="#fffdf3" />
+                      </svg>
+                    );
+                  })()}
                   {ordering && p.seq != null && <span className="sb-seq">{p.seq}</span>}
                   {!ordering && p.seq != null && playing === false && <span className="sb-seq quiet">{p.seq}</span>}
                 </div>
