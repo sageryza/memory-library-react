@@ -397,6 +397,27 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     return numbered.length ? numbered : pinned;
   }, [pinned]);
 
+  // THE CONSTELLATION FINALE (star paper only): once the camera has visited
+  // every polaroid in a string, that constellation IGNITES — pins become
+  // glowing stars, the string becomes glowing dashes, and it flickers on.
+  // Derived from playStep, so exiting play puts the board back by itself;
+  // on the closing wide shot every constellation is lit.
+  const litChains = useMemo(() => {
+    const lit = new Set();
+    if (playStep === null || playStep < 0 || paper.id !== 'stars') return lit;
+    const idx = new Map(playList.map((p, i) => [p.id, i]));
+    strings.forEach((c, ci) => {
+      const ids = chainIds(c).filter((id) => idx.has(id));
+      if (ids.length >= 2 && ids.every((id) => idx.get(id) <= playStep)) lit.add(ci);
+    });
+    return lit;
+  }, [playStep, playList, strings, paper.id]);
+  const litIds = useMemo(() => {
+    const s2 = new Set();
+    strings.forEach((c, ci) => { if (litChains.has(ci)) chainIds(c).forEach((id) => s2.add(id)); });
+    return s2;
+  }, [litChains, strings]);
+
   const camera = useMemo(() => {
     if (playStep === null || !wrapRef.current) return null;
     const vw = wrapRef.current.clientWidth;
@@ -415,7 +436,16 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
   useEffect(() => {
     if (playStep === null) return undefined;
     const glide = 1700;
-    const hold = playStep === -1 ? 1200 : 2300;
+    // The step that completes a constellation holds a beat longer, so the
+    // ignition happens while she is still looking at it.
+    const ignites = playStep >= 0 && paper.id === 'stars' && (() => {
+      const idx = new Map(playList.map((p, i) => [p.id, i]));
+      return strings.some((c) => {
+        const ids = chainIds(c).filter((id) => idx.has(id));
+        return ids.length >= 2 && Math.max(...ids.map((id) => idx.get(id))) === playStep;
+      });
+    })();
+    const hold = playStep === -1 ? 1200 : (ignites ? 3400 : 2300);
     const t = setTimeout(() => {
       setPlayStep((k) => {
         if (k === null) return null;
@@ -551,7 +581,8 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                     />,
                   );
                 }
-                return <g key={ci} className={stringing && ci === curStr ? 'cur' : undefined}>{segs}</g>;
+                const cls = [stringing && ci === curStr ? 'cur' : '', litChains.has(ci) ? 'lit' : ''].join(' ').trim();
+                return <g key={ci} className={cls || undefined}>{segs}</g>;
               })}
             </svg>
             {pinned.map((p) => {
@@ -559,7 +590,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               return (
                 <div
                   key={p.id}
-                  className="sb-pincard"
+                  className={`sb-pincard${litIds.has(p.id) ? ' lit' : ''}`}
                   style={{ left: p.x, top: p.y, width: CARD_W }}
                   onPointerDown={(e) => onPinDown(e, p.id)}
                   onPointerMove={onPinMove}
