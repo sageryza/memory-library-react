@@ -648,6 +648,19 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
         <div className="sb-scrim" onClick={() => setBoardsOpen(false)}>
           <div className="sb-boards" onClick={(e) => e.stopPropagation()}>
             <h2>Boards</h2>
+            <div className="sb-newboard">
+              <input
+                value={newName}
+                placeholder="Name"
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <button
+                className="sb-act sb-primary"
+                onClick={() => { createBoard(newName.trim()); setNewName(''); setBoardsOpen(false); }}
+              >
+                New board
+              </button>
+            </div>
             {boards.map((b) => (
               <div key={b.id} className={`sb-boardrow${b.id === current ? ' on' : ''}`}>
                 <div className="sb-boardline">
@@ -687,19 +700,6 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                 </div>
               </div>
             ))}
-            <div className="sb-newboard">
-              <input
-                value={newName}
-                placeholder="Name"
-                onChange={(e) => setNewName(e.target.value)}
-              />
-              <button
-                className="sb-act sb-primary"
-                onClick={() => { createBoard(newName.trim()); setNewName(''); setBoardsOpen(false); }}
-              >
-                New board
-              </button>
-            </div>
           </div>
         </div>
       )}

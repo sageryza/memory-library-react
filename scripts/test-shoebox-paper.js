@@ -71,10 +71,27 @@ ok(/PAPERS\.map/.test(jsx), 'the swatches come from the list, nothing is hardcod
 ok(/setBoardPaper\(b\.id, pp\.id\)/.test(jsx), 'a swatch sets THAT row\'s board, not the open one');
 // A swatch inside .sb-boardpick would be a button in a button: invalid, and
 // the tap would fall through to switching boards.
-const sheet = jsx.slice(jsx.indexOf('sb-boardrow'), jsx.indexOf('sb-newboard'));
+// The New board row leads the sheet now, so this window has to end at
+// what follows the board list, never at 'sb-newboard' (a backwards
+// slice is an empty string, and every assertion under it passes
+// vacuously while saying nothing).
+const boardsStart = jsx.indexOf('sb-boardrow');
+const sheet = jsx.slice(boardsStart, jsx.indexOf('sb-detail', boardsStart));
 const pickBlock = sheet.slice(sheet.indexOf('sb-boardpick'), sheet.indexOf('</button>'));
 ok(!pickBlock.includes('sb-pap'), 'a swatch is a sibling of the board button, never inside it');
 ok(sheet.includes('sb-boardline'), 'the name/delete line is its own row above the swatches');
+
+// Making a board is what she opens this sheet for; at the foot it sat behind
+// every board she already had, and with several boards it was off screen
+// (Sophie, 2026-08-29: "new board shud be at the top"). The sheet is a plain
+// vertical flow with no ordering CSS, so document order IS what she sees.
+console.log('New board leads the sheet');
+ok(sheet.length > 0, 'the board-list window is a real slice, not an empty one');
+ok(jsx.indexOf('sb-newboard') < jsx.indexOf('sb-boardrow'), 'the New board row comes before the first board');
+ok(jsx.indexOf('<h2>Boards</h2>') < jsx.indexOf('sb-newboard'), 'the heading is still first');
+ok(/\.sb-newboard \{[^}]*margin: 0 0 /.test(css), 'it pushes the boards down, never itself down');
+const sheetCss = css.slice(css.indexOf('.sb-boards {'), css.indexOf('.sb-boards {') + 400);
+ok(!/column-reverse|(^|[;{\s])order\s*:/.test(sheetCss), 'nothing re-orders the sheet in CSS');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
