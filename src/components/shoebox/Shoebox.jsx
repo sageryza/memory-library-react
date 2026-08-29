@@ -28,6 +28,11 @@ const CARD_H = Math.round(CARD_W * 107 / 88); // true 600-film proportions
 const GLIDE = 900;
 const HOLD = 1100;
 const WIDE_HOLD = 600;
+// The one card that is allowed to run long: the step that lights a
+// constellation. Its flicker is 1.15s on its own, so 2000ms would cut the
+// ignition off mid-animation — this is that flicker plus a beat to watch it
+// settle. Every other card is the two seconds she asked for.
+const IGNITE_HOLD = 2100;
 
 const stripHtml = (s) => String(s || '')
   .replace(/<br\s*\/?>/gi, ' ')
@@ -408,6 +413,27 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
     return numbered.length ? numbered : pinned;
   }, [pinned]);
 
+  // THE CONSTELLATION FINALE (star paper only): once the camera has visited
+  // every polaroid in a string, that constellation IGNITES — pins become
+  // glowing stars, the string becomes glowing dashes, and it flickers on.
+  // Derived from playStep, so exiting play puts the board back by itself;
+  // on the closing wide shot every constellation is lit.
+  const litChains = useMemo(() => {
+    const lit = new Set();
+    if (playStep === null || playStep < 0 || paper.id !== 'stars') return lit;
+    const idx = new Map(playList.map((p, i) => [p.id, i]));
+    strings.forEach((c, ci) => {
+      const ids = chainIds(c).filter((id) => idx.has(id));
+      if (ids.length >= 2 && ids.every((id) => idx.get(id) <= playStep)) lit.add(ci);
+    });
+    return lit;
+  }, [playStep, playList, strings, paper.id]);
+  const litIds = useMemo(() => {
+    const s2 = new Set();
+    strings.forEach((c, ci) => { if (litChains.has(ci)) chainIds(c).forEach((id) => s2.add(id)); });
+    return s2;
+  }, [litChains, strings]);
+
   const camera = useMemo(() => {
     if (playStep === null || !wrapRef.current) return null;
     const vw = wrapRef.current.clientWidth;
@@ -425,7 +451,19 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
 
   useEffect(() => {
     if (playStep === null) return undefined;
-    const hold = playStep === -1 || playStep >= playList.length ? WIDE_HOLD : HOLD;
+    // The step that completes a constellation holds a beat longer, so the
+    // ignition happens while she is still looking at it — the flicker alone
+    // is 1.15s (sbFlicker in Shoebox.css), which is longer than a whole
+    // ordinary card, so this exception has to survive the two-second rule.
+    const ignites = playStep >= 0 && paper.id === 'stars' && (() => {
+      const idx = new Map(playList.map((p, i) => [p.id, i]));
+      return strings.some((c) => {
+        const ids = chainIds(c).filter((id) => idx.has(id));
+        return ids.length >= 2 && Math.max(...ids.map((id) => idx.get(id))) === playStep;
+      });
+    })();
+    const wide = playStep === -1 || playStep >= playList.length;
+    const hold = wide ? WIDE_HOLD : (ignites ? IGNITE_HOLD : HOLD);
     const t = setTimeout(() => {
       setPlayStep((k) => {
         if (k === null) return null;
@@ -562,7 +600,8 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                     />,
                   );
                 }
-                return <g key={ci} className={stringing && ci === curStr ? 'cur' : undefined}>{segs}</g>;
+                const cls = [stringing && ci === curStr ? 'cur' : '', litChains.has(ci) ? 'lit' : ''].join(' ').trim();
+                return <g key={ci} className={cls || undefined}>{segs}</g>;
               })}
             </svg>
             {pinned.map((p) => {
@@ -570,7 +609,7 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
               return (
                 <div
                   key={p.id}
-                  className="sb-pincard"
+                  className={`sb-pincard${litIds.has(p.id) ? ' lit' : ''}`}
                   style={{ left: p.x, top: p.y, width: CARD_W }}
                   onPointerDown={(e) => onPinDown(e, p.id)}
                   onPointerMove={onPinMove}

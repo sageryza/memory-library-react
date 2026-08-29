@@ -476,3 +476,46 @@
   .sb-head { gap: 10px; }
   .sb-head h1 { font-size: 18px; }
 }
+
+/* ---- the constellation finale (star paper, during play) ----------------
+   When the camera has visited every polaroid in a string, the constellation
+   IGNITES: the pin heads become glowing stars (a little bigger), the string
+   becomes glowing constellation dashes, and the whole thing flickers on,
+   then breathes. Flat color + glow shadows — no gradients. Cork boards
+   never light (the gate is in litChains, and these rules are scoped to
+   .pp-stars anyway). */
+.pp-stars .sb-strings g.lit path {
+  stroke: #ffe9a8;
+  stroke-width: 3;
+  stroke-dasharray: 1 13;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(255, 233, 168, 0.9));
+  animation: sbFlicker 1.15s linear 1, sbBreathe 2.6s ease-in-out 1.15s infinite alternate;
+}
+.pp-stars .sb-pincard.lit .sb-pinhead {
+  width: 24px; height: 24px;
+  top: -11px;
+  background: #ffe9a8;                /* the star */
+  border-color: #fff6d8;
+  box-shadow: 0 0 16px 6px rgba(255, 233, 168, 0.85);
+  animation: sbFlicker 1.15s linear 1, sbBreathe 2.6s ease-in-out 1.15s infinite alternate;
+}
+.pp-stars .sb-pincard.lit .sb-pinhead::after {
+  top: 7px; left: 7px;
+  width: 8px; height: 8px;
+  background: #fffdf3;                /* hot centre */
+}
+@keyframes sbFlicker {
+  0% { opacity: 0.05; }
+  10% { opacity: 1; }
+  22% { opacity: 0.2; }
+  34% { opacity: 1; }
+  48% { opacity: 0.45; }
+  62% { opacity: 1; }
+  78% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+@keyframes sbBreathe {
+  from { opacity: 0.75; }
+  to { opacity: 1; }
+}
