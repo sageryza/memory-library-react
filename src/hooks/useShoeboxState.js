@@ -47,7 +47,15 @@ const fromRaw = (d) => {
   return { boards: [legacy], current: legacy.id };
 };
 
-export default function useShoeboxState(userId) {
+// `authLoading` is NOT optional decoration. Firebase restores a session
+// ASYNCHRONOUSLY, so on every fresh load there is a window where the user is
+// really signed in and `userId` is still undefined. Without this flag the
+// effect below read that as SIGNED OUT and painted this device's local
+// board instead of her account's — her real boards "gone", on a page that
+// said nothing was wrong (found live 2026-08-29, reported as "where r the
+// old boards" the minute a deploy forced a reload). useMemories has carried
+// the same guard, with the same comment, since long before this hook existed.
+export default function useShoeboxState(userId, authLoading = false) {
   const [state, setState] = useState({ boards: [], current: '' });
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -62,6 +70,15 @@ export default function useShoeboxState(userId) {
   useEffect(() => {
     let dead = false;
     (async () => {
+      // Auth has not answered yet: we do not know WHOSE boards to show, so
+      // show none and save nothing. `loaded` stays false, which is the
+      // page's "Loading the board…" line.
+      if (authLoading) {
+        blocked.current = true;
+        setLoaded(false);
+        setLoadFailed(false);
+        return;
+      }
       if (userId) {
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
@@ -102,11 +119,13 @@ export default function useShoeboxState(userId) {
       if (!dead) { blocked.current = false; latest.current = st; setState(st); setLoaded(true); }
     })();
     return () => { dead = true; };
-  }, [userId]);
+  }, [userId, authLoading]);
 
   const write = useCallback((st) => {
     dirty.current = false;
-    if (blocked.current) {
+    // A write while auth is still resolving would land in localStorage under
+    // the signed-out branch below — her edit saved to the wrong pile.
+    if (authLoading || blocked.current) {
       console.warn('shoebox: not saving — the boards never loaded');
       return;
     }
@@ -126,7 +145,7 @@ export default function useShoeboxState(userId) {
         window.localStorage.setItem('shoeboxStrings', JSON.stringify(cur.strings));
       } catch { /* ignore */ }
     }
-  }, [userId]);
+  }, [userId, authLoading]);
 
   const update = useCallback((fn) => {
     const st = fn(latest.current);
