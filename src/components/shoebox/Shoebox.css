@@ -400,6 +400,8 @@
 .sb-boardrow {
   margin-bottom: 12px;
 }
+/* The last board is the foot of the sheet now. */
+.sb-boardrow:last-child { margin-bottom: 0; }
 .sb-boardline {
   display: flex;
   align-items: stretch;
@@ -459,7 +461,9 @@
   font-size: 15px;
   cursor: pointer;
 }
-.sb-newboard { display: flex; gap: 8px; margin-top: 12px; }
+/* It leads the sheet: making a board is what she opens this for, and at
+   the foot it was behind every board she already had. */
+.sb-newboard { display: flex; gap: 8px; margin: 0 0 14px; }
 .sb-newboard input {
   flex: 1;
   border: 1px solid #d0c9b4;
