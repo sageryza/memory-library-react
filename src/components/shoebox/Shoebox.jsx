@@ -622,8 +622,9 @@ export default function Shoebox({ memories = [], memoriesLoading = false, userId
                           marginLeft: -sz / 2, marginTop: -sz / 2,
                         }}
                       >
-                        <path d="M32 2 C36 22 42 28 62 32 C42 36 36 42 32 62 C28 42 22 36 2 32 C22 28 28 22 32 2 Z" />
-                        <circle cx="32" cy="32" r="5.5" fill="#fffdf3" />
+                        {/* a classic five-point star (Sophie: "5 points,
+                            not 4… no circle in the middle") */}
+                        <path d="M32 1 L39.35 21.89 L61.48 22.42 L43.89 35.86 L50.22 57.08 L32 44.5 L13.78 57.08 L20.11 35.86 L2.52 22.42 L24.65 21.89 Z" />
                       </svg>
                     );
                   })()}
