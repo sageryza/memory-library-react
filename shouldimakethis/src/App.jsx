@@ -11,10 +11,21 @@ import {
   pctOf, seed, targetOf,
 } from "./catalog";
 
+// Every product has its own shareable URL: /item/<id>-<title-slug>. The slug is
+// decoration — only the id (everything before the first "-") identifies the item,
+// so a retitled product keeps its old links working.
+const slugOf = (title) => String(title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const pathFor = (it) => `/item/${it.id}${slugOf(it.title) ? "-" + slugOf(it.title) : ""}`;
+const idFromPath = (pathname) => {
+  const m = /^\/item\/([A-Za-z0-9_]+)/.exec(pathname);
+  return m ? m[1] : null;
+};
+
 export default function App() {
   const [showForm, setShowForm] = useState(false);
-  const [openId, setOpenId] = useState(null);
+  const [openId, setOpenId] = useState(() => idFromPath(window.location.pathname));
   const [cat, setCat] = useState("All");
+  const gridScrollRef = useRef(0);
 
   const [user, setUser] = useState(null);
   const [signinOpen, setSigninOpen] = useState(false);
@@ -89,16 +100,42 @@ export default function App() {
     setPosting(false);
   });
 
-  const open = items.find((it) => it.id === openId);
+  const open = openId ? items.find((it) => String(it.id) === String(openId)) : null;
   const cats = CATS.filter((c) => c === "All" || items.some((it) => it.cat === c));
   const shown = cat === "All" ? items : items.filter((it) => it.cat === cat);
+
+  // Opening an item is a real URL now (pushState), so a product can be shared
+  // and the browser's own back button works. Opening always starts at the top
+  // of the detail; coming back restores the exact grid position — the page
+  // swap used to keep the old scroll, which read as "it scrolled me down".
+  const openItem = (it) => {
+    gridScrollRef.current = window.scrollY;
+    window.history.pushState({ simt: true }, "", pathFor(it));
+    setOpenId(String(it.id));
+  };
+  const closeItem = () => {
+    if (window.history.state?.simt) window.history.back();
+    else { window.history.replaceState({}, "", "/"); setOpenId(null); }
+  };
+  useEffect(() => {
+    const onPop = () => setOpenId(idFromPath(window.location.pathname));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    if (openId) window.scrollTo(0, 0);
+    else window.scrollTo(0, gridScrollRef.current);
+  }, [openId]);
+  useEffect(() => {
+    document.title = open ? `${open.title} — ShouldiMakeThis.com` : "ShouldiMakeThis.com";
+  }, [open?.title]);
 
   return (
     <div style={{ background: BG, color: INK, minHeight: "100vh", fontFamily: SERIF }}>
       <style>{FONTS_IMPORT}</style>
       <div className="max-w-5xl mx-auto px-6 py-10">
         {open ? (
-          <Detail key={open.id} item={open} onBack={() => setOpenId(null)} signedIn={!!user} onReserve={(variant) => reserve(open.id, variant)} onInvest={(amt, pay) => investIn(open.id, amt, pay)} liked={open.liked} onHeart={() => heart(open.id)} vote={open.vote} onVote={(d) => castVote(open.id, d)} />
+          <Detail key={open.id} item={open} onBack={closeItem} signedIn={!!user} onReserve={(variant) => reserve(open.id, variant)} onInvest={(amt, pay) => investIn(open.id, amt, pay)} liked={open.liked} onHeart={() => heart(open.id)} vote={open.vote} onVote={(d) => castVote(open.id, d)} />
         ) : (
           <>
             <header className="flex items-center justify-between mb-2">
@@ -139,7 +176,7 @@ export default function App() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
               {shown.map((it) => (
-                <Tile key={it.id} item={it} onOpen={() => setOpenId(it.id)} onHeart={() => heart(it.id)} onVote={(d) => castVote(it.id, d)} />
+                <Tile key={it.id} item={it} onOpen={() => openItem(it)} onHeart={() => heart(it.id)} onVote={(d) => castVote(it.id, d)} />
               ))}
             </div>
           </>
@@ -234,9 +271,23 @@ function Detail({ item, onBack, onReserve, onInvest, liked, onHeart, vote, onVot
   const [customStr, setCustomStr] = useState("");
   const [pay, setPay] = useState("now");
   const [msg, setMsg] = useState("");
+  const [shared, setShared] = useState(false);
   const presets = [1, 5, 10];
 
   const click = () => { if (!done) onReserve(variant); };
+
+  // Each item is its own URL, so sharing is just handing over the address.
+  // Phones get the native share sheet; elsewhere the link goes to the clipboard.
+  const share = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: item.title, url }); } catch { /* she closed the sheet */ }
+    } else {
+      try { await navigator.clipboard.writeText(url); } catch { return; }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }
+  };
 
   const back = () => {
     onInvest(amt, pay);
@@ -249,7 +300,12 @@ function Detail({ item, onBack, onReserve, onInvest, liked, onHeart, vote, onVot
 
   return (
     <div>
-      <button onClick={onBack} className="text-sm mb-6" style={{ color: MUTE, fontFamily: SERIF, background: "none", border: "none", cursor: "pointer", padding: 0 }}>← Back</button>
+      <div className="mb-6" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <button onClick={onBack} className="text-sm" style={{ color: MUTE, fontFamily: SERIF, background: "none", border: "none", cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={share} className="text-sm" style={{ color: shared ? GREEN : MUTE, fontFamily: SERIF, fontStyle: "italic", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+          {shared ? "link copied" : "share"}
+        </button>
+      </div>
       <div className="grid md:grid-cols-2 gap-x-8 gap-y-4 items-start">
         <div>
           <div style={{ position: "relative", aspectRatio: "1 / 1", background: TILE_BG, borderRadius: 8, overflow: "hidden" }}>
