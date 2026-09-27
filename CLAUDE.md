@@ -139,6 +139,26 @@ entry into 6 types: day / dreams / ideas / abstract / todos / drawings.
   making, but confirm with Sage when a call is close.)
 
 ## Communication
+- **AN ANSWER THAT STATES A FACT ABOUT THE OUTSIDE WORLD GETS AN OPUS
+  FACT-CHECK — AGAINST THE PRIMARY SOURCE (2026-09-27, Sophie, after an
+  imageforge chat told her from memory that Midjourney could not edit an
+  uploaded photo, wrong: "it worries me u were wrong about that" · "can we
+  have an opus agent check answers you're given in chats. against truth" ·
+  "i meant for other chats too").** What a service can do, what a model
+  does, a price, a date, a limit, "X refuses Y": any reply carrying claims
+  like these launches a checker after the reply, never blocking it —
+  `Agent`, `model: "opus"`, `run_in_background: true` — and the reply says so
+  in one line ("an Opus fact-check is running"). The brief: each claim quoted
+  verbatim; for each, find the PRIMARY source (the vendor's own docs,
+  changelog or API reference — a blog roundup or a search summary is not
+  truth), quote the line that confirms or refutes it, mark RIGHT · WRONG ·
+  UNVERIFIABLE, wrong first. One agent, one round. A wrong claim is corrected
+  where she read it the next turn, with the source, and the true fact goes
+  into this file or the module's doc so no chat repeats it. The checker is
+  the net, not the excuse: the chat still reads the primary source BEFORE
+  the claim goes in a reply, and a claim it could not check is written as
+  one ("I have not confirmed this"). Same rule as imageforge's checklist
+  item 3o.
 - **Answer questions FIRST.** If Sophie's message contains a question, answer
   it at the top of the reply, before doing or reporting on any tasks from the
   same message.
