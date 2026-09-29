@@ -97,6 +97,28 @@ jobs:
               print(f"group '{at['name']}' | internal={at['isInternalGroup']} | allBuilds={at.get('hasAccessToAllBuilds')} "
                     f"| publicLink={at.get('publicLinkEnabled')} | testers: {emails}")
 
+          # ── What TestFlight itself says about the latest build, and what each
+          # group and the tester can see (2026-09-29, "no build": Apple had the
+          # build VALID with compliance answered, and nothing here said whether
+          # TestFlight was showing it to anyone).
+          bd = requests.get(f"{API}/builds/{latest['id']}/buildBetaDetail", headers=H).json()
+          print(f"latest build beta detail: {json.dumps(bd.get('data', {}).get('attributes', {}))}")
+          for x in all_groups.get("data", []):
+              gb = requests.get(f"{API}/betaGroups/{x['id']}/builds", headers=H,
+                                params={"limit": "200", "fields[builds]": "version"}).json()
+              vs = sorted((int(b["attributes"]["version"]) for b in gb.get("data", [])
+                           if str(b["attributes"].get("version", "")).isdigit()), reverse=True)
+              print(f"group '{x['attributes']['name']}' newest builds: {vs[:3] or 'NONE'}")
+          bt = requests.get(f"{API}/betaTesters", headers=H,
+                            params={"filter[apps]": app["id"], "limit": "10",
+                                    "fields[betaTesters]": "email,state,inviteType"}).json()
+          for t in bt.get("data", []):
+              ta = t["attributes"]
+              print(f"tester {ta.get('email')} | state={ta.get('state')} | invite={ta.get('inviteType')}")
+          it = requests.get(f"{API}/builds/{latest['id']}/individualTesters", headers=H,
+                            params={"fields[betaTesters]": "email"}).json()
+          print(f"latest build individual testers: {[t['attributes'].get('email') for t in it.get('data', [])] or 'NONE'}")
+
           # If the internal group does NOT auto-receive builds, the latest build
           # must be linked explicitly — do that (internal groups skip beta review).
           for x in all_groups.get("data", []):
