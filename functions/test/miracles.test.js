@@ -658,6 +658,72 @@ describe('illustrateMiracle: daily limits', () => {
     assert.equal(refused, 5);
     assert.equal(S.openaiCalls.length, 10);
   });
+
+  const usage = (uid) => [...S.docs.entries()].find(([k]) => k.startsWith(`miracleUsage/${uid}_`))?.[1] || {};
+  const allUsage = () => [...S.docs.entries()].find(([k]) => k.startsWith('miracleUsage/_all_'))?.[1] || {};
+  const BUSY = { message: 'Rate limit reached.', type: 'requests', code: 'rate_limit_exceeded' };
+  const BROKE = { message: 'You exceeded your current quota.', type: 'insufficient_quota', code: 'insufficient_quota' };
+
+  test('a tap that drew nothing because OpenAI was busy or out of money is given back', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.openai = async () => openaiError(429, BUSY);
+    for (let i = 0; i < 6; i += 1) assertPlainError(await thrown(tap('UID_BUSY')), 'unavailable', BUSY_MSG, 'busy');
+    S.openai = async () => openaiError(429, BROKE);
+    for (let i = 0; i < 4; i += 1) assertPlainError(await thrown(tap('UID_BUSY')), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    assert.equal(usage('UID_BUSY').taps, 0, 'ten failed taps used up nothing');
+    assert.equal(allUsage().taps, 0);
+    S.openai = async () => okImage();
+    await tap('UID_BUSY');
+    assert.equal(usage('UID_BUSY').taps, 1);
+    assert.equal(usage('UID_BUSY').refunds, 10);
+  });
+
+  test('a refused tap still counts, and so does one where some pictures came back', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.openai = async () => openaiError(400, REFUSED);
+    assertPlainError(await thrown(tap('UID_REF')), 'invalid-argument', REFUSED_MSG, 'refused');
+    assert.equal(usage('UID_REF').taps, 1);
+    S.openai = async (f, n) => (n === 2 ? openaiError(429, BUSY) : okImage());
+    await tap('UID_REF', { variants: 3, distill: true });
+    assert.equal(usage('UID_REF').taps, 2);
+    assert.equal(usage('UID_REF').refunds || 0, 0);
+  });
+
+  test('refunds stop at the day\'s limits, so an outage cannot become unlimited Claude calls', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.docs.set('config/miracles', { dailyPerUser: 2, dailyTotal: 3 });
+    S.openai = async () => openaiError(429, BUSY);
+    // A person: two given back, then two that count, then the day is used up.
+    for (let i = 0; i < 4; i += 1) await thrown(tap('UID_OUT'));
+    assert.equal(usage('UID_OUT').refunds, 2);
+    assert.equal(usage('UID_OUT').taps, 2);
+    assertPlainError(await thrown(tap('UID_OUT')), 'resource-exhausted', LIMIT_MSG, 'daily-limit');
+    // Everyone: one more refund is left for the whole day (3), then failures count.
+    await thrown(tap('UID_OTHER'));
+    assert.equal(allUsage().refunds, 3);
+    await thrown(tap('UID_OTHER'));
+    assert.equal(usage('UID_OTHER').taps, 1);
+    assert.equal(allUsage().taps, 3);
+    assertPlainError(await thrown(tap('UID_THIRD')), 'resource-exhausted', TOTAL_MSG, 'daily-total');
+  });
+
+  test('a failed upgrade is not given back', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    await tap('UID_UPFAIL');
+    S.openai = async () => openaiError(429, BUSY);
+    await thrown(upgrade('UID_UPFAIL', 'better'));
+    assert.equal(usage('UID_UPFAIL').taps, 1);
+    assert.equal(usage('UID_UPFAIL').upgrades, 1);
+    assert.equal(usage('UID_UPFAIL').refunds || 0, 0);
+  });
 });
 
 // ---------------------------------------------------------------------------
