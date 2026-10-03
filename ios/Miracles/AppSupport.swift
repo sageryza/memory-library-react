@@ -76,9 +76,8 @@ enum MiraclesErrors {
         }
         if ns.domain == NSURLErrorDomain {
             let noConnection = [
-                NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost,
-                NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost,
-                NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff,
+                NSURLErrorNotConnectedToInternet, NSURLErrorDataNotAllowed,
+                NSURLErrorInternationalRoamingOff,
             ]
             return noConnection.contains(ns.code) ? offline : generic
         }

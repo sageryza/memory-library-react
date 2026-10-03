@@ -16,6 +16,25 @@ enum BookMerge {
         var push: Set<String>
     }
 
+    /// The cloud's book, put together from what a read found: the page docs,
+    /// plus — while the top doc is still in the first format — the pages in
+    /// its one-string `data` field, where a page doc at least as new wins.
+    /// In `order` first, then any pages the order doesn't name, oldest first.
+    static func cloudBook(pageDocs: [MiraclePage], firstFormat: [MiraclePage], order: [String]) -> [MiraclePage] {
+        var byID: [String: MiraclePage] = [:]
+        for page in pageDocs { byID[page.id] = page }
+        for page in firstFormat {
+            if let stored = byID[page.id], stored.updatedAt >= page.updatedAt { continue }
+            byID[page.id] = page
+        }
+        var pages: [MiraclePage] = []
+        for id in order {
+            if let page = byID.removeValue(forKey: id) { pages.append(page) }
+        }
+        pages += byID.values.sorted { ($0.date, $0.id) < ($1.date, $1.id) }
+        return pages
+    }
+
     static func merge(local: [MiraclePage], remote: [MiraclePage]) -> Outcome {
         let localHasContent = local.contains { $0.hasContent }
         let remoteHasContent = remote.contains { $0.hasContent }

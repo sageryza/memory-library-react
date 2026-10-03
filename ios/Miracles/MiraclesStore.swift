@@ -399,49 +399,50 @@ final class MiraclesStore: ObservableObject {
     }
 
     private struct RemoteBook {
-        var pages: [MiraclePage] = []   // in the cloud's order
+        var pages: [MiraclePage] = []      // in the cloud's order
         var order: [String] = []
         var isV2 = false
+        var storedPageIDs = Set<String>()  // pages that already have a doc of their own
     }
 
     /// Reads the cloud copy from the SERVER only — never from Firestore's cache.
     private func readRemote(uid: String) async throws -> RemoteBook {
         let top = db.collection("miracleBooks").document(uid)
         let snap = try await top.getDocument(source: .server)
-        guard snap.exists else { return RemoteBook() }   // the server says: no copy yet
-
-        if let v = snap.get("v") as? NSNumber, v.intValue >= 2 {
-            let order = snap.get("order") as? [String] ?? []
-            let docs = try await top.collection("pages").getDocuments(source: .server)
-            var byID: [String: MiraclePage] = [:]
-            for doc in docs.documents {
-                guard let json = doc.get("data") as? String,
-                      var page = try? JSONDecoder().decode(MiraclePage.self, from: Data(json.utf8)) else {
-                    syncLog.error("cloud page \(doc.documentID, privacy: .public) could not be read")
-                    continue
-                }
-                if let t = doc.get("updatedAt") as? NSNumber { page.updatedAt = t.doubleValue }
-                byID[page.id] = page
+        // The page docs count whatever the top doc says: a save that got its
+        // pages in but not the top doc still left those pages in the cloud.
+        let docs = try await top.collection("pages").getDocuments(source: .server)
+        var pageDocs: [MiraclePage] = []
+        for doc in docs.documents {
+            guard let json = doc.get("data") as? String,
+                  var page = try? JSONDecoder().decode(MiraclePage.self, from: Data(json.utf8)) else {
+                syncLog.error("cloud page \(doc.documentID, privacy: .public) could not be read")
+                continue
             }
-            var pages: [MiraclePage] = []
-            for id in order {
-                if let p = byID.removeValue(forKey: id) { pages.append(p) }
-            }
-            pages += byID.values.sorted { $0.date < $1.date }   // any the order doesn't name
-            return RemoteBook(pages: pages, order: order, isV2: true)
+            if let t = doc.get("updatedAt") as? NSNumber { page.updatedAt = t.doubleValue }
+            pageDocs.append(page)
         }
 
-        // The first format: the whole book as one JSON string in `data`.
-        guard let json = snap.get("data") as? String else { return RemoteBook() }
-        let stamp = (snap.get("updatedAt") as? NSNumber)?.doubleValue ?? 0
-        var pages: [MiraclePage] = []
-        do {
-            pages = try JSONDecoder().decode([MiraclePage].self, from: Data(json.utf8))
-        } catch {
-            syncLog.error("the old cloud book could not be read: \(error.localizedDescription, privacy: .public)")
+        var book = RemoteBook()
+        book.storedPageIDs = Set(pageDocs.map(\.id))
+        var firstFormat: [MiraclePage] = []
+        if snap.exists, let v = snap.get("v") as? NSNumber, v.intValue >= 2 {
+            book.isV2 = true
+            book.order = snap.get("order") as? [String] ?? []
+        } else if snap.exists, let json = snap.get("data") as? String {
+            // The first format: the whole book as one JSON string in `data`,
+            // every page stamped with the doc's updatedAt.
+            let stamp = (snap.get("updatedAt") as? NSNumber)?.doubleValue ?? 0
+            do {
+                firstFormat = try JSONDecoder().decode([MiraclePage].self, from: Data(json.utf8))
+            } catch {
+                syncLog.error("the old cloud book could not be read: \(error.localizedDescription, privacy: .public)")
+            }
+            for i in firstFormat.indices { firstFormat[i].updatedAt = stamp }
+            book.order = firstFormat.map(\.id)
         }
-        for i in pages.indices { pages[i].updatedAt = stamp }
-        return RemoteBook(pages: pages, order: pages.map(\.id), isV2: false)
+        book.pages = BookMerge.cloudBook(pageDocs: pageDocs, firstFormat: firstFormat, order: book.order)
+        return book
     }
 
     private func apply(_ remote: RemoteBook, uid: String) {
@@ -468,7 +469,8 @@ final class MiraclesStore: ObservableObject {
         let hasContent = pages.contains(where: { $0.hasContent })
         var push = merged.push.union(dirtyPageIDs)
         if hasContent && !remote.isV2 {
-            push.formUnion(pages.map(\.id))   // first backup in this format: every page
+            // First save in this format: every page that has no doc of its own yet.
+            push.formUnion(pages.map(\.id).filter { !remote.storedPageIDs.contains($0) })
         }
         dirtyPageIDs = push.intersection(Set(pages.map(\.id)))
         topDirty = hasContent && (!remote.isV2 || remote.order != pages.map(\.id))
@@ -532,41 +534,47 @@ final class MiraclesStore: ObservableObject {
         schedulePush(after: wait)
     }
 
-    /// Writes the changed pages, then the top doc (so `order` never names a
-    /// page the cloud doesn't have yet). Split into batches well under
-    /// Firestore's limits. A failure is logged and the pages stay queued.
+    /// Writes the changed pages (in batches well under Firestore's limits),
+    /// then the top doc on its own. A failed page write is logged and the pages
+    /// stay queued. A failed top-doc write is only logged: the pages are safe
+    /// either way, and a book still carrying the first format's large `data`
+    /// field (never deleted from here) may be too big for the top doc to grow.
     private func write(_ toWrite: [MiraclePage], order: [String], updatedAt stamp: Double, uid: String) async -> Bool {
         let top = db.collection("miracleBooks").document(uid)
         let encoder = JSONEncoder()
         var batches: [WriteBatch] = []
-        var batch = db.batch()
+        var batch: WriteBatch?
         var count = 0
         var bytes = 0
         for page in toWrite {
             guard let data = try? encoder.encode(page), let json = String(data: data, encoding: .utf8) else {
                 continue
             }
-            if count > 0 && (count >= 400 || bytes + data.count > 4_000_000) {
-                batches.append(batch)
+            if batch == nil || count >= 400 || bytes + data.count > 4_000_000 {
+                if let full = batch { batches.append(full) }
                 batch = db.batch()
                 count = 0
                 bytes = 0
             }
-            batch.setData(["data": json, "updatedAt": page.updatedAt],
-                          forDocument: top.collection("pages").document(page.id))
+            batch?.setData(["data": json, "updatedAt": page.updatedAt],
+                           forDocument: top.collection("pages").document(page.id))
             count += 1
             bytes += data.count
         }
-        // merge: true keeps the first format's `data` field — never deleted from here.
-        batch.setData(["v": 2, "updatedAt": stamp, "order": order], forDocument: top, merge: true)
-        batches.append(batch)
+        if let last = batch { batches.append(last) }
         do {
             for b in batches { try await b.commit() }
-            return true
         } catch {
             syncLog.error("cloud save failed: \(error.localizedDescription, privacy: .public)")
             return false
         }
+        do {
+            // merge: true keeps the first format's `data` field.
+            try await top.setData(["v": 2, "updatedAt": stamp, "order": order], merge: true)
+        } catch {
+            syncLog.error("cloud book order not saved: \(error.localizedDescription, privacy: .public)")
+        }
+        return true
     }
 
     // MARK: - Delete everything
@@ -579,6 +587,10 @@ final class MiraclesStore: ObservableObject {
         if AppMode.isUITest {   // tests never touch the cloud
             forgetEverythingOnThisPhone()
             return
+        }
+        // No connection: say so now rather than after the waits below.
+        if network.currentPath.status == .unsatisfied {
+            throw URLError(.notConnectedToInternet)
         }
         cloudPaused = true
         pushTimer?.cancel()
