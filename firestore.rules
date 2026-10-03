@@ -11,9 +11,17 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Little Book of Miracles — one cloud-backup document per (anonymous) user.
+    // Little Book of Miracles — one cloud-backup document per (anonymous) user,
+    // and one doc per page under it (fields `data`: one page's JSON,
+    // `updatedAt`). Both owner-only. The daily drawing counters
+    // (miracleUsage/*) and config/* have no rule on purpose: only the Cloud
+    // Functions (Admin SDK) read or write them.
     match /miracleBooks/{uid} {
       allow read, write: if isOwner(uid);
+
+      match /pages/{pageId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     // User-specific data (existing rules)

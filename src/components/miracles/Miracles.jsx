@@ -14,9 +14,24 @@ import { functions } from '../../firebase';
 import './Miracles.css';
 
 /* global __BUILD_ID__ */
-const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle');
+// The server may take up to its full 300s on a slow draw; the SDK's own default
+// gives up at 70s, so wait as long as the server does.
+const illustrateMiracleFn = httpsCallable(functions, 'illustrateMiracle', { timeout: 300000 });
 
-const UI_VERSION = 'v8'; // bump when the Miracles page changes
+// What a failed draw says on the page: the server's own words when it sent
+// some (they are written for people), otherwise one plain sentence. Never a
+// code or a raw error body.
+function drawErrorText(e) {
+  const code = String(e?.code || '').replace(/^functions\//, '');
+  const msg = String(e?.message || '').trim();
+  const placeholder = !msg || msg.toLowerCase().replace(/_/g, '-') === code;
+  if (!code || code === 'internal' || placeholder || /[{}<>]/.test(msg)) {
+    return 'Something went wrong. Try again.';
+  }
+  return msg;
+}
+
+const UI_VERSION = 'v9'; // bump when the Miracles page changes
 
 // Filled three-star sparkle (Heroicons solid shape) — like the ✨ emoji but
 // monochrome, rendered in the surrounding text color.
@@ -188,11 +203,7 @@ export default function Miracles() {
       })));
       if (res.data.version) setEngineVersion(res.data.version);
     } catch (e) {
-      const code = e?.code ? String(e.code).replace('functions/', '') : '';
-      updateBox(box.id, {
-        status: 'error',
-        error: [code, e?.message].filter(Boolean).join(' — ') || 'could not draw',
-      });
+      updateBox(box.id, { status: 'error', error: drawErrorText(e) });
     }
   };
 

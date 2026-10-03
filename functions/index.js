@@ -2090,12 +2090,72 @@ const MIRACLE_TIERS = {
   best:   { model: 'gpt-image-2',      quality: 'medium', fidelity: false },
 };
 
+// ---- What the person sees when a drawing can't be made --------------------
+// Every error illustrateMiracle throws is one of these: plain words, a code
+// the apps can act on, and details.reason for the app to branch on. Never
+// 'internal' (the iOS SDK drops an internal error's message and shows the word
+// INTERNAL) and never a vendor's raw error body. The raw detail goes to the
+// logs instead.
+const MIRACLE_ERRORS = {
+  'daily-limit': ['resource-exhausted', "That's today's drawings. More tomorrow."],
+  'daily-total': ['resource-exhausted', 'Drawing is resting for today. Try again tomorrow.'],
+  refused: ['invalid-argument', "This one can't be drawn. Try different words."],
+  busy: ['unavailable', 'Busy right now. Try again in a minute.'],
+  unavailable: ['unavailable', 'Drawing is unavailable right now. Try again later.'],
+};
+function miracleError(reason) {
+  const key = MIRACLE_ERRORS[reason] ? reason : 'unavailable';
+  const [code, message] = MIRACLE_ERRORS[key];
+  return new HttpsError(code, message, { reason: key });
+}
+// Anything thrown on the way to a drawing, as the person should see it: one of
+// ours passes through; everything else (a Storage failure, a Replicate error,
+// a bug) becomes "unavailable".
+function toMiracleClientError(e) {
+  if (e instanceof HttpsError && MIRACLE_ERRORS[e.details?.reason]) return e;
+  return miracleError('unavailable');
+}
+
+// OpenAI's error codes that mean the account has no money or allowance left
+// (developers.openai.com/api/docs/guides/error-codes, read 2026-10-03: a 429
+// with code credit_balance_exhausted is TYPE rate_limit_error, so the code is
+// what tells it apart from a real rate limit; "the broader error.type can
+// still be insufficient_quota"). billing_hard_limit_reached is the older name.
+const OPENAI_NO_MONEY_CODES = new Set([
+  'insufficient_quota',
+  'credit_balance_exhausted',
+  'billing_hard_limit_reached',
+  'organization_spend_limit_exceeded',
+  'project_spend_limit_exceeded',
+  'organization_usage_limit_exceeded',
+]);
+
+// Turn an OpenAI image error (status + raw body) into one of MIRACLE_ERRORS'
+// reasons. A safety refusal is error.code "moderation_blocked" (the image
+// generation guide, "Content moderation"); content_policy_violation is the
+// older code for the same thing.
+function classifyOpenAIImageError(status, bodyText) {
+  let err = {};
+  try { err = (JSON.parse(bodyText) || {}).error || {}; } catch { /* not JSON */ }
+  const code = String(err.code || '');
+  const type = String(err.type || '');
+  if (code === 'moderation_blocked' || code === 'content_policy_violation') return 'refused';
+  if (status === 429) {
+    return (OPENAI_NO_MONEY_CODES.has(code) || type === 'insufficient_quota') ? 'unavailable' : 'busy';
+  }
+  return 'unavailable';
+}
+
 // Draw the subject with OpenAI image edits + the reference doodles. Returns a
-// PNG/webp buffer (caller trims + persists).
+// webp buffer (output_format webp, with NO output_compression: the picture is
+// never lossy-compressed at birth), which the caller persists as-is.
 async function generateMiracleOpenAIImage(key, subject, tier) {
   const t = MIRACLE_TIERS[tier] || { model: 'gpt-image-1', quality: 'medium', fidelity: true };
   const refs = loadMiracleRefs();
-  if (!refs.length) throw new HttpsError('failed-precondition', 'No reference doodles bundled.');
+  if (!refs.length) {
+    console.error('miracle draw: no reference doodles bundled in functions/miracle-refs');
+    throw miracleError('unavailable');
+  }
   const form = new FormData();
   form.append('model', t.model);
   form.append('prompt', MIRACLE_OPENAI_PROMPT(subject));
@@ -2104,20 +2164,179 @@ async function generateMiracleOpenAIImage(key, subject, tier) {
   // Preserve the reference doodles' hand-drawn line/look much more faithfully.
   if (t.fidelity) form.append('input_fidelity', 'high');
   form.append('n', '1');
+  // The bytes are stored as .webp / image/webp, so ask for webp (the API's
+  // default is png). Every GPT image model takes it.
+  form.append('output_format', 'webp');
   for (const r of refs) form.append('image[]', new Blob([r.buffer], { type: r.type }), r.name);
 
-  const res = await fetch('https://api.openai.com/v1/images/edits', {
-    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    if (res.status === 429) throw new HttpsError('resource-exhausted', 'OpenAI rate limit. Wait ~30–60s and retry.');
-    throw new HttpsError('internal', `OpenAI ${res.status}: ${t.slice(0, 400)}`);
+  let res;
+  try {
+    res = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+    });
+  } catch (e) {
+    console.error('miracle draw: OpenAI request failed before a response', t.model, e);
+    throw miracleError('unavailable');
   }
-  const json = await res.json();
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    // The raw status and body first, so the logs always say why.
+    console.error('miracle draw: OpenAI error', res.status, t.model, body.slice(0, 4000));
+    throw miracleError(classifyOpenAIImageError(res.status, body));
+  }
+  let json;
+  try { json = await res.json(); } catch (e) {
+    console.error('miracle draw: OpenAI response was not JSON', res.status, t.model, e);
+    throw miracleError('unavailable');
+  }
   const b64 = json?.data?.[0]?.b64_json;
-  if (!b64) throw new HttpsError('internal', 'No image returned from OpenAI edits.');
+  if (!b64) {
+    console.error('miracle draw: OpenAI returned no image', t.model, JSON.stringify(json).slice(0, 1000));
+    throw miracleError('unavailable');
+  }
   return Buffer.from(b64, 'base64');
+}
+
+// ---- The distiller's answer -------------------------------------------------
+// Claude is asked for ONLY JSON, but may still wrap it in ``` fences (with or
+// without a language tag) or put a sentence around it. Take the fenced block,
+// else the whole text, else the first balanced {...} that parses.
+function firstBalancedJsonObject(s) {
+  for (let start = s.indexOf('{'); start !== -1; start = s.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < s.length; i += 1) {
+      const ch = s[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') {
+        inString = true;
+      } else if (ch === '{') {
+        depth += 1;
+      } else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try { return JSON.parse(s.slice(start, i + 1)); } catch { break; }
+        }
+      }
+    }
+  }
+  return null;
+}
+function parseMiracleJson(text) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+  const fenced = s.match(/```[A-Za-z0-9_-]*[ \t]*\r?\n?([\s\S]*?)```/);
+  for (const candidate of [fenced ? fenced[1].trim() : null, s]) {
+    if (!candidate) continue;
+    try { return JSON.parse(candidate); } catch { /* try the next shape */ }
+  }
+  return firstBalancedJsonObject(s);
+}
+// The usable concepts in a parsed answer ({concepts:[…]} or one bare
+// {caption, drawing}); [] when there are none.
+function miracleConceptsOf(parsed) {
+  if (!parsed || typeof parsed !== 'object') return [];
+  const arr = Array.isArray(parsed.concepts) ? parsed.concepts : (parsed.drawing ? [parsed] : []);
+  return arr
+    .filter((c) => c && typeof c === 'object' && c.drawing)
+    .map((c) => ({ caption: String(c.caption || '').trim(), drawing: String(c.drawing).trim() }))
+    .filter((c) => c.drawing);
+}
+
+// ---- Daily drawing limits ----------------------------------------------------
+// Every illustrateMiracle call is checked AND counted in one Firestore
+// transaction before anything that costs money. The numbers are read from
+// config/miracles {dailyPerUser, dailyTotal} (set by hand in the console; the
+// defaults below apply when the doc or a field is missing, and this code never
+// creates it). That doc holds only numbers, so the config/* key scans
+// (loadOpenAIKey / loadReplicateToken look for "sk-…" / "r8_…" STRINGS) can't
+// mistake anything in it for a key.
+//
+// A TAP is a call without `concept`: it counts against dailyPerUser and
+// dailyTotal. A call WITH `concept` is the app's background upgrade of a
+// drawing it already has (one render at a better tier); it is allowed only
+// while the person has fewer than MIRACLE_UPGRADES_PER_TAP upgrades per tap
+// already counted today, so `concept` can never draw past the limit.
+// Counters: miracleUsage/{uid}_{YYYY-MM-DD} and miracleUsage/_all_{YYYY-MM-DD},
+// fields `taps` and `upgrades`, where the day is the Pacific day.
+const MIRACLE_LIMIT_DEFAULTS = { dailyPerUser: 10, dailyTotal: 100 };
+const MIRACLE_UPGRADES_PER_TAP = 2;
+const MIRACLE_LIMITS_TTL_MS = 60 * 1000;
+const MIRACLE_USAGE_COLLECTION = 'miracleUsage';
+let _miracleLimits = { value: null, at: 0 };
+
+function limitNumber(v, fallback) {
+  const n = typeof v === 'number' ? v : (typeof v === 'string' && v.trim() ? Number(v) : NaN);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+}
+async function loadMiracleLimits() {
+  const now = Date.now();
+  const age = now - _miracleLimits.at;
+  if (_miracleLimits.value && age >= 0 && age < MIRACLE_LIMITS_TTL_MS) return _miracleLimits.value;
+  let d = null;
+  try {
+    const snap = await db.doc('config/miracles').get();
+    d = snap.exists ? snap.data() : null;
+  } catch (e) {
+    console.error('miracle limits: could not read config/miracles; using the defaults', e);
+  }
+  const value = {
+    dailyPerUser: limitNumber(d?.dailyPerUser, MIRACLE_LIMIT_DEFAULTS.dailyPerUser),
+    dailyTotal: limitNumber(d?.dailyTotal, MIRACLE_LIMIT_DEFAULTS.dailyTotal),
+  };
+  _miracleLimits = { value, at: now };
+  return value;
+}
+
+// The Pacific calendar day (America/Los_Angeles, so DST is handled) as
+// YYYY-MM-DD, built from parts rather than trusting a locale's date format.
+const PACIFIC_DAY_FORMAT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+});
+function pacificDay(date = new Date()) {
+  const part = {};
+  for (const p of PACIFIC_DAY_FORMAT.formatToParts(date)) part[p.type] = p.value;
+  return `${part.year}-${part.month}-${part.day}`;
+}
+
+// Count one call against today's limits, or throw the plain-words refusal.
+// The verdict is decided inside the transaction and thrown outside it, so a
+// refusal is never mistaken for a reason to retry the transaction.
+async function countMiracleDraw(uid, isUpgrade, now = new Date()) {
+  const limits = await loadMiracleLimits();
+  const day = pacificDay(now);
+  const userRef = db.collection(MIRACLE_USAGE_COLLECTION).doc(`${uid}_${day}`);
+  const allRef = db.collection(MIRACLE_USAGE_COLLECTION).doc(`_all_${day}`);
+  let refusal;
+  try {
+    refusal = await db.runTransaction(async (tx) => {
+      const [userSnap, allSnap] = await tx.getAll(userRef, allRef);
+      const mine = userSnap.exists ? userSnap.data() : {};
+      const all = allSnap.exists ? allSnap.data() : {};
+      const taps = Number(mine.taps) || 0;
+      const upgrades = Number(mine.upgrades) || 0;
+      if (isUpgrade) {
+        if (upgrades >= taps * MIRACLE_UPGRADES_PER_TAP) return 'daily-limit';
+      } else {
+        if (taps >= limits.dailyPerUser) return 'daily-limit';
+        if ((Number(all.taps) || 0) >= limits.dailyTotal) return 'daily-total';
+      }
+      const field = isUpgrade ? 'upgrades' : 'taps';
+      const write = { day, [field]: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() };
+      tx.set(userRef, write, { merge: true });
+      tx.set(allRef, write, { merge: true });
+      return null;
+    });
+  } catch (e) {
+    // Couldn't count it, so don't draw it (the safe direction for money).
+    console.error('miracle limits: could not count this draw', uid, e);
+    throw miracleError('unavailable');
+  }
+  if (refusal) throw miracleError(refusal);
 }
 
 // ── SAGEDIAGRAM: shared drawing/caption pool ────────────────────────────────
@@ -2177,34 +2396,10 @@ exports.sagediagram = onCall(
       return { ok: true };
     }
 
-    // Read-only export of written miracle moments (texts + page dates, no
-    // account info) so the distiller can be tuned on real entries. The owner
-    // has OK'd this while the app is personal; revisit before sharing the app.
-    if (mode === 'moments') {
-      const snap = await db.collection('miracleBooks').get();
-      const books = snap.docs.map((d) => {
-        let pages = [];
-        try { pages = JSON.parse(d.get('data') || '[]'); } catch { /* skip */ }
-        return {
-          book: d.id.slice(0, 6),
-          updatedAt: d.get('updatedAt') || null,
-          pages: (pages || []).map((p) => ({
-            date: p.date,
-            texts: (p.boxes || []).map((b) => String(b.text || '').trim()).filter(Boolean),
-          })).filter((p) => p.texts.length),
-        };
-      }).filter((b) => b.pages.length);
-      return { books };
-    }
-
-    if (mode === 'delete') {
-      const id = String(data.id || '').trim();
-      if (!id) throw new HttpsError('invalid-argument', 'id required');
-      await db.collection(SAGEDIAGRAM_COLLECTION).doc(id).delete();
-      try { await getStorage().bucket(STORAGE_BUCKET).file(`${SAGEDIAGRAM_COLLECTION}/${id}.webp`).delete(); } catch { /* already gone */ }
-      return { ok: true };
-    }
-
+    // There is deliberately no 'moments' mode (it handed every person's
+    // miracle text to any signed-in caller, anonymous ones included) and no
+    // 'delete' mode (any caller could remove anyone's drawing). Both were
+    // removed before the app went public; nothing in the apps called them.
     throw new HttpsError('invalid-argument', `unknown mode: ${mode}`);
   },
 );
@@ -2235,48 +2430,15 @@ exports.illustrateMiracle = onCall(
     // no re-distill, exactly one render.
     const conceptOverride = String(request.data?.concept || '').trim();
 
-    let concepts = [{ caption: text.slice(0, 80), drawing: text }];
-    if (conceptOverride) {
-      concepts = [{ caption: String(request.data?.caption || '').trim(), drawing: conceptOverride }];
-    } else if (distill) {
-      const anthropicKey = await loadAnthropicKey();
-      if (anthropicKey) {
-        try {
-          const client = new Anthropic({ apiKey: anthropicKey });
-          const msg = await client.messages.create({
-            model: 'claude-opus-4-8',
-            max_tokens: 3000,
-            thinking: { type: 'adaptive' }, // let it really reason about the best idea
-            output_config: { effort: 'high' },
-            system: MIRACLE_SYSTEM,
-            messages: [{ role: 'user', content: text.slice(0, 2000) }],
-          });
-          // With thinking on, the answer is the text block (not content[0]).
-          const block = (msg.content || []).find((b) => b.type === 'text');
-          const raw = (block?.text || '').trim().replace(/^```json\s*|\s*```$/g, '');
-          const parsed = JSON.parse(raw);
-          const arr = Array.isArray(parsed.concepts)
-            ? parsed.concepts
-            : (parsed.drawing ? [parsed] : []);
-          const clean = arr
-            .filter((c) => c && c.drawing)
-            .map((c) => ({ caption: String(c.caption || '').trim(), drawing: String(c.drawing).trim() }));
-          if (clean.length) concepts = clean;
-        } catch (e) {
-          console.error('miracle distill failed; using raw text', e);
-        }
-      }
-    }
-    const chosen = concepts.slice(0, variants);
-
-    // Load the engine's key/token once, then render each chosen concept.
+    // Load the engine's key/token once (free) BEFORE counting or distilling, so
+    // a missing key costs neither a Claude call nor one of the day's drawings.
     let renderOne;
     let version;
     if (engine === 'openai') {
       const openaiKey = await loadOpenAIKey();
       if (!openaiKey) {
-        throw new HttpsError('failed-precondition',
-          'No OpenAI key found in config/* (looking for an sk-… value, not sk-ant).');
+        console.error('illustrateMiracle: no OpenAI key found in config/* (looking for an sk-… value, not sk-ant)');
+        throw miracleError('unavailable');
       }
       version = tier ? `v8-ladder-${tier}` : 'v7-concepts';
       renderOne = async (concept) => {
@@ -2290,7 +2452,8 @@ exports.illustrateMiracle = onCall(
     } else {
       const repToken = await loadReplicateToken();
       if (!repToken) {
-        throw new HttpsError('failed-precondition', 'No Replicate token found in config/*.');
+        console.error('illustrateMiracle: no Replicate token found in config/*');
+        throw miracleError('unavailable');
       }
       version = MIRACLE_FN_VERSION;
       renderOne = async (concept) => {
@@ -2301,8 +2464,63 @@ exports.illustrateMiracle = onCall(
       };
     }
 
-    const urls = await Promise.all(chosen.map((c) => renderOne(c)));
-    const out = chosen.map((c, i) => ({ caption: c.caption, drawing: c.drawing, url: urls[i] }));
+    // The daily limits: checked and counted before anything that costs money.
+    await countMiracleDraw(uid, Boolean(conceptOverride));
+
+    // Fallback caption: the first 80 CHARACTERS by code point, so an emoji is
+    // never cut in half.
+    let concepts = [{ caption: Array.from(text).slice(0, 80).join(''), drawing: text }];
+    if (conceptOverride) {
+      concepts = [{ caption: String(request.data?.caption || '').trim(), drawing: conceptOverride }];
+    } else if (distill) {
+      const anthropicKey = await loadAnthropicKey();
+      if (anthropicKey) {
+        try {
+          // Each attempt gives up after 90s and is retried at most once, so a
+          // stalled call ends within about 3 minutes and the sentence is drawn
+          // as written, instead of the wait using up the whole 300s.
+          const client = new Anthropic({ apiKey: anthropicKey, timeout: 90 * 1000, maxRetries: 1 });
+          const msg = await client.messages.create({
+            model: 'claude-opus-4-8',
+            max_tokens: 3000,
+            thinking: { type: 'adaptive' }, // let it really reason about the best idea
+            output_config: { effort: 'high' },
+            system: MIRACLE_SYSTEM,
+            messages: [{ role: 'user', content: text.slice(0, 2000) }],
+          });
+          // With thinking on, the answer is the text block (not content[0]).
+          const block = (msg.content || []).find((b) => b.type === 'text');
+          const clean = miracleConceptsOf(parseMiracleJson(block?.text));
+          if (clean.length) {
+            concepts = clean;
+            if (msg.stop_reason === 'max_tokens') {
+              console.warn('miracle distill: answer cut off at max_tokens; kept', clean.length, 'concept(s)');
+            }
+          } else {
+            // max_tokens is the suspected case: the thinking used up the budget.
+            console.warn('miracle distill: no usable JSON, drawing the sentence as written; stop_reason =',
+              msg.stop_reason, '; text block chars =', (block?.text || '').length);
+          }
+        } catch (e) {
+          console.error('miracle distill failed; using raw text', e);
+        }
+      }
+    }
+    const chosen = concepts.slice(0, variants);
+
+    // One failed picture must not fail the call: keep every drawing that made
+    // it, in order. Only when none did, say (in plain words) why the first
+    // one failed.
+    const settled = await Promise.allSettled(chosen.map((c) => renderOne(c)));
+    const out = [];
+    settled.forEach((s, i) => {
+      if (s.status === 'fulfilled') {
+        out.push({ caption: chosen[i].caption, drawing: chosen[i].drawing, url: s.value });
+      } else {
+        console.error(`miracle draw ${i + 1} of ${chosen.length} failed`, s.reason);
+      }
+    });
+    if (!out.length) throw toMiracleClientError(settled[0].reason);
 
     // First concept is the primary (back-compat with the current single-image
     // clients); `concepts` carries all rendered options to pick from.
@@ -2315,6 +2533,64 @@ exports.illustrateMiracle = onCall(
       version,
       engine,
     };
+  }
+);
+
+// Delete everything Little Book of Miracles keeps for the signed-in person:
+// the book (miracleBooks/{uid} and every doc in its `pages` subcollection), every
+// drawing under miracles/{uid}/ in Storage, and then the account itself. The
+// data goes first, so if any of it fails the account is still there to try
+// again with. Safe to call twice: a second call finds nothing and says so.
+// The miracleUsage counters stay; they hold only per-day counts.
+const DELETE_MIRACLE_DATA_FAILED = "Couldn't delete everything just now. Try again in a minute.";
+exports.deleteMiracleData = onCall(
+  { region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+
+    let docs = 0;
+    let files = 0;
+    try {
+      // The rules only let the app write miracleBooks/{uid} and
+      // miracleBooks/{uid}/pages/{pageId}, so these two levels are everything.
+      const bookRef = db.collection('miracleBooks').doc(uid);
+      const pageRefs = await bookRef.collection('pages').listDocuments();
+      for (let i = 0; i < pageRefs.length; i += 400) {
+        const batch = db.batch();
+        for (const ref of pageRefs.slice(i, i + 400)) batch.delete(ref);
+        await batch.commit();
+      }
+      docs += pageRefs.length;
+      const book = await bookRef.get();
+      if (book.exists) {
+        await bookRef.delete();
+        docs += 1;
+      }
+
+      const bucket = getStorage().bucket(STORAGE_BUCKET);
+      const [found] = await bucket.getFiles({ prefix: `miracles/${uid}/` });
+      for (let i = 0; i < found.length; i += 25) {
+        await Promise.all(found.slice(i, i + 25).map((f) => f.delete({ ignoreNotFound: true })));
+      }
+      files = found.length;
+    } catch (e) {
+      console.error('deleteMiracleData: could not delete the data', uid, e);
+      throw new HttpsError('unavailable', DELETE_MIRACLE_DATA_FAILED, { reason: 'unavailable' });
+    }
+
+    try {
+      const { getAuth } = require('firebase-admin/auth');
+      await getAuth().deleteUser(uid);
+    } catch (e) {
+      if (e?.code !== 'auth/user-not-found') {
+        console.error('deleteMiracleData: could not delete the account', uid, e);
+        throw new HttpsError('unavailable', DELETE_MIRACLE_DATA_FAILED, { reason: 'unavailable' });
+      }
+    }
+
+    console.log('deleteMiracleData: deleted', { uid, docs, files });
+    return { ok: true, docs, files };
   }
 );
 
