@@ -285,6 +285,9 @@ final class MiraclesStore: ObservableObject {
     /// Background quality ladder: same concept, better models. Best-effort —
     /// failures are silent (the fast drawing is already on the page).
     private func launchUpgrades(for option: MiraclesService.DrawOption, text: String, boxID: String) {
+        // She may have turned "Drawing with AI" off while the first draw was
+        // on its way: then nothing more is sent.
+        guard UserDefaults.standard.bool(forKey: Keys.aiConsent) else { return }
         for (tier, isBest) in [("better", false), ("best", true)] {
             rendersInFlight += 1
             let activity = BackgroundActivity(name: "draw-\(tier)")
@@ -606,7 +609,15 @@ final class MiraclesStore: ObservableObject {
         if network.currentPath.status == .unsatisfied {
             throw URLError(.notConnectedToInternet)
         }
-        guard !deleteInFlight else { return }
+        if deleteInFlight {
+            // A delete resumed at launch is already talking to the server:
+            // wait for it, and say whether it finished.
+            while deleteInFlight { try? await Task.sleep(nanoseconds: 200_000_000) }
+            if UserDefaults.standard.object(forKey: Keys.deletePending) != nil {
+                throw URLError(.cannotConnectToHost)
+            }
+            return
+        }
         deleteInFlight = true
         defer { deleteInFlight = false }
         // Switching away mid-delete must not stop it halfway.
@@ -622,9 +633,10 @@ final class MiraclesStore: ObservableObject {
         do {
             try await MiraclesService.shared.deleteMyData()
         } catch {
-            UserDefaults.standard.removeObject(forKey: Keys.deletePending)
-            cloudPaused = false
-            if isSynced, !dirtyPageIDs.isEmpty || topDirty { schedulePush(after: 2) }
+            // The server may have finished even though its answer never came
+            // back (a dropped connection, the timeout, a long switch away), so
+            // nothing is saved again: the delete stays pending and is asked
+            // again (safe twice) on the next connection, return or launch.
             throw error
         }
         await finishDelete()
@@ -697,6 +709,11 @@ final class MiraclesStore: ObservableObject {
             syncLog.error("clearing Firestore's copy failed: \(error.localizedDescription, privacy: .public)")
         }
         URLCache.shared.removeAllCachedResponses()
+        // A read or save that was still waiting on the old instance will never
+        // answer: let the fresh account sync and save from a clean start.
+        syncing = false
+        pushing = false
+        pushAgain = false
     }
 
     private func forgetEverythingOnThisPhone() {

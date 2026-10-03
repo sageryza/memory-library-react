@@ -233,6 +233,7 @@ struct RuledLines: View {
     var body: some View {
         GeometryReader { geo in
             Path { p in
+                guard spacing > 0 else { return }   // a zero step would never end
                 var y = spacing
                 while y <= geo.size.height + 0.5 {
                     p.move(to: CGPoint(x: 0, y: y))
