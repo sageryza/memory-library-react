@@ -2146,6 +2146,15 @@ function classifyOpenAIImageError(status, bodyText) {
   return 'unavailable';
 }
 
+// Marks an error from a draw that cost nothing: OpenAI answered with an error,
+// or the request never got an answer. Only such failures give a tap back; a
+// failure after OpenAI drew (saving the picture, an unreadable answer) was
+// paid for, so its tap stays counted.
+function nothingDrawn(err) {
+  err.nothingDrawn = true;
+  return err;
+}
+
 // Draw the subject with OpenAI image edits + the reference doodles. Returns a
 // webp buffer (output_format webp, with NO output_compression: the picture is
 // never lossy-compressed at birth), which the caller persists as-is.
@@ -2154,7 +2163,7 @@ async function generateMiracleOpenAIImage(key, subject, tier) {
   const refs = loadMiracleRefs();
   if (!refs.length) {
     console.error('miracle draw: no reference doodles bundled in functions/miracle-refs');
-    throw miracleError('unavailable');
+    throw nothingDrawn(miracleError('unavailable'));
   }
   const form = new FormData();
   form.append('model', t.model);
@@ -2176,13 +2185,13 @@ async function generateMiracleOpenAIImage(key, subject, tier) {
     });
   } catch (e) {
     console.error('miracle draw: OpenAI request failed before a response', t.model, e);
-    throw miracleError('unavailable');
+    throw nothingDrawn(miracleError('unavailable'));
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     // The raw status and body first, so the logs always say why.
     console.error('miracle draw: OpenAI error', res.status, t.model, body.slice(0, 4000));
-    throw miracleError(classifyOpenAIImageError(res.status, body));
+    throw nothingDrawn(miracleError(classifyOpenAIImageError(res.status, body)));
   }
   let json;
   try { json = await res.json(); } catch (e) {
@@ -2341,8 +2350,9 @@ async function countMiracleDraw(uid, isUpgrade, now = new Date()) {
   return day;
 }
 
-// A tap that drew nothing because OpenAI was busy, out of money or down is
-// given back, so "Try again in a minute" never uses up the day and a top-up
+// A tap that drew nothing because OpenAI was busy, out of money or down (its
+// own error answer, or no answer at all; never a failure after a picture came
+// back, which was paid for) is given back, so "Try again in a minute" never uses up the day and a top-up
 // after an outage is not locked out until midnight. Its Claude call was still
 // paid for, so at most dailyPerUser refunds a person and dailyTotal in all
 // each day: an outage can cost at most one extra day's worth of Claude calls.
@@ -2445,7 +2455,11 @@ exports.illustrateMiracle = onCall(
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
     const text = String(request.data?.text || '').trim();
     if (!text) throw new HttpsError('invalid-argument', 'Write a miracle first.');
-    const id = String(request.data?.id || crypto.randomUUID());
+    // The box id becomes part of the Storage path, so only a plain one is used
+    // (the apps send UUIDs); anything else would make every save fail after
+    // the pictures were drawn and paid for.
+    const askedID = String(request.data?.id || '');
+    const id = /^[A-Za-z0-9_-]{1,64}$/.test(askedID) ? askedID : crypto.randomUUID();
     // Which illustrator: 'openai' (gpt-image-1 + reference doodles, now the
     // default look) or 'replicate' (the old Sketchy LoRA). Still switchable.
     const engine = String(request.data?.engine || 'openai').toLowerCase();
@@ -2556,7 +2570,8 @@ exports.illustrateMiracle = onCall(
     });
     if (!out.length) {
       const err = toMiracleClientError(settled[0].reason);
-      if (!conceptOverride && ['busy', 'unavailable'].includes(err.details?.reason)) {
+      const costNothing = settled.every((s) => s.status === 'rejected' && s.reason?.nothingDrawn);
+      if (!conceptOverride && costNothing && ['busy', 'unavailable'].includes(err.details?.reason)) {
         await refundMiracleTap(uid, countedDay);
       }
       throw err;
