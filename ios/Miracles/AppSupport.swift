@@ -14,6 +14,10 @@ enum Keys {
     /// 5.1.2(i): she agreed to send her words to the AI services. Off means
     /// withdrawn (Settings), and the next draw asks again.
     static let aiConsent = "miracles.aiConsent.v1"
+    /// Set just before the server is asked to delete the book, cleared once
+    /// this phone has forgotten it too. Still set at launch means the app was
+    /// stopped mid-delete, so the delete is finished before anything is saved.
+    static let deletePending = "miracles.deletePending.v1"
 }
 
 /// Keeps the app running for a short while after she switches away, so a

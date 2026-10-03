@@ -4,6 +4,7 @@ import Network
 import os
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 private let syncLog = Logger(subsystem: "com.sageryza.miracles", category: "book")
 
@@ -57,7 +58,11 @@ final class MiraclesStore: ObservableObject {
 
     // Cloud backup
     private let cloudEnabled = !AppMode.isUITest
-    private lazy var db = Firestore.firestore()
+    /// Asked for on every use: after a delete clears Firestore's cache, the
+    /// old instance is shut down and the next use gets a fresh one.
+    private var db: Firestore { Firestore.firestore() }
+    /// A delete is talking to the server; nothing else may sync meanwhile.
+    private var deleteInFlight = false
     private var started = false
     /// The account a server read has succeeded for. Nothing is pushed for any
     /// other account.
@@ -340,6 +345,10 @@ final class MiraclesStore: ObservableObject {
             Task { @MainActor in self?.requestSync(force: true) }
         }
         network.start(queue: DispatchQueue(label: "com.sageryza.miracles.network"))
+        if UserDefaults.standard.object(forKey: Keys.deletePending) != nil {
+            await resumePendingDelete()   // starts the fresh sync itself once done
+            return
+        }
         await syncNow()
     }
 
@@ -367,6 +376,11 @@ final class MiraclesStore: ObservableObject {
     }
 
     private func requestSync(force: Bool = false) {
+        if cloudEnabled, started, !deleteInFlight,
+           UserDefaults.standard.object(forKey: Keys.deletePending) != nil {
+            Task { await resumePendingDelete() }
+            return
+        }
         guard cloudEnabled, started, !cloudPaused, !syncing, !isSynced else { return }
         if !force && Date().timeIntervalSince(lastSyncAttempt) < 15 { return }
         Task { await syncNow() }
@@ -592,20 +606,72 @@ final class MiraclesStore: ObservableObject {
         if network.currentPath.status == .unsatisfied {
             throw URLError(.notConnectedToInternet)
         }
+        guard !deleteInFlight else { return }
+        deleteInFlight = true
+        defer { deleteInFlight = false }
+        // Switching away mid-delete must not stop it halfway.
+        let activity = BackgroundActivity(name: "delete-book")
+        defer { activity.end() }
         cloudPaused = true
         pushTimer?.cancel()
         // Let a save already on its way finish, so nothing lands after the delete.
         await waitWhilePushing(upTo: 10)
         await waitForPendingWrites(upTo: 5)
+        // From here on, an app stopped mid-delete finishes it on the next launch.
+        UserDefaults.standard.set(true, forKey: Keys.deletePending)
         do {
             try await MiraclesService.shared.deleteMyData()
         } catch {
+            UserDefaults.standard.removeObject(forKey: Keys.deletePending)
             cloudPaused = false
             if isSynced, !dirtyPageIDs.isEmpty || topDirty { schedulePush(after: 2) }
             throw error
         }
+        await finishDelete()
+    }
+
+    /// The app was stopped while a delete was under way. Ask the server again
+    /// (it is safe to ask twice) before anything is read or saved, so a book
+    /// she deleted can't be saved back to the cloud. If the account is already
+    /// gone, the server had finished. Offline: stay paused and try again on the
+    /// next change, when the connection returns or when the app comes back.
+    private func resumePendingDelete() async {
+        guard !deleteInFlight else { return }
+        deleteInFlight = true
+        defer { deleteInFlight = false }
+        let activity = BackgroundActivity(name: "delete-book")
+        defer { activity.end() }
+        cloudPaused = true
+        pushTimer?.cancel()
+        do {
+            try await MiraclesService.shared.deleteMyData()
+        } catch {
+            guard Self.accountIsGone(error) else {
+                syncLog.notice("finishing a delete failed, will try again: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+        }
+        await finishDelete()
+    }
+
+    /// The server deleted the account (the last thing it deletes), so the
+    /// cached sign-in no longer works.
+    private static func accountIsGone(_ error: Error) -> Bool {
+        let e = error as NSError
+        // The server found no signed-in account ("Sign in first.").
+        if e.domain == FunctionsErrorDomain, e.code == FunctionsErrorCode.unauthenticated.rawValue { return true }
+        // Auth refusing the cached sign-in: user disabled (17005), not found
+        // (17011), invalid token (17017), token expired (17021).
+        return e.domain == "FIRAuthErrorDomain" && [17005, 17011, 17017, 17021].contains(e.code)
+    }
+
+    /// The server says the book, its drawings and the account are gone: now
+    /// this phone forgets them too, and a fresh account starts an empty book.
+    private func finishDelete() async {
         forgetEverythingOnThisPhone()
         syncedUID = nil
+        await clearCachesOnThisPhone()
+        UserDefaults.standard.removeObject(forKey: Keys.deletePending)
         do {
             try Auth.auth().signOut()
         } catch {
@@ -616,6 +682,21 @@ final class MiraclesStore: ObservableObject {
         }
         cloudPaused = false
         Task { await syncNow() }   // signs in fresh: a new account with an empty book
+    }
+
+    /// Firestore keeps a copy of everything it read and wrote on disk, and the
+    /// system keeps downloaded drawings: both are emptied, so "deletes every
+    /// page and drawing on this phone" stays true. Shutting Firestore down
+    /// also drops any save still queued for the deleted account.
+    private func clearCachesOnThisPhone() async {
+        let firestore = Firestore.firestore()
+        do {
+            try await firestore.terminate()
+            try await firestore.clearPersistence()
+        } catch {
+            syncLog.error("clearing Firestore's copy failed: \(error.localizedDescription, privacy: .public)")
+        }
+        URLCache.shared.removeAllCachedResponses()
     }
 
     private func forgetEverythingOnThisPhone() {
