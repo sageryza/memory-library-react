@@ -103,6 +103,18 @@ function collectionRef(p) {
       return { docs, size: docs.length, empty: docs.length === 0 };
     },
     listDocuments: async () => childrenOf(p).map(docRef),
+    where: (field, op, value) => queryOf(p, [[op, value]]),
+  };
+}
+// Only document-id ranges are used (FieldPath.documentId()).
+function queryOf(p, conds) {
+  return {
+    where: (field, op, value) => queryOf(p, [...conds, [op, value]]),
+    get: async () => {
+      const ok = (id) => conds.every(([op, v]) => (op === '>=' ? id >= v : op === '<' ? id < v : id === v));
+      const docs = childrenOf(p).filter((k) => ok(k.split('/').pop())).map(snapshotOf);
+      return { docs, size: docs.length, empty: docs.length === 0 };
+    },
   };
 }
 const fakeDb = {
@@ -191,7 +203,7 @@ class FakeAnthropic {
 
 const stubs = {
   'firebase-admin/app': { initializeApp: () => ({}), getApp: () => ({}) },
-  'firebase-admin/firestore': { getFirestore: () => fakeDb, FieldValue },
+  'firebase-admin/firestore': { getFirestore: () => fakeDb, FieldValue, FieldPath: { documentId: () => '__name__' } },
   'firebase-admin/messaging': { getMessaging: () => ({}) },
   'firebase-admin/storage': { getStorage: () => fakeStorage },
   'firebase-admin/auth': { getAuth: () => fakeAuth },
@@ -761,7 +773,10 @@ describe('deleteMiracleData', () => {
     for (const p of ['p1', 'p2', 'p3']) S.docs.set(`miracleBooks/abc/pages/${p}`, { data: '{}', updatedAt: 1 });
     S.docs.set('miracleBooks/abcd', { v: 2, order: ['q1'] });
     S.docs.set('miracleBooks/abcd/pages/q1', { data: '{}', updatedAt: 1 });
+    S.docs.set('miracleUsage/abc_2026-10-02', { taps: 1 });
     S.docs.set('miracleUsage/abc_2026-10-03', { taps: 3 });
+    S.docs.set('miracleUsage/abcd_2026-10-03', { taps: 2 });
+    S.docs.set('miracleUsage/_all_2026-10-03', { taps: 5 });
     for (const f of ['miracles/abc/BOX1/one.webp', 'miracles/abc/BOX1/two.webp', 'miracles/abc/BOX2/three.webp',
       'miracles/abcd/BOX1/theirs.webp', 'sagediagram/shared.webp']) {
       S.files.set(f, { bytes: Buffer.from('x'), contentType: 'image/webp' });
@@ -777,7 +792,10 @@ describe('deleteMiracleData', () => {
     assert.deepEqual([...S.files.keys()].sort(), ['miracles/abcd/BOX1/theirs.webp', 'sagediagram/shared.webp']);
     assert.ok(S.docs.has('miracleBooks/abcd'));
     assert.ok(S.docs.has('miracleBooks/abcd/pages/q1'));
-    assert.ok(S.docs.has('miracleUsage/abc_2026-10-03'), 'the per-day counters stay');
+    assert.equal(S.docs.has('miracleUsage/abc_2026-10-03'), false, 'its per-day counters go');
+    assert.equal(S.docs.has('miracleUsage/abc_2026-10-02'), false);
+    assert.ok(S.docs.has('miracleUsage/abcd_2026-10-03'), 'nobody else\'s');
+    assert.ok(S.docs.has('miracleUsage/_all_2026-10-03'), 'the totals for everyone stay');
     assert.deepEqual([...S.users], ['abcd']);
   });
 

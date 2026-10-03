@@ -13,7 +13,7 @@ const { onDocumentUpdated, onDocumentCreated, onDocumentWritten } = require('fir
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getStorage } = require('firebase-admin/storage');
 const crypto = require('node:crypto');
@@ -2597,7 +2597,9 @@ exports.illustrateMiracle = onCall(
 // is the app's anonymous one. The
 // data goes first, so if any of it fails the account is still there to try
 // again with. Safe to call twice: a second call finds nothing and says so.
-// The miracleUsage counters stay; they hold only per-day counts.
+// The person's per-day drawing counters (miracleUsage/{uid}_{day}) go too,
+// since their names carry the account id; the totals for everyone stay.
+// `docs` counts the book's docs only.
 const DELETE_MIRACLE_DATA_FAILED = "Couldn't delete everything just now. Try again in a minute.";
 exports.deleteMiracleData = onCall(
   { region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' },
@@ -2622,6 +2624,16 @@ exports.deleteMiracleData = onCall(
       if (book.exists) {
         await bookRef.delete();
         docs += 1;
+      }
+
+      const counters = await db.collection(MIRACLE_USAGE_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `${uid}_`)
+        .where(FieldPath.documentId(), '<', `${uid}_\uf8ff`)
+        .get();
+      for (let i = 0; i < counters.docs.length; i += 400) {
+        const batch = db.batch();
+        for (const d of counters.docs.slice(i, i + 400)) batch.delete(d.ref);
+        await batch.commit();
       }
 
       const bucket = getStorage().bucket(STORAGE_BUCKET);
