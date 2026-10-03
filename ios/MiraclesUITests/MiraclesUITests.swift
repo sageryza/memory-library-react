@@ -77,4 +77,70 @@ final class MiraclesUITests: XCTestCase {
         sleep(3)
         shot(app, "07-relaunch-after-4s")
     }
+
+    /// Keep ✓, the AI consent sheet and Settings — all photographed without
+    /// ever drawing: test mode can't draw, consent starts unset every run, and
+    /// the delete confirmation is only ever cancelled.
+    func testKeepConsentAndSettings() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uitestSeed"]
+        app.launch()
+        sleep(4) // drawings come from the cache the first test filled
+
+        let firstDrawing = app.coordinate(withNormalizedOffset: CGVector(dx: 0.29, dy: 0.32))
+
+        // Keep ✓: once kept, tapping the drawing brings back only the ✓.
+        firstDrawing.tap()
+        let keep = app.buttons["Keep this drawing"].firstMatch
+        XCTAssertTrue(keep.waitForExistence(timeout: 5), "no keep button after tapping a drawing")
+        keep.tap()
+        sleep(1)
+        firstDrawing.tap()
+        sleep(1)
+        shot(app, "08-kept-only-the-check-shows")
+        XCTAssertTrue(keep.exists, "the ✓ should show on a kept drawing")
+        XCTAssertFalse(app.buttons["Redraw"].exists, "redraw should stay hidden while a drawing is kept")
+        if keep.exists { keep.tap() } // un-keep: the arrows and redraw come back
+        sleep(1)
+        shot(app, "08b-unkept-redraw-is-back")
+
+        // Redraw before consent opens the consent sheet; "Not now" leaves it.
+        let redraw = app.buttons["Redraw"].firstMatch
+        if redraw.waitForExistence(timeout: 5) {
+            redraw.tap()
+            let agree = app.buttons["Agree & Continue"].firstMatch
+            XCTAssertTrue(agree.waitForExistence(timeout: 5), "the AI consent sheet should open")
+            sleep(1)
+            shot(app, "09-consent-sheet")
+            app.buttons["Not now"].firstMatch.tap()
+            sleep(1)
+        } else {
+            XCTFail("redraw should be back after un-keeping")
+        }
+
+        // Settings, from the gear.
+        let gear = app.buttons["Settings"].firstMatch
+        XCTAssertTrue(gear.waitForExistence(timeout: 5), "no settings gear")
+        gear.tap()
+        XCTAssertTrue(app.switches["Drawing with AI"].firstMatch.waitForExistence(timeout: 5),
+                      "settings did not open")
+        sleep(1)
+        shot(app, "10-settings")
+
+        // The delete confirmation: photographed, then cancelled — never confirmed.
+        let delete = app.buttons["Delete my book and data"].firstMatch
+        if delete.waitForExistence(timeout: 3) {
+            delete.tap()
+            let alert = app.alerts.firstMatch
+            XCTAssertTrue(alert.waitForExistence(timeout: 5), "no delete confirmation")
+            shot(app, "11-delete-confirmation")
+            alert.buttons["Cancel"].tap()
+            sleep(1)
+        } else {
+            XCTFail("no delete button in settings")
+        }
+        app.buttons["Done"].firstMatch.tap()
+        sleep(1)
+        shot(app, "12-back-on-the-book")
+    }
 }

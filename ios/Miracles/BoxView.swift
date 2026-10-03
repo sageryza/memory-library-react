@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// One miracle: a square drawing frame with the draw / undo / redo controls in
-/// its bottom-right corner, and a handwritten caption on ruled lines beneath.
+/// One miracle: a square drawing frame with its controls, and a handwritten
+/// caption on ruled lines beneath.
 struct BoxView: View {
     @ObservedObject var store: MiraclesStore
     let box: MiracleBox
@@ -10,18 +10,25 @@ struct BoxView: View {
     /// above the keyboard.
     var onCaptionFocus: (String) -> Void = { _ in }
 
-    @State private var drawing = false
-    @State private var errorText: String?
     @State private var showConsent = false
     @FocusState private var captionFocused: Bool
-    // 5.1.2(i): one-time consent before any text is sent to third-party AI.
-    @AppStorage("miracles.aiConsent.v1") private var aiConsentAccepted = false
+    // 5.1.2(i): consent before any words are sent to the AI services. It can
+    // be withdrawn in Settings; the next draw then asks again.
+    @AppStorage(Keys.aiConsent) private var aiConsentAccepted = false
 
     // No extra lineSpacing: SwiftUI's 3-line reserved height does NOT include
     // added line spacing, so any extra pushed the third line out of the box
     // (and the h/3 rules through the text). With the font's natural line
     // height, text and rules agree by construction.
     private static let captionFontSize: CGFloat = 20
+
+    private var words: String { box.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var hasWords: Bool { !words.isEmpty }
+    private var drawing: Bool { store.isDrawing(box.id) }
+    private var isActive: Bool { store.activeBoxID == box.id }
+    /// "Keep this one": the showing drawing is kept, so only the ✓ comes back
+    /// when she taps it (tap the ✓ to choose again).
+    private var kept: Bool { box.selected && box.url != nil }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -31,69 +38,43 @@ struct BoxView: View {
                     .overlay(Rectangle().stroke(Theme.line, lineWidth: 1))
 
                 if let urlString = box.url {
-                    // Disk-cached loader: shows instantly on relaunch, survives a
-                    // dead URL, and offers "tap to redraw" instead of an endless spinner.
-                    CachedDoodleImage(urlString: urlString, onRetry: draw)
-                        .padding(2)
+                    // Disk-cached loader: shows instantly on relaunch, and a
+                    // failed download offers "Try again" (a download, never a
+                    // new paid drawing).
+                    CachedDoodleImage(
+                        urlString: urlString,
+                        label: hasWords ? words : "Drawing",
+                        onActivate: toggleControls
+                    )
+                    .padding(2)
                 }
 
                 if drawing { ProgressView().tint(Theme.gold) }
 
                 // Controls stay tucked away; tapping the drawing surfaces them
                 // (and tapping anywhere else puts them back — see BookView).
-                // A box with text but no drawing yet always shows "draw".
-                if showsControls {
-                    // Keep ✓ — top-right, only once there's a drawing to keep.
-                    if box.url != nil {
-                        VStack {
-                            HStack { Spacer(); keepButton }
-                            Spacer()
-                        }
-                        .padding(5)
-                    }
-                    // Draw / redraw + pick arrows — bottom-right.
-                    VStack {
-                        Spacer()
-                        HStack { Spacer(); controls }
-                    }
-                    .padding(5)
+                // A box with words but no drawing yet always shows "draw".
+                if box.url == nil {
+                    if hasWords { corner(.bottomTrailing) { drawButton } }
+                } else if isActive {
+                    corner(.topTrailing) { keepButton }
+                    if !kept { corner(.bottomTrailing) { editControls } }
                 }
             }
             .aspectRatio(1, contentMode: .fit)
             .clipped()
             .contentShape(Rectangle())
-            .onTapGesture {
-                // Tap the drawing to toggle its edit controls.
-                guard box.url != nil else { return }
-                store.activeBoxID = (store.activeBoxID == box.id) ? nil : box.id
-            }
+            .onTapGesture(perform: toggleControls)
 
             caption
 
-            if let errorText {
-                Text(errorText)
+            if let message = store.drawError(box.id) {
+                Text(message)
                     .font(.caption2).foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .sheet(isPresented: $showConsent) {
-            AIConsentSheet(
-                theme: .miracles,
-                appName: "Miracles",
-                providers: [
-                    AIProvider(name: "Anthropic (Claude)", role: "Turns your words into a drawing prompt"),
-                    AIProvider(name: "Replicate", role: "Generates the illustration"),
-                ],
-                dataDescription: "the text you write",
-                privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html"),
-                onAgree: {
-                    aiConsentAccepted = true
-                    showConsent = false
-                    performDraw()
-                },
-                onCancel: { showConsent = false }
-            )
-        }
+        .sheet(isPresented: $showConsent) { consentSheet }
     }
 
     private var caption: some View {
@@ -123,75 +104,82 @@ struct BoxView: View {
         }
     }
 
-    // Show the draw button only once there's something to draw — text typed,
-    // or an existing drawing to redraw.
-    private var canDraw: Bool {
-        box.url != nil || !box.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private func corner<Content: View>(_ alignment: Alignment, @ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(5)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
     }
 
-    // No drawing yet → "draw" shows as soon as there's text (there's no picture
-    // to tap). Once a drawing exists, controls appear only while this box is
-    // the active one (tapped).
-    private var showsControls: Bool {
-        box.url == nil ? canDraw : store.activeBoxID == box.id
-    }
-
-    private var controls: some View {
+    /// The arrows, redraw and ▲ — shown while the drawing isn't kept. Redraw
+    /// needs words; with none it isn't offered.
+    private var editControls: some View {
         HStack(spacing: 4) {
             if box.canUndo {
-                arrow("arrowtriangle.backward.fill") { store.step(-1, boxID: box.id) }
+                arrow("arrowtriangle.backward.fill", label: "Previous drawing") { store.step(-1, boxID: box.id) }
             }
 
-            if canDraw {
-                Button(action: draw) {
-                    HStack(spacing: 4) {
-                        Text(box.url == nil ? "draw" : "redraw")
-                        Image(systemName: "sparkles")
-                    }
-                    .lineLimit(1)
-                    .fixedSize()                    // never wrap "redraw" to letters
-                    .font(.custom(Theme.serif, size: 15))
-                    .foregroundStyle(Theme.serifInk)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
-                    .background(.white.opacity(0.85))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-                .disabled(drawing)
-            }
+            if hasWords { drawButton }
 
             if box.canRedo {
-                arrow("arrowtriangle.forward.fill") { store.step(1, boxID: box.id) }
+                arrow("arrowtriangle.forward.fill", label: "Next drawing") { store.step(1, boxID: box.id) }
             }
 
             // A higher-quality render of THIS drawing is ready — step up to it.
             if let current = box.url, box.upgrades[current] != nil {
-                arrow("arrowtriangle.up.fill") { store.applyUpgrade(boxID: box.id) }
+                arrow("arrowtriangle.up.fill", label: "Better version") { store.applyUpgrade(boxID: box.id) }
             }
         }
     }
 
-    // Keep the shown drawing: locks it in and tucks the edit controls away.
+    private var drawButton: some View {
+        Button(action: draw) {
+            HStack(spacing: 4) {
+                Text(box.url == nil ? "draw" : "redraw")
+                Image(systemName: "sparkles")
+            }
+            .lineLimit(1)
+            .fixedSize()                    // never wrap "redraw" to letters
+            .font(.custom(Theme.serif, size: 15))
+            .foregroundStyle(Theme.serifInk)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(.white.opacity(0.85))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.line))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .disabled(drawing)
+        .accessibilityLabel(box.url == nil ? "Draw" : "Redraw")
+    }
+
+    /// Keep ✓: keeps the shown drawing and tucks the controls away. While a
+    /// drawing is kept, tapping it shows only the ✓ (filled), and tapping that
+    /// un-keeps it so the arrows and redraw come back.
     private var keepButton: some View {
         Button {
-            store.setSelected(true, boxID: box.id)
-            store.activeBoxID = nil
+            if kept {
+                store.setSelected(false, boxID: box.id)
+            } else {
+                store.setSelected(true, boxID: box.id)
+                store.activeBoxID = nil
+            }
         } label: {
             Image(systemName: "checkmark")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.gold)
+                .foregroundStyle(kept ? Theme.ink : Theme.gold)
                 .frame(width: 24, height: 24)
-                .background(.white.opacity(0.85))
+                .background(kept ? Theme.gold : Color.white.opacity(0.85))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.gold.opacity(0.6)))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Keep this drawing")
+        .accessibilityAddTraits(kept ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 
     // Small filled arrow — no circle, deliberately unobtrusive.
-    private func arrow(_ symbol: String, action: @escaping () -> Void) -> some View {
+    private func arrow(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 11))
@@ -200,60 +188,44 @@ struct BoxView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
-    /// Gate the draw on AI consent (5.1.2(i)); on first use, ask before sending.
+    private func toggleControls() {
+        // Tap the drawing to toggle its controls.
+        guard box.url != nil else { return }
+        store.activeBoxID = isActive ? nil : box.id
+    }
+
+    /// Gate the draw on AI consent (5.1.2(i)); until she agrees, ask first.
     private func draw() {
-        let text = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !drawing else { return }
+        guard hasWords, !drawing else { return }
         if !aiConsentAccepted { showConsent = true; return }
-        performDraw()
+        store.draw(boxID: box.id, distill: distill)
     }
 
-    private func performDraw() {
-        let text = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !drawing else { return }
-        drawing = true
-        errorText = nil
-        Task {
-            do {
-                // One draw returns a few concept options on the FAST tier
-                // (~10s); the ‹/› arrows let you pick among them.
-                let result = try await MiraclesService.shared.illustrate(
-                    text: text, boxID: box.id, distill: distill, variants: 3, tier: "fast"
-                )
-                store.pushDrawings(result.urls, boxID: box.id)
-                // Meanwhile, quietly render the primary concept at the higher
-                // tiers. When one lands, ▲ appears on that drawing.
-                if let primary = result.options.first, !primary.drawing.isEmpty {
-                    launchUpgrades(for: primary, text: text)
-                }
-            } catch {
-                errorText = error.localizedDescription
-            }
-            drawing = false
-        }
-    }
-
-    /// Background quality ladder: same concept, better models. Best-effort —
-    /// failures are silent (the fast drawing is already on the page).
-    private func launchUpgrades(for option: MiraclesService.DrawOption, text: String) {
-        let boxID = box.id
-        for (tier, isBest) in [("better", false), ("best", true)] {
-            Task {
-                if let up = try? await MiraclesService.shared.illustrate(
-                    text: text, boxID: boxID, distill: false, variants: 1,
-                    tier: tier, concept: option.drawing
-                ), let url = up.urls.first {
-                    store.addUpgrade(boxID: boxID, base: option.url, new: url, isBest: isBest)
-                }
-            }
-        }
+    private var consentSheet: some View {
+        AIConsentSheet(
+            theme: .miracles,
+            appName: "Miracles",
+            providers: [
+                AIProvider(name: "Anthropic (Claude)", role: "Turns your words into a drawing idea"),
+                AIProvider(name: "OpenAI", role: "Draws the picture"),
+            ],
+            dataDescription: "the text you write",
+            privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html"),
+            onAgree: {
+                aiConsentAccepted = true
+                showConsent = false
+                store.draw(boxID: box.id, distill: distill)
+            },
+            onCancel: { showConsent = false }
+        )
     }
 }
 
-/// Soft tan horizontal writing lines, repeating every `spacing` points —
-/// matches the web preview's lined-paper caption.
+/// Soft horizontal writing lines, repeating every `spacing` points — matches
+/// the web preview's lined-paper caption.
 struct RuledLines: View {
     var spacing: CGFloat = 28
 

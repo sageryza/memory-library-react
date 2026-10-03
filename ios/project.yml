@@ -12,7 +12,13 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Miracles
+      - path: Miracles
+        excludes:
+          - PrivacyInfo.xcprivacy
+      # The privacy manifest must ship inside the app bundle: named explicitly
+      # as a resource so no XcodeGen version can leave it out.
+      - path: Miracles/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sageryza.miracles
@@ -26,8 +32,10 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # Every background is a fixed cream: always light, never Dark Mode.
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
+        # iPhone only.
+        TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
     dependencies:
       - package: Firebase

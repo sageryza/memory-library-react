@@ -53,10 +53,11 @@ struct MiraclesApp: App {
 }
 
 struct RootView: View {
-    @StateObject private var store = MiraclesStore()
+    // One store for the whole app, however many times this view is made.
+    @ObservedObject private var store = MiraclesStore.shared
+    @Environment(\.scenePhase) private var scenePhase
     // UI tests jump straight into the book with a deterministic fixture page.
-    private static var isUITest: Bool { ProcessInfo.processInfo.arguments.contains("-uitestSeed") }
-    @State private var opened = RootView.isUITest
+    @State private var opened = AppMode.isUITest
 
     var body: some View {
         ZStack {
@@ -72,15 +73,15 @@ struct RootView: View {
                 }
             }
         }
-        .task {
-            if Self.isUITest {
-                // Deterministic fixture; no auth or cloud sync so the test
-                // can't be perturbed by (or write to) real data.
-                if store.pages.first?.hasContent != true { store.seedForUITests() }
-                return
-            }
-            try? await MiraclesService.shared.ensureSignedIn()
-            await store.startSync()
+        // Every background in the app is a fixed cream, so Dark Mode only made
+        // the system parts (the clock, sheets) white on cream. Always light.
+        .preferredColorScheme(.light)
+        // Sign in, then reconcile the book with the cloud. In UI-test mode this
+        // only seeds the fixture — no auth, no cloud.
+        .task { await store.start() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { store.appBecameActive() }
+            if phase == .background { store.appWentToBackground() }
         }
     }
 }
