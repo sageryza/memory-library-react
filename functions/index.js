@@ -2305,7 +2305,8 @@ function pacificDay(date = new Date()) {
 
 // Count one call against today's limits, or throw the plain-words refusal.
 // The verdict is decided inside the transaction and thrown outside it, so a
-// refusal is never mistaken for a reason to retry the transaction.
+// refusal is never mistaken for a reason to retry the transaction. Returns the
+// day it was counted on, so a refund lands on the same day's counters.
 async function countMiracleDraw(uid, isUpgrade, now = new Date()) {
   const limits = await loadMiracleLimits();
   const day = pacificDay(now);
@@ -2337,6 +2338,39 @@ async function countMiracleDraw(uid, isUpgrade, now = new Date()) {
     throw miracleError('unavailable');
   }
   if (refusal) throw miracleError(refusal);
+  return day;
+}
+
+// A tap that drew nothing because OpenAI was busy, out of money or down is
+// given back, so "Try again in a minute" never uses up the day and a top-up
+// after an outage is not locked out until midnight. Its Claude call was still
+// paid for, so at most dailyPerUser refunds a person and dailyTotal in all
+// each day: an outage can cost at most one extra day's worth of Claude calls.
+// A refusal (the words can't be drawn) is not given back. Best-effort: a
+// refund that fails leaves the tap counted, the safe direction for money.
+async function refundMiracleTap(uid, day) {
+  const limits = await loadMiracleLimits();
+  const userRef = db.collection(MIRACLE_USAGE_COLLECTION).doc(`${uid}_${day}`);
+  const allRef = db.collection(MIRACLE_USAGE_COLLECTION).doc(`_all_${day}`);
+  try {
+    await db.runTransaction(async (tx) => {
+      const [userSnap, allSnap] = await tx.getAll(userRef, allRef);
+      const mine = userSnap.exists ? userSnap.data() : {};
+      const all = allSnap.exists ? allSnap.data() : {};
+      if ((Number(mine.taps) || 0) < 1 || (Number(all.taps) || 0) < 1) return;
+      if ((Number(mine.refunds) || 0) >= limits.dailyPerUser) return;
+      if ((Number(all.refunds) || 0) >= limits.dailyTotal) return;
+      const write = {
+        taps: FieldValue.increment(-1),
+        refunds: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      tx.set(userRef, write, { merge: true });
+      tx.set(allRef, write, { merge: true });
+    });
+  } catch (e) {
+    console.error('miracle limits: could not give back a tap that drew nothing', uid, day, e);
+  }
 }
 
 // ── SAGEDIAGRAM: shared drawing/caption pool ────────────────────────────────
@@ -2465,7 +2499,7 @@ exports.illustrateMiracle = onCall(
     }
 
     // The daily limits: checked and counted before anything that costs money.
-    await countMiracleDraw(uid, Boolean(conceptOverride));
+    const countedDay = await countMiracleDraw(uid, Boolean(conceptOverride));
 
     // Fallback caption: the first 80 CHARACTERS by code point, so an emoji is
     // never cut in half.
@@ -2520,7 +2554,13 @@ exports.illustrateMiracle = onCall(
         console.error(`miracle draw ${i + 1} of ${chosen.length} failed`, s.reason);
       }
     });
-    if (!out.length) throw toMiracleClientError(settled[0].reason);
+    if (!out.length) {
+      const err = toMiracleClientError(settled[0].reason);
+      if (!conceptOverride && ['busy', 'unavailable'].includes(err.details?.reason)) {
+        await refundMiracleTap(uid, countedDay);
+      }
+      throw err;
+    }
 
     // First concept is the primary (back-compat with the current single-image
     // clients); `concepts` carries all rendered options to pick from.
