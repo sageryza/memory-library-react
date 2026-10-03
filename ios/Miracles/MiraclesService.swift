@@ -11,11 +11,17 @@ final class MiraclesService {
 
     private lazy var functions = Functions.functions()
     private var signingIn: Task<Void, Error>?
+    /// The account "Delete my book and data" removed. It is never used again,
+    /// even if signing out of it failed — nothing may be saved or drawn under it.
+    private static let deletedAccountKey = "miracles.deletedAccount"
 
     /// Signs in anonymously if needed. Calls that overlap share one sign-in,
     /// so two can't each create an account.
     func ensureSignedIn() async throws {
-        if Auth.auth().currentUser != nil { return }
+        if let user = Auth.auth().currentUser {
+            if user.uid != UserDefaults.standard.string(forKey: Self.deletedAccountKey) { return }
+            try Auth.auth().signOut()
+        }
         if let pending = signingIn { return try await pending.value }
         let task = Task<Void, Error> { _ = try await Auth.auth().signInAnonymously() }
         signingIn = task
@@ -27,6 +33,12 @@ final class MiraclesService {
     /// account itself. Throws unless the server answers `{ ok: true }`.
     func deleteMyData() async throws {
         try await ensureSignedIn()
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(
+                domain: "Miracles", code: -2,
+                userInfo: [NSLocalizedDescriptionKey: MiraclesErrors.generic]
+            )
+        }
         let callable = functions.httpsCallable("deleteMiracleData")
         callable.timeoutInterval = 120
         let result = try await callable.call([String: Any]())
@@ -37,6 +49,7 @@ final class MiraclesService {
                 userInfo: [NSLocalizedDescriptionKey: MiraclesErrors.generic]
             )
         }
+        UserDefaults.standard.set(uid, forKey: Self.deletedAccountKey)
     }
 
     struct DrawOption {

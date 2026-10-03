@@ -605,12 +605,15 @@ final class MiraclesStore: ObservableObject {
             throw error
         }
         forgetEverythingOnThisPhone()
+        syncedUID = nil
         do {
             try Auth.auth().signOut()
         } catch {
+            // Stay paused for the rest of this launch: nothing may be written
+            // under the deleted account. The next launch starts clean.
             syncLog.error("sign-out after delete failed: \(error.localizedDescription, privacy: .public)")
+            return
         }
-        syncedUID = nil
         cloudPaused = false
         Task { await syncNow() }   // signs in fresh: a new account with an empty book
     }
