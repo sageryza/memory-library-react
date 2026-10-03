@@ -88,6 +88,7 @@ struct BoxView: View {
             axis: .vertical
         )
         .focused($captionFocused)
+        .accessibilityLabel("Miracle")
         .lineLimit(3, reservesSpace: true)
         .font(.custom(Theme.handwriting, size: Self.captionFontSize))
         .foregroundStyle(Theme.captionInk)
