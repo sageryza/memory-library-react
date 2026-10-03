@@ -713,6 +713,32 @@ describe('illustrateMiracle: daily limits', () => {
     assertPlainError(await thrown(tap('UID_THIRD')), 'resource-exhausted', TOTAL_MSG, 'daily-total');
   });
 
+  test('a tap whose pictures were drawn but could not be saved is not given back', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.failSave = () => true;
+    assertPlainError(await thrown(tap('UID_PAID')), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    assert.equal(S.openaiCalls.length, 1, 'OpenAI drew it');
+    assert.equal(usage('UID_PAID').taps, 1, 'so the tap stays counted');
+    assert.equal(usage('UID_PAID').refunds || 0, 0);
+  });
+
+  test('a box id that is not a plain one is replaced, so a save can never be made to fail', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    for (const bad of ['x\ny', 'a'.repeat(1100), '../../other', '']) {
+      const out = await tap('UID_ID', { id: bad });
+      assert.ok(out.url, 'drawn and saved');
+    }
+    const paths = [...S.files.keys()].filter((k) => k.startsWith('miracles/UID_ID/'));
+    assert.equal(paths.length, 4);
+    for (const p of paths) assert.match(p, /^miracles\/UID_ID\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/);
+    await tap('UID_ID', { id: 'BOX-1_ok' });
+    assert.ok([...S.files.keys()].some((k) => k.startsWith('miracles/UID_ID/BOX-1_ok/')), 'a plain id is kept');
+  });
+
   test('a failed upgrade is not given back', async (t) => {
     atOwnMoment(t);
     quiet(t);
