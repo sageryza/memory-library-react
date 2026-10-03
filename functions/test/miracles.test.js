@@ -259,7 +259,9 @@ function seedKeys() {
   S.docs.set('config/anthropic', { key: 'sk-ant-TEST' });
   S.docs.set('config/openai', { apiKey: 'sk-proj-TEST' });
 }
-const call = (name, uid, data) => fns[name].run({ auth: uid ? { uid, token: {} } : undefined, data, rawRequest: {} });
+// The app signs in anonymously, so a caller's decoded token says so.
+const ANON = { firebase: { sign_in_provider: 'anonymous' } };
+const call = (name, uid, data, token = ANON) => fns[name].run({ auth: uid ? { uid, token } : undefined, data, rawRequest: {} });
 const tap = (uid, extra = {}) => call('illustrateMiracle', uid, { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier: 'fast', ...extra });
 const upgrade = (uid, tier = 'better') => call('illustrateMiracle', uid, { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier, concept: 'a key in a cake' });
 async function thrown(promise) {
@@ -687,6 +689,15 @@ describe('deleteMiracleData', () => {
     assert.deepEqual([...S.users], ['abcd']);
   });
 
+  test('a Google sign-in loses its book but keeps its account', async (t) => {
+    quiet(t);
+    seedTwoPeople();
+    const out = await call('deleteMiracleData', 'abc', {}, { firebase: { sign_in_provider: 'google.com' } });
+    assert.deepEqual(out, { ok: true, docs: 4, files: 3 });
+    assert.equal(S.docs.has('miracleBooks/abc'), false);
+    assert.ok(S.users.has('abc'), 'the account stays');
+  });
+
   test('is fine called twice', async (t) => {
     quiet(t);
     seedTwoPeople();
@@ -758,7 +769,7 @@ describe('on the wire', () => {
     app.post('/', (req, res) => fns[name](req, res));
     const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
     const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-    const token = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: uid, uid })}.sig`;
+    const token = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: uid, uid, firebase: { sign_in_provider: 'anonymous' } })}.sig`;
     try {
       const res = await fetch(`http://127.0.0.1:${server.address().port}/`, {
         method: 'POST',
@@ -802,6 +813,7 @@ describe('on the wire', () => {
     const res = await post('deleteMiracleData', 'UID_WIRE_DEL', {});
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { result: { ok: true, docs: 2, files: 1 } });
+    assert.equal(S.users.has('UID_WIRE_DEL'), false, 'an anonymous account read off a real token is deleted');
   });
 });
 

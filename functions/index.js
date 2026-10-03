@@ -2538,7 +2538,8 @@ exports.illustrateMiracle = onCall(
 
 // Delete everything Little Book of Miracles keeps for the signed-in person:
 // the book (miracleBooks/{uid} and every doc in its `pages` subcollection), every
-// drawing under miracles/{uid}/ in Storage, and then the account itself. The
+// drawing under miracles/{uid}/ in Storage, and then the account itself when it
+// is the app's anonymous one. The
 // data goes first, so if any of it fails the account is still there to try
 // again with. Safe to call twice: a second call finds nothing and says so.
 // The miracleUsage counters stay; they hold only per-day counts.
@@ -2579,13 +2580,19 @@ exports.deleteMiracleData = onCall(
       throw new HttpsError('unavailable', DELETE_MIRACLE_DATA_FAILED, { reason: 'unavailable' });
     }
 
-    try {
-      const { getAuth } = require('firebase-admin/auth');
-      await getAuth().deleteUser(uid);
-    } catch (e) {
-      if (e?.code !== 'auth/user-not-found') {
-        console.error('deleteMiracleData: could not delete the account', uid, e);
-        throw new HttpsError('unavailable', DELETE_MIRACLE_DATA_FAILED, { reason: 'unavailable' });
+    // Only the app's own anonymous account is deleted. A Google or Apple
+    // sign-in on this project belongs to XI and the web pages too, so for one
+    // of those the book goes and the account stays.
+    const anonymous = request.auth?.token?.firebase?.sign_in_provider === 'anonymous';
+    if (anonymous) {
+      try {
+        const { getAuth } = require('firebase-admin/auth');
+        await getAuth().deleteUser(uid);
+      } catch (e) {
+        if (e?.code !== 'auth/user-not-found') {
+          console.error('deleteMiracleData: could not delete the account', uid, e);
+          throw new HttpsError('unavailable', DELETE_MIRACLE_DATA_FAILED, { reason: 'unavailable' });
+        }
       }
     }
 
