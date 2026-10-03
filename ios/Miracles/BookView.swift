@@ -6,6 +6,7 @@ struct BookView: View {
     var onBackToCover: () -> Void = {}
     @State private var distill = true
     @State private var editingDate = false
+    @State private var showSettings = false
 
     private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
     private let pageMargin: CGFloat = 22
@@ -15,18 +16,24 @@ struct BookView: View {
         ZStack {
             Theme.paper.ignoresSafeArea() // cream all around
 
-            // The page sheet hugs its content (a real page, not a full-screen
-            // panel). It sits centered; the scroll view exists so that when the
-            // keyboard is up, the focused caption can scroll into view — with a
-            // short page there's nothing to scroll and it just stays centered.
-            GeometryReader { geo in
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        pageBody(proxy)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: geo.size.height, alignment: .center)
+            VStack(spacing: 0) {
+                // Its own strip above the page, so the gear never sits on top
+                // of the date on a short phone.
+                settingsBar
+
+                // The page sheet hugs its content (a real page, not a full-screen
+                // panel). It sits centered; the scroll view exists so that when the
+                // keyboard is up, the focused caption can scroll into view — with a
+                // short page there's nothing to scroll and it just stays centered.
+                GeometryReader { geo in
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            pageBody(proxy)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: geo.size.height, alignment: .center)
+                        }
+                        .scrollDismissesKeyboard(.interactively)
                     }
-                    .scrollDismissesKeyboard(.interactively)
                 }
             }
             // Tapping anywhere that isn't a control puts the redraw controls
@@ -36,11 +43,17 @@ struct BookView: View {
 
             // Faint turn arrows on either side (replaces the old nav row).
             HStack {
-                turnArrow("arrowtriangle.backward.fill", enabled: true) {
+                turnArrow(
+                    "arrowtriangle.backward.fill",
+                    label: store.index > 0 ? "Previous page" : "Back to cover",
+                    enabled: true
+                ) {
                     if store.index > 0 { store.turnBack() } else { onBackToCover() }
                 }
                 Spacer()
-                turnArrow("arrowtriangle.forward.fill", enabled: store.canTurnForward) { store.turnForward() }
+                turnArrow("arrowtriangle.forward.fill", label: "Next page", enabled: store.canTurnForward) {
+                    store.turnForward()
+                }
             }
             .padding(.horizontal, 4)
         }
@@ -148,7 +161,9 @@ struct BookView: View {
     }
 
     // Faint filled triangle to turn a page; invisible + inert at the ends.
-    private func turnArrow(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+    private func turnArrow(
+        _ symbol: String, label: String, enabled: Bool, action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 22))
@@ -158,6 +173,26 @@ struct BookView: View {
         }
         .buttonStyle(.plain)
         .allowsHitTesting(enabled)
+        .accessibilityLabel(label)
+        .accessibilityHidden(!enabled)
+    }
+
+    // Settings: a bare gear glyph at the top right — no circle behind it.
+    private var settingsBar: some View {
+        HStack {
+            Spacer()
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 19))
+                    .foregroundStyle(Theme.serifInk)
+                    .frame(width: 44, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
+        }
+        .padding(.horizontal, 8)
+        .sheet(isPresented: $showSettings) { SettingsView(store: store) }
     }
 
     private func dismissKeyboard() {

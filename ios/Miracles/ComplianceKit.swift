@@ -46,66 +46,81 @@ struct AIConsentSheet: View {
     var body: some View {
         ZStack {
             theme.background.ignoresSafeArea()
-            VStack(spacing: 18) {
-                Spacer(minLength: 6)
+            VStack(spacing: 0) {
+                // The words scroll; the two buttons stay pinned underneath, so
+                // large text can never push "Agree & Continue" off the screen.
+                ScrollView {
+                    VStack(spacing: 18) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 38))
+                            .foregroundStyle(theme.accent)
+                            .accessibilityHidden(true)
 
-                Image(systemName: "sparkles")
-                    .font(.system(size: 38))
-                    .foregroundStyle(theme.accent)
+                        Text("Uses AI")
+                            .font(theme.titleFont(28))
+                            .foregroundStyle(theme.ink)
+                            .accessibilityAddTraits(.isHeader)
 
-                Text("Uses AI")
-                    .font(theme.titleFont(28))
-                    .foregroundStyle(theme.ink)
+                        Text("To create your illustration, \(appName) sends \(dataDescription) to the AI partners below, who generate the picture. It's used only for this — nothing else.")
+                            .font(theme.bodyFont(19))
+                            .foregroundStyle(theme.subtleInk)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 4)
 
-                Text("To create your illustration, \(appName) sends \(dataDescription) to the AI partners below, who generate the picture. It's used only for this — nothing else.")
-                    .font(theme.bodyFont(19))
-                    .foregroundStyle(theme.subtleInk)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(providers) { p in
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Image(systemName: "arrow.up.forward.app.fill")
-                                .foregroundStyle(theme.accent)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(p.name).font(theme.bodyFont(18)).foregroundStyle(theme.ink)
-                                Text(p.role).font(theme.bodyFont(15)).foregroundStyle(theme.subtleInk)
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(providers) { p in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Image(systemName: "arrow.up.forward.app.fill")
+                                        .foregroundStyle(theme.accent)
+                                        .accessibilityHidden(true)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(p.name).font(theme.bodyFont(18)).foregroundStyle(theme.ink)
+                                        Text(p.role).font(theme.bodyFont(15)).foregroundStyle(theme.subtleInk)
+                                    }
+                                }
+                                .accessibilityElement(children: .combine)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(theme.card)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.line))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                        if let privacyURL {
+                            Link("Privacy details", destination: privacyURL)
+                                .font(theme.bodyFont(16)).foregroundStyle(theme.accent)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: 460)
+                    .frame(maxWidth: .infinity)
+                }
+
+                VStack(spacing: 6) {
+                    Button(action: onAgree) {
+                        Text("Agree & Continue")
+                            .font(theme.titleFont(20))
+                            .foregroundStyle(theme.accentText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(theme.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    Button(action: onCancel) {
+                        Text("Not now")
+                            .font(theme.bodyFont(18)).foregroundStyle(theme.subtleInk)
+                            .padding(.vertical, 4)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(theme.card)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.line))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                if let privacyURL {
-                    Link("Privacy details", destination: privacyURL)
-                        .font(theme.bodyFont(16)).foregroundStyle(theme.accent)
-                }
-
-                Spacer(minLength: 6)
-
-                Button(action: onAgree) {
-                    Text("Agree & Continue")
-                        .font(theme.titleFont(20))
-                        .foregroundStyle(theme.accentText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(theme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                Button(action: onCancel) {
-                    Text("Not now")
-                        .font(theme.bodyFont(18)).foregroundStyle(theme.subtleInk)
-                        .padding(.vertical, 4)
-                }
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+                .frame(maxWidth: 460)
             }
-            .padding(24)
-            .frame(maxWidth: 460)
         }
     }
 }
