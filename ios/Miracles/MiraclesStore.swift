@@ -268,8 +268,9 @@ final class MiraclesStore: ObservableObject {
                     text: text, boxID: boxID, distill: distill, variants: 3, tier: "fast"
                 )
                 // Meanwhile, quietly render the primary concept at the higher
-                // tiers. When one lands, ▲ appears on that drawing.
-                if addDrawings(result.urls, boxID: boxID),
+                // tiers. When one lands, ▲ appears on that drawing. helpy is one
+                // model, so the server answers an upgrade with nothing: skip it.
+                if addDrawings(result.urls, boxID: boxID), result.engine != "helpy",
                    let primary = result.options.first, !primary.drawing.isEmpty {
                     launchUpgrades(for: primary, text: text, boxID: boxID)
                 }
