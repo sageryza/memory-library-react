@@ -895,6 +895,37 @@ describe('illustrateMiracle: helpy, the default', () => {
     assert.deepEqual(S.downloads, [PICTURE_URL]);
   });
 
+  test('a prediction stopped before it ran (aborted) is "busy" and gives the tap back', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.replicate = async () => prediction({ status: 'starting', output: null });
+    S.replicatePoll = async () => prediction({ status: 'aborted', output: null }, 200);
+    const e = await thrown(appCall('UID_ABORTED', { ...TAP, distill: false, variants: 1 }));
+    assertPlainError(e, 'unavailable', BUSY_MSG, 'busy');
+    assert.deepEqual(S.replicatePolls, ['pred_1'], 'aborted is a finished state: polled once');
+    assert.deepEqual(S.replicateCancels, []);
+    assert.deepEqual(S.downloads, []);
+    assert.equal(usage('UID_ABORTED').taps, 0);
+    assert.equal(usage('UID_ABORTED').refunds, 1);
+  });
+
+  test('a picture not done by the deadline is cancelled once, and the tap counts', async (t) => {
+    const now = atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.replicate = async () => prediction({ status: 'starting', output: null });
+    S.replicatePoll = async () => {
+      t.mock.timers.setTime(now + 111 * 1000); // past the 110s deadline
+      return prediction({ status: 'starting', output: null }, 200);
+    };
+    const e = await thrown(appCall('UID_DEADLINE', { ...TAP, distill: false, variants: 1 }));
+    assertPlainError(e, 'unavailable', BUSY_MSG, 'busy');
+    assert.deepEqual(S.replicateCancels, ['pred_1']);
+    assert.equal(usage('UID_DEADLINE').taps, 1, 'it may have run, so it is not given back');
+    assert.equal(usage('UID_DEADLINE').refunds || 0, 0);
+  });
+
   test('Replicate refusing up front (busy, no credit, a bad token, down, no answer) gives the tap back', async (t) => {
     atOwnMoment(t);
     const log = quiet(t);

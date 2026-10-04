@@ -2271,7 +2271,10 @@ async function generateMiracleHelpyImage(token, concept) {
   }
 
   const deadline = Date.now() + MIRACLE_HELPY_DEADLINE_MS;
-  while (prediction?.id && !['succeeded', 'failed', 'canceled'].includes(prediction.status)) {
+  // Replicate's finished states. `aborted` "means the prediction was
+  // terminated before it started running" (its API spec), so nothing ran.
+  const finished = ['succeeded', 'failed', 'canceled', 'aborted'];
+  while (prediction?.id && !finished.includes(prediction.status)) {
     if (Date.now() > deadline) {
       // Stop the clock on Replicate's side; what already ran was paid for.
       console.error('miracle draw: helpy took too long; canceling', prediction.id);
@@ -2289,6 +2292,10 @@ async function generateMiracleHelpyImage(token, concept) {
     } catch (e) {
       console.error('miracle draw: Replicate poll failed', prediction.id, e);
     }
+  }
+  if (prediction?.status === 'aborted') {
+    console.error('miracle draw: helpy was stopped before it ran', prediction.id);
+    throw nothingDrawn(miracleError('busy'));
   }
   if (prediction?.status !== 'succeeded') {
     const why = String(prediction?.error || prediction?.status || 'no prediction');
