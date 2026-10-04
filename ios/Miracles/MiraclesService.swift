@@ -4,7 +4,8 @@ import FirebaseFunctions
 
 /// Thin wrapper over the backend: anonymous auth, the `illustrateMiracle`
 /// Cloud Function (Anthropic's Claude turns the words into a drawing idea →
-/// OpenAI draws it → permanent Storage URL), and `deleteMiracleData`.
+/// her helpy LoRA draws it on Replicate → permanent Storage URL), and
+/// `deleteMiracleData`.
 @MainActor
 final class MiraclesService {
     static let shared = MiraclesService()
@@ -63,10 +64,10 @@ final class MiraclesService {
         var urls: [String] { options.map(\.url) }
     }
 
-    /// One call to the backend. `tier` picks the quality rung ("fast" = mini,
-    /// "better" = 1.5-low, "best" = 2-medium; nil = the original 1-medium).
+    /// One call to the backend. `tier` picks the quality rung on the OpenAI
+    /// engine; helpy (the default since 2026-10-04) is one model and ignores it.
     /// Pass `concept` to re-render a known concept at a higher tier without
-    /// re-distilling.
+    /// re-distilling — helpy answers that with no picture, so no ▲ appears.
     func illustrate(
         text: String, boxID: String, distill: Bool, variants: Int = 3,
         tier: String? = nil, concept: String? = nil

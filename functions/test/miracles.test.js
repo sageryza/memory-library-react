@@ -1,13 +1,13 @@
 'use strict';
 // Offline tests for the Little Book of Miracles Cloud Functions:
-// illustrateMiracle (daily limits, partial failures, plain-words errors, webp,
-// the distiller's JSON, the fallback caption), deleteMiracleData, and the
-// modes sagediagram still has.
+// illustrateMiracle (helpy, the default drawer; daily limits, partial
+// failures, plain-words errors, webp, the distiller's JSON, the fallback
+// caption), deleteMiracleData, and the modes sagediagram still has.
 //
 // They load the REAL functions/index.js and the REAL firebase-functions SDK.
-// Firestore, Storage, Auth, the Anthropic SDK and the OpenAI HTTP call are
-// in-memory fakes, so nothing here touches the network, spends money, or
-// writes to live data.
+// Firestore, Storage, Auth, the Anthropic SDK, the OpenAI HTTP call and the
+// Replicate HTTP calls are in-memory fakes, so nothing here touches the
+// network, spends money, or writes to live data.
 //
 //   cd functions && npm install && npm test
 
@@ -40,6 +40,13 @@ function freshWorld() {
     anthropicOptions: [],
     openai: null, // async (formFields, callNumber) => Response
     openaiCalls: [],
+    replicate: null, // async (body, callNumber) => Response (the prediction create)
+    replicateCalls: [],
+    replicatePoll: null, // async (predictionId, pollNumber) => Response
+    replicatePolls: [],
+    replicateCancels: [],
+    download: null, // async (url) => Response (the picture Replicate hands back)
+    downloads: [],
     failSave: () => false,
     failGetFiles: false,
   };
@@ -230,6 +237,16 @@ globalThis.fetch = async (url, init = {}) => {
     S.openaiCalls.push(fields);
     return S.openai(fields, S.openaiCalls.length);
   }
+  // Replicate: the prediction, its polls, a cancel, and the picture's download.
+  if (u === 'https://api.replicate.com/v1/predictions') {
+    S.replicateCalls.push({ body: JSON.parse(init.body), authorization: init.headers?.Authorization });
+    return S.replicate(S.replicateCalls.at(-1).body, S.replicateCalls.length);
+  }
+  const cancel = u.match(/^https:\/\/api\.replicate\.com\/v1\/predictions\/([^/]+)\/cancel$/);
+  if (cancel) { S.replicateCancels.push(cancel[1]); return new Response('{}', { status: 200 }); }
+  const poll = u.match(/^https:\/\/api\.replicate\.com\/v1\/predictions\/([^/]+)$/);
+  if (poll) { S.replicatePolls.push(poll[1]); return S.replicatePoll(poll[1], S.replicatePolls.length); }
+  if (u.startsWith('https://replicate.delivery/')) { S.downloads.push(u); return S.download(u); }
   throw new Error(`unexpected fetch in a test: ${u}`);
 };
 
@@ -243,12 +260,23 @@ const sharp = require('sharp');
 // Helpers
 // ---------------------------------------------------------------------------
 let WEBP_B64;
+// helpy's picture as Replicate hands it back: a real PNG, every pixel
+// different, so the saved webp can be checked pixel for pixel.
+let PNG;
+let PNG_PIXELS;
 before(async () => {
   WEBP_B64 = (await sharp({ create: { width: 2, height: 2, channels: 3, background: '#ffffff' } })
     .webp({ lossless: true }).toBuffer()).toString('base64');
+  PNG_PIXELS = Buffer.from(Array.from({ length: 16 * 16 * 3 }, (_, i) => (i * 37 + (i >> 4) * 11) % 256));
+  PNG = await sharp(PNG_PIXELS, { raw: { width: 16, height: 16, channels: 3 } }).png().toBuffer();
 });
 
 const okImage = () => new Response(JSON.stringify({ data: [{ b64_json: WEBP_B64 }] }), { status: 200 });
+const HELPY_VERSION = '8f5daea87f8b2237e573d39e70daa1a0a7cac2e791fc828bfa707e57836c8863';
+const PICTURE_URL = 'https://replicate.delivery/xezq/test/out-0.png';
+const prediction = (fields, status = 201) => new Response(JSON.stringify({ id: 'pred_1', ...fields }), { status });
+const drawn = () => prediction({ status: 'succeeded', output: [PICTURE_URL] });
+const replicateError = (status, body) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const openaiError = (status, error) => new Response(JSON.stringify({ error }), { status });
 const REFUSED = {
   message: 'Your request was rejected by the safety system. If you believe this is an error, contact us at help.openai.com and include the request ID req_123.',
@@ -270,10 +298,16 @@ const SENTENCE = 'It was my birthday and we went to get cake but the shop was cl
 function seedKeys() {
   S.docs.set('config/anthropic', { key: 'sk-ant-TEST' });
   S.docs.set('config/openai', { apiKey: 'sk-proj-TEST' });
+  S.docs.set('config/replicate', { apiToken: 'r8_TEST' });
 }
 // The app signs in anonymously, so a caller's decoded token says so.
 const ANON = { firebase: { sign_in_provider: 'anonymous' } };
-const call = (name, uid, data, token = ANON) => fns[name].run({ auth: uid ? { uid, token } : undefined, data, rawRequest: {} });
+// The tests written before helpy became the default (2026-10-04) are about the
+// OpenAI engine and its ladder, so `call` names it for them. `appCall` sends
+// exactly what the apps send (no engine), which is helpy.
+const asOpenAI = (name, data) => (name === 'illustrateMiracle' && data && !('engine' in data) ? { engine: 'openai', ...data } : data);
+const call = (name, uid, data, token = ANON) => fns[name].run({ auth: uid ? { uid, token } : undefined, data: asOpenAI(name, data), rawRequest: {} });
+const appCall = (uid, data, token = ANON) => fns.illustrateMiracle.run({ auth: { uid, token }, data, rawRequest: {} });
 const tap = (uid, extra = {}) => call('illustrateMiracle', uid, { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier: 'fast', ...extra });
 const upgrade = (uid, tier = 'better') => call('illustrateMiracle', uid, { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier, concept: 'a key in a cake' });
 async function thrown(promise) {
@@ -316,6 +350,9 @@ beforeEach(() => {
   S = freshWorld();
   S.claude = claudeSays(JSON.stringify(THREE));
   S.openai = async () => okImage();
+  S.replicate = async () => drawn();
+  S.replicatePoll = async () => drawn();
+  S.download = async () => new Response(PNG, { status: 200, headers: { 'Content-Type': 'image/png' } });
 });
 
 // ---------------------------------------------------------------------------
@@ -765,6 +802,170 @@ describe('illustrateMiracle: daily limits', () => {
 });
 
 // ---------------------------------------------------------------------------
+// helpy: what the apps get since 2026-10-04 (Sophie: "i want to switch book of
+// miracles to use my new helpy lora model flux instead of chatgpt").
+describe('illustrateMiracle: helpy, the default', () => {
+  const TAP = { text: SENTENCE, id: 'BOX1', distill: true, variants: 3, tier: 'fast' }; // the iOS tap
+  const UPGRADE = { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, concept: 'a key in a cake' };
+  const usage = (uid) => [...S.docs.entries()].find(([k]) => k.startsWith(`miracleUsage/${uid}_`))?.[1] || {};
+  const INPUT = {
+    model: 'dev', go_fast: false, lora_scale: 1, megapixels: '1', num_outputs: 1,
+    aspect_ratio: '1:1', output_format: 'png', output_quality: 100,
+    guidance_scale: 3, num_inference_steps: 28,
+  };
+
+  test('the apps send no engine and get her LoRA, pinned: the trigger, the idea, nothing after', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    const out = await appCall('UID_HELPY', TAP);
+    assert.equal(S.openaiCalls.length, 0, 'nothing goes to OpenAI');
+    assert.equal(S.replicateCalls.length, 3);
+    assert.deepEqual(S.replicateCalls.map((c) => c.body.input.prompt), THREE_DRAWINGS.map((d) => `hlpy ${d}.`));
+    for (const c of S.replicateCalls) {
+      assert.equal(c.body.version, HELPY_VERSION);
+      assert.deepEqual(c.body.input, { ...INPUT, prompt: c.body.input.prompt });
+      assert.equal(c.authorization, 'Bearer r8_TEST');
+    }
+    assert.equal(out.engine, 'helpy');
+    assert.equal(out.version, 'v9-helpy');
+    assert.deepEqual(out.concepts.map((c) => c.drawing), THREE_DRAWINGS);
+    assert.deepEqual(Object.keys(out).sort(), ['caption', 'concepts', 'drawing', 'engine', 'id', 'url', 'version']);
+    assert.equal(usage('UID_HELPY').taps, 1);
+  });
+
+  test('the picture is kept as drawn: lossless webp, every pixel the same', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    await appCall('UID_PIXELS', { ...TAP, distill: false, variants: 1 });
+    assert.equal(S.files.size, 1);
+    const [[name, file]] = [...S.files];
+    assert.match(name, /^miracles\/UID_PIXELS\/BOX1\/[0-9a-f-]{36}\.webp$/);
+    assert.equal(file.contentType, 'image/webp');
+    assert.equal(file.bytes.subarray(8, 12).toString('latin1'), 'WEBP');
+    assert.equal(file.bytes.subarray(12, 16).toString('latin1'), 'VP8L', 'lossless');
+    const { data, info } = await sharp(file.bytes).raw().toBuffer({ resolveWithObject: true });
+    assert.deepEqual([info.width, info.height, info.channels], [16, 16, 3]);
+    assert.ok(data.equals(PNG_PIXELS), 'not one pixel changed');
+  });
+
+  test('the web page\'s call (no tier, no variants) draws one; trailing dots are not doubled', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    const out = await appCall('UID_WEB', { text: 'a key in a cake...', id: 'BOX1', distill: false });
+    assert.equal(S.replicateCalls.length, 1);
+    assert.equal(S.replicateCalls[0].body.input.prompt, 'hlpy a key in a cake.');
+    assert.ok(out.url);
+    assert.equal(out.engine, 'helpy');
+  });
+
+  test('an upgrade is answered with no picture: nothing drawn, nothing counted, no url', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    await appCall('UID_NOUP', TAP);
+    const claudeBefore = S.claudeCalls.length;
+    for (const tier of ['better', 'best', 'fast', undefined]) {
+      const out = await appCall('UID_NOUP', { ...UPGRADE, tier });
+      assert.deepEqual(out, { concepts: [], drawing: 'a key in a cake', id: 'BOX1', version: 'v9-helpy', engine: 'helpy' });
+    }
+    // Before any tap, too: nothing is drawn, so there is nothing to refuse.
+    assert.equal((await appCall('UID_NOUP_FIRST', { ...UPGRADE, tier: 'better' })).concepts.length, 0);
+    assert.equal(S.replicateCalls.length, 3, 'only the tap drew');
+    assert.equal(S.claudeCalls.length, claudeBefore);
+    assert.equal(usage('UID_NOUP').taps, 1);
+    assert.equal(usage('UID_NOUP').upgrades, undefined);
+    assert.equal([...S.docs.keys()].some((k) => k.startsWith('miracleUsage/UID_NOUP_FIRST_')), false);
+  });
+
+  test('a picture still being drawn is polled until it is done, through a failed poll', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    S.replicate = async () => prediction({ status: 'starting', output: null });
+    S.replicatePoll = async (id, n) => {
+      if (n === 1) throw new TypeError('fetch failed');
+      return drawn();
+    };
+    const out = await appCall('UID_POLL', { ...TAP, distill: false, variants: 1 });
+    assert.ok(out.url);
+    assert.deepEqual(S.replicatePolls, ['pred_1', 'pred_1']);
+    assert.deepEqual(S.downloads, [PICTURE_URL]);
+  });
+
+  test('Replicate refusing up front (busy, no credit, a bad token, down, no answer) gives the tap back', async (t) => {
+    atOwnMoment(t);
+    const log = quiet(t);
+    seedKeys();
+    const cases = [
+      [async () => replicateError(429, { title: 'Request was throttled', status: 429 }), 'busy'],
+      [async () => replicateError(402, { title: 'Insufficient credit', detail: 'You have insufficient credit to run this model.', status: 402 }), 'unavailable'],
+      [async () => replicateError(401, { title: 'Unauthenticated', status: 401 }), 'unavailable'],
+      [async () => replicateError(404, { title: 'Not found', status: 404 }), 'unavailable'],
+      [async () => replicateError(502, '<html>Bad Gateway</html>'), 'unavailable'],
+      [async () => { throw new TypeError('fetch failed'); }, 'unavailable'],
+    ];
+    for (const [answer, reason] of cases) {
+      S.replicate = answer;
+      const e = await thrown(appCall('UID_RFAIL', { ...TAP, distill: false, variants: 1 }));
+      assertPlainError(e, 'unavailable', reason === 'busy' ? BUSY_MSG : UNAVAILABLE_MSG, reason);
+      assert.doesNotMatch(e.message, /credit|throttled/i, 'none of Replicate\'s words reach the app');
+    }
+    assert.equal(usage('UID_RFAIL').taps, 0, 'nothing drawn, nothing used up');
+    assert.equal(usage('UID_RFAIL').refunds, cases.length);
+    assert.ok(logged(log.error).some((l) => l.includes('402') && l.includes('Insufficient credit')), logged(log.error).join('\n'));
+    assert.equal(S.openaiCalls.length, 0, 'never falls back to OpenAI');
+  });
+
+  test('turned down by the safety checker is "refused"; drawn then lost is "unavailable"; both count', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    const one = { ...TAP, distill: false, variants: 1 };
+    S.replicate = async () => prediction({ status: 'failed', error: 'NSFW content detected. Try running it again, or try a different prompt.' });
+    assertPlainError(await thrown(appCall('UID_PAIDFAIL', one)), 'invalid-argument', REFUSED_MSG, 'refused');
+    S.replicate = async () => prediction({ status: 'failed', error: 'CUDA out of memory' });
+    assertPlainError(await thrown(appCall('UID_PAIDFAIL', one)), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    S.replicate = async () => drawn();
+    S.download = async () => new Response('gone', { status: 404 });
+    assertPlainError(await thrown(appCall('UID_PAIDFAIL', one)), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    S.download = async () => new Response('not a picture', { status: 200 });
+    assertPlainError(await thrown(appCall('UID_PAIDFAIL', one)), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    S.download = async () => new Response(PNG, { status: 200 });
+    S.failSave = () => true;
+    assertPlainError(await thrown(appCall('UID_PAIDFAIL', one)), 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    assert.equal(usage('UID_PAIDFAIL').taps, 5, 'each of them ran on paid time');
+    assert.equal(usage('UID_PAIDFAIL').refunds || 0, 0);
+  });
+
+  test('a missing Replicate token costs neither a Claude call nor one of the day\'s drawings', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    S.docs.set('config/anthropic', { key: 'sk-ant-TEST' });
+    S.docs.set('config/openai', { apiKey: 'sk-proj-TEST' });
+    const e = await thrown(appCall('UID_NOTOKEN', TAP));
+    assertPlainError(e, 'unavailable', UNAVAILABLE_MSG, 'unavailable');
+    assert.equal(S.claudeCalls.length, 0);
+    assert.equal(S.openaiCalls.length, 0, 'never falls back to OpenAI');
+    assert.equal([...S.docs.keys()].filter((k) => k.startsWith('miracleUsage/')).length, 0);
+  });
+
+  test('OpenAI and Sketchy are still there when a call names them', async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    const out = await appCall('UID_NAMED', { ...TAP, distill: false, variants: 1, engine: 'OpenAI' });
+    assert.equal(out.engine, 'openai');
+    assert.equal(S.openaiCalls.length, 1);
+    assert.equal(S.replicateCalls.length, 0);
+    // Anything else it does not know is helpy.
+    assert.equal((await appCall('UID_NAMED', { ...TAP, distill: false, variants: 1, engine: 'chatgpt' })).engine, 'helpy');
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('deleteMiracleData', () => {
   function seedTwoPeople() {
     S.users.add('abc');
@@ -873,7 +1074,8 @@ describe('on the wire', () => {
   let express;
   try { express = require('express'); } catch { express = null; }
 
-  async function post(name, uid, data) {
+  async function post(name, uid, data, { asApp = false } = {}) {
+    if (!asApp) data = asOpenAI(name, data);
     const app = express();
     app.use(express.json());
     app.post('/', (req, res) => fns[name](req, res));
@@ -912,6 +1114,20 @@ describe('on the wire', () => {
     assert.equal(broke.status, 503);
     assert.deepEqual(broke.body, { error: { details: { reason: 'unavailable' }, message: UNAVAILABLE_MSG, status: 'UNAVAILABLE' } });
     assert.doesNotMatch(JSON.stringify(broke.body), /quota/, 'none of OpenAI\'s words reach the app');
+  });
+
+  test('helpy over the wire: a tap brings a url, an upgrade brings none', { skip: !express && 'express not installed' }, async (t) => {
+    atOwnMoment(t);
+    quiet(t);
+    seedKeys();
+    const tapped = await post('illustrateMiracle', 'UID_WIRE_HELPY', { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier: 'fast' }, { asApp: true });
+    assert.equal(tapped.status, 200);
+    assert.equal(tapped.body.result.engine, 'helpy');
+    assert.match(tapped.body.result.url, /^https:\/\/firebasestorage\.googleapis\.com\//);
+    const up = await post('illustrateMiracle', 'UID_WIRE_HELPY', { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, tier: 'better', concept: 'a key in a cake' }, { asApp: true });
+    assert.equal(up.status, 200);
+    assert.deepEqual(up.body.result.concepts, []);
+    assert.equal('url' in up.body.result, false, 'no url, so the app adds no ▲');
   });
 
   test('deleteMiracleData answers {ok, docs, files}', { skip: !express && 'express not installed' }, async (t) => {
