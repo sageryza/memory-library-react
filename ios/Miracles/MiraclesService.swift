@@ -61,6 +61,7 @@ final class MiraclesService {
     struct DrawResult {
         let options: [DrawOption]  // one or more concept options to pick from
         let version: String?
+        let engine: String?  // "helpy" has no better tier, so no upgrades
         var urls: [String] { options.map(\.url) }
     }
 
@@ -109,6 +110,8 @@ final class MiraclesService {
                 userInfo: [NSLocalizedDescriptionKey: "No image was returned."]
             )
         }
-        return DrawResult(options: options, version: data["version"] as? String)
+        return DrawResult(
+            options: options, version: data["version"] as? String, engine: data["engine"] as? String
+        )
     }
 }

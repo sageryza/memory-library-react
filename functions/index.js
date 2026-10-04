@@ -2222,7 +2222,7 @@ const MIRACLE_HELPY = {
   version: '8f5daea87f8b2237e573d39e70daa1a0a7cac2e791fc828bfa707e57836c8863',
   trigger: 'hlpy',
 };
-const MIRACLE_HELPY_VERSION = 'v9-helpy';
+const MIRACLE_HELPY_VERSION = 'v10-helpy';
 const MIRACLE_HELPY_PROMPT = (concept) =>
   `${MIRACLE_HELPY.trigger} ${String(concept).trim().replace(/\.+$/, '')}.`;
 // The Playground's settings for her LoRAs, square for the book's frame. png,

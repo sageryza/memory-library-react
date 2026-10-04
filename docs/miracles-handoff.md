@@ -53,7 +53,7 @@ user text → (distill: Claude Opus 4.8) → {caption, drawing}
           → prompt = "hlpy {drawing}."   (nothing after — the look is in the LoRA)
           → Replicate LoRA  sageryza/helpy  v2, pinned (lora_scale 1, 28 steps, 1:1, png)
           → kept as LOSSLESS webp in Storage  miracles/{uid}/{id}/{uuid}.webp
-          → { url, caption, drawing, id, version: 'v9-helpy', engine: 'helpy' }
+          → { url, caption, drawing, id, version: 'v10-helpy', engine: 'helpy' }
 ```
 
 **helpy is the default since 2026-10-04** (Sophie: "i want to switch book of
@@ -64,12 +64,15 @@ no `engine`, so they get it; the LoRA itself is written up in imageforge's
   retrain changes the book only when that line changes. Trigger `hlpy`.
 - **No quality ladder.** helpy is one model, so the app's background upgrade
   call (a `concept` at tier better/best) is answered with no picture — nothing
-  drawn, nothing counted — and no ▲ "Better version" appears. Each tap still
-  draws up to three ideas to pick from.
+  drawn, nothing counted — and no ▲ "Better version" appears. iOS asks for up
+  to three ideas a tap (`variants: 3`) and, since the answer says `engine:
+  'helpy'`, sends no upgrade calls (older builds send them and get nothing);
+  the web asks for none, so it gets one.
 - Errors keep the plain-words contract: Replicate refusing up front (429 busy;
   402/401/404/5xx or no answer, unavailable) drew nothing, so the tap is given
-  back; a prediction that ran and failed (FLUX's safety checker = "refused")
-  was paid for and counts.
+  back, and so is a prediction Replicate `aborted` before it ran ("busy"); a
+  prediction that ran and failed (FLUX's safety checker = "refused") was paid
+  for and counts, and so does one cancelled at the 110s deadline ("busy").
 - Still there by name: `engine: 'openai'` (gpt-image + the 7 reference doodles
   in `functions/miracle-refs/`, with the fast → better → best ladder — the
   default until 2026-10-04) and `engine: 'replicate'` (the first
@@ -78,7 +81,7 @@ no `engine`, so they get it; the LoRA itself is written up in imageforge's
   evocative image (an object or tiny two-element scene), return
   `{"caption": "...", "drawing": "..."}`; caption ≤ ~8 words, lowercase.
 - Distill uses `claude-opus-4-8`, `thinking:{type:'adaptive'}`,
-  `output_config:{effort:'medium'}`. (Always confirm model ids/pricing via the
+  `output_config:{effort:'high'}`. (Always confirm model ids/pricing via the
   `claude-api` skill — never from memory.)
 - `distill:false` draws the user's raw text verbatim (the app sends `distill:true`).
 - Each draw writes a **unique** Storage path, so redraws don't overwrite — that's
@@ -138,5 +141,8 @@ Bundle id `com.sageryza.miracles`. Firebase project `membry-df528`.
 - Web: https://incaseofamnesia.com/miracles
 - iOS: TestFlight → "Little Book of Miracles" (build 15+) — Caveat fonts, ruled
   lines, cloud sync.
-- The full draw chain (anon auth → function → Opus distill → Replicate → Storage
-  → back) is verified working end-to-end.
+- The draw chain (anon auth → function → Opus distill → Replicate → Storage →
+  back) was verified end to end with the Sketchy LoRA. With helpy (2026-10-04)
+  it is verified to the function (a free upgrade-shaped call answers
+  `engine: 'helpy'`) and by the offline tests; no book draw had reached
+  Replicate yet when this was written.
