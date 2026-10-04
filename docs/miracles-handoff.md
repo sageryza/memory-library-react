@@ -11,7 +11,7 @@ the API tricks), see **`docs/ios-from-linux-playbook.md`**.
 
 A keepsake "Little Book of Miracles": dated pages, each with a 2×2 grid of boxes.
 You write a tiny daily miracle in a box, tap **draw**, and an AI turns it into a
-single charming black-ink doodle (a "Sketchy"-style trained Replicate LoRA). The
+single drawing by Sophie's **helpy** LoRA (FLUX on Replicate, since 2026-10-04). The
 clever bit: a **middleman LLM call** distills the moment into the *one* most
 drawable, evocative image + a short caption — not a literal retelling.
 
@@ -50,19 +50,30 @@ There are **two front-ends sharing one Firebase backend**:
 
 ```
 user text → (distill: Claude Opus 4.8) → {caption, drawing}
-          → prompt = "special, {drawing}, {STYLE_GUIDE}"
-          → Replicate LoRA  sageryza/special  (lora_scale 0.9)
-          → persist to Storage  miracles/{uid}/{id}/{uuid}.webp
-          → { url, caption, drawing, id, version }
+          → prompt = "hlpy {drawing}."   (nothing after — the look is in the LoRA)
+          → Replicate LoRA  sageryza/helpy  v2, pinned (lora_scale 1, 28 steps, 1:1, png)
+          → kept as LOSSLESS webp in Storage  miracles/{uid}/{id}/{uuid}.webp
+          → { url, caption, drawing, id, version: 'v9-helpy', engine: 'helpy' }
 ```
 
-Key constants:
-- `MIRACLE_MODEL = 'sageryza/special'`, `MIRACLE_TRIGGER = 'special'` (the LoRA
-  trigger word — `lora_scale` eased to **0.9** so it stops scrawling "special"
-  into the picture).
-- `MIRACLE_FN_VERSION = 'v4-history'` (returned as `version`; the app shows it).
-- `MIRACLE_STYLE_GUIDE` — "simple black ink line drawing… childlike… **Absolutely
-  no words, letters, captions, numbers, signs, or writing anywhere.**"
+**helpy is the default since 2026-10-04** (Sophie: "i want to switch book of
+miracles to use my new helpy lora model flux instead of chatgpt"). The apps send
+no `engine`, so they get it; the LoRA itself is written up in imageforge's
+`docs/loras/helpy.md`.
+- `MIRACLE_HELPY` — `sageryza/helpy`, version `8f5daea8…` (v2) **pinned**, so a
+  retrain changes the book only when that line changes. Trigger `hlpy`.
+- **No quality ladder.** helpy is one model, so the app's background upgrade
+  call (a `concept` at tier better/best) is answered with no picture — nothing
+  drawn, nothing counted — and no ▲ "Better version" appears. Each tap still
+  draws up to three ideas to pick from.
+- Errors keep the plain-words contract: Replicate refusing up front (429 busy;
+  402/401/404/5xx or no answer, unavailable) drew nothing, so the tap is given
+  back; a prediction that ran and failed (FLUX's safety checker = "refused")
+  was paid for and counts.
+- Still there by name: `engine: 'openai'` (gpt-image + the 7 reference doodles
+  in `functions/miracle-refs/`, with the fast → better → best ladder — the
+  default until 2026-10-04) and `engine: 'replicate'` (the first
+  look, the Sketchy LoRA `sageryza/special` + `MIRACLE_STYLE_GUIDE`).
 - `MIRACLE_SYSTEM` — the distill instruction: pick the ONE most recognizable,
   evocative image (an object or tiny two-element scene), return
   `{"caption": "...", "drawing": "..."}`; caption ≤ ~8 words, lowercase.

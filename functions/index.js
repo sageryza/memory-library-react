@@ -1953,10 +1953,12 @@ exports.tellStory = onCall({ cors: true, timeoutSeconds: 300, memory: '512MiB' }
 });
 
 /* ===== The Little Book of Miracles ======================================= */
-// One style (Sketchy / sageryza/special) + baked-in style guidelines. A moment
-// is distilled by Claude into a short caption + a single simple thing to doodle,
-// then drawn as a black-ink line doodle and saved permanently.
+// A moment is distilled by Claude into a short caption + a single simple thing
+// to draw, then drawn by Sophie's helpy LoRA (the default since 2026-10-04,
+// see MIRACLE_HELPY) and saved permanently. The OpenAI engine and the older
+// Sketchy LoRA (sageryza/special) are still there when a call names them.
 
+// The Sketchy engine ('replicate'): the book's first look, no longer the default.
 const MIRACLE_MODEL = 'sageryza/special';
 const MIRACLE_TRIGGER = 'special';
 // Bump on any change to the miracle pipeline so the client can confirm what's live.
@@ -2146,10 +2148,10 @@ function classifyOpenAIImageError(status, bodyText) {
   return 'unavailable';
 }
 
-// Marks an error from a draw that cost nothing: OpenAI answered with an error,
-// or the request never got an answer. Only such failures give a tap back; a
-// failure after OpenAI drew (saving the picture, an unreadable answer) was
-// paid for, so its tap stays counted.
+// Marks an error from a draw that cost nothing: OpenAI or Replicate answered
+// with an error, or the request never got an answer. Only such failures give a
+// tap back; a failure after the picture was drawn (saving it, an unreadable
+// answer) was paid for, so its tap stays counted.
 function nothingDrawn(err) {
   err.nothingDrawn = true;
   return err;
@@ -2204,6 +2206,116 @@ async function generateMiracleOpenAIImage(key, subject, tier) {
     throw miracleError('unavailable');
   }
   return Buffer.from(b64, 'base64');
+}
+
+// ---- helpy (the default engine since 2026-10-04) ----------------------------
+// Sophie, 2026-10-04: "i want to switch book of miracles to use my new helpy
+// lora model flux instead of chatgpt". helpy is her FLUX-dev LoRA on Replicate,
+// trained on her own helpy pictures (imageforge docs/loras/helpy.md, v2). It is
+// drawn the way the ImageForge Playground draws it: the trigger, the drawing
+// idea, and nothing after. The look is in the LoRA, so no style words ride
+// along to argue with it.
+const MIRACLE_HELPY = {
+  model: 'sageryza/helpy',
+  // v2 (2026-10-03), pinned: a later retrain is a new version, and it changes
+  // the book only when this line changes.
+  version: '8f5daea87f8b2237e573d39e70daa1a0a7cac2e791fc828bfa707e57836c8863',
+  trigger: 'hlpy',
+};
+const MIRACLE_HELPY_VERSION = 'v9-helpy';
+const MIRACLE_HELPY_PROMPT = (concept) =>
+  `${MIRACLE_HELPY.trigger} ${String(concept).trim().replace(/\.+$/, '')}.`;
+// The Playground's settings for her LoRAs, square for the book's frame. png,
+// because FLUX's webp is lossy at its output_quality; the picture is then kept
+// as LOSSLESS webp, so it is never compressed at birth.
+const MIRACLE_HELPY_INPUT = {
+  model: 'dev', go_fast: false, lora_scale: 1, megapixels: '1', num_outputs: 1,
+  aspect_ratio: '1:1', output_format: 'png', output_quality: 100,
+  guidance_scale: 3, num_inference_steps: 28,
+};
+const MIRACLE_HELPY_DEADLINE_MS = 110 * 1000;
+const MIRACLE_HELPY_POLL_MS = 1500;
+
+// Draw the subject with helpy. Returns a lossless webp buffer, which the caller
+// persists as-is. Replicate refusing the prediction up front (a rate limit is
+// "busy"; no credit, a bad token, a missing model or a server error is
+// "unavailable") or never answering drew nothing, so the tap can be given
+// back. Once a prediction exists it ran on paid time: FLUX's safety checker
+// turning a picture down is "refused", and any other failure "unavailable".
+async function generateMiracleHelpyImage(token, concept) {
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  let res;
+  try {
+    res = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        version: MIRACLE_HELPY.version,
+        input: { ...MIRACLE_HELPY_INPUT, prompt: MIRACLE_HELPY_PROMPT(concept) },
+      }),
+    });
+  } catch (e) {
+    console.error('miracle draw: Replicate request failed before a response', e);
+    throw nothingDrawn(miracleError('unavailable'));
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    // The raw status and body first, so the logs always say why.
+    console.error('miracle draw: Replicate error', res.status, body.slice(0, 4000));
+    throw nothingDrawn(miracleError(res.status === 429 ? 'busy' : 'unavailable'));
+  }
+  let prediction;
+  try { prediction = await res.json(); } catch (e) {
+    console.error('miracle draw: Replicate response was not JSON', res.status, e);
+    throw miracleError('unavailable');
+  }
+
+  const deadline = Date.now() + MIRACLE_HELPY_DEADLINE_MS;
+  while (prediction?.id && !['succeeded', 'failed', 'canceled'].includes(prediction.status)) {
+    if (Date.now() > deadline) {
+      // Stop the clock on Replicate's side; what already ran was paid for.
+      console.error('miracle draw: helpy took too long; canceling', prediction.id);
+      await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}/cancel`, { method: 'POST', headers })
+        .catch(() => {});
+      throw miracleError('busy');
+    }
+    await new Promise((r) => setTimeout(r, MIRACLE_HELPY_POLL_MS));
+    // A poll that fails is tried again on the next turn, so one blip never
+    // loses a picture that is still being drawn.
+    try {
+      const poll = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, { headers });
+      if (poll.ok) prediction = await poll.json();
+      else console.error('miracle draw: Replicate poll error', poll.status, prediction.id);
+    } catch (e) {
+      console.error('miracle draw: Replicate poll failed', prediction.id, e);
+    }
+  }
+  if (prediction?.status !== 'succeeded') {
+    const why = String(prediction?.error || prediction?.status || 'no prediction');
+    console.error('miracle draw: helpy did not draw', prediction?.id, why.slice(0, 2000));
+    throw miracleError(/nsfw/i.test(why) ? 'refused' : 'unavailable');
+  }
+  const out = prediction.output;
+  const url = Array.isArray(out) ? out[0] : out;
+  if (!url) {
+    console.error('miracle draw: helpy returned no image', prediction.id, JSON.stringify(out).slice(0, 1000));
+    throw miracleError('unavailable');
+  }
+  let png;
+  try {
+    const img = await fetch(url);
+    if (!img.ok) throw new Error(`download ${img.status}`);
+    png = Buffer.from(await img.arrayBuffer());
+  } catch (e) {
+    console.error('miracle draw: could not fetch the helpy picture', prediction.id, e);
+    throw miracleError('unavailable');
+  }
+  try {
+    return await sharp(png).webp({ lossless: true }).toBuffer();
+  } catch (e) {
+    console.error('miracle draw: the helpy picture could not be read', prediction.id, e);
+    throw miracleError('unavailable');
+  }
 }
 
 // ---- The distiller's answer -------------------------------------------------
@@ -2460,9 +2572,11 @@ exports.illustrateMiracle = onCall(
     // the pictures were drawn and paid for.
     const askedID = String(request.data?.id || '');
     const id = /^[A-Za-z0-9_-]{1,64}$/.test(askedID) ? askedID : crypto.randomUUID();
-    // Which illustrator: 'openai' (gpt-image-1 + reference doodles, now the
-    // default look) or 'replicate' (the old Sketchy LoRA). Still switchable.
-    const engine = String(request.data?.engine || 'openai').toLowerCase();
+    // Which illustrator: 'helpy' (Sophie's LoRA, the default since 2026-10-04),
+    // 'openai' (gpt-image + the reference doodles, the default before that) or
+    // 'replicate' (the old Sketchy LoRA). The apps send none, so they get helpy.
+    const askedEngine = String(request.data?.engine || '').toLowerCase();
+    const engine = ['openai', 'replicate'].includes(askedEngine) ? askedEngine : 'helpy';
 
     // Distill the moment into 1–3 whole-story doodle concepts (best-effort).
     // When distill is false, draw the user's text verbatim as a single concept.
@@ -2471,18 +2585,40 @@ exports.illustrateMiracle = onCall(
     // to 3; render up to `variants` of them so the person can pick).
     const variants = Math.max(1, Math.min(3, Number(request.data?.variants) || 1));
     // Quality tier: 'fast' | 'better' | 'best' (see MIRACLE_TIERS). Omitted →
-    // the original gpt-image-1 medium.
+    // the original gpt-image-1 medium. The OpenAI engine only: helpy is one
+    // model and draws the same way whatever the tier.
     const tier = ['fast', 'better', 'best'].includes(request.data?.tier) ? request.data.tier : undefined;
     // Upgrade path: when the app already has a concept (from a fast draw) and
     // wants the SAME drawing at a higher tier, it passes the concept back —
     // no re-distill, exactly one render.
     const conceptOverride = String(request.data?.concept || '').trim();
 
+    // helpy has no better tier to upgrade a drawing to, so the app's background
+    // upgrade call is answered with no picture: nothing drawn, nothing counted.
+    // The app treats an upgrade that brings nothing back as no upgrade, so no
+    // ▲ appears.
+    if (engine === 'helpy' && conceptOverride) {
+      return { concepts: [], drawing: conceptOverride, id, version: MIRACLE_HELPY_VERSION, engine };
+    }
+
     // Load the engine's key/token once (free) BEFORE counting or distilling, so
     // a missing key costs neither a Claude call nor one of the day's drawings.
     let renderOne;
     let version;
-    if (engine === 'openai') {
+    if (engine === 'helpy') {
+      const repToken = await loadReplicateToken();
+      if (!repToken) {
+        console.error('illustrateMiracle: no Replicate token found in config/*');
+        throw miracleError('unavailable');
+      }
+      version = MIRACLE_HELPY_VERSION;
+      renderOne = async (concept) => {
+        const buffer = await generateMiracleHelpyImage(repToken, concept.drawing);
+        // Kept as drawn: helpy paints on its own paper, which fills the square
+        // (trimToSubject is for Sketchy's small doodle on white).
+        return persistBuffer(buffer, `miracles/${uid}/${id}/${crypto.randomUUID()}.webp`);
+      };
+    } else if (engine === 'openai') {
       const openaiKey = await loadOpenAIKey();
       if (!openaiKey) {
         console.error('illustrateMiracle: no OpenAI key found in config/* (looking for an sk-… value, not sk-ant)');

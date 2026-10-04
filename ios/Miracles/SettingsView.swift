@@ -26,7 +26,7 @@ struct SettingsView: View {
                     Toggle("Drawing with AI", isOn: $aiConsent)
                         .tint(Theme.gold)
                 } footer: {
-                    Text("Your words go to Anthropic and OpenAI to make each drawing.")
+                    Text("Your words go to Anthropic and Replicate to make each drawing.")
                 }
 
                 Section {

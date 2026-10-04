@@ -211,7 +211,7 @@ struct BoxView: View {
             appName: "Miracles",
             providers: [
                 AIProvider(name: "Anthropic (Claude)", role: "Turns your words into a drawing idea"),
-                AIProvider(name: "OpenAI", role: "Draws the picture"),
+                AIProvider(name: "Replicate", role: "Draws the picture"),
             ],
             dataDescription: "the text you write",
             privacyURL: URL(string: "https://incaseofamnesia.com/privacy.html"),
