@@ -128,6 +128,39 @@ API (§5), then revoked it.
       internal group. Just add yourself as a tester once. ("Invite code" simply means nothing
       is assigned to your Apple ID yet.)
 
+14. **Archive fails: `PLA Update available … your team's Account Holder … must agree to the
+    latest Program License Agreement`** (with `No profiles for '<bundle>' were found`), **then,
+    once she has agreed, the upload fails: `A required agreement is missing or has expired`**
+    (a 403 at `upload_to_testflight`, after archive and export pass). Both are Apple's agreement
+    gate, not code. Measured 2026-10-04/05 on Miracles builds 36-38:
+    - A PLA update blocked the archive. Most likely it was Apple's newest revision, dated
+      Aug 18, 2026 and in effect from Oct 1.
+    - The Account Holder accepted it.
+    - The next run archived and exported fine, but the upload got the 403.
+    - The same workflow, re-run a few minutes later with nothing changed on our side,
+      uploaded build 38.
+
+    → **The fix:**
+    - **A free app has only one agreement, the Program License Agreement.** Apple calls it the
+      Free Apps Agreement too; it is the same document. It is accepted in the developer account
+      at developer.apple.com/account. Until it is, Apple pauses "App Store Connect API" and
+      "TestFlight".
+    - **App Store Connect → Business → Agreements holds the *Paid Apps* Agreement.** Apple says
+      that one blocks creating new apps and In-App Purchases; it never says it blocks uploads.
+      Don't send her there for this error. (A chat did on 2026-10-05; an Opus fact-check
+      caught it.)
+    - **Apple documents no delay after accepting.** One re-run a few minutes later is the
+      measured cure.
+
+    `ENTITY_UNPROCESSABLE.BETA_CONTRACT_MISSING` is a different error: a 422 when a build is
+    added to testers. On Apple's forums, Apple staff fix it on their side; accepting an
+    agreement does not clear it.
+
+    Sources (Apple, read 2026-10-05):
+    - developer.apple.com/help/app-store-connect/manage-agreements/sign-and-update-agreements
+    - developer.apple.com/help/app-store-connect/manage-agreements/view-agreements-status
+    - developer.apple.com/help/account/access/resolving-access-issues
+
 ---
 
 ## 5. Automation superpowers (do these from any Linux box / chat)
