@@ -809,7 +809,7 @@ describe('illustrateMiracle: helpy, the default', () => {
   const UPGRADE = { text: SENTENCE, id: 'BOX1', distill: false, variants: 1, concept: 'a key in a cake' };
   const usage = (uid) => [...S.docs.entries()].find(([k]) => k.startsWith(`miracleUsage/${uid}_`))?.[1] || {};
   const INPUT = {
-    model: 'dev', go_fast: false, lora_scale: 1, megapixels: '1', num_outputs: 1,
+    model: 'dev', go_fast: false, lora_scale: 1.2, megapixels: '1', num_outputs: 1,
     aspect_ratio: '1:1', output_format: 'png', output_quality: 100,
     guidance_scale: 3, num_inference_steps: 28,
   };
@@ -828,7 +828,7 @@ describe('illustrateMiracle: helpy, the default', () => {
       assert.equal(c.authorization, 'Bearer r8_TEST');
     }
     assert.equal(out.engine, 'helpy');
-    assert.equal(out.version, 'v10-helpy');
+    assert.equal(out.version, 'v11-helpy');
     assert.deepEqual(out.concepts.map((c) => c.drawing), THREE_DRAWINGS);
     assert.deepEqual(Object.keys(out).sort(), ['caption', 'concepts', 'drawing', 'engine', 'id', 'url', 'version']);
     assert.equal(usage('UID_HELPY').taps, 1);
@@ -869,7 +869,7 @@ describe('illustrateMiracle: helpy, the default', () => {
     const claudeBefore = S.claudeCalls.length;
     for (const tier of ['better', 'best', 'fast', undefined]) {
       const out = await appCall('UID_NOUP', { ...UPGRADE, tier });
-      assert.deepEqual(out, { concepts: [], drawing: 'a key in a cake', id: 'BOX1', version: 'v10-helpy', engine: 'helpy' });
+      assert.deepEqual(out, { concepts: [], drawing: 'a key in a cake', id: 'BOX1', version: 'v11-helpy', engine: 'helpy' });
     }
     // Before any tap, too: nothing is drawn, so there is nothing to refuse.
     assert.equal((await appCall('UID_NOUP_FIRST', { ...UPGRADE, tier: 'better' })).concepts.length, 0);
