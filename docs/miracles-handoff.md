@@ -51,9 +51,9 @@ There are **two front-ends sharing one Firebase backend**:
 ```
 user text → (distill: Claude Opus 4.8) → {caption, drawing}
           → prompt = "hlpy {drawing}."   (nothing after — the look is in the LoRA)
-          → Replicate LoRA  sageryza/helpy  v2, pinned (lora_scale 1, 28 steps, 1:1, png)
+          → Replicate LoRA  sageryza/helpy  v2, pinned (lora_scale 1.2, 28 steps, 1:1, png)
           → kept as LOSSLESS webp in Storage  miracles/{uid}/{id}/{uuid}.webp
-          → { url, caption, drawing, id, version: 'v10-helpy', engine: 'helpy' }
+          → { url, caption, drawing, id, version: 'v11-helpy', engine: 'helpy' }
 ```
 
 **helpy is the default since 2026-10-04** (Sophie: "i want to switch book of

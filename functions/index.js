@@ -2222,14 +2222,17 @@ const MIRACLE_HELPY = {
   version: '8f5daea87f8b2237e573d39e70daa1a0a7cac2e791fc828bfa707e57836c8863',
   trigger: 'hlpy',
 };
-const MIRACLE_HELPY_VERSION = 'v10-helpy';
+const MIRACLE_HELPY_VERSION = 'v11-helpy';
 const MIRACLE_HELPY_PROMPT = (concept) =>
   `${MIRACLE_HELPY.trigger} ${String(concept).trim().replace(/\.+$/, '')}.`;
 // The Playground's settings for her LoRAs, square for the book's frame. png,
 // because FLUX's webp is lossy at its output_quality; the picture is then kept
 // as LOSSLESS webp, so it is never compressed at birth.
+// lora_scale 1.2 (2026-10-05, Sophie: "yes"): of her 37 Playground helpy runs
+// at 1.0, six came back as photographs and none got a ♥; all three of her ♥
+// on helpy are at 1.2, where the same prompts and seeds came back as drawings.
 const MIRACLE_HELPY_INPUT = {
-  model: 'dev', go_fast: false, lora_scale: 1, megapixels: '1', num_outputs: 1,
+  model: 'dev', go_fast: false, lora_scale: 1.2, megapixels: '1', num_outputs: 1,
   aspect_ratio: '1:1', output_format: 'png', output_quality: 100,
   guidance_scale: 3, num_inference_steps: 28,
 };
