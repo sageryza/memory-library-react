@@ -85,7 +85,11 @@ no `engine`, so they get it; the LoRA itself is written up in imageforge's
   `output_config:{effort:'medium'}`, `max_tokens:3000` (thinking counts toward
   it — five of her miracles wrote 640-760 tokens, all `end_turn`), and the
   refusal fallback (`betas:['server-side-fallback-2026-07-01']`,
-  `fallbacks:'default'`) through `client.beta.messages.create`. (Always confirm
+  `fallbacks:'default'`) through `client.beta.messages.create` — it re-runs a
+  declined miracle only in a refusal category that has a recommended fallback
+  model; a refusal that stands is drawn as written and its partial text is
+  never parsed. The plain `client.messages.create` would send `betas` in the
+  body instead of the header (SDK 0.105.0), so the test pins the beta door. (Always confirm
   model ids/pricing via the `claude-api` skill — never from memory.)
 - `distill:false` draws the user's raw text verbatim (the app sends `distill:true`).
 - Each draw writes a **unique** Storage path, so redraws don't overwrite — that's

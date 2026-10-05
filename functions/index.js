@@ -2680,9 +2680,11 @@ exports.illustrateMiracle = onCall(
           // 4.8 at `high`. Thinking counts toward max_tokens: measured on five
           // of her book's miracles it wrote 640-760 tokens, thinking included,
           // and every answer finished (end_turn) well inside 3000.
-          // `fallbacks: 'default'`: if 5.5 ever declines a miracle, the API
-          // re-runs it on a fallback model in the same call instead of the
-          // sentence being drawn as written.
+          // `fallbacks: 'default'`: when a safety classifier declines a
+          // miracle in a category that HAS a recommended fallback model, the
+          // API re-runs it on that model in the same call. A refusal that
+          // stands (no fallback for its category, or the fallback busy or
+          // declining too) is handled below: the sentence is drawn as written.
           const msg = await client.beta.messages.create({
             model: 'claude-opus-5-5',
             max_tokens: 3000,
@@ -2694,14 +2696,25 @@ exports.illustrateMiracle = onCall(
             messages: [{ role: 'user', content: text.slice(0, 2000) }],
           });
           // With thinking on, the answer is the text block (not content[0]).
-          const block = (msg.content || []).find((b) => b.type === 'text');
+          // A refusal's partial text is never read ("treat any partial output
+          // as incomplete and discard it" — Anthropic's refusals page): a
+          // cut-off answer can still hold one whole concept, and the parser
+          // would draw it.
+          const refused = msg.stop_reason === 'refusal';
+          if (refused) {
+            console.warn('miracle distill: refused, drawing the sentence as written; category =',
+              msg.stop_details?.category ?? null, '; model =', msg.model);
+          } else if (msg.model && msg.model !== 'claude-opus-5-5') {
+            console.log('miracle distill: answered by the fallback model', msg.model);
+          }
+          const block = refused ? null : (msg.content || []).find((b) => b.type === 'text');
           const clean = miracleConceptsOf(parseMiracleJson(block?.text));
           if (clean.length) {
             concepts = clean;
             if (msg.stop_reason === 'max_tokens') {
               console.warn('miracle distill: answer cut off at max_tokens; kept', clean.length, 'concept(s)');
             }
-          } else {
+          } else if (!refused) {
             // max_tokens is the suspected case: the thinking used up the budget.
             console.warn('miracle distill: no usable JSON, drawing the sentence as written; stop_reason =',
               msg.stop_reason, '; text block chars =', (block?.text || '').length);

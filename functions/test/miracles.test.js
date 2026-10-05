@@ -37,6 +37,7 @@ function freshWorld() {
     txQueue: Promise.resolve(),
     claude: null, // async (body) => Anthropic message
     claudeCalls: [],
+    claudePaths: [], // 'beta' or 'plain': which SDK door each call went through
     anthropicOptions: [],
     openai: null, // async (formFields, callNumber) => Response
     openaiCalls: [],
@@ -202,9 +203,12 @@ const fakeAuth = {
 class FakeAnthropic {
   constructor(options) {
     S.anthropicOptions.push(options);
-    const create = async (body) => { S.claudeCalls.push(body); return S.claude(body); };
-    this.messages = { create };
-    this.beta = { messages: { create } };
+    // Two doors, told apart: the plain one sends `betas` in the body and no
+    // anthropic-beta header (measured on SDK 0.105.0), so a call that slid
+    // back to it would 400 and draw every sentence as written.
+    const door = (path) => async (body) => { S.claudeCalls.push(body); S.claudePaths.push(path); return S.claude(body); };
+    this.messages = { create: door('plain') };
+    this.beta = { messages: { create: door('beta') } };
   }
 }
 
@@ -547,6 +551,7 @@ describe('illustrateMiracle: the distiller', () => {
     await call('illustrateMiracle', 'UID_CLAUDE', { text: SENTENCE, id: 'BOX1', distill: true, variants: 3, tier: 'fast' });
     assert.deepEqual(S.anthropicOptions, [{ apiKey: 'sk-ant-TEST', timeout: 90000, maxRetries: 1 }]);
     const body = S.claudeCalls[0];
+    assert.deepEqual(S.claudePaths, ['beta'], 'through client.beta.messages, where `betas` becomes the header');
     assert.equal(body.model, 'claude-opus-5-5');
     assert.equal(body.max_tokens, 3000);
     assert.deepEqual(body.thinking, { type: 'adaptive' });
@@ -555,6 +560,40 @@ describe('illustrateMiracle: the distiller', () => {
     assert.equal(body.fallbacks, 'default');
     assert.ok(body.system.startsWith('You distill a small real-life moment into ONE clever little doodle'));
     assert.deepEqual(body.messages, [{ role: 'user', content: SENTENCE }]);
+  });
+
+  test('a fallback model\'s answer is read like any other, and logged', async (t) => {
+    atOwnMoment(t);
+    const log = quiet(t);
+    seedKeys();
+    S.claude = async () => ({
+      stop_reason: 'end_turn', model: 'claude-opus-4-8',
+      content: [
+        { type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-4-8' } },
+        { type: 'thinking', thinking: '' },
+        { type: 'text', text: JSON.stringify(THREE) },
+      ],
+    });
+    const out = await call('illustrateMiracle', 'UID_FALLBACK', { text: SENTENCE, id: 'BOX1', distill: true, variants: 3, tier: 'fast' });
+    assert.deepEqual(out.concepts.map((c) => c.drawing), THREE_DRAWINGS);
+    assert.ok(logged(log.log).some((l) => l.includes('fallback model claude-opus-4-8')), logged(log.log).join('\n'));
+  });
+
+  test('a refusal that stands draws the sentence, never its partial text', async (t) => {
+    atOwnMoment(t);
+    const log = quiet(t);
+    seedKeys();
+    // A cut-off answer that still holds one whole concept: the parser alone
+    // would draw "a cup".
+    S.claude = async () => ({
+      stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'cyber' }, model: 'claude-opus-5-5',
+      content: [{ type: 'text', text: '{"concepts":[{"caption":"a cup","drawing":"a cup"},{"caption":"b","drawing":"tru' }],
+    });
+    const out = await call('illustrateMiracle', 'UID_REFUSED', { text: SENTENCE, id: 'BOX1', distill: true, variants: 3, tier: 'fast' });
+    assert.deepEqual(out.concepts.map((c) => c.drawing), [SENTENCE]);
+    const warnings = logged(log.warn).filter((l) => l.includes('refused'));
+    assert.equal(warnings.length, 1);
+    assert.ok(warnings[0].includes('cyber'), warnings[0]);
   });
 
   test('a Claude call that fails (a timeout) still draws the sentence', async (t) => {
