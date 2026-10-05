@@ -49,7 +49,7 @@ There are **two front-ends sharing one Firebase backend**:
 ## The AI pipeline (functions/index.js)
 
 ```
-user text → (distill: Claude Opus 4.8) → {caption, drawing}
+user text → (distill: Claude Opus 5.5) → {caption, drawing}
           → prompt = "hlpy {drawing}."   (nothing after — the look is in the LoRA)
           → Replicate LoRA  sageryza/helpy  v2, pinned (lora_scale 1.2, 28 steps, 1:1, png)
           → kept as LOSSLESS webp in Storage  miracles/{uid}/{id}/{uuid}.webp
@@ -80,9 +80,13 @@ no `engine`, so they get it; the LoRA itself is written up in imageforge's
 - `MIRACLE_SYSTEM` — the distill instruction: pick the ONE most recognizable,
   evocative image (an object or tiny two-element scene), return
   `{"caption": "...", "drawing": "..."}`; caption ≤ ~8 words, lowercase.
-- Distill uses `claude-opus-4-8`, `thinking:{type:'adaptive'}`,
-  `output_config:{effort:'high'}`. (Always confirm model ids/pricing via the
-  `claude-api` skill — never from memory.)
+- Distill uses `claude-opus-5-5` (since 2026-10-05, Sophie: "change to 5.5"),
+  `thinking:{type:'adaptive'}` (5.5 always thinks; `disabled` is a 400),
+  `output_config:{effort:'medium'}`, `max_tokens:3000` (thinking counts toward
+  it — five of her miracles wrote 640-760 tokens, all `end_turn`), and the
+  refusal fallback (`betas:['server-side-fallback-2026-07-01']`,
+  `fallbacks:'default'`) through `client.beta.messages.create`. (Always confirm
+  model ids/pricing via the `claude-api` skill — never from memory.)
 - `distill:false` draws the user's raw text verbatim (the app sends `distill:true`).
 - Each draw writes a **unique** Storage path, so redraws don't overwrite — that's
   what powers undo/redo (the box keeps a `history` of URLs).

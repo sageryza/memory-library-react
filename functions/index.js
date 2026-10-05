@@ -2674,11 +2674,22 @@ exports.illustrateMiracle = onCall(
           // stalled call ends within about 3 minutes and the sentence is drawn
           // as written, instead of the wait using up the whole 300s.
           const client = new Anthropic({ apiKey: anthropicKey, timeout: 90 * 1000, maxRetries: 1 });
-          const msg = await client.messages.create({
-            model: 'claude-opus-4-8',
+          // Claude Opus 5.5 since 2026-10-05 (Sophie: "change to 5.5"). It
+          // always thinks — `disabled` is a 400 on this model — so effort is
+          // the one dial, and `medium` is the "thinking less" she picked over
+          // 4.8 at `high`. Thinking counts toward max_tokens: measured on five
+          // of her book's miracles it wrote 640-760 tokens, thinking included,
+          // and every answer finished (end_turn) well inside 3000.
+          // `fallbacks: 'default'`: if 5.5 ever declines a miracle, the API
+          // re-runs it on a fallback model in the same call instead of the
+          // sentence being drawn as written.
+          const msg = await client.beta.messages.create({
+            model: 'claude-opus-5-5',
             max_tokens: 3000,
-            thinking: { type: 'adaptive' }, // let it really reason about the best idea
-            output_config: { effort: 'high' },
+            thinking: { type: 'adaptive' },
+            output_config: { effort: 'medium' },
+            betas: ['server-side-fallback-2026-07-01'],
+            fallbacks: 'default',
             system: MIRACLE_SYSTEM,
             messages: [{ role: 'user', content: text.slice(0, 2000) }],
           });

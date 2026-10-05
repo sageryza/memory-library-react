@@ -202,9 +202,9 @@ const fakeAuth = {
 class FakeAnthropic {
   constructor(options) {
     S.anthropicOptions.push(options);
-    this.messages = {
-      create: async (body) => { S.claudeCalls.push(body); return S.claude(body); },
-    };
+    const create = async (body) => { S.claudeCalls.push(body); return S.claude(body); };
+    this.messages = { create };
+    this.beta = { messages: { create } };
   }
 }
 
@@ -547,10 +547,12 @@ describe('illustrateMiracle: the distiller', () => {
     await call('illustrateMiracle', 'UID_CLAUDE', { text: SENTENCE, id: 'BOX1', distill: true, variants: 3, tier: 'fast' });
     assert.deepEqual(S.anthropicOptions, [{ apiKey: 'sk-ant-TEST', timeout: 90000, maxRetries: 1 }]);
     const body = S.claudeCalls[0];
-    assert.equal(body.model, 'claude-opus-4-8');
+    assert.equal(body.model, 'claude-opus-5-5');
     assert.equal(body.max_tokens, 3000);
     assert.deepEqual(body.thinking, { type: 'adaptive' });
-    assert.deepEqual(body.output_config, { effort: 'high' });
+    assert.deepEqual(body.output_config, { effort: 'medium' });
+    assert.deepEqual(body.betas, ['server-side-fallback-2026-07-01']);
+    assert.equal(body.fallbacks, 'default');
     assert.ok(body.system.startsWith('You distill a small real-life moment into ONE clever little doodle'));
     assert.deepEqual(body.messages, [{ role: 'user', content: SENTENCE }]);
   });
