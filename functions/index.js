@@ -1126,8 +1126,14 @@ async function renderReel(rawPrompt, aestheticIn, qualityIn) {
 
 // Publish a video URL as an Instagram Reel (videos take longer to process, so
 // poll a bit more patiently than the photo path).
-async function publishReelToInstagram(videoUrl, caption) {
-  if (!videoUrl) throw new HttpsError('invalid-argument', 'No video to post.');
+//
+// A CONTAINER STILL PROCESSING IS NEVER THROWN AWAY (2026-10-09). The app's
+// Upload button sends her own clips, up to 15 minutes long, and Instagram can
+// take minutes over one; a fresh container per try starts from zero every
+// time. So when `waitMs` runs out this answers { processing, creationId }, and
+// a caller passes that `creationId` back to look at the same container again.
+async function publishReelToInstagram(videoUrl, caption, { creationId: resume = null, waitMs = 100000 } = {}) {
+  if (!videoUrl && !resume) throw new HttpsError('invalid-argument', 'No video to post.');
   const snap = await db.doc('config/instagram').get();
   const cfg = snap.exists ? snap.data() : null;
   const token = cfg?.accessToken, igUser = cfg?.igUserId;
@@ -1135,21 +1141,33 @@ async function publishReelToInstagram(videoUrl, caption) {
     throw new HttpsError('failed-precondition', 'Instagram posting isn’t set up yet.');
   }
   const base = 'https://graph.facebook.com/v21.0';
-  const p = new URLSearchParams({ media_type: 'REELS', video_url: videoUrl, access_token: token });
-  if (caption) p.set('caption', caption);
-  let r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: p });
-  let j = await r.json();
-  if (!r.ok || !j.id) throw new HttpsError('internal', `Reel create failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
-  const creationId = j.id;
+  let r, j;
+  let creationId = resume;
+  if (!creationId) {
+    const p = new URLSearchParams({ media_type: 'REELS', video_url: videoUrl, access_token: token });
+    if (caption) p.set('caption', caption);
+    r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: p });
+    j = await r.json();
+    if (!r.ok || !j.id) throw new HttpsError('internal', `Reel create failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
+    creationId = j.id;
+  }
+  const until = Date.now() + waitMs;
   let finished = false;
-  for (let i = 0; i < 40; i++) {
+  for (;;) {
     const s = await fetch(`${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`);
     const sj = await s.json();
     if (sj.status_code === 'FINISHED') { finished = true; break; }
-    if (sj.status_code === 'ERROR') throw new HttpsError('internal', 'Instagram could not process the reel.');
+    // A refused look (a bad token, a gone container) is an answer, not a wait.
+    if (sj.error) throw new HttpsError('internal', `Reel status failed: ${JSON.stringify(sj.error).slice(0, 200)}`);
+    // Published already: an earlier look published it and lost the answer.
+    if (sj.status_code === 'PUBLISHED') return { posted: true, reel: true };
+    if (sj.status_code === 'ERROR' || sj.status_code === 'EXPIRED') {
+      throw new HttpsError('internal', 'Instagram could not process the reel.');
+    }
+    if (Date.now() + 2500 > until) break;
     await new Promise((x) => setTimeout(x, 2500));
   }
-  if (!finished) throw new HttpsError('deadline-exceeded', 'Reel is still processing — try posting again in a minute.');
+  if (!finished) return { processing: true, creationId };
   r = await fetch(`${base}/${igUser}/media_publish`, {
     method: 'POST', body: new URLSearchParams({ creation_id: creationId, access_token: token }),
   });
@@ -1189,13 +1207,33 @@ exports.publishDuePosts = onSchedule(
   { schedule: 'every 5 minutes', region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' },
   async () => {
     const now = Date.now();
+    // Stop well inside the 300s timeout; anything left is still due next tick.
+    const deadline = now + 200000;
     const snap = await db.collection('scheduledPosts')
       .where('postAt', '<=', now).orderBy('postAt').limit(20).get();
     for (const d of snap.docs) {
+      if (Date.now() > deadline) break;
       const p = d.data();
       try {
         if (p.type === 'carousel') await publishCarouselToInstagram(p.imageUrls, p.caption);
-        else if (p.type === 'reel') await publishReelToInstagram(p.videoUrl, p.caption);
+        else if (p.type === 'reel') {
+          // A reel Instagram is still processing keeps its doc and its
+          // container, and is looked at again on the next tick — for about
+          // two hours (REEL_CHECKS), well inside a container's 24-hour life.
+          const out = await publishReelToInstagram(p.videoUrl, p.caption, {
+            creationId: p.creationId || null,
+            waitMs: Math.max(0, Math.min(20000, deadline - Date.now())),
+          });
+          if (out.processing) {
+            const checks = (p.checks || 0) + 1;
+            if (checks < REEL_CHECKS) {
+              await d.ref.update({ creationId: out.creationId, checks }).catch(() => {});
+              console.log('scheduled reel still processing', d.id, checks);
+              continue;
+            }
+            throw new Error(`still processing after ${checks} checks`);
+          }
+        }
         else await publishToInstagram(p.imageUrl, p.caption, p.type === 'story');
         console.log('scheduled post published', d.id, p.type);
       } catch (e) {
@@ -1205,6 +1243,7 @@ exports.publishDuePosts = onSchedule(
       await d.ref.delete().catch(() => {});
     }
   });
+const REEL_CHECKS = 24;
 
 // Publish an already-generated image straight to Instagram via the Graph API.
 // Credentials live in a locked-down Firestore doc config/instagram:
@@ -1317,8 +1356,20 @@ exports.forgeTestImage = onCall(
       return publishCarouselToInstagram(request.data?.imageUrls, String(request.data?.caption || ''));
     }
     // "ig-reel-publish" posts a video URL as an Instagram Reel.
+    // A clip Instagram has not finished processing is handed to the scheduler,
+    // container and all, so it posts on its own a few minutes later.
     if (styleKey === 'ig-reel-publish') {
-      return publishReelToInstagram(String(request.data?.videoUrl || ''), String(request.data?.caption || ''));
+      const videoUrl = String(request.data?.videoUrl || '');
+      const caption = String(request.data?.caption || '');
+      const out = await publishReelToInstagram(videoUrl, caption);
+      if (!out.processing) return out;
+      await db.collection('scheduledPosts').add({
+        uid, type: 'reel', status: 'pending', postAt: Date.now(), caption,
+        imageUrl: null, imageUrls: null, videoUrl, creationId: out.creationId, checks: 0,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      throw new HttpsError('deadline-exceeded',
+        'Instagram is still processing this reel. It will post on its own in a few minutes.');
     }
     // "ig-schedule" saves a finished post + a time; publishDuePosts posts it later.
     if (styleKey === 'ig-schedule') {

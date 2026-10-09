@@ -7,7 +7,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node --test-reporter=spec test/miracles.test.js"
+    "test": "node --test-reporter=spec test/miracles.test.js test/instagram-reel.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
