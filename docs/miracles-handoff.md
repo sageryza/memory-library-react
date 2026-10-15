@@ -64,10 +64,12 @@ no `engine`, so they get it; the LoRA itself is written up in imageforge's
   retrain changes the book only when that line changes. Trigger `hlpy`.
 - **No quality ladder.** helpy is one model, so the app's background upgrade
   call (a `concept` at tier better/best) is answered with no picture — nothing
-  drawn, nothing counted — and no ▲ "Better version" appears. iOS asks for up
-  to three ideas a tap (`variants: 3`) and, since the answer says `engine:
-  'helpy'`, sends no upgrade calls (older builds send them and get nothing);
-  the web asks for none, so it gets one.
+  drawn, nothing counted — and no ▲ "Better version" appears. iOS asks for ONE
+  drawing a tap (`variants: 1`, since 2026-10-15 — Sophie: "we only draw one
+  drawing now"; builds before that asked for three) and, since the answer says
+  `engine: 'helpy'`, sends no upgrade calls (older builds send them and get
+  nothing); the web asks for none, so it gets one. The server still renders up
+  to 3 when a caller asks; the daily limits cap that.
 - Errors keep the plain-words contract: Replicate refusing up front (429 busy;
   402/401/404/5xx or no answer, unavailable) drew nothing, so the tap is given
   back, and so is a prediction Replicate `aborted` before it ran ("busy"); a

@@ -262,10 +262,11 @@ final class MiraclesStore: ObservableObject {
         let activity = BackgroundActivity(name: "draw")
         Task {
             do {
-                // One draw returns a few concept options on the FAST tier
-                // (~10s); the ‹/› arrows let you pick among them.
+                // One drawing a tap (Sophie, 2026-10-15: "we only draw one
+                // drawing now"); drawing again adds another, and the ‹/›
+                // arrows go back through them.
                 let result = try await MiraclesService.shared.illustrate(
-                    text: text, boxID: boxID, distill: distill, variants: 3, tier: "fast"
+                    text: text, boxID: boxID, distill: distill, variants: 1, tier: "fast"
                 )
                 // Meanwhile, quietly render the primary concept at the higher
                 // tiers. When one lands, ▲ appears on that drawing. helpy is one
