@@ -234,6 +234,12 @@ def main():
     copy_from = fields.pop(COPY_KEY, "").strip()
     if copy_from:
         copied = copied_contact(copy_from)
+        # Mask the copied phone and email for the rest of this PUBLIC log, so
+        # an error that echoes Apple's answer can't print them either.
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            for k in ("contactPhone", "contactEmail"):
+                if copied.get(k):
+                    print(f"::add-mask::{copied[k]}")
         for k, v in copied.items():
             fields.setdefault(k, v)
         show(copied, CONTACT_FIELDS, f"contact copied from {copy_from}")

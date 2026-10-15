@@ -61,7 +61,7 @@ import asc_metadata  # noqa: E402
 
 BASE_ENV = {"ASC_KEY_ID": "k", "ASC_ISSUER_ID": "i", "ASC_KEY_P8": "p",
             "APP_BUNDLE_ID": "com.sageryza.secretlyawitch"}
-FIELD_ENVS = ["VERSION_STRING", "LOCALE", "DRY_RUN", "FIELDS_JSON",
+FIELD_ENVS = ["GITHUB_ACTIONS", "VERSION_STRING", "LOCALE", "DRY_RUN", "FIELDS_JSON",
               "DESCRIPTION", "KEYWORDS", "SUBTITLE", "PROMOTIONAL_TEXT",
               "WHATS_NEW", "REVIEW_NOTES"]
 
@@ -199,6 +199,14 @@ check("and shows what it would copy, redacted",
       "contact copied from com.sageryza.secretlyawitch" in out and "15555550123" not in out, out)
 code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"copyContactFrom": ""}))
 check("an empty bundle id is refused", code == 1 and "must be a bundle id" in out, out)
+code, out = run(DRY_RUN="true", GITHUB_ACTIONS="true",
+                FIELDS_JSON=json.dumps({"copyContactFrom": "com.sageryza.secretlyawitch"}))
+masks = [l for l in out.splitlines() if l.startswith("::add-mask::")]
+check("on GitHub the copied phone and email are masked for the rest of the log",
+      sorted(masks) == ["::add-mask::15555550123", "::add-mask::sophie@example.com"], str(masks))
+check("and nothing else prints them",
+      "15555550123" not in "\n".join(l for l in out.splitlines() if not l.startswith("::add-mask::")), out)
+os.environ.pop("GITHUB_ACTIONS", None)
 STATE["no_contact"] = True
 code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"copyContactFrom": "com.sageryza.xi"}))
 check("an app with no contact is refused, nothing written",
