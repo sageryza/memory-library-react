@@ -19,7 +19,7 @@ struct CoverView: View {
                 .overlay(Rectangle().stroke(Theme.gold.opacity(0.75), lineWidth: 1.5))
                 .frame(width: 256, height: 340)
                 .background(Color(white: 0.09))   // flat — no gradients, ever
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 4))   // less rounded (Sophie, 2026-10-15)
                 .shadow(color: .black.opacity(0.55), radius: 26, x: 0, y: 16)
                 .rotation3DEffect(
                     .degrees(ajar ? -24 : 0),
