@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # --- stub the API before asc_metadata imports it -------------------------
 calls = []
-STATE = {"ver_state": "REJECTED"}
+STATE = {"ver_state": "REJECTED", "no_contact": False}
 
 
 def fake_token():
@@ -37,10 +37,15 @@ def fake_api(method, path, tok, body=None):
         return 200, {"data": [{"id": "AL1", "attributes": {
             "locale": "en-US", "name": "Secretly a Witch", "subtitle": "old sub",
             "privacyPolicyUrl": None, "privacyPolicyText": None}}]}
+    if path.startswith("/appStoreVersions/V9/appStoreReviewDetail") and STATE["no_contact"]:
+        return 200, {"data": {"id": "RD1", "attributes": {"notes": "old notes"}}}
+    if path.startswith("/appStoreVersions/V8/appStoreReviewDetail"):
+        return 200, {"data": None}
     if path.startswith("/appStoreVersions/V9/appStoreReviewDetail"):
         return 200, {"data": {"id": "RD1", "attributes": {
             "notes": "old notes", "contactEmail": "sophie@example.com",
-            "contactPhone": "13109441304",
+            "contactFirstName": "Test", "contactLastName": "Person",
+            "contactPhone": "15555550123",
             "demoAccountPassword": "hunter2secret"}}}
     if method in ("PATCH", "POST"):
         return 200, {"data": {"id": "new"}}
@@ -163,9 +168,43 @@ check("demo password not printed", "hunter2secret" not in out, out)
 check("says it is hidden and why", "hidden, this log is public" in out)
 check("but confirms it is set", "13 chars" in out)
 check("phone shown as last 4 only",
-      "13109441304" not in out and "…1304" in out, out)
+      "15555550123" not in out and "…0123" in out, out)
 check("email domain kept, user masked",
       "sophie@example.com" not in out and "so…@example.com" in out, out)
+
+print("8. copyContactFrom copies the contact without printing it")
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps(
+    {"copyContactFrom": "com.sageryza.secretlyawitch", "demoAccountRequired": False}))
+writes = [c for c in calls if c[0] in ("PATCH", "POST")]
+check("exits clean", code == 0, f"code={code} out={out}")
+check("one write, to the review details",
+      [c[1] for c in writes] == ["/appStoreReviewDetails/RD1"], str([c[1] for c in writes]))
+attrs = writes[0][2]["data"]["attributes"] if writes else {}
+check("all four contact fields copied",
+      attrs.get("contactPhone") == "15555550123" and attrs.get("contactEmail") == "sophie@example.com"
+      and attrs.get("contactFirstName") == "Test" and attrs.get("contactLastName") == "Person", str(attrs))
+check("the other fields ride along", attrs.get("demoAccountRequired") is False, str(attrs))
+check("notes and demo account are not copied",
+      "notes" not in attrs and "demoAccountPassword" not in attrs, str(attrs))
+check("full phone and email never printed",
+      "15555550123" not in out and "sophie@example.com" not in out and "…0123" in out, out)
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps(
+    {"copyContactFrom": "com.sageryza.secretlyawitch", "contactEmail": "other@example.com"}))
+writes = [c for c in calls if c[0] in ("PATCH", "POST")]
+check("a field passed explicitly wins over the copy",
+      writes and writes[0][2]["data"]["attributes"].get("contactEmail") == "other@example.com", out)
+code, out = run(DRY_RUN="true", FIELDS_JSON=json.dumps({"copyContactFrom": "com.sageryza.secretlyawitch"}))
+check("a dry run copies nothing", code == 0 and not [c for c in calls if c[0] in ("PATCH", "POST")], out)
+check("and shows what it would copy, redacted",
+      "contact copied from com.sageryza.secretlyawitch" in out and "15555550123" not in out, out)
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"copyContactFrom": ""}))
+check("an empty bundle id is refused", code == 1 and "must be a bundle id" in out, out)
+STATE["no_contact"] = True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"copyContactFrom": "com.sageryza.xi"}))
+check("an app with no contact is refused, nothing written",
+      code == 1 and "no App Review contact" in out
+      and not [c for c in calls if c[0] in ("PATCH", "POST")], out)
+STATE["no_contact"] = False
 
 print()
 print("FAILED: " + ", ".join(fails) if fails else "all checks passed")

@@ -29,6 +29,13 @@ Fields live on three different ASC resources and this routes them for you:
 The version-level and app-info-level fields are written to EVERY localization
 the app has (these apps are en-US only; if that ever changes, pass LOCALE).
 
+COPYING THE REVIEW CONTACT FROM ANOTHER APP: FIELDS_JSON may carry
+"copyContactFrom": "<bundle id>". The contact name, phone and email are then
+read from that app's App Review details and written here, so a phone number
+never has to travel through a workflow input — inputs are printed in this
+PUBLIC repo's Actions logs, and the values copied are printed redacted.
+A contact field passed explicitly wins over the copied one.
+
 Only a version in an editable state can be changed. After a rejection the
 version goes to REJECTED / METADATA_REJECTED / DEVELOPER_REJECTED, all of which
 are editable — so this is exactly the tool for reworking a listing that failed
@@ -75,6 +82,8 @@ REVIEW_FIELDS = {
     "notes": 4000,
 }
 BOOL_FIELDS = {"demoAccountRequired"}
+CONTACT_FIELDS = ("contactFirstName", "contactLastName", "contactPhone", "contactEmail")
+COPY_KEY = "copyContactFrom"   # FIELDS_JSON only — see the docstring
 
 # The states in which Apple lets metadata be edited. A rejection lands in one
 # of the three *REJECTED ones, which is why a rework needs no new version.
@@ -120,6 +129,10 @@ def collect_fields():
 
     known = {**VERSION_FIELDS, **APP_INFO_FIELDS, **REVIEW_FIELDS}
     for name, val in fields.items():
+        if name == COPY_KEY:
+            if not isinstance(val, str) or not val.strip():
+                die(f"{COPY_KEY} must be a bundle id, e.g. com.sageryza.secretlyawitch")
+            continue
         if name not in known:
             die(f"unknown field '{name}' — known fields: {', '.join(sorted(known))}")
         if name in BOOL_FIELDS:
@@ -189,6 +202,27 @@ def show(attrs, names, label):
         print(f"  {n}: {val}")
 
 
+def copied_contact(bundle):
+    """The App Review contact (name, phone, email) another app already gives
+    Apple — read from its newest version that has review details."""
+    st, d = api("GET", f"/apps?filter[bundleId]={bundle}&limit=1", tok)
+    if st != 200 or not d.get("data"):
+        die(f"{COPY_KEY}: app {bundle} not found ({st})")
+    app_id = d["data"][0]["id"]
+    st, d = api("GET", f"/apps/{app_id}/appStoreVersions?limit=10"
+                       "&fields[appStoreVersions]=versionString,appVersionState", tok)
+    if st != 200:
+        die(f"{COPY_KEY}: list versions of {bundle}: {st}")
+    for v in d.get("data", []):
+        st, rd = api("GET", f"/appStoreVersions/{v['id']}/appStoreReviewDetail", tok)
+        attrs = ((rd.get("data") or {}).get("attributes") or {}) if st == 200 else {}
+        found = {k: attrs[k] for k in CONTACT_FIELDS
+                 if isinstance(attrs.get(k), str) and attrs[k].strip()}
+        if found:
+            return found
+    die(f"{COPY_KEY}: {bundle} has no App Review contact to copy")
+
+
 def main():
     global tok
     tok = token()
@@ -197,6 +231,12 @@ def main():
     locale = os.environ.get("LOCALE", "").strip()
     dry = os.environ.get("DRY_RUN", "true").lower() != "false"
     fields = collect_fields()
+    copy_from = fields.pop(COPY_KEY, "").strip()
+    if copy_from:
+        copied = copied_contact(copy_from)
+        for k, v in copied.items():
+            fields.setdefault(k, v)
+        show(copied, CONTACT_FIELDS, f"contact copied from {copy_from}")
 
     if not dry and not fields:
         die("nothing to write — supply at least one field, or set DRY_RUN=true "
@@ -292,7 +332,9 @@ def main():
         if dry:
             show((detail or {}).get("attributes", {}), REVIEW_FIELDS,
                  "app review details")
-        if review_fields:
+        if review_fields and dry:
+            print(f"\napp review details: would write {', '.join(sorted(review_fields))}")
+        if review_fields and not dry:
             if detail:
                 st, d = api("PATCH", f"/appStoreReviewDetails/{detail['id']}", tok, {
                     "data": {"type": "appStoreReviewDetails", "id": detail["id"],
