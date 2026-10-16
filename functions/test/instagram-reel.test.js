@@ -1,5 +1,6 @@
 'use strict';
-// A reel Instagram is still processing is never dropped (2026-10-09): the
+// A reel Instagram is still processing is never dropped (2026-10-09), and a
+// trial reel carries Meta's trial_params all the way through (2026-10-15): the
 // REAL publishReelToInstagram, publishDuePosts and the ig-reel-publish route,
 // lifted out of functions/index.js and run against a fake Graph API and
 // Firestore. No network, no money, no live data.
@@ -18,9 +19,10 @@ for (; i < src.length; i++) { if (src[i] === '{') depth++; else if (src[i] === '
 const route = src.slice(r0, end);
 class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 function world(statuses) {
-  const calls = { create: 0, publish: 0, status: [] }, docs = new Map(); let n = 0, seq = [...statuses];
+  const calls = { create: 0, publish: 0, status: [], bodies: [] }, docs = new Map(), logs = new Map();
+  let n = 0, seq = [...statuses], logFails = false;
   const fetch = async (url, opts) => {
-    if (url.endsWith('/media') && opts?.method === 'POST') { calls.create++; return { ok: true, json: async () => ({ id: 'C' + calls.create }) }; }
+    if (url.endsWith('/media') && opts?.method === 'POST') { calls.create++; calls.bodies.push(opts.body); return { ok: true, json: async () => ({ id: 'C' + calls.create }) }; }
     if (url.includes('/media_publish')) { calls.publish++; calls.published = String(opts.body.get('creation_id')); return { ok: true, json: async () => ({ id: 'M1' }) }; }
     const id = url.split('/').pop().split('?')[0]; calls.status.push(id);
     const s = seq.length > 1 ? seq.shift() : seq[0];
@@ -29,16 +31,18 @@ function world(statuses) {
   const ref = (id) => ({ id, update: async (o) => { docs.set(id, { ...docs.get(id), ...o }); }, delete: async () => { docs.delete(id); } });
   const db = {
     doc: () => ({ get: async () => ({ exists: true, data: () => ({ accessToken: 'T', igUserId: 'U' }) }) }),
-    collection: () => ({
+    collection: (name) => name === 'scheduledPostsLog' ? {
+      doc: (id) => ({ set: async (o) => { if (logFails) throw new Error('log down'); logs.set(id, o); } }),
+    } : ({
       add: async (o) => { const id = 'd' + (++n); docs.set(id, o); return { id }; },
       where: () => ({ orderBy: () => ({ limit: () => ({ get: async () => ({ docs: [...docs.entries()].filter(([, v]) => v.postAt <= Date.now()).map(([id, v]) => ({ id, data: () => v, ref: ref(id) })) }) }) }) }),
     }),
   };
   let handler;
   const ctx = vm.createContext({ fetch, db, HttpsError, FieldValue: { serverTimestamp: () => 'TS' }, URLSearchParams, setTimeout: (f) => setImmediate(f), console: { log() {}, warn() {} }, Date, Math, JSON, String, Error, exports: {}, onSchedule: (_o, h) => { handler = h; return h; } });
-  vm.runInContext(pub + '\nthis.publishReelToInstagram = publishReelToInstagram;', ctx);
+  vm.runInContext(pub + '\nthis.publishReelToInstagram = publishReelToInstagram; this.scheduleInstagramPost = scheduleInstagramPost;', ctx);
   const runRoute = vm.runInContext(`(async function (styleKey, request, uid) { ${route} })`, ctx);
-  return { calls, docs, ctx, tick: () => handler(), runRoute, setStatuses: (s) => { seq = [...s]; } };
+  return { calls, docs, logs, ctx, tick: () => handler(), runRoute, setStatuses: (s) => { seq = [...s]; }, failLog: (v) => { logFails = v; } };
 }
 test('a still-processing reel keeps its container until it posts', async () => {
   // 1. The tool's own short reel: finishes, publishes once.
@@ -75,4 +79,48 @@ test('a still-processing reel keeps its container until it posts', async () => {
   w = world(['PUBLISHED']);
   out = await w.ctx.publishReelToInstagram('https://v/z.mp4', '', { creationId: 'C5' });
   assert.deepStrictEqual([out.posted, w.calls.publish, w.calls.create], [true, 0, 0]);
+});
+test('a trial reel carries trial_params, and a wrong word posts nothing', async () => {
+  const sent = (w) => { const b = w.calls.bodies.at(-1); return b.get('trial_params') ? JSON.parse(b.get('trial_params')) : null; };
+  // 1. Our two words become Meta's two strategies; no word, no trial.
+  let w = world(['FINISHED']);
+  await w.ctx.publishReelToInstagram('https://v/a.mp4', 'c', { trial: 'manual' });
+  assert.deepStrictEqual(sent(w), { graduation_strategy: 'MANUAL' });
+  await w.ctx.publishReelToInstagram('https://v/a.mp4', 'c', { trial: 'auto' });
+  assert.deepStrictEqual(sent(w), { graduation_strategy: 'SS_PERFORMANCE' });
+  await w.ctx.publishReelToInstagram('https://v/a.mp4', 'c');
+  assert.strictEqual(sent(w), null);
+  // 2. A word we don't know is refused before anything reaches Instagram.
+  w = world(['FINISHED']);
+  await assert.rejects(w.ctx.publishReelToInstagram('https://v/a.mp4', 'c', { trial: 'yes' }), /Unknown trial setting/);
+  await assert.rejects(w.runRoute('ig-reel-publish', { data: { videoUrl: 'https://v/a.mp4', trial: 'trial' } }, 'u'), /Unknown trial setting/);
+  assert.deepStrictEqual([w.calls.create, w.calls.publish], [0, 0]);
+  // 3. Post as Reel with a trial on a long clip: the queued doc keeps the trial.
+  w = world(['IN_PROGRESS']);
+  w.ctx.Date = { now: (() => { let t = 0; return () => (t += 30000); })() };
+  await assert.rejects(w.runRoute('ig-reel-publish', { data: { videoUrl: 'https://v/long.mp4', trial: 'auto' } }, 'u'), /still processing/);
+  assert.deepStrictEqual([sent(w), [...w.docs.values()][0].trial], [{ graduation_strategy: 'SS_PERFORMANCE' }, 'SS_PERFORMANCE']);
+  // 4. Schedule for later: the doc keeps the trial, the tick sends it, the log says it posted.
+  w = world(['FINISHED']);
+  const s = await w.ctx.scheduleInstagramPost('u', { type: 'reel', postAt: Date.now() + 60000, videoUrl: 'https://v/s.mp4', caption: 'c', trial: 'manual' });
+  assert.strictEqual(w.docs.get(s.id).trial, 'MANUAL');
+  w.docs.get(s.id).postAt = Date.now() - 1;
+  await w.tick();
+  const lg = w.logs.get(s.id);
+  assert.deepStrictEqual([sent(w), w.docs.size, lg.ok, lg.mediaId, lg.trial], [{ graduation_strategy: 'MANUAL' }, 0, true, 'M1', 'MANUAL']);
+  // 5. Only a reel can be a trial; a picture schedules with no trial.
+  await assert.rejects(w.ctx.scheduleInstagramPost('u', { type: 'feed', postAt: Date.now() + 60000, imageUrl: 'https://i/a.jpg', trial: 'manual' }), /Only a reel/);
+  const f = await w.ctx.scheduleInstagramPost('u', { type: 'feed', postAt: Date.now() + 60000, imageUrl: 'https://i/a.jpg' });
+  assert.strictEqual(w.docs.get(f.id).trial, null);
+  // 6. A post Instagram refuses is logged as failed, and its doc still goes.
+  w = world(['ERROR']);
+  await w.ctx.db.collection('scheduledPosts').add({ type: 'reel', postAt: Date.now() - 1, videoUrl: 'https://v/x.mp4', caption: '', trial: 'MANUAL', from: 'chat:x' });
+  await w.tick();
+  const log = [...w.logs.values()][0];
+  assert.deepStrictEqual([w.docs.size, log.ok, /could not process/.test(log.error), log.mediaId, log.from], [0, false, true, null, 'chat:x']);
+  // 7. A log that cannot be written never keeps the doc (that would post it twice).
+  w = world(['FINISHED']); w.failLog(true);
+  await w.ctx.db.collection('scheduledPosts').add({ type: 'reel', postAt: Date.now() - 1, videoUrl: 'https://v/y.mp4', caption: '' });
+  await w.tick();
+  assert.deepStrictEqual([w.docs.size, w.calls.publish], [0, 1]);
 });

@@ -1132,8 +1132,9 @@ async function renderReel(rawPrompt, aestheticIn, qualityIn) {
 // take minutes over one; a fresh container per try starts from zero every
 // time. So when `waitMs` runs out this answers { processing, creationId }, and
 // a caller passes that `creationId` back to look at the same container again.
-async function publishReelToInstagram(videoUrl, caption, { creationId: resume = null, waitMs = 100000 } = {}) {
+async function publishReelToInstagram(videoUrl, caption, { creationId: resume = null, waitMs = 100000, trial = null } = {}) {
   if (!videoUrl && !resume) throw new HttpsError('invalid-argument', 'No video to post.');
+  const strategy = igTrialStrategy(trial);
   const snap = await db.doc('config/instagram').get();
   const cfg = snap.exists ? snap.data() : null;
   const token = cfg?.accessToken, igUser = cfg?.igUserId;
@@ -1146,6 +1147,7 @@ async function publishReelToInstagram(videoUrl, caption, { creationId: resume = 
   if (!creationId) {
     const p = new URLSearchParams({ media_type: 'REELS', video_url: videoUrl, access_token: token });
     if (caption) p.set('caption', caption);
+    if (strategy) p.set('trial_params', JSON.stringify({ graduation_strategy: strategy }));
     r = await fetch(`${base}/${igUser}/media`, { method: 'POST', body: p });
     j = await r.json();
     if (!r.ok || !j.id) throw new HttpsError('internal', `Reel create failed: ${JSON.stringify(j.error || j).slice(0, 200)}`);
@@ -1176,6 +1178,22 @@ async function publishReelToInstagram(videoUrl, caption, { creationId: resume = 
   return { id: j.id, posted: true, reel: true };
 }
 
+// TRIAL REELS (2026-10-15, Sophie: "Can you do both?" — the app's Trial
+// switch, and a chat posting one for her). Meta's create-media call takes
+// `trial_params` {graduation_strategy} on a REELS container (changelog
+// 2025-12-03, "Applies to all versions"): MANUAL = she shares it with her
+// followers herself in the Instagram app; SS_PERFORMANCE = Instagram shares it
+// with them if it performs well. Our words are 'manual' and 'auto'. An unknown
+// word is REFUSED, never dropped: a trial that quietly posted as an ordinary
+// reel would reach every follower.
+function igTrialStrategy(v) {
+  if (v == null || v === '' || v === false || v === 'off') return null;
+  const s = String(v).toLowerCase();
+  if (s === 'manual') return 'MANUAL';
+  if (s === 'auto' || s === 'ss_performance') return 'SS_PERFORMANCE';
+  throw new HttpsError('invalid-argument', `Unknown trial setting: ${String(v).slice(0, 40)}`);
+}
+
 // ===========================================================================
 // Scheduling — save a finished post + a time to `scheduledPosts`; a cron
 // (publishDuePosts) publishes it when due. Works for feed, story, carousel,
@@ -1188,6 +1206,8 @@ async function scheduleInstagramPost(uid, data) {
   if (!postAt || postAt < Date.now()) {
     throw new HttpsError('invalid-argument', 'Pick a time in the future.');
   }
+  const trial = igTrialStrategy(data?.trial);
+  if (trial && type !== 'reel') throw new HttpsError('invalid-argument', 'Only a reel can be a trial.');
   const doc = {
     uid: uid || null,
     type,                                   // feed | story | carousel | reel
@@ -1197,6 +1217,7 @@ async function scheduleInstagramPost(uid, data) {
     imageUrl: data?.imageUrl ? String(data.imageUrl) : null,
     imageUrls: Array.isArray(data?.imageUrls) ? data.imageUrls.map(String) : null,
     videoUrl: data?.videoUrl ? String(data.videoUrl) : null,
+    trial,                                  // MANUAL | SS_PERFORMANCE | null (reels only)
     createdAt: FieldValue.serverTimestamp(),
   };
   const ref = await db.collection('scheduledPosts').add(doc);
@@ -1214,8 +1235,9 @@ exports.publishDuePosts = onSchedule(
     for (const d of snap.docs) {
       if (Date.now() > deadline) break;
       const p = d.data();
+      let res = null, error = null;
       try {
-        if (p.type === 'carousel') await publishCarouselToInstagram(p.imageUrls, p.caption);
+        if (p.type === 'carousel') res = await publishCarouselToInstagram(p.imageUrls, p.caption);
         else if (p.type === 'reel') {
           // A reel Instagram is still processing keeps its doc and its
           // container, and is looked at again on the next tick — for about
@@ -1223,6 +1245,7 @@ exports.publishDuePosts = onSchedule(
           const out = await publishReelToInstagram(p.videoUrl, p.caption, {
             creationId: p.creationId || null,
             waitMs: Math.max(0, Math.min(20000, deadline - Date.now())),
+            trial: p.trial || null,
           });
           if (out.processing) {
             const checks = (p.checks || 0) + 1;
@@ -1233,12 +1256,24 @@ exports.publishDuePosts = onSchedule(
             }
             throw new Error(`still processing after ${checks} checks`);
           }
+          res = out;
         }
-        else await publishToInstagram(p.imageUrl, p.caption, p.type === 'story');
+        else res = await publishToInstagram(p.imageUrl, p.caption, p.type === 'story');
         console.log('scheduled post published', d.id, p.type);
       } catch (e) {
+        error = String(e.message || e).slice(0, 300);
         console.warn('scheduled post failed', d.id, p.type, e.message);
       }
+      // What became of it, under the doc's own id: the doc is removed below,
+      // so this is how a chat that filed a post can tell her whether it went
+      // up. Never allowed to throw — a failed log must not keep the doc, or
+      // the next tick would post it a second time.
+      try {
+        await db.collection('scheduledPostsLog').doc(d.id).set({
+          type: p.type || null, trial: p.trial || null, from: p.from || null, ok: !error,
+          mediaId: (res && res.id) || null, error, at: Date.now(),
+        });
+      } catch (_) { /* the post is what matters */ }
       // Fire once — remove the doc whether it posted or failed (no retry storms).
       await d.ref.delete().catch(() => {});
     }
@@ -1361,12 +1396,13 @@ exports.forgeTestImage = onCall(
     if (styleKey === 'ig-reel-publish') {
       const videoUrl = String(request.data?.videoUrl || '');
       const caption = String(request.data?.caption || '');
-      const out = await publishReelToInstagram(videoUrl, caption);
+      const trial = igTrialStrategy(request.data?.trial);
+      const out = await publishReelToInstagram(videoUrl, caption, { trial });
       if (!out.processing) return out;
       await db.collection('scheduledPosts').add({
         uid, type: 'reel', status: 'pending', postAt: Date.now(), caption,
         imageUrl: null, imageUrls: null, videoUrl, creationId: out.creationId, checks: 0,
-        createdAt: FieldValue.serverTimestamp(),
+        trial, createdAt: FieldValue.serverTimestamp(),
       });
       throw new HttpsError('deadline-exceeded',
         'Instagram is still processing this reel. It will post on its own in a few minutes.');
