@@ -115,9 +115,6 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     if (engineRef.current) engineRef.current.refresh();
   }, [memories]);
 
-  const goGallery = () => setSearchParams((p) => {
-    const np = new URLSearchParams(p); np.set('s', 'gallery'); return np;
-  });
   const goCurate = () => setSearchParams((p) => {
     const np = new URLSearchParams(p); np.set('s', 'curate'); return np;
   });
@@ -126,16 +123,12 @@ export default function XiApp({ memories = [], addMemory, userId }) {
     <>
       <div className="xi-app" ref={rootRef} />
       {screen === 'today' && (
-        <button className="xi-cal" aria-label="Past days" title="Past days" onClick={goGallery}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-            <rect x="3" y="4.5" width="18" height="17" rx="2" />
-            <path d="M16 2.5v4M8 2.5v4M3 9.5h18" />
-          </svg>
-        </button>
-      )}
-      {screen === 'today' && (
         // Curate lives behind Today's gear, where the app keeps it (iOS puts it
-        // in Settings, opened from this same corner).
+        // in Settings, opened from this same corner). It is the ONLY thing in
+        // that corner: the calendar came off at Sophie's ask (Aug 2026, "no
+        // calendar") when the web card of the day was made the app's screen —
+        // the app draws nothing there but the gear. The past-days grid is still
+        // a screen and still renders; it just has no door on Today.
         <button className="xi-gear" aria-label="Curate your deck" title="Curate your deck" onClick={goCurate}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
