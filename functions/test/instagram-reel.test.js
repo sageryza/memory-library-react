@@ -32,7 +32,7 @@ function world(statuses) {
   const db = {
     doc: () => ({ get: async () => ({ exists: true, data: () => ({ accessToken: 'T', igUserId: 'U' }) }) }),
     collection: (name) => name === 'scheduledPostsLog' ? {
-      doc: (id) => ({ set: async (o) => { if (logFails) throw new Error('log down'); logs.set(id, o); } }),
+      doc: (id) => ({ set: async (o) => { if (logFails) throw new Error('log down'); logs.set(id, { ...o, docStillFiled: docs.has(id) }); } }),
     } : ({
       add: async (o) => { const id = 'd' + (++n); docs.set(id, o); return { id }; },
       where: () => ({ orderBy: () => ({ limit: () => ({ get: async () => ({ docs: [...docs.entries()].filter(([, v]) => v.postAt <= Date.now()).map(([id, v]) => ({ id, data: () => v, ref: ref(id) })) }) }) }) }),
@@ -108,6 +108,8 @@ test('a trial reel carries trial_params, and a wrong word posts nothing', async 
   await w.tick();
   const lg = w.logs.get(s.id);
   assert.deepStrictEqual([sent(w), w.docs.size, lg.ok, lg.mediaId, lg.trial], [{ graduation_strategy: 'MANUAL' }, 0, true, 'M1', 'MANUAL']);
+  // The doc is gone BEFORE the log is written: a stalled log can never hold it for a second post.
+  assert.strictEqual(lg.docStillFiled, false);
   // 5. Only a reel can be a trial; a picture schedules with no trial.
   await assert.rejects(w.ctx.scheduleInstagramPost('u', { type: 'feed', postAt: Date.now() + 60000, imageUrl: 'https://i/a.jpg', trial: 'manual' }), /Only a reel/);
   const f = await w.ctx.scheduleInstagramPost('u', { type: 'feed', postAt: Date.now() + 60000, imageUrl: 'https://i/a.jpg' });

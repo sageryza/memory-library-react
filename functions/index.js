@@ -1264,18 +1264,19 @@ exports.publishDuePosts = onSchedule(
         error = String(e.message || e).slice(0, 300);
         console.warn('scheduled post failed', d.id, p.type, e.message);
       }
-      // What became of it, under the doc's own id: the doc is removed below,
-      // so this is how a chat that filed a post can tell her whether it went
-      // up. Never allowed to throw — a failed log must not keep the doc, or
-      // the next tick would post it a second time.
+      // Fire once — remove the doc whether it posted or failed (no retry storms).
+      // FIRST, before the log: a log write that stalls (Firestore retries for
+      // about a minute) must never hold a published post's doc past the
+      // function's timeout, or the next tick posts it a second time.
+      await d.ref.delete().catch(() => {});
+      // What became of it, under the doc's own id: how a chat that filed a
+      // post can tell her whether it went up.
       try {
         await db.collection('scheduledPostsLog').doc(d.id).set({
           type: p.type || null, trial: p.trial || null, from: p.from || null, ok: !error,
           mediaId: (res && res.id) || null, error, at: Date.now(),
         });
       } catch (_) { /* the post is what matters */ }
-      // Fire once — remove the doc whether it posted or failed (no retry storms).
-      await d.ref.delete().catch(() => {});
     }
   });
 const REEL_CHECKS = 24;
