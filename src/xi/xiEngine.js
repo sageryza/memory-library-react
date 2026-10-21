@@ -12,6 +12,91 @@
 
 import { DEFAULT_DISABLED_DECKS, RETIRED_DECKS } from './decks';
 
+// ── Trim a card's own printed frame ───────────────────────────────────────
+// An exact port of CardArt.trimmed() in ios-xi/XI/CardArt.swift. The card
+// images each carry their own printed rule — a thin dark line inside a white
+// margin — and the deco plate already draws a light edge and a hairline, so
+// the picture's own rule lands a THIRD border inside them.
+//
+// Scans in from each edge for the first dark run and cuts just past it, PER
+// IMAGE, because the margin differs deck to deck and card to card (measured on
+// iOS across all five: 0.3%–6.6% of the width). Anything it can't read
+// confidently comes back untouched, so a card can never be mangled by a bad
+// guess.
+//
+// The crop is applied as geometry on the <img>, never by re-encoding: the
+// element is laid out as if it were the cropped picture contain-fitted into
+// the square plate, so the original bytes are what the browser paints.
+const TRIM_CACHE = new Map();
+
+function trimInset(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h || w < 64 || h < 64) return 0;
+  let px;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    if (!cx) return 0;
+    cx.drawImage(img, 0, 0, w, h);
+    px = cx.getImageData(0, 0, w, h).data;
+  } catch {
+    // Tainted canvas or no 2d context — leave the picture alone.
+    return 0;
+  }
+  // Rec. 601 luma, matching the DeviceGray buffer iOS redraws into.
+  const gray = (x, y) => {
+    const o = (y * w + x) * 4;
+    return (px[o] * 299 + px[o + 1] * 587 + px[o + 2] * 114) / 1000;
+  };
+  // Never look further in than a tenth of the picture: past that it is the
+  // illustration, not a margin.
+  const win = Math.max(4, Math.floor(Math.min(w, h) * 0.10));
+  const edge = (sample) => {
+    let d = 0;
+    while (d < win && sample(d) >= 100) d += 1;
+    if (d >= win) return 0;          // no rule on this edge
+    let t = 0;
+    while (t < 3 && d + t < win && sample(d + t) < 100) t += 1;
+    return d + t;
+  };
+  const midY = Math.floor(h / 2), midX = Math.floor(w / 2);
+  const inset = Math.min(win, Math.max(
+    Math.max(edge((d) => gray(d, midY)), edge((d) => gray(w - 1 - d, midY))),
+    Math.max(edge((d) => gray(midX, d)), edge((d) => gray(midX, h - 1 - d))),
+  ));
+  if (inset <= 0 || w - 2 * inset <= 16 || h - 2 * inset <= 16) return 0;
+  return inset;
+}
+
+// Lay the image out as the cropped picture, contain-fitted into its square
+// plate. With no trim found the inline styles come off and the plain
+// object-fit:contain in the stylesheet takes over.
+function applyTrim(img, inset) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!inset || !w || !h) {
+    img.style.width = ''; img.style.height = ''; img.style.left = ''; img.style.top = '';
+    return;
+  }
+  const cw = w - 2 * inset, ch = h - 2 * inset;
+  const box = Math.max(cw, ch);            // the contain-fit divisor
+  img.style.width = (100 * w / box) + '%';
+  img.style.height = (100 * h / box) + '%';
+  img.style.left = (50 - 100 * (cw / 2 + inset) / box) + '%';
+  img.style.top = (50 - 100 * (ch / 2 + inset) / box) + '%';
+}
+
+export function trimCardArt(img) {
+  const run = () => {
+    const src = img.currentSrc || img.src;
+    let inset = TRIM_CACHE.get(src);
+    if (inset === undefined) { inset = trimInset(img); TRIM_CACHE.set(src, inset); }
+    applyTrim(img, inset);
+  };
+  if (img.complete && img.naturalWidth) run();
+  else img.addEventListener('load', run, { once: true });
+}
+
 export function initXi(root, ctx) {
   const { POOL, onOpenLibrary, onScreenChange, initialScreen } = ctx;
   const st = ctx.storage;
@@ -20,7 +105,6 @@ export function initXi(root, ctx) {
 
   const $ = (s) => root.querySelector(s);
   const esc = (s) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const UNDO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>';
 
   const card = (r) => POOL[r.d][r.i];
   const cap = (r) => card(r).cap;
@@ -61,7 +145,6 @@ export function initXi(root, ctx) {
   function missKey(shown) { return shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function memKey(shown) { return 'xi2_mem_' + shown.map((r) => r.d + r.i).slice().sort().join('-'); }
   function refsFromKey(k) { return k.replace('xi2_mem_', '').split('-').map((t) => ({ d: t.slice(0, 2), i: parseInt(t.slice(2), 10) })); }
-  function clone(a) { return a.map((r) => ({ d: r.d, i: r.i })); }
   const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
   const todayKey = () => new Date().toISOString().slice(0, 10);
   // Deterministic daily pair (for the gallery). Event and twist pools can differ
@@ -82,13 +165,12 @@ export function initXi(root, ctx) {
     return cands[((dn % cands.length) + cands.length) % cands.length];
   }
 
-  let S = { shown: [], hist: [], flip: 'tw' };
-  // Which day's pair is showing — ‹ › browse past days like the app's Today.
-  // Today shows YOUR live pair (S.shown, redraws and all); a past day shows
-  // that day's deterministic pair, read-only cards but a live composer.
-  let viewDay = dayNum();
-  const isToday = () => viewDay === dayNum();
-  const displayedPair = () => (isToday() ? S.shown : pairForDay(viewDay));
+  let S = { shown: [], flip: 'tw' };
+  // Today is always TODAY. The ‹ › day arrows are gone (Aug 2026): the web
+  // card of the day is now the iOS screen exactly, and the app has no day
+  // browsing here — the past-days grid is its own screen. `pairForDay` stays
+  // for that gallery.
+  const displayedPair = () => S.shown;
   function deckSig() { return POOL.ev.length + '-' + POOL.tw.length + '-' + (POOL.ev[0] ? POOL.ev[0].cap : ''); }
   // Start the two slots at opposite ends of the (shared) deck — event from the
   // front, twist from the back — so you're never comparing a card with itself.
@@ -129,29 +211,16 @@ export function initXi(root, ctx) {
     if (sanitizeShown()) await savePair();
   }
 
-  /* Today header — the app's "CARD OF THE DAY" row with ‹ › day arrows, then a
-     today-only row: undo (absolute left) · redraw · I got nothing. */
+  /* Today header — the app's masthead line: CARD OF THE DAY in Marcellus over
+     the date in a quiet italic (TodayView.header). No day arrows, no buttons:
+     the one redraw link lives with the cards, because its word depends on
+     whether this pair has been written on. */
   function renderCenter() {
-    const today = isToday();
-    const arrows = '<div class="day-nav">'
-      + '<button id="dayPrev" class="day-arrow" aria-label="Previous day">&lsaquo;</button>'
-      + '<span class="day-title">CARD OF THE DAY</span>'
-      + `<button id="dayNext" class="day-arrow" aria-label="Next day"${today ? ' disabled' : ''}>&rsaquo;</button>`
-      + '</div>';
-    const undo = (today && S.hist.length) ? `<button id="undoBtn" aria-label="Undo">${UNDO}</button>` : '';
-    const row = today
-      ? `<div class="redraw-row">${undo}<button class="redraw" id="newCardsBtn">redraw</button><button class="nothing" id="nothingBtn">I got nothing</button></div>`
-      : '<div class="redraw-row past"></div>';
-    $('#center').innerHTML = arrows + row;
-    $('#dayPrev').onclick = () => { viewDay -= 1; renderCenter(); renderToday(); };
-    const nx = $('#dayNext'); if (nx) nx.onclick = () => { if (!isToday()) { viewDay += 1; renderCenter(); renderToday(); } };
-    // Only the twist redraws — the event card is THE card of the day.
-    const nb = $('#newCardsBtn');
-    if (nb) nb.onclick = async () => { S.hist.push(clone(S.shown)); const k = S.shown.findIndex((r) => r.d === 'tw'); if (k >= 0) { S.shown[k] = { d: 'tw', i: stepI('tw', S.shown[k].i) }; } else { S.shown.push({ d: 'tw', i: prevI('tw', 0) }); } await savePair(); renderCenter(); softUpdateToday(); };
-    const ng = $('#nothingBtn'); if (ng) ng.onclick = gotNothing;
-    const u = $('#undoBtn'); if (u) u.onclick = async () => { if (!S.hist.length) return; S.shown = S.hist.pop(); await savePair(); renderCenter(); softUpdateToday(); };
+    const d = new Date();
+    const date = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    $('#center').innerHTML = '<div class="dc-eyebrow">CARD OF THE DAY</div>'
+      + `<div class="dc-date">${esc(date)}</div>`;
   }
-  function closeMenu() { root.querySelectorAll('.cardmenu').forEach((m) => m.remove()); }
   // Shared curate toggles (love / remove). Resolve a card's role-key(s),
   // handling interchangeable cards that occupy both the event and twist pools so
   // ♥/✕ affect the card in both roles. Used by both the Curate grid and the
@@ -178,48 +247,34 @@ export function initXi(root, ctx) {
       await saveLoved(); await saveExcluded();
     }
   }
-  function showCardMenu(el, k) {
-    closeMenu(); const m = document.createElement('div'); m.className = 'cardmenu';
-    const d = S.shown[k].d, i = S.shown[k].i;
-    const isLoved = curateRoleKeys(d, i).some((key) => loved.has(key));
-    m.innerHTML = `<div class="cm-iconrow">`
-      + `<button class="cm-icon cm-love${isLoved ? ' on' : ''}" data-a="love" aria-label="Love this card" title="Love">${isLoved ? '♥' : '♡'}</button>`
-      + `<button class="cm-icon cm-x" data-a="x" aria-label="Remove this card" title="Remove">✕</button>`
-      + `</div><button data-a="replace">Replace</button>`;
-    el.appendChild(m);
-    m.querySelector('[data-a=replace]').onclick = async (e) => { e.stopPropagation(); S.hist.push(clone(S.shown)); const dd = S.shown[k].d; S.shown[k] = { d: dd, i: stepI(dd, S.shown[k].i) }; await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
-    // Love: toggle in place (card stays); just reflect the new heart state.
-    m.querySelector('[data-a=love]').onclick = async (e) => {
-      e.stopPropagation();
-      await curateToggle(d, i, 'love');
-      const lb = m.querySelector('[data-a=love]'); const now = curateRoleKeys(d, i).some((key) => loved.has(key));
-      lb.classList.toggle('on', now); lb.textContent = now ? '♥' : '♡';
-    };
-    // Remove: exclude the card from play, then swap in a fresh one in its place.
-    m.querySelector('[data-a=x]').onclick = async (e) => { e.stopPropagation(); await curateToggle(d, i, 'x'); if (sanitizeShown()) await savePair(); closeMenu(); renderCenter(); softUpdateToday(); };
-    setTimeout(() => document.addEventListener('click', function h(ev) { if (!ev.target.closest('.cardmenu')) { closeMenu(); document.removeEventListener('click', h, true); } }, true), 0);
+  // ── The card of the day, as the iOS app draws it ───────────────────────
+  // Ported from ios-xi/XI/TodayView.swift (the settled "2a" direction out of
+  // design/xi-redesign, "deco tarot, refined"), so the two screens are the
+  // same screen. Everything here has a named counterpart there; the only part
+  // deliberately left out is the app's "others" section (AI-written and shared
+  // memories), which needs services the web app doesn't have yet.
+
+  // The composer: the artboard's write box — an italic placeholder, and a
+  // lowercase italic "save" on ink in the bottom-right corner. The old
+  // collected-count line is gone; the fill bar above the box says it now.
+  function composerHtml(one) {
+    const ph = one ? 'Write the memory\u2026' : 'Write the memory\u2026';
+    return `<div class="dc-composer"><textarea placeholder="${ph}"></textarea>`
+      + `<div class="dc-composer-row"><button class="dc-save" id="saveBtn">save</button></div></div>`;
   }
-  function autoReplace(k) { S.hist.push(clone(S.shown)); const d = S.shown[k].d; S.shown[k] = { d, i: stepI(d, S.shown[k].i) }; savePair().then(() => { renderCenter(); softUpdateToday(); }); }
-  async function gotNothing() { const mk = missKey(S.shown); const m = (await st.get('xi2_misses')) || {}; if (m[mk]) { delete m[mk]; } else { m[mk] = 1; } await st.set('xi2_misses', m); softUpdateToday(); }
-  function tapcard(el, k) { let n = 0, t = null; el.addEventListener('click', (e) => { e.preventDefault(); n++; if (t) clearTimeout(t); t = setTimeout(() => { const c = n; n = 0; t = null; if (c >= 3) { closeMenu(); autoReplace(k); } else { showCardMenu(el, k); } }, 300); }); }
-  // The composer (textbox + Save) and the collected-memories list are rendered
-  // separately so that, while writing, the cards + composer can be pinned above
-  // the keyboard as one sheet and the memories tuck below.
-  // The bottom row mirrors the app's: today's collected count on the left
-  // (italic, never "0"), the quiet ink-outline Save on the right.
-  function composerHtml(one, todayN) {
-    const ph = one ? 'Add your memory&hellip;' : 'A memory that\'s both of these&hellip;';
-    const line = todayN > 0 ? `${todayN} ${todayN === 1 ? 'memory' : 'memories'} collected` : '';
-    return `<div class="composer"><textarea placeholder="${ph}"></textarea><div class="composer-row"><span class="count-line">${line}</span><button class="btn small" id="saveBtn">Save</button></div></div>`;
-  }
+
+  // Collected: a small-caps rule header, then each memory straight on its own
+  // light-outlined card — no tilt, no shadow, its own island (TodayView.collected).
   function memsHtml(arr) {
-    return `<div class="today-mems">`
-      + arr.map((m) => `<div class="mem"><div class="txt">${esc(m.text)}</div></div>`).join('')
-      + `</div>`;
+    if (!arr.length) return '<div class="dc-collected"></div>';
+    return '<div class="dc-collected">'
+      + '<div class="dc-collected-hd"><span>COLLECTED</span><i></i></div>'
+      + arr.map((m) => `<div class="dc-mem">${esc(m.text)}</div>`).join('')
+      + '</div>';
   }
-  // The piggy-bank bar — a golden thermometer that fills as you collect
-  // memories today, full at five (the app's piggyBar). Flat gold fill (house
-  // rule: no gradients); the full-bar glow is the one sanctioned shadow.
+
+  // The gold fill bar above the write box — five ticks, filled by the day's
+  // collected count out of five. The ONE element that keeps its gilt.
   const PIGGY_GOAL = 5;
   async function todayCount() {
     const start = new Date(); start.setHours(0, 0, 0, 0); const s = start.getTime();
@@ -231,56 +286,107 @@ export function initXi(root, ctx) {
   function piggyHtml(n) {
     const frac = Math.min(1, n / PIGGY_GOAL);
     const ticks = Array.from({ length: PIGGY_GOAL - 1 }, (_, k) => `<i style="left:${((k + 1) / PIGGY_GOAL) * 100}%"></i>`).join('');
-    return `<div class="piggy${frac >= 1 ? ' full' : ''}" role="img" aria-label="${piggyLabel(n)}"><span class="piggy-fill" style="width:max(7px,${frac * 100}%)"></span>${ticks}</div>`;
+    // Always a sliver of gold at the very left, even at zero — the bar should
+    // show what it's going to do before you fill it (TodayView.fillBar).
+    return `<div class="dc-bar" role="img" aria-label="${piggyLabel(n)}"><span class="dc-bar-fill" style="width:max(5px,${frac * 100}%)"></span>${ticks}</div>`;
   }
-  function wireSave() {
-    const ta = $('#cardSlot textarea'); const sb = $('#saveBtn');
-    if (sb) sb.onclick = async () => { const v = ta.value.trim(); if (!v) return; const key = memKey(displayedPair()); const a = (await st.get(key)) || []; a.unshift({ text: v, ts: Date.now() }); await st.set(key, a); softUpdateToday(); };
-  }
-  async function cardBack(k) { const r = S.shown[k]; S.hist.push(clone(S.shown)); S.shown[k] = { d: r.d, i: (r.i - 1 + poolLen(r.d)) % poolLen(r.d) }; await savePair(); renderCenter(); softUpdateToday(); }
 
-  // Full render — used on screen entry / structural changes. A past day's
-  // cards are read-only (no tap menu, no per-card back), but the composer
-  // still saves onto that day's pair, like the app.
+  // ONE quiet italic link, not two. Both labels draw new cards; the word is
+  // what changes, and it changes with what you did with the pair in front of
+  // you — nothing to say about it, or something already said. "i got nothing"
+  // also keeps the old button's record: the pair is marked a miss on the way
+  // past (xi2_misses), one direction only.
+  function linkHtml(hasMems) {
+    return `<button class="dc-link" id="newCardsBtn">${hasMems ? 'new cards' : 'i got nothing'}</button>`;
+  }
+  async function markNothing() {
+    const mk = missKey(S.shown);
+    const m = (await st.get('xi2_misses')) || {};
+    if (m[mk]) return;
+    m[mk] = 1; await st.set('xi2_misses', m);
+  }
+  async function newCards(hadMems) {
+    if (!hadMems) await markNothing();
+    // Only the twist redraws — the event card is THE card of the day.
+    const k = S.shown.findIndex((r) => r.d === 'tw');
+    if (k >= 0) { S.shown[k] = { d: 'tw', i: stepI('tw', S.shown[k].i) }; }
+    else { S.shown.push({ d: 'tw', i: prevI('tw', 0) }); }
+    await savePair(); softUpdateToday();
+  }
+
+  function cardsHtml(shown, missed) {
+    // ±2.5° either way, the artboard's tilt.
+    const tilt = [-2.5, 2.5];
+    return `<div class="dc-cards${missed ? ' missed' : ''}" data-n="${shown.length}">`
+      + shown.map((r, k) => {
+        const c = card(r);
+        const t = tilt[k] !== undefined ? tilt[k] : 0;
+        const inner = c.img
+          ? `<span class="dc-art"><img decoding="async" src="${c.img}" alt="${esc(cap(r))}"></span>`
+          : `<span class="dc-cap">${esc(cap(r))}</span>`;
+        return `<div class="dc-card" data-k="${k}" style="transform:rotate(${t}deg)"><div class="dc-plate">${inner}</div></div>`;
+      }).join('')
+      + '</div>';
+  }
+
+  function wireToday(hasMems) {
+    const ta = $('#cardSlot textarea'); const sb = $('#saveBtn');
+    if (sb) sb.onclick = async () => {
+      const v = ta.value.trim(); if (!v) return;
+      const key = memKey(displayedPair()); const a = (await st.get(key)) || [];
+      a.unshift({ text: v, ts: Date.now() }); await st.set(key, a);
+      softUpdateToday();
+    };
+    const nb = $('#newCardsBtn');
+    if (nb) nb.onclick = () => newCards(hasMems);
+    root.querySelectorAll('#cardSlot .dc-art img').forEach(trimCardArt);
+  }
+
+  // Full render — used on screen entry / structural changes.
   async function renderToday() {
-    const shown = displayedPair(); const today = isToday();
-    const arr = (await st.get(memKey(shown))) || []; const one = shown.length === 1; const misses = (await st.get('xi2_misses')) || {}; const missed = today && !!misses[missKey(shown)];
+    const shown = displayedPair();
+    const arr = (await st.get(memKey(shown))) || []; const one = shown.length === 1;
+    const misses = (await st.get('xi2_misses')) || {}; const missed = !!misses[missKey(shown)];
     const cnt = await todayCount();
-    const cards = `<div class="cardrow ${missed ? 'missed' : ''}" data-n="${shown.length}">` + shown.map((r, k) => `<div class="card" data-k="${k}"><img decoding="async" src="${card(r).img}" alt="${esc(cap(r))}">${today ? `<button class="cardback" data-k="${k}" aria-label="Back">${UNDO}</button>` : ''}</div>`).join('') + `</div>`;
-    const piggy = today ? piggyHtml(cnt) : '';
-    $('#cardSlot').innerHTML = `<div class="today-stage"><div class="today-sheet">${cards}${piggy}${composerHtml(one, cnt)}</div></div>` + memsHtml(arr);
-    if (today) {
-      root.querySelectorAll('#cardSlot .card').forEach((el) => tapcard(el, +el.dataset.k));
-      root.querySelectorAll('#cardSlot .cardback').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); cardBack(+b.dataset.k); }; });
-    }
-    wireSave();
+    $('#cardSlot').innerHTML = cardsHtml(shown, missed)
+      + linkHtml(arr.length > 0)
+      + piggyHtml(cnt)
+      + composerHtml(one)
+      + memsHtml(arr);
+    wireToday(arr.length > 0);
   }
 
   // Soft update — swap only the changed card images + the memory block, leaving
-  // the card DOM (and its handlers) intact so nothing flashes on redraw/Replace.
+  // the card DOM intact so nothing flashes on redraw.
   async function softUpdateToday() {
-    const shown = displayedPair(); const today = isToday();
-    const row = $('#cardSlot .cardrow');
-    const imgs = row ? row.querySelectorAll('.card > img') : [];
-    if (!row || imgs.length !== shown.length) { return renderToday(); }
-    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', today && !!misses[missKey(shown)]);
-    shown.forEach((r, k) => { const src = card(r).img; if (imgs[k].getAttribute('src') !== src) { imgs[k].src = src; imgs[k].alt = esc(cap(r)); } });
+    const shown = displayedPair();
+    const row = $('#cardSlot .dc-cards');
+    const imgs = row ? row.querySelectorAll('.dc-art img') : [];
+    if (!row || imgs.length !== shown.filter((r) => card(r).img).length) { return renderToday(); }
+    const misses = (await st.get('xi2_misses')) || {}; row.classList.toggle('missed', !!misses[missKey(shown)]);
+    let n = 0;
+    shown.forEach((r) => {
+      const c = card(r); if (!c.img) return;
+      const img = imgs[n]; n += 1;
+      if (img.getAttribute('src') !== c.img) { img.src = c.img; img.alt = esc(cap(r)); img.style.removeProperty('--trim'); trimCardArt(img); }
+    });
     const arr = (await st.get(memKey(shown))) || []; const one = shown.length === 1;
     const cnt = await todayCount();
-    // Piggy: animate the fill in place so a save visibly tops it up.
-    const pig = $('#cardSlot .piggy');
-    if (pig && today) {
+    // The bar animates its fill in place so a save visibly tops it up.
+    const pig = $('#cardSlot .dc-bar');
+    if (pig) {
       const frac = Math.min(1, cnt / PIGGY_GOAL);
-      const fill = pig.querySelector('.piggy-fill');
-      if (fill) fill.style.width = `max(7px,${frac * 100}%)`;
-      pig.classList.toggle('full', frac >= 1);
+      const fill = pig.querySelector('.dc-bar-fill');
+      if (fill) fill.style.width = `max(5px,${frac * 100}%)`;
       pig.setAttribute('aria-label', piggyLabel(cnt));
-    } else if (pig && !today) { pig.remove(); }
-    const comp = $('#cardSlot .composer'); if (comp) comp.outerHTML = composerHtml(one, cnt);
-    const mems = $('#cardSlot .today-mems');
+    }
+    const lk = $('#cardSlot .dc-link'); if (lk) lk.outerHTML = linkHtml(arr.length > 0);
+    const comp = $('#cardSlot .dc-composer'); if (comp) comp.outerHTML = composerHtml(one);
+    const mems = $('#cardSlot .dc-collected');
     if (mems) mems.outerHTML = memsHtml(arr); else $('#cardSlot').insertAdjacentHTML('beforeend', memsHtml(arr));
-    wireSave();
+    wireToday(arr.length > 0);
   }
+
   /* curate — checkboxes at the top toggle whole decks in/out of play; below,
      each card has ♥ (love) and ✕ (remove). Interchangeable cards (rendered once)
      toggle both their event and twist roles together; split-deck cards toggle
@@ -370,7 +476,7 @@ export function initXi(root, ctx) {
     const bar = gsel.length === 2 ? `<button class="usepair" id="usePairBtn">Add a memory with these &rarr;</button>` : `<div class="selhint">${gsel.length === 1 ? 'Pick one more card' : 'Tap any two cards to pair them'}</div>`;
     $('#gallerySlot').innerHTML = `<div class="selbar">${bar}</div><div class="gallerygrid">${cells}</div>`;
     root.querySelectorAll('#gallerySlot .galcard').forEach((b) => b.onclick = () => { const r = { d: b.dataset.d, i: +b.dataset.i }; const idx = gsel.findIndex((g) => g.d === r.d && g.i === r.i); if (idx >= 0) gsel.splice(idx, 1); else { if (gsel.length >= 2) gsel.shift(); gsel.push(r); } renderGallery(); });
-    const up = $('#usePairBtn'); if (up) up.onclick = async () => { S.shown = gsel.slice().sort((a, b) => a.d === b.d ? 0 : (a.d === 'ev' ? -1 : 1)).map((r) => ({ d: r.d, i: r.i })); S.hist = []; S.flip = 'tw'; gsel = []; viewDay = dayNum(); await savePair(); renderCenter(); showScreen('today'); renderToday(); };
+    const up = $('#usePairBtn'); if (up) up.onclick = async () => { S.shown = gsel.slice().sort((a, b) => a.d === b.d ? 0 : (a.d === 'ev' ? -1 : 1)).map((r) => ({ d: r.d, i: r.i })); S.flip = 'tw'; gsel = []; await savePair(); renderCenter(); showScreen('today'); renderToday(); };
   }
 
   /* library: XI memories grouped under their card pair, newest first */
@@ -387,7 +493,7 @@ export function initXi(root, ctx) {
       const mems = g.arr.map((m) => `<div class="libmem">${esc(m.text)}</div>`).join('');
       return `<div class="libgroup"><button class="libcards" data-key="${esc(g.key)}">${imgs}</button><div class="libmems">${mems}</div></div>`;
     }).join('');
-    root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.hist = []; S.flip = 'tw'; viewDay = dayNum(); await savePair(); renderCenter(); showScreen('today'); renderToday(); });
+    root.querySelectorAll('#librarySlot .libcards').forEach((b) => b.onclick = async () => { S.shown = refsFromKey(b.dataset.key); S.flip = 'tw'; await savePair(); renderCenter(); showScreen('today'); renderToday(); });
   }
 
   const SCREENS = ['today', 'curate', 'board', 'gallery', 'library'];
@@ -402,6 +508,9 @@ export function initXi(root, ctx) {
     SCREENS.forEach((s) => { const el = $('#screen-' + s); if (el) el.style.display = (s === name) ? '' : 'none'; });
     // Deck toggles ride in the brand header only on Curate.
     const bt = $('#brandToggles'); if (bt) bt.style.display = (name === 'curate') ? 'flex' : 'none';
+    // Today draws its own Marcellus masthead inside the frame, so the animated
+    // XI wordmark header stands down there (two XI marks would stack).
+    root.classList.toggle('on-today', name === 'today');
     try {
       $('#navToday').classList.toggle('on', name === 'today'); $('#navCurate').classList.toggle('on', name === 'curate'); $('#navBoard').classList.toggle('on', name === 'board'); $('#navGallery').classList.toggle('on', name === 'gallery'); $('#navLibrary').classList.toggle('on', name === 'library');
       // Nav is visible on arrival to every screen (incl. the board). On the
@@ -444,22 +553,25 @@ export function initXi(root, ctx) {
   // Nav hide/show: slide the bottom nav away while writing (textarea focused /
   // keyboard up). On the board it's hidden by default; the grabber handle
   // brings it back, and tapping a card tucks it away again.
-  // Today writing: pin the cards + composer above the keyboard the same way the
-  // Board does — size the fixed .today-stage layer to the visual viewport (iOS
-  // Safari ignores interactive-widget, so we drive it from visualViewport), and
-  // CSS bottom-anchors the .today-sheet inside it. Uses only visualViewport
-  // offsetTop/height — never window.innerHeight, which jumps with Safari's
-  // floating address bar and caused the wrong-height gaps.
+  // Today writing: the framed page ENDS at the top of the keyboard, and the
+  // composer is scrolled to sit just above it — the app's own behaviour
+  // (TodayView pads by the keyboard height and scrolls the composer up).
+  // #screen-today is a fixed layer, so the keyboard doesn't shrink it on its
+  // own; drive it from visualViewport (iOS Safari ignores interactive-widget),
+  // and use only offsetTop/height — never window.innerHeight, which jumps with
+  // Safari's floating address bar and caused wrong-height gaps.
   const vv = window.visualViewport;
   function positionStage() {
-    const stage = $('#cardSlot .today-stage');
-    if (!stage) return;
+    const scr = $('#screen-today');
+    if (!scr) return;
     if (root.classList.contains('today-writing') && vv) {
-      stage.style.top = vv.offsetTop + 'px';
-      stage.style.height = vv.height + 'px';
+      scr.style.top = vv.offsetTop + 'px';
+      scr.style.height = vv.height + 'px';
+      scr.style.bottom = 'auto';
+      const comp = $('#cardSlot .dc-composer');
+      if (comp) comp.scrollIntoView({ block: 'end', behavior: 'smooth' });
     } else {
-      stage.style.top = '';
-      stage.style.height = '';
+      scr.style.top = ''; scr.style.height = ''; scr.style.bottom = '';
     }
   }
   if (vv) { vv.addEventListener('resize', positionStage); vv.addEventListener('scroll', positionStage); }
