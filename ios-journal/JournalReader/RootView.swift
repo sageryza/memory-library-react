@@ -1,7 +1,7 @@
 import SwiftUI
 import Combine
 
-/// The app shell: hosts the five destinations behind one bottom nav. All tabs
+/// The app shell: hosts the destinations behind one bottom nav. All tabs
 /// stay mounted (via a ZStack) so switching away from the Journal mid-edit never
 /// loses the current page or unsaved transcription. The nav hides while the
 /// keyboard is up so it doesn't crowd typing.
@@ -17,6 +17,7 @@ struct RootView: View {
             screen(.memos)    { MemosView() }
             screen(.towers)     { TowersView() }
             screen(.setBuilder) { SetBuilderView() }
+            screen(.feed)       { FeedView() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.ignoresSafeArea())

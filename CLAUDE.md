@@ -122,6 +122,17 @@ domain** — a chat did exactly that on 2026-08-18/19, but for
 `youwereinmydreams.com`, and that work fills the feed around those dates. Read
 the API before believing a step is done.
 
+## JournalReader — the Reels tab (2026-10-23)
+"It should be its own tab goes straight to reels": `ios-journal/JournalReader/FeedView.swift`
+is imageforge's Journal feed page (her journal as Instagram) in a web view,
+opened on Reels. It asks imageforge which version is newest (`GET
+/api/smalltools`, the `journal` tool) and loads it `?embed=1#reels`, so a new
+version of the page needs no app build. The page tells the tab when it goes
+dark (the `journalFeed` message handler) so the strip over the status bar
+matches, and a reel's sound is held while another tab shows. Full notes:
+imageforge `docs/journal-feed/README.md` (v11). Still open, hers: the feed's
+own floating bar sits over the bottom of a reel, and where its buttons go.
+
 ## Journal timeline — banding categories
 The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
 entry into 6 types: day / dreams / ideas / abstract / todos / drawings.

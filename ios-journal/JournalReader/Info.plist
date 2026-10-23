@@ -9,6 +9,10 @@
 	<string>Journal uses the microphone so you can dictate the transcription of a page.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Journal transcribes your speech on this device to fill in a page's text.</string>
+	<!-- The Reels tab's feed can post a photo, and its picker offers Take Photo:
+	     without this string iOS ends the app on that tap. -->
+	<key>NSCameraUsageDescription</key>
+	<string>JournalReader uses the camera when you take a photo to post to your journal feed.</string>
 	<!-- Let the Files app browse the app's Documents so you can drop journal PDFs in. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
