@@ -130,8 +130,9 @@ opened on Reels. It asks imageforge which version is newest (`GET
 version of the page needs no app build. The page tells the tab when it goes
 dark (the `journalFeed` message handler) so the strip over the status bar
 matches, and a reel's sound is held while another tab shows. Full notes:
-imageforge `docs/journal-feed/README.md` (v11). Still open, hers: the feed's
-own floating bar sits over the bottom of a reel, and where its buttons go.
+imageforge `docs/journal-feed/README.md` (v11, v12). Inside this tab the
+feed has no floating bar since v12 ("get rid of bottom bar"): the page drops
+it when it sees the `journalFeed` handler, so no app build was needed.
 
 ## Journal timeline — banding categories
 The in-app timeline (`ios-journal/JournalReader/journal_timeline.html`) bands each
