@@ -1,6 +1,6 @@
 name: ImageForge Screens
 
-# Boots ImageForge (the Deck Factory app, which lives in the PUBLIC
+# Boots ImageForge (the Deck Factory app, which lives in the PRIVATE
 # sageryza/imageforge repo) in an iOS simulator, walks every top-level screen
 # via its deckfactory:// deep links, and uploads a screenshot of each as an
 # artifact. A self-QA loop: native + hybrid (webview) layout gets seen in CI
@@ -21,12 +21,13 @@ jobs:
     timeout-minutes: 45
     steps:
       # ImageForge's project builds from ios/; check it out at the workspace root.
-      - name: Checkout ImageForge (public) at workspace root
+      - name: Checkout ImageForge (private) at workspace root
         uses: actions/checkout@v4
         with:
           repository: sageryza/imageforge
           ref: ${{ inputs.imageforge_ref || 'main' }}
           token: ${{ secrets.IMAGEFORGE_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Select newest Xcode
         run: |

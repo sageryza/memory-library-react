@@ -1,6 +1,6 @@
 name: Secretly a Witch TestFlight
 
-# Builds the Secretly a Witch app (the SecretlyAWitch target in the PUBLIC
+# Builds the Secretly a Witch app (the SecretlyAWitch target in the PRIVATE
 # sageryza/imageforge repo's ios/ project — a native shell around the deployed
 # /witch web app) from here, reusing this repo's App Store Connect secrets.
 # Mirrors imageforge-testflight.yml, minus the icon-inject and project-patch
@@ -27,12 +27,13 @@ jobs:
     steps:
       # The Fastfile builds from $GITHUB_WORKSPACE/ios (a reserved var), so
       # imageforge is checked out AT the workspace root and tooling in a subdir.
-      - name: Checkout ImageForge (public) at workspace root
+      - name: Checkout ImageForge (private) at workspace root
         uses: actions/checkout@v4
         with:
           repository: sageryza/imageforge
           ref: ${{ inputs.imageforge_ref || 'main' }}
           token: ${{ secrets.IMAGEFORGE_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Checkout tooling (this repo)
         uses: actions/checkout@v4

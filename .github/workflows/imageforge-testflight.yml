@@ -1,6 +1,6 @@
 name: ImageForge TestFlight
 
-# Builds the ImageForge app (which lives in the PUBLIC sageryza/imageforge repo)
+# Builds the ImageForge app (which lives in the PRIVATE sageryza/imageforge repo)
 # from here, reusing this repo's App Store Connect secrets — so no secrets need
 # to be added to the imageforge repo. Checks out both repos, creates the App
 # Store Connect app record via fastlane produce (idempotent), revokes stale
@@ -27,12 +27,13 @@ jobs:
       # ImageForge's Fastfile builds from $GITHUB_WORKSPACE/ios, and GITHUB_WORKSPACE
       # is a reserved var a workflow can't override — so check ImageForge out AT the
       # workspace root (no path) and put our tooling in a subdir.
-      - name: Checkout ImageForge (public) at workspace root
+      - name: Checkout ImageForge (private) at workspace root
         uses: actions/checkout@v4
         with:
           repository: sageryza/imageforge
           ref: ${{ inputs.imageforge_ref || 'main' }}
           token: ${{ secrets.IMAGEFORGE_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Checkout tooling (this repo)
         uses: actions/checkout@v4
