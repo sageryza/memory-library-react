@@ -16,12 +16,13 @@ jobs:
   screenshots:
     runs-on: macos-15
     steps:
-      - name: Checkout ImageForge (public) at workspace root
+      - name: Checkout ImageForge (private) at workspace root
         uses: actions/checkout@v4
         with:
           repository: sageryza/imageforge
           ref: ${{ inputs.imageforge_ref || 'main' }}
           token: ${{ secrets.IMAGEFORGE_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Select newest Xcode
         run: |
