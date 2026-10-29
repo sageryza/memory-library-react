@@ -55,6 +55,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from setup_internal_testing import token, api  # reuse the JWT + API helpers
 
+BASE_V2 = "https://api.appstoreconnect.apple.com/v2"  # availability lives on v2
+
 # field -> (resource, max length or None). Apple enforces these too, but it
 # answers with a generic 409, so check here and say which field is too long.
 VERSION_FIELDS = {
@@ -223,6 +225,95 @@ def copied_contact(bundle):
     die(f"{COPY_KEY}: {bundle} has no App Review contact to copy")
 
 
+def apple_error(st, d):
+    """The status plus Apple's own error code, e.g. "403 FORBIDDEN.REQUIRED_
+    AGREEMENTS_MISSING_OR_EXPIRED" — the code is what says why."""
+    errs = d.get("errors") if isinstance(d, dict) else None
+    code = (errs[0].get("code") or "") if errs else ""
+    return f"{st} {code}".strip()
+
+
+def readiness(app, ver, info, ver_locs):
+    """A dry run also reads what Apple needs before this version can be
+    submitted and this script cannot write: category, age rating, price,
+    availability, content rights, copyright, screenshots, the build. All
+    GETs; a read Apple refuses is printed with its error code, never fatal."""
+    print("\n--- before submitting (read only) ---")
+
+    def get(path):
+        st, d = api("GET", path, tok)
+        if st == 200 and isinstance(d, dict):
+            return d, None
+        return None, apple_error(st, d)
+
+    rights = app["attributes"].get("contentRightsDeclaration")
+    print(f"  content rights: {rights or '(unset)'}")
+
+    d, err = get(f"/appStoreVersions/{ver['id']}?fields[appStoreVersions]=copyright")
+    copyright_ = ((d or {}).get("data") or {}).get("attributes", {}).get("copyright")
+    print(f"  copyright: {copyright_ or err or '(unset)'}")
+
+    d, err = get(f"/appInfos/{info['id']}/primaryCategory")
+    cat = (d or {}).get("data")
+    print(f"  primary category: {cat['id'] if cat else err or '(unset)'}")
+
+    d, err = get(f"/appInfos/{info['id']}/ageRatingDeclaration")
+    if d and d.get("data"):
+        attrs = d["data"].get("attributes") or {}
+        unset = sorted(k for k, v in attrs.items() if v is None)
+        print(f"  age rating: {len(attrs) - len(unset)} of {len(attrs)} answers set"
+              + (f"; unset: {', '.join(unset)}" if unset else ""))
+    else:
+        print(f"  age rating: {err or '(no declaration)'}")
+
+    d, err = get(f"/apps/{app['id']}/appPriceSchedule")
+    if d and d.get("data"):
+        p, perr = get(f"/appPriceSchedules/{d['data']['id']}/manualPrices"
+                      "?include=appPricePoint&limit=5")
+        points = [i["attributes"].get("customerPrice") for i in (p or {}).get("included", [])
+                  if i.get("type") == "appPricePoints"]
+        print(f"  price: {', '.join(str(x) for x in points) if points else perr or '(schedule, no prices)'}")
+    else:
+        print(f"  price: {err or '(unset)'}")
+
+    d, err = get(f"/apps/{app['id']}/appAvailabilityV2")
+    if d and d.get("data"):
+        t, terr = get(BASE_V2 + f"/appAvailabilities/{d['data']['id']}"
+                      "/territoryAvailabilities?limit=200&fields[territoryAvailabilities]=available")
+        n = sum(1 for x in (t or {}).get("data", []) if x["attributes"].get("available"))
+        print(f"  availability: {n} territories" if t else f"  availability: {terr}")
+    else:
+        print(f"  availability: {err or '(unset)'}")
+
+    for loc in ver_locs:
+        d, err = get(f"/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets?limit=50")
+        sets = (d or {}).get("data", [])
+        shown = []
+        for s in sets:
+            sd, _ = get(f"/appScreenshotSets/{s['id']}/appScreenshots?limit=50")
+            shown.append(f"{s['attributes'].get('screenshotDisplayType')} "
+                         f"x{len((sd or {}).get('data', []))}")
+        print(f"  screenshots [{loc['attributes'].get('locale')}]: "
+              f"{', '.join(shown) if shown else err or 'none'}")
+
+    d, err = get(f"/appStoreVersions/{ver['id']}/build")
+    b = (d or {}).get("data")
+    print(f"  build on this version: {b['attributes'].get('version') if b else err or 'none'}")
+    d, err = get(f"/builds?filter[app]={app['id']}&sort=-uploadedDate&limit=3"
+                 "&fields[builds]=version,uploadedDate,processingState,expired")
+    for b in (d or {}).get("data", []):
+        a = b["attributes"]
+        print(f"  build {a.get('version')}: {a.get('processingState')}"
+              f"{', expired' if a.get('expired') else ''}, uploaded {a.get('uploadedDate')}")
+    if err:
+        print(f"  builds: {err}")
+
+    d, err = get(f"/reviewSubmissions?filter[app]={app['id']}&limit=5")
+    subs = [s["attributes"].get("state") for s in (d or {}).get("data", [])]
+    print(f"  review submissions: {', '.join(subs) if subs else err or 'none'}")
+    print("  App Privacy: not in Apple's API — only App Store Connect shows it")
+
+
 def main():
     global tok
     tok = token()
@@ -261,6 +352,7 @@ def main():
 
     # ---- the appStoreVersion (description, keywords, promo text, what's new)
     ver = None
+    ver_locs = []
     if ver_fields or review_fields or dry:
         st, d = api("GET", f"/apps/{app_id}/appStoreVersions?limit=10"
                            "&fields[appStoreVersions]=versionString,appVersionState,platform", tok)
@@ -290,7 +382,7 @@ def main():
                            "?limit=20", tok)
         if st != 200:
             die(f"list version localizations: {st} {d}")
-        locs = d.get("data", [])
+        locs = ver_locs = d.get("data", [])
         if dry:
             for loc in locs:
                 show(loc["attributes"], VERSION_FIELDS,
@@ -358,6 +450,7 @@ def main():
             print(f"\napp review details: wrote {', '.join(sorted(review_fields))}")
 
     if dry:
+        readiness(app, ver, info, ver_locs)
         print("\nDRY_RUN — nothing was written. Re-run with dry_run=false to apply.")
     else:
         print("\ndone. The changes are saved on the version but NOT submitted — "
