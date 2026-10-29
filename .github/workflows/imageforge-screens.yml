@@ -26,6 +26,7 @@ jobs:
         with:
           repository: sageryza/imageforge
           ref: ${{ inputs.imageforge_ref || 'main' }}
+          token: ${{ secrets.IMAGEFORGE_TOKEN || github.token }}
 
       - name: Select newest Xcode
         run: |
