@@ -49,6 +49,30 @@ def fake_api(method, path, tok, body=None):
             "demoAccountPassword": "hunter2secret"}}}
     if method in ("PATCH", "POST"):
         return 200, {"data": {"id": "new"}}
+    # the read-only "before submitting" block of a dry run
+    if path.startswith("/appStoreVersions/V9?fields"):
+        return 200, {"data": {"id": "V9", "attributes": {"copyright": None}}}
+    if path.startswith("/appInfos/I_edit/primaryCategory"):
+        return 200, {"data": None}
+    if path.startswith("/appInfos/I_edit/ageRatingDeclaration"):
+        return 200, {"data": {"id": "AR1", "attributes": {
+            "gambling": False, "horrorOrFearThemes": None, "unrestrictedWebAccess": None}}}
+    if path.startswith("/apps/APP1/appPriceSchedule"):
+        return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/apps/APP1/appAvailabilityV2"):
+        return 403, {"errors": [{"code": "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED"}]}
+    if path.startswith("/appStoreVersionLocalizations/L1/appScreenshotSets"):
+        return 200, {"data": [{"id": "SS1", "attributes": {"screenshotDisplayType": "APP_IPHONE_67"}}]}
+    if path.startswith("/appScreenshotSets/SS1/appScreenshots"):
+        return 200, {"data": [{"id": "a"}, {"id": "b"}]}
+    if path.startswith("/appStoreVersions/V9/build"):
+        return 200, {"data": None}
+    if path.startswith("/builds?filter[app]=APP1"):
+        return 200, {"data": [{"id": "B39", "attributes": {
+            "version": "39", "processingState": "VALID", "expired": False,
+            "uploadedDate": "2026-10-15T13:24:00-07:00"}}]}
+    if path.startswith("/reviewSubmissions?filter[app]=APP1"):
+        return 200, {"data": []}
     raise AssertionError(f"unstubbed {method} {path}")
 
 
@@ -213,6 +237,21 @@ check("an app with no contact is refused, nothing written",
       code == 1 and "no App Review contact" in out
       and not [c for c in calls if c[0] in ("PATCH", "POST")], out)
 STATE["no_contact"] = False
+
+print("9. a dry run also reads what is missing before submitting, and writes nothing")
+code, out = run(DRY_RUN="true")
+check("exits clean", code == 0, f"code={code} out={out}")
+check("no writes issued", not [c for c in calls if c[0] in ("PATCH", "POST")])
+for line in ("content rights: (unset)", "copyright: (unset)", "primary category: (unset)",
+             "age rating: 1 of 3 answers set; unset: horrorOrFearThemes, unrestrictedWebAccess",
+             "price: 404 NOT_FOUND",
+             "availability: 403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED",
+             "screenshots [en-US]: APP_IPHONE_67 x2", "build on this version: none",
+             "build 39: VALID", "review submissions: none", "App Privacy: not in Apple's API"):
+    check(f"says '{line}'", line in out, out)
+code, out = run(DRY_RUN="false", KEYWORDS="witch,tarot,moon")
+check("a write does not run the reads",
+      "before submitting" not in out and not [c for c in calls if "/primaryCategory" in c[1]], out)
 
 print()
 print("FAILED: " + ", ".join(fails) if fails else "all checks passed")
