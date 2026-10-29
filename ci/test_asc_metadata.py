@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # --- stub the API before asc_metadata imports it -------------------------
 calls = []
-STATE = {"ver_state": "REJECTED", "no_contact": False}
+STATE = {"ver_state": "REJECTED", "no_contact": False,
+         "ready": False, "boom": False, "shots_429": False}
 
 
 def fake_token():
@@ -53,25 +54,47 @@ def fake_api(method, path, tok, body=None):
     if path.startswith("/appStoreVersions/V9?fields"):
         return 200, {"data": {"id": "V9", "attributes": {"copyright": None}}}
     if path.startswith("/appInfos/I_edit/primaryCategory"):
-        return 200, {"data": None}
+        return 200, {"data": {"type": "appCategories", "id": "LIFESTYLE"} if STATE["ready"] else None}
     if path.startswith("/appInfos/I_edit/ageRatingDeclaration"):
+        if STATE["boom"]:
+            raise TimeoutError("read timed out")
         return 200, {"data": {"id": "AR1", "attributes": {
-            "gambling": False, "horrorOrFearThemes": None, "unrestrictedWebAccess": None}}}
+            "gambling": False, "horrorOrFearThemes": None, "unrestrictedWebAccess": None,
+            "ageRatingOverrideV2": "NONE", "kidsAgeBand": None}}}
     if path.startswith("/apps/APP1/appPriceSchedule"):
+        if STATE["ready"]:
+            return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/PS1/manualPrices"):
+        return 200, {"data": [{"id": "MP1"}], "included": [
+            {"type": "appPricePoints", "id": "PP1", "attributes": {"customerPrice": "0.0"}},
+            {"type": "territories", "id": "USA"}]}
     if path.startswith("/apps/APP1/appAvailabilityV2"):
+        if STATE["ready"]:
+            return 200, {"data": {"type": "appAvailabilities", "id": "AV1"}}
         return 403, {"errors": [{"code": "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED"}]}
+    if path == asc_metadata.BASE_V2 + ("/appAvailabilities/AV1/territoryAvailabilities"
+                                       "?limit=200&fields[territoryAvailabilities]=available"):
+        return 200, {"data": [{"id": "t1", "attributes": {"available": True}},
+                              {"id": "t2", "attributes": {"available": True}},
+                              {"id": "t3", "attributes": {"available": False}}]}
     if path.startswith("/appStoreVersionLocalizations/L1/appScreenshotSets"):
         return 200, {"data": [{"id": "SS1", "attributes": {"screenshotDisplayType": "APP_IPHONE_67"}}]}
     if path.startswith("/appScreenshotSets/SS1/appScreenshots"):
+        if STATE["shots_429"]:
+            return 429, {"errors": [{"code": "RATE_LIMIT_EXCEEDED"}]}
         return 200, {"data": [{"id": "a"}, {"id": "b"}]}
     if path.startswith("/appStoreVersions/V9/build"):
+        if STATE["ready"]:
+            return 200, {"data": {"id": "B39", "attributes": {"version": "39"}}}
         return 200, {"data": None}
     if path.startswith("/builds?filter[app]=APP1"):
         return 200, {"data": [{"id": "B39", "attributes": {
             "version": "39", "processingState": "VALID", "expired": False,
             "uploadedDate": "2026-10-15T13:24:00-07:00"}}]}
     if path.startswith("/reviewSubmissions?filter[app]=APP1"):
+        if STATE["ready"]:
+            return 200, {"data": [{"id": "RS1", "attributes": {"state": "WAITING_FOR_REVIEW"}}]}
         return 200, {"data": []}
     raise AssertionError(f"unstubbed {method} {path}")
 
@@ -242,8 +265,9 @@ print("9. a dry run also reads what is missing before submitting, and writes not
 code, out = run(DRY_RUN="true")
 check("exits clean", code == 0, f"code={code} out={out}")
 check("no writes issued", not [c for c in calls if c[0] in ("PATCH", "POST")])
+check("every call is a GET", all(c[0] == "GET" for c in calls), str([c[:2] for c in calls if c[0] != "GET"]))
 for line in ("content rights: (unset)", "copyright: (unset)", "primary category: (unset)",
-             "age rating: 1 of 3 answers set; unset: horrorOrFearThemes, unrestrictedWebAccess",
+             "age rating: 1 of 3 questions answered; unanswered: horrorOrFearThemes, unrestrictedWebAccess",
              "price: 404 NOT_FOUND",
              "availability: 403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED",
              "screenshots [en-US]: APP_IPHONE_67 x2", "build on this version: none",
@@ -252,6 +276,28 @@ for line in ("content rights: (unset)", "copyright: (unset)", "primary category:
 code, out = run(DRY_RUN="false", KEYWORDS="witch,tarot,moon")
 check("a write does not run the reads",
       "before submitting" not in out and not [c for c in calls if "/primaryCategory" in c[1]], out)
+
+print("10. the reads also say what IS set, and still only GET")
+STATE["ready"] = True
+code, out = run(DRY_RUN="true")
+check("exits clean", code == 0, f"code={code} out={out}")
+check("every call is a GET", all(c[0] == "GET" for c in calls), str([c[:2] for c in calls if c[0] != "GET"]))
+for line in ("primary category: LIFESTYLE", "price: 0.0", "availability: 2 territories",
+             "build on this version: 39", "review submissions: WAITING_FOR_REVIEW"):
+    check(f"says '{line}'", line in out, out)
+STATE["ready"] = False
+
+print("11. a read that fails is said in place, and the dry run still finishes")
+STATE["boom"] = True
+code, out = run(DRY_RUN="true")
+check("a network error is not fatal", code == 0 and "nothing was written" in out, out)
+check("and is said on its row", "age rating: not read (TimeoutError)" in out, out)
+STATE["boom"] = False
+STATE["shots_429"] = True
+code, out = run(DRY_RUN="true")
+check("a refused screenshot read is not shown as zero",
+      "APP_IPHONE_67 (429 RATE_LIMIT_EXCEEDED)" in out and "x0" not in out, out)
+STATE["shots_429"] = False
 
 print()
 print("FAILED: " + ", ".join(fails) if fails else "all checks passed")
