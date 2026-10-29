@@ -229,19 +229,31 @@ def apple_error(st, d):
     """The status plus Apple's own error code, e.g. "403 FORBIDDEN.REQUIRED_
     AGREEMENTS_MISSING_OR_EXPIRED" — the code is what says why."""
     errs = d.get("errors") if isinstance(d, dict) else None
-    code = (errs[0].get("code") or "") if errs else ""
-    return f"{st} {code}".strip()
+    first = errs[0] if isinstance(errs, list) and errs and isinstance(errs[0], dict) else {}
+    return f"{st} {first.get('code') or ''}".strip()
+
+
+# Age-rating attributes that are not questionnaire answers: Apple's overrides
+# and three optional fields (kidsAgeBand is for the Kids category only), so a
+# null one is not a missing answer and a set one is not an answered question.
+AGE_NOT_ANSWERS = {"ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride",
+                   "kidsAgeBand", "developerAgeRatingInfoUrl",
+                   "gracRatingClassificationNumber"}
 
 
 def readiness(app, ver, info, ver_locs):
     """A dry run also reads what Apple needs before this version can be
     submitted and this script cannot write: category, age rating, price,
     availability, content rights, copyright, screenshots, the build. All
-    GETs; a read Apple refuses is printed with its error code, never fatal."""
+    GETs; a read Apple refuses, or a network error, is printed in place of the
+    value and never fatal."""
     print("\n--- before submitting (read only) ---")
 
     def get(path):
-        st, d = api("GET", path, tok)
+        try:
+            st, d = api("GET", path, tok)
+        except Exception as e:   # a timeout, a reset, a body that is not JSON
+            return None, f"not read ({type(e).__name__})"
         if st == 200 and isinstance(d, dict):
             return d, None
         return None, apple_error(st, d)
@@ -250,7 +262,7 @@ def readiness(app, ver, info, ver_locs):
     print(f"  content rights: {rights or '(unset)'}")
 
     d, err = get(f"/appStoreVersions/{ver['id']}?fields[appStoreVersions]=copyright")
-    copyright_ = ((d or {}).get("data") or {}).get("attributes", {}).get("copyright")
+    copyright_ = (((d or {}).get("data") or {}).get("attributes") or {}).get("copyright")
     print(f"  copyright: {copyright_ or err or '(unset)'}")
 
     d, err = get(f"/appInfos/{info['id']}/primaryCategory")
@@ -259,10 +271,11 @@ def readiness(app, ver, info, ver_locs):
 
     d, err = get(f"/appInfos/{info['id']}/ageRatingDeclaration")
     if d and d.get("data"):
-        attrs = d["data"].get("attributes") or {}
+        attrs = {k: v for k, v in (d["data"].get("attributes") or {}).items()
+                 if k not in AGE_NOT_ANSWERS}
         unset = sorted(k for k, v in attrs.items() if v is None)
-        print(f"  age rating: {len(attrs) - len(unset)} of {len(attrs)} answers set"
-              + (f"; unset: {', '.join(unset)}" if unset else ""))
+        print(f"  age rating: {len(attrs) - len(unset)} of {len(attrs)} questions answered"
+              + (f"; unanswered: {', '.join(unset)}" if unset else ""))
     else:
         print(f"  age rating: {err or '(no declaration)'}")
 
@@ -270,7 +283,8 @@ def readiness(app, ver, info, ver_locs):
     if d and d.get("data"):
         p, perr = get(f"/appPriceSchedules/{d['data']['id']}/manualPrices"
                       "?include=appPricePoint&limit=5")
-        points = [i["attributes"].get("customerPrice") for i in (p or {}).get("included", [])
+        points = [(i.get("attributes") or {}).get("customerPrice")
+                  for i in (p or {}).get("included") or []
                   if i.get("type") == "appPricePoints"]
         print(f"  price: {', '.join(str(x) for x in points) if points else perr or '(schedule, no prices)'}")
     else:
@@ -280,36 +294,38 @@ def readiness(app, ver, info, ver_locs):
     if d and d.get("data"):
         t, terr = get(BASE_V2 + f"/appAvailabilities/{d['data']['id']}"
                       "/territoryAvailabilities?limit=200&fields[territoryAvailabilities]=available")
-        n = sum(1 for x in (t or {}).get("data", []) if x["attributes"].get("available"))
+        n = sum(1 for x in (t or {}).get("data") or []
+                if (x.get("attributes") or {}).get("available"))
         print(f"  availability: {n} territories" if t else f"  availability: {terr}")
     else:
         print(f"  availability: {err or '(unset)'}")
 
     for loc in ver_locs:
         d, err = get(f"/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets?limit=50")
-        sets = (d or {}).get("data", [])
+        sets = (d or {}).get("data") or []
         shown = []
         for s in sets:
-            sd, _ = get(f"/appScreenshotSets/{s['id']}/appScreenshots?limit=50")
-            shown.append(f"{s['attributes'].get('screenshotDisplayType')} "
-                         f"x{len((sd or {}).get('data', []))}")
+            sd, serr = get(f"/appScreenshotSets/{s['id']}/appScreenshots?limit=50")
+            shown.append(f"{(s.get('attributes') or {}).get('screenshotDisplayType')} "
+                         + (f"({serr})" if serr else f"x{len(sd.get('data') or [])}"))
         print(f"  screenshots [{loc['attributes'].get('locale')}]: "
               f"{', '.join(shown) if shown else err or 'none'}")
 
     d, err = get(f"/appStoreVersions/{ver['id']}/build")
     b = (d or {}).get("data")
-    print(f"  build on this version: {b['attributes'].get('version') if b else err or 'none'}")
+    print(f"  build on this version: "
+          f"{(b.get('attributes') or {}).get('version') if b else err or 'none'}")
     d, err = get(f"/builds?filter[app]={app['id']}&sort=-uploadedDate&limit=3"
                  "&fields[builds]=version,uploadedDate,processingState,expired")
-    for b in (d or {}).get("data", []):
-        a = b["attributes"]
+    for b in (d or {}).get("data") or []:
+        a = b.get("attributes") or {}
         print(f"  build {a.get('version')}: {a.get('processingState')}"
               f"{', expired' if a.get('expired') else ''}, uploaded {a.get('uploadedDate')}")
     if err:
         print(f"  builds: {err}")
 
     d, err = get(f"/reviewSubmissions?filter[app]={app['id']}&limit=5")
-    subs = [s["attributes"].get("state") for s in (d or {}).get("data", [])]
+    subs = [(s.get("attributes") or {}).get("state") for s in (d or {}).get("data") or []]
     print(f"  review submissions: {', '.join(subs) if subs else err or 'none'}")
     print("  App Privacy: not in Apple's API — only App Store Connect shows it")
 
