@@ -285,6 +285,9 @@ def setup(app, ver, info, fields, dry):
             if now and not all(_is_zero(p) for p in now):
                 die(f"price: the app already has a price ({', '.join(map(str, now))}) "
                     "— change it in App Store Connect")
+            if (m or {}).get("data") and not now:
+                die("price: the app has prices whose price points Apple did not list "
+                    "— look at Pricing in App Store Connect")
         if now:
             print("  price: already free, left alone")
         else:   # no schedule, or a schedule with no price in it yet
@@ -673,12 +676,20 @@ def main():
                     die(f"create review details: {st} {d}")
             print(f"\napp review details: wrote {', '.join(sorted(review_fields))}")
 
+    setup_stopped = False
     if setup_fields:
-        setup(app, ver, info, setup_fields, dry)
+        try:
+            setup(app, ver, info, setup_fields, dry)
+        except SystemExit:
+            if not dry:
+                raise
+            setup_stopped = True   # the reason is printed above; a real run would stop there
 
     if dry:
         readiness(app, ver, info, ver_locs)
         print("\nDRY_RUN — nothing was written. Re-run with dry_run=false to apply.")
+        if setup_stopped:
+            sys.exit(1)
     else:
         print("\ndone. The changes are saved on the version but NOT submitted — "
               "run the 'ASC submit release' workflow to send it to review.")
