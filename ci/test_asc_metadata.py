@@ -8,7 +8,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # --- stub the API before asc_metadata imports it -------------------------
 calls = []
 STATE = {"ver_state": "REJECTED", "no_contact": False,
-         "ready": False, "boom": False, "shots_429": False}
+         "ready": False, "boom": False, "shots_429": False,
+         "avail": 403, "paid": False, "emptysched": False, "sched404": False}
 
 
 def fake_token():
@@ -62,16 +63,30 @@ def fake_api(method, path, tok, body=None):
             "gambling": False, "horrorOrFearThemes": None, "unrestrictedWebAccess": None,
             "ageRatingOverrideV2": "NONE", "kidsAgeBand": None}}}
     if path.startswith("/apps/APP1/appPriceSchedule"):
-        if STATE["ready"]:
+        if STATE["sched404"]:   # what Apple answered for Miracles: the app's id, no prices
+            return 200, {"data": {"type": "appPriceSchedules", "id": "APP1"}}
+        if STATE["ready"] or STATE["emptysched"]:
             return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/APP1/manualPrices"):
+        return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/PS1/manualPrices") and STATE["emptysched"]:
+        return 200, {"data": [], "included": []}
     if path.startswith("/appPriceSchedules/PS1/manualPrices"):
         return 200, {"data": [{"id": "MP1"}], "included": [
-            {"type": "appPricePoints", "id": "PP1", "attributes": {"customerPrice": "0.0"}},
+            {"type": "appPricePoints", "id": "PP1",
+             "attributes": {"customerPrice": "0.99" if STATE["paid"] else "0.0"}},
             {"type": "territories", "id": "USA"}]}
+    if path.startswith("/apps/APP1/appPricePoints?filter[territory]=USA"):
+        return 200, {"data": [{"id": "PP-free", "attributes": {"customerPrice": "0.0"}},
+                              {"id": "PP-99", "attributes": {"customerPrice": "0.99"}}]}
+    if path == "/territories?limit=200":
+        return 200, {"data": [{"id": "USA"}, {"id": "GBR"}]}
     if path.startswith("/apps/APP1/appAvailabilityV2"):
         if STATE["ready"]:
             return 200, {"data": {"type": "appAvailabilities", "id": "AV1"}}
+        if STATE["avail"] == 404:
+            return 404, {"errors": [{"code": "NOT_FOUND"}]}
         return 403, {"errors": [{"code": "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED"}]}
     if path == asc_metadata.BASE_V2 + ("/appAvailabilities/AV1/territoryAvailabilities"
                                        "?limit=200&fields[territoryAvailabilities]=available"):
@@ -268,7 +283,7 @@ check("no writes issued", not [c for c in calls if c[0] in ("PATCH", "POST")])
 check("every call is a GET", all(c[0] == "GET" for c in calls), str([c[:2] for c in calls if c[0] != "GET"]))
 for line in ("content rights: (unset)", "copyright: (unset)", "primary category: (unset)",
              "age rating: 1 of 3 questions answered; unanswered: horrorOrFearThemes, unrestrictedWebAccess",
-             "price: 404 NOT_FOUND",
+             "price: (unset)",
              "availability: 403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED",
              "screenshots [en-US]: APP_IPHONE_67 x2", "build on this version: none",
              "build 39: VALID", "review submissions: none", "App Privacy: not in Apple's API"):
@@ -298,6 +313,94 @@ code, out = run(DRY_RUN="true")
 check("a refused screenshot read is not shown as zero",
       "APP_IPHONE_67 (429 RATE_LIMIT_EXCEEDED)" in out and "x0" not in out, out)
 STATE["shots_429"] = False
+
+print("12. the submission settings: a dry run reads and says, a real run writes")
+ANSWERS = {**{k: False for k in asc_metadata.AGE_BOOL},
+           **{k: "NONE" for k in asc_metadata.AGE_LEVEL}}
+SETTINGS = {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+            "copyright": "2026 Sage Ryza", "primaryCategory": "LIFESTYLE",
+            "ageRating": ANSWERS, "price": "free", "availability": "all"}
+check("the questions are Apple's 24", len(ANSWERS) == 24
+      and not (asc_metadata.AGE_BOOL | asc_metadata.AGE_LEVEL) & asc_metadata.AGE_NOT_ANSWERS)
+STATE["avail"] = 404
+code, out = run(DRY_RUN="true", FIELDS_JSON=json.dumps(SETTINGS))
+check("exits clean", code == 0, f"code={code} out={out}")
+check("a dry run writes nothing", not [c for c in calls if c[0] != "GET"],
+      str([c[:2] for c in calls if c[0] != "GET"]))
+for line in ("would set content rights: DOES_NOT_USE_THIRD_PARTY_CONTENT",
+             "would set copyright: 2026 Sage Ryza", "would set primary category: LIFESTYLE",
+             "would set age rating: 24 answers; all 24 questions answered",
+             "would set price: free (price point PP-free, base territory USA)",
+             "would set availability: all 2 territories"):
+    check(f"says '{line}'", line in out, out)
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps(SETTINGS))
+writes = {(c[0], c[1]): c[2] for c in calls if c[0] != "GET"}
+check("exits clean", code == 0, f"code={code} out={out}")
+check("content rights -> the app",
+      writes.get(("PATCH", "/apps/APP1"), {}).get("data", {}).get("attributes")
+      == {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"}, str(writes.keys()))
+check("copyright -> the version",
+      writes.get(("PATCH", "/appStoreVersions/V9"), {}).get("data", {}).get("attributes")
+      == {"copyright": "2026 Sage Ryza"}, str(writes.keys()))
+cat = writes.get(("PATCH", "/appInfos/I_edit"), {}).get("data", {})
+check("category -> the app info, as a relationship",
+      cat.get("relationships", {}).get("primaryCategory", {}).get("data")
+      == {"type": "appCategories", "id": "LIFESTYLE"} and "attributes" not in cat, str(cat))
+check("age rating -> its declaration, every answer",
+      writes.get(("PATCH", "/ageRatingDeclarations/AR1"), {}).get("data", {}).get("attributes")
+      == ANSWERS)
+price = writes.get(("POST", "/appPriceSchedules"), {})
+check("a free price schedule, based in the USA",
+      price.get("data", {}).get("relationships", {}).get("baseTerritory", {}).get("data", {}).get("id") == "USA"
+      and price.get("included", [{}])[0].get("relationships", {}).get("appPricePoint", {})
+      .get("data", {}).get("id") == "PP-free", str(price))
+avail = writes.get(("POST", asc_metadata.BASE_V2 + "/appAvailabilities"), {})
+check("availability in every territory, and new ones",
+      avail.get("data", {}).get("attributes") == {"availableInNewTerritories": True}
+      and sorted(i["relationships"]["territory"]["data"]["id"] for i in avail.get("included", []))
+      == ["GBR", "USA"]
+      and all(i["attributes"] == {"available": True} for i in avail.get("included", [])), str(avail))
+check("each inline id is one the data names",
+      sorted(x["id"] for x in avail.get("data", {}).get("relationships", {})
+             .get("territoryAvailabilities", {}).get("data", []))
+      == sorted(i["id"] for i in avail.get("included", [])) == ["${t-GBR}", "${t-USA}"])
+STATE["avail"] = 403
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"availability": "all"}))
+check("an availability read Apple refuses stops the run, nothing written",
+      code == 1 and "FORBIDDEN.REQUIRED_AGREEMENTS" in out
+      and not [c for c in calls if c[0] != "GET"], out)
+STATE["ready"] = True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free", "availability": "all"}))
+check("a free price and an availability already set are left alone",
+      code == 0 and "already free" in out and "availability: already set" in out
+      and not [c for c in calls if c[0] != "GET"], out)
+STATE["paid"] = True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("a paid price is never replaced", code == 1 and "already has a price (0.99)" in out
+      and not [c for c in calls if c[0] != "GET"], out)
+STATE["paid"] = False
+STATE["ready"] = False
+STATE["emptysched"] = True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("a schedule with no price in it yet gets the free price",
+      code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
+STATE["emptysched"] = False
+STATE["sched404"] = True
+code, out = run(DRY_RUN="true")
+check("a schedule whose prices answer 404 reads as unset", "price: (unset)" in out, out)
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("and gets the free price (what Apple answered for Miracles on 2026-10-30)",
+      code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
+STATE["sched404"] = False
+for bad, why in (({"contentRightsDeclaration": "MAYBE"}, "contentRightsDeclaration must be"),
+                 ({"primaryCategory": "lifestyle"}, "Apple's category id"),
+                 ({"ageRating": {"gambling": "no"}}, "takes true or false"),
+                 ({"ageRating": {"contests": "SOME"}}, "takes one of"),
+                 ({"ageRating": {"kidsAgeBand": None}}, "not one of Apple's 24"),
+                 ({"price": "1.99"}, "takes only \"free\""),
+                 ({"availability": "USA"}, "takes only \"all\"")):
+    code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps(bad))
+    check(f"refused before the API: {why}", code == 1 and why in out and not calls, out)
 
 print()
 print("FAILED: " + ", ".join(fails) if fails else "all checks passed")
