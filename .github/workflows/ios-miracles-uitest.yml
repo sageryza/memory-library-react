@@ -6,7 +6,7 @@ name: Miracles Simulator Screens
 #
 # store_shots: a url of a JSON array of book pages (the cloud's own page
 # format). With it the run makes App Store screenshots instead: the cover and
-# the book's last two pages, on a 6.9-inch and a 6.3-inch iPhone, with the
+# every page of the book, on a 6.9-inch and a 6.3-inch iPhone, with the
 # status bar set to 9:41 and full bars.
 on:
   workflow_dispatch:
