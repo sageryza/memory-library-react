@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 calls = []
 STATE = {"ver_state": "REJECTED", "no_contact": False,
          "ready": False, "boom": False, "shots_429": False,
-         "avail": 403, "paid": False}
+         "avail": 403, "paid": False, "emptysched": False}
 
 
 def fake_token():
@@ -66,6 +66,10 @@ def fake_api(method, path, tok, body=None):
         if STATE["ready"]:
             return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/PS1/manualPrices") and STATE["emptysched"]:
+        return 200, {"data": [], "included": []}
+    if path.startswith("/apps/APP1/appPriceSchedule") and STATE["emptysched"]:
+        return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
     if path.startswith("/appPriceSchedules/PS1/manualPrices"):
         return 200, {"data": [{"id": "MP1"}], "included": [
             {"type": "appPricePoints", "id": "PP1",
@@ -374,6 +378,11 @@ check("a paid price is never replaced", code == 1 and "already has a price (0.99
       and not [c for c in calls if c[0] != "GET"], out)
 STATE["paid"] = False
 STATE["ready"] = False
+STATE["emptysched"] = True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("a schedule with no price in it yet gets the free price",
+      code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
+STATE["emptysched"] = False
 for bad, why in (({"contentRightsDeclaration": "MAYBE"}, "contentRightsDeclaration must be"),
                  ({"primaryCategory": "lifestyle"}, "Apple's category id"),
                  ({"ageRating": {"gambling": "no"}}, "takes true or false"),

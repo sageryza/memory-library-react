@@ -272,18 +272,23 @@ def setup(app, ver, info, fields, dry):
 
     if "price" in fields:   # "free" — check_setup takes nothing else
         d = get(f"/apps/{app['id']}/appPriceSchedule", "price")
+        now = []
         if d and d.get("data"):
-            m = get(f"/appPriceSchedules/{d['data']['id']}/manualPrices"
+            sid = d["data"].get("id")
+            m = get(f"/appPriceSchedules/{sid}/manualPrices"
                     "?include=appPricePoint&limit=50", "price")
+            if m is None:
+                die(f"price: a price schedule exists ({sid}) but Apple will not list its "
+                    "prices (404) — look at Pricing in App Store Connect")
             now = [(i.get("attributes") or {}).get("customerPrice")
-                   for i in (m or {}).get("included") or []
+                   for i in m.get("included") or []
                    if i.get("type") == "appPricePoints"]
-            if now and all(_is_zero(p) for p in now):
-                print("  price: already free, left alone")
-            else:
-                die(f"price: the app already has a price ({', '.join(map(str, now)) or 'unknown'}) "
+            if now and not all(_is_zero(p) for p in now):
+                die(f"price: the app already has a price ({', '.join(map(str, now))}) "
                     "— change it in App Store Connect")
-        else:
+        if now:
+            print("  price: already free, left alone")
+        else:   # no schedule, or a schedule with no price in it yet
             free, url = None, f"/apps/{app['id']}/appPricePoints?filter[territory]=USA&limit=200"
             for _ in range(10):   # the USA list is a few pages; free is usually first
                 page = get(url, "price points") or {}
