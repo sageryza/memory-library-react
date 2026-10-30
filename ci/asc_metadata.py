@@ -29,6 +29,13 @@ Fields live on three different ASC resources and this routes them for you:
 The version-level and app-info-level fields are written to EVERY localization
 the app has (these apps are en-US only; if that ever changes, pass LOCALE).
 
+THE SUBMISSION SETTINGS NO LISTING FIELD COVERS (FIELDS_JSON only):
+"contentRightsDeclaration", "copyright", "primaryCategory" (e.g. LIFESTYLE),
+"ageRating" (an object of Apple's 24 questions — AGE_BOOL / AGE_LEVEL),
+"price": "free" and "availability": "all". A dry run makes the reads a write
+needs and says what it would set; a price or availability already set is left
+alone, and a paid price is never replaced.
+
 COPYING THE REVIEW CONTACT FROM ANOTHER APP: FIELDS_JSON may carry
 "copyContactFrom": "<bundle id>". The contact name, phone and email are then
 read from that app's App Review details and written here, so a phone number
@@ -87,6 +94,26 @@ BOOL_FIELDS = {"demoAccountRequired"}
 CONTACT_FIELDS = ("contactFirstName", "contactLastName", "contactPhone", "contactEmail")
 COPY_KEY = "copyContactFrom"   # FIELDS_JSON only — see the docstring
 
+# The submission settings no listing field covers, FIELDS_JSON only — each
+# lives on its own resource, see setup(). Price takes only "free" and
+# availability only "all": the two answers a first release here needs.
+SETUP_FIELDS = ("contentRightsDeclaration", "copyright", "primaryCategory",
+                "ageRating", "price", "availability")
+CONTENT_RIGHTS = {"DOES_NOT_USE_THIRD_PARTY_CONTENT", "USES_THIRD_PARTY_CONTENT"}
+# Apple's 24 age-rating questions, by the kind of answer each takes (Apple's
+# OpenAPI spec, AgeRatingDeclarationUpdateRequest). The other six attributes
+# are overrides and optional fields — AGE_NOT_ANSWERS below.
+AGE_BOOL = {"advertising", "ageAssurance", "gambling", "healthOrWellnessTopics",
+            "lootBox", "messagingAndChat", "parentalControls", "socialMedia",
+            "socialMediaAgeRestricted", "unrestrictedWebAccess", "userGeneratedContent"}
+AGE_LEVEL = {"alcoholTobaccoOrDrugUseOrReferences", "contests", "gamblingSimulated",
+             "gunsOrOtherWeapons", "horrorOrFearThemes", "matureOrSuggestiveThemes",
+             "medicalOrTreatmentInformation", "profanityOrCrudeHumor",
+             "sexualContentGraphicAndNudity", "sexualContentOrNudity",
+             "violenceCartoonOrFantasy", "violenceRealistic",
+             "violenceRealisticProlongedGraphicOrSadistic"}
+LEVELS = {"NONE", "INFREQUENT_OR_MILD", "FREQUENT_OR_INTENSE", "INFREQUENT", "FREQUENT"}
+
 # The states in which Apple lets metadata be edited. A rejection lands in one
 # of the three *REJECTED ones, which is why a rework needs no new version.
 EDITABLE = {
@@ -135,8 +162,12 @@ def collect_fields():
             if not isinstance(val, str) or not val.strip():
                 die(f"{COPY_KEY} must be a bundle id, e.g. com.sageryza.secretlyawitch")
             continue
+        if name in SETUP_FIELDS:
+            check_setup(name, val)
+            continue
         if name not in known:
-            die(f"unknown field '{name}' — known fields: {', '.join(sorted(known))}")
+            die(f"unknown field '{name}' — known fields: "
+                f"{', '.join(sorted(known) + sorted(SETUP_FIELDS))}")
         if name in BOOL_FIELDS:
             continue
         if not isinstance(val, str):
@@ -145,6 +176,171 @@ def collect_fields():
         if cap and len(val) > cap:
             die(f"field '{name}' is {len(val)} chars, Apple's limit is {cap}")
     return fields
+
+
+def check_setup(name, val):
+    """Validate one submission setting before anything touches the API."""
+    if name == "contentRightsDeclaration":
+        if val not in CONTENT_RIGHTS:
+            die(f"contentRightsDeclaration must be one of {', '.join(sorted(CONTENT_RIGHTS))}")
+    elif name == "copyright":
+        if not isinstance(val, str) or not val.strip():
+            die("copyright must be text, e.g. \"2026 Sage Ryza\"")
+    elif name == "primaryCategory":
+        if not isinstance(val, str) or not val or not all(c.isupper() or c == "_" for c in val):
+            die("primaryCategory must be Apple's category id, e.g. LIFESTYLE")
+    elif name == "ageRating":
+        if not isinstance(val, dict) or not val:
+            die("ageRating must be an object of answers, e.g. {\"gambling\": false}")
+        for k, v in val.items():
+            if k in AGE_BOOL:
+                if not isinstance(v, bool):
+                    die(f"ageRating.{k} takes true or false")
+            elif k in AGE_LEVEL:
+                if v not in LEVELS:
+                    die(f"ageRating.{k} takes one of {', '.join(sorted(LEVELS))}")
+            else:
+                die(f"ageRating.{k} is not one of Apple's 24 questions")
+    elif name == "price":
+        if val != "free":
+            die("price takes only \"free\" — set a paid price in App Store Connect")
+    elif name == "availability":
+        if val != "all":
+            die("availability takes only \"all\" — pick territories in App Store Connect")
+
+
+def setup(app, ver, info, fields, dry):
+    """The submission settings no listing field covers: content rights,
+    copyright, the primary category, the age-rating answers, a free price and
+    availability. A dry run makes the reads a write needs (the declaration,
+    the free price point, the territories) and says what it would set; only a
+    real run writes. A price or availability already set is left alone."""
+    print("\n--- submission settings ---")
+    verb = "would set" if dry else "set"
+
+    def write(method, path, body, what):
+        if dry:
+            return
+        st, d = api(method, path, tok, body)
+        if st not in (200, 201, 204):
+            die(f"{what}: {apple_error(st, d)}")
+
+    def get(path, what):
+        st, d = api("GET", path, tok)
+        if st == 200 and isinstance(d, dict):
+            return d
+        if st == 404:
+            return None
+        die(f"{what}: {apple_error(st, d)}")
+
+    if "contentRightsDeclaration" in fields:
+        v = fields["contentRightsDeclaration"]
+        write("PATCH", f"/apps/{app['id']}", {"data": {
+            "type": "apps", "id": app["id"],
+            "attributes": {"contentRightsDeclaration": v}}}, "content rights")
+        print(f"  {verb} content rights: {v}")
+
+    if "copyright" in fields:
+        v = fields["copyright"]
+        write("PATCH", f"/appStoreVersions/{ver['id']}", {"data": {
+            "type": "appStoreVersions", "id": ver["id"],
+            "attributes": {"copyright": v}}}, "copyright")
+        print(f"  {verb} copyright: {v}")
+
+    if "primaryCategory" in fields:
+        v = fields["primaryCategory"]
+        write("PATCH", f"/appInfos/{info['id']}", {"data": {
+            "type": "appInfos", "id": info["id"],
+            "relationships": {"primaryCategory": {
+                "data": {"type": "appCategories", "id": v}}}}}, "primary category")
+        print(f"  {verb} primary category: {v}")
+
+    if "ageRating" in fields:
+        answers = fields["ageRating"]
+        d = get(f"/appInfos/{info['id']}/ageRatingDeclaration", "age rating")
+        decl = (d or {}).get("data")
+        if not decl:
+            die("age rating: the app info has no declaration to answer")
+        write("PATCH", f"/ageRatingDeclarations/{decl['id']}", {"data": {
+            "type": "ageRatingDeclarations", "id": decl["id"],
+            "attributes": answers}}, "age rating")
+        had = {k for k, v in (decl.get("attributes") or {}).items() if v is not None}
+        left = sorted((AGE_BOOL | AGE_LEVEL) - set(answers) - had)
+        print(f"  {verb} age rating: {len(answers)} answers"
+              + (f"; still unanswered: {', '.join(left)}" if left
+                 else "; all 24 questions answered"))
+
+    if "price" in fields:   # "free" — check_setup takes nothing else
+        d = get(f"/apps/{app['id']}/appPriceSchedule", "price")
+        if d and d.get("data"):
+            m = get(f"/appPriceSchedules/{d['data']['id']}/manualPrices"
+                    "?include=appPricePoint&limit=50", "price")
+            now = [(i.get("attributes") or {}).get("customerPrice")
+                   for i in (m or {}).get("included") or []
+                   if i.get("type") == "appPricePoints"]
+            if now and all(_is_zero(p) for p in now):
+                print("  price: already free, left alone")
+            else:
+                die(f"price: the app already has a price ({', '.join(map(str, now)) or 'unknown'}) "
+                    "— change it in App Store Connect")
+        else:
+            free, url = None, f"/apps/{app['id']}/appPricePoints?filter[territory]=USA&limit=200"
+            for _ in range(10):   # the USA list is a few pages; free is usually first
+                page = get(url, "price points") or {}
+                free = next((p for p in page.get("data") or []
+                             if _is_zero((p.get("attributes") or {}).get("customerPrice"))), None)
+                url = (page.get("links") or {}).get("next")
+                if free or not url:
+                    break
+            if not free:
+                die("price: no free price point in the USA list")
+            write("POST", "/appPriceSchedules", {
+                "data": {"type": "appPriceSchedules", "relationships": {
+                    "app": {"data": {"type": "apps", "id": app["id"]}},
+                    "baseTerritory": {"data": {"type": "territories", "id": "USA"}},
+                    "manualPrices": {"data": [{"type": "appPrices", "id": "${price}"}]}}},
+                "included": [{"type": "appPrices", "id": "${price}",
+                              "attributes": {"startDate": None},
+                              "relationships": {"appPricePoint": {
+                                  "data": {"type": "appPricePoints", "id": free["id"]}}}}]},
+                "price")
+            print(f"  {verb} price: free (price point {free['id']}, base territory USA)")
+
+    if "availability" in fields:   # "all"
+        d = get(f"/apps/{app['id']}/appAvailabilityV2", "availability")
+        if d and d.get("data"):
+            print("  availability: already set, left alone")
+        else:
+            ids, url = [], "/territories?limit=200"
+            for _ in range(10):
+                page = get(url, "territories") or {}
+                ids += [t["id"] for t in page.get("data") or []]
+                url = (page.get("links") or {}).get("next")
+                if not url:
+                    break
+            if not ids:
+                die("availability: Apple listed no territories")
+            write("POST", BASE_V2 + "/appAvailabilities", {
+                "data": {"type": "appAvailabilities",
+                         "attributes": {"availableInNewTerritories": True},
+                         "relationships": {
+                             "app": {"data": {"type": "apps", "id": app["id"]}},
+                             "territoryAvailabilities": {"data": [
+                                 {"type": "territoryAvailabilities", "id": f"${{t-{i}}}"}
+                                 for i in ids]}}},
+                "included": [{"type": "territoryAvailabilities", "id": f"${{t-{i}}}",
+                              "attributes": {"available": True},
+                              "relationships": {"territory": {
+                                  "data": {"type": "territories", "id": i}}}}
+                             for i in ids]}, "availability")
+            print(f"  {verb} availability: all {len(ids)} territories, and new ones as Apple adds them")
+
+
+def _is_zero(price):
+    try:
+        return float(price) == 0
+    except (TypeError, ValueError):
+        return False
 
 
 def patch_localizations(kind, locs, fields, locale, dry):
@@ -365,11 +561,12 @@ def main():
     ver_fields = {k: v for k, v in fields.items() if k in VERSION_FIELDS}
     info_fields = {k: v for k, v in fields.items() if k in APP_INFO_FIELDS}
     review_fields = {k: v for k, v in fields.items() if k in REVIEW_FIELDS}
+    setup_fields = {k: v for k, v in fields.items() if k in SETUP_FIELDS}
 
     # ---- the appStoreVersion (description, keywords, promo text, what's new)
     ver = None
     ver_locs = []
-    if ver_fields or review_fields or dry:
+    if ver_fields or review_fields or setup_fields or dry:
         st, d = api("GET", f"/apps/{app_id}/appStoreVersions?limit=10"
                            "&fields[appStoreVersions]=versionString,appVersionState,platform", tok)
         if st != 200:
@@ -410,7 +607,7 @@ def main():
 
     # ---- the appInfo (name, subtitle, privacy policy) — its own record, and
     # only the non-live one is editable, so pick that one deliberately.
-    if info_fields or dry:
+    if info_fields or setup_fields or dry:
         st, d = api("GET", f"/apps/{app_id}/appInfos?limit=10", tok)
         if st != 200:
             die(f"list app infos: {st} {d}")
@@ -464,6 +661,9 @@ def main():
                 if st not in (200, 201):
                     die(f"create review details: {st} {d}")
             print(f"\napp review details: wrote {', '.join(sorted(review_fields))}")
+
+    if setup_fields:
+        setup(app, ver, info, setup_fields, dry)
 
     if dry:
         readiness(app, ver, info, ver_locs)
