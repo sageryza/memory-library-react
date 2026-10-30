@@ -274,14 +274,13 @@ def setup(app, ver, info, fields, dry):
         d = get(f"/apps/{app['id']}/appPriceSchedule", "price")
         now = []
         if d and d.get("data"):
-            sid = d["data"].get("id")
-            m = get(f"/appPriceSchedules/{sid}/manualPrices"
+            # Apple answers a schedule for every app (its id is the app's, read
+            # 2026-10-30); one with no price set answers 404 on its manual
+            # prices, which get() hands back as None.
+            m = get(f"/appPriceSchedules/{d['data']['id']}/manualPrices"
                     "?include=appPricePoint&limit=50", "price")
-            if m is None:
-                die(f"price: a price schedule exists ({sid}) but Apple will not list its "
-                    "prices (404) — look at Pricing in App Store Connect")
             now = [(i.get("attributes") or {}).get("customerPrice")
-                   for i in m.get("included") or []
+                   for i in (m or {}).get("included") or []
                    if i.get("type") == "appPricePoints"]
             if now and not all(_is_zero(p) for p in now):
                 die(f"price: the app already has a price ({', '.join(map(str, now))}) "
@@ -339,6 +338,13 @@ def setup(app, ver, info, fields, dry):
                                   "data": {"type": "territories", "id": i}}}}
                              for i in ids]}, "availability")
             print(f"  {verb} availability: all {len(ids)} territories, and new ones as Apple adds them")
+
+
+def _unset(err):
+    """A 404 on a price or availability read means nothing is set yet (the
+    schedule and the availability exist only once set; a schedule with no
+    price answers 404 on its prices). Any other refusal is said as it is."""
+    return "(unset)" if not err or err.startswith("404") else err
 
 
 def _is_zero(price):
@@ -487,9 +493,9 @@ def readiness(app, ver, info, ver_locs):
         points = [(i.get("attributes") or {}).get("customerPrice")
                   for i in (p or {}).get("included") or []
                   if i.get("type") == "appPricePoints"]
-        print(f"  price: {', '.join(str(x) for x in points) if points else perr or '(schedule, no prices)'}")
+        print(f"  price: {', '.join(str(x) for x in points) if points else _unset(perr)}")
     else:
-        print(f"  price: {err or '(unset)'}")
+        print(f"  price: {_unset(err)}")
 
     d, err = get(f"/apps/{app['id']}/appAvailabilityV2")
     if d and d.get("data"):
@@ -497,9 +503,9 @@ def readiness(app, ver, info, ver_locs):
                       "/territoryAvailabilities?limit=200&fields[territoryAvailabilities]=available")
         n = sum(1 for x in (t or {}).get("data") or []
                 if (x.get("attributes") or {}).get("available"))
-        print(f"  availability: {n} territories" if t else f"  availability: {terr}")
+        print(f"  availability: {n} territories" if t else f"  availability: {_unset(terr)}")
     else:
-        print(f"  availability: {err or '(unset)'}")
+        print(f"  availability: {_unset(err)}")
 
     for loc in ver_locs:
         d, err = get(f"/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets?limit=50")

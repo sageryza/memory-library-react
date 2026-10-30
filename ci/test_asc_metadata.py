@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 calls = []
 STATE = {"ver_state": "REJECTED", "no_contact": False,
          "ready": False, "boom": False, "shots_429": False,
-         "avail": 403, "paid": False, "emptysched": False}
+         "avail": 403, "paid": False, "emptysched": False, "sched404": False}
 
 
 def fake_token():
@@ -63,13 +63,15 @@ def fake_api(method, path, tok, body=None):
             "gambling": False, "horrorOrFearThemes": None, "unrestrictedWebAccess": None,
             "ageRatingOverrideV2": "NONE", "kidsAgeBand": None}}}
     if path.startswith("/apps/APP1/appPriceSchedule"):
-        if STATE["ready"]:
+        if STATE["sched404"]:   # what Apple answered for Miracles: the app's id, no prices
+            return 200, {"data": {"type": "appPriceSchedules", "id": "APP1"}}
+        if STATE["ready"] or STATE["emptysched"]:
             return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
+        return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/APP1/manualPrices"):
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
     if path.startswith("/appPriceSchedules/PS1/manualPrices") and STATE["emptysched"]:
         return 200, {"data": [], "included": []}
-    if path.startswith("/apps/APP1/appPriceSchedule") and STATE["emptysched"]:
-        return 200, {"data": {"type": "appPriceSchedules", "id": "PS1"}}
     if path.startswith("/appPriceSchedules/PS1/manualPrices"):
         return 200, {"data": [{"id": "MP1"}], "included": [
             {"type": "appPricePoints", "id": "PP1",
@@ -281,7 +283,7 @@ check("no writes issued", not [c for c in calls if c[0] in ("PATCH", "POST")])
 check("every call is a GET", all(c[0] == "GET" for c in calls), str([c[:2] for c in calls if c[0] != "GET"]))
 for line in ("content rights: (unset)", "copyright: (unset)", "primary category: (unset)",
              "age rating: 1 of 3 questions answered; unanswered: horrorOrFearThemes, unrestrictedWebAccess",
-             "price: 404 NOT_FOUND",
+             "price: (unset)",
              "availability: 403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED",
              "screenshots [en-US]: APP_IPHONE_67 x2", "build on this version: none",
              "build 39: VALID", "review submissions: none", "App Privacy: not in Apple's API"):
@@ -383,6 +385,13 @@ code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
 check("a schedule with no price in it yet gets the free price",
       code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
 STATE["emptysched"] = False
+STATE["sched404"] = True
+code, out = run(DRY_RUN="true")
+check("a schedule whose prices answer 404 reads as unset", "price: (unset)" in out, out)
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("and gets the free price (what Apple answered for Miracles on 2026-10-30)",
+      code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
+STATE["sched404"] = False
 for bad, why in (({"contentRightsDeclaration": "MAYBE"}, "contentRightsDeclaration must be"),
                  ({"primaryCategory": "lifestyle"}, "Apple's category id"),
                  ({"ageRating": {"gambling": "no"}}, "takes true or false"),
