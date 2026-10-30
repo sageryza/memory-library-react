@@ -341,7 +341,11 @@ final class MiraclesStore: ObservableObject {
             // every run so the consent sheet can be photographed — and the
             // test can never draw anyway.
             UserDefaults.standard.removeObject(forKey: Keys.aiConsent)
-            if pages.first?.hasContent != true { seedForUITests() }
+            if let url = AppMode.storeShotsURL {
+                await seedForStoreShots(from: url)
+            } else if pages.first?.hasContent != true {
+                seedForUITests()
+            }
             return
         }
         // Back online after a failed read: try again.
@@ -762,6 +766,23 @@ final class MiraclesStore: ObservableObject {
     /// UI-test fixture: one page with four real (permanent) drawings and long
     /// captions, written to the normal local file so a relaunch exercises the
     /// same load path as a real session. Deterministic — no cloud, no cover.
+    /// App Store screenshots: the book MIRACLES_STORE_SHOTS names, opened on
+    /// its last page. Still test mode — no cloud, never a draw. A book that
+    /// cannot be read leaves the fixture page, and the log says why.
+    func seedForStoreShots(from url: URL) async {
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let book = try JSONDecoder().decode([MiraclePage].self, from: data)
+            guard !book.isEmpty else { throw URLError(.zeroByteResource) }
+            pages = book
+            index = book.count - 1
+            writeLocal()
+        } catch {
+            syncLog.error("the store-shots book could not be read: \(error.localizedDescription, privacy: .public)")
+            seedForUITests()
+        }
+    }
+
     func seedForUITests() {
         let urls = [
             "https://firebasestorage.googleapis.com/v0/b/membry-df528.firebasestorage.app/o/sagediagram%2Fapril_special_stickers_004.webp?alt=media&token=c8a53079-c8bd-4e86-8cbc-af43a314e90e",

@@ -7,6 +7,13 @@ enum AppMode {
     /// UI tests launch with `-uitestSeed`: a fixture book, no sign-in, no
     /// cloud, and never a paid draw.
     static let isUITest = ProcessInfo.processInfo.arguments.contains("-uitestSeed")
+    /// App Store screenshots: a UI-test launch that also names a book to show
+    /// (MIRACLES_STORE_SHOTS, a url of a JSON array of pages in the cloud's
+    /// own page format). It opens on the cover, like a real first launch.
+    static let storeShotsURL: URL? = isUITest
+        ? ProcessInfo.processInfo.environment["MIRACLES_STORE_SHOTS"]
+            .flatMap { $0.isEmpty ? nil : URL(string: $0) }
+        : nil
 }
 
 /// UserDefaults keys read by more than one screen.
