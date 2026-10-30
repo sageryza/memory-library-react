@@ -56,8 +56,9 @@ struct RootView: View {
     // One store for the whole app, however many times this view is made.
     @ObservedObject private var store = MiraclesStore.shared
     @Environment(\.scenePhase) private var scenePhase
-    // UI tests jump straight into the book with a deterministic fixture page.
-    @State private var opened = AppMode.isUITest
+    // UI tests jump straight into the book with a deterministic fixture page;
+    // the App Store screenshots start on the cover.
+    @State private var opened = AppMode.isUITest && AppMode.storeShotsURL == nil
 
     var body: some View {
         ZStack {

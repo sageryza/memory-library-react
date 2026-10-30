@@ -143,4 +143,35 @@ final class MiraclesUITests: XCTestCase {
         sleep(1)
         shot(app, "12-back-on-the-book")
     }
+
+    /// App Store screenshots of a real book: the cover, then every page from
+    /// the last back to the first, so the best can be picked. Runs only when
+    /// the workflow names a book (its store_shots input, handed to the runner
+    /// as TEST_RUNNER_MIRACLES_STORE_SHOTS); every other run skips it, so the
+    /// everyday checks are unchanged.
+    func testStoreScreenshots() throws {
+        let book = ProcessInfo.processInfo.environment["MIRACLES_STORE_SHOTS"] ?? ""
+        try XCTSkipIf(book.isEmpty, "no book named for App Store screenshots")
+        let app = XCUIApplication()
+        app.launchArguments = ["-uitestSeed"]
+        app.launchEnvironment["MIRACLES_STORE_SHOTS"] = book
+        app.launch()
+        sleep(4)
+        shot(app, "store-1-cover")
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() // open the book
+        sleep(20) // the drawings download once
+        // The last page first, then each page before it. On the first page the
+        // back button says "Back to cover", which ends the walk.
+        var n = 1
+        while true {
+            shot(app, String(format: "store-2-page-%02d-from-the-end", n))
+            let back = app.buttons["Previous page"].firstMatch
+            guard back.exists, n < 40 else { break }
+            back.tap()
+            sleep(12)
+            n += 1
+        }
+        XCTAssertGreaterThan(n, 1, "the book should have more than one page")
+    }
 }

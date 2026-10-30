@@ -3,8 +3,18 @@ name: Miracles Simulator Screens
 # Runs the Miracles UI tests in an iOS simulator and uploads the screenshots
 # they take as an artifact — a self-QA loop: layout/caching bugs get seen in
 # CI screenshots instead of on a real phone. Dispatchable on any branch.
+#
+# store_shots: a url of a JSON array of book pages (the cloud's own page
+# format). With it the run makes App Store screenshots instead: the cover and
+# every page of the book, on a 6.9-inch and a 6.3-inch iPhone, with the
+# status bar set to 9:41 and full bars.
 on:
   workflow_dispatch:
+    inputs:
+      store_shots:
+        description: Book JSON url for App Store screenshots (blank = the everyday checks)
+        required: false
+        default: ""
 
 jobs:
   uitest:
@@ -29,6 +39,7 @@ jobs:
 
       - name: Pick an iPhone simulator
         id: sim
+        if: inputs.store_shots == ''
         run: |
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import json, sys
@@ -51,6 +62,7 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
 
       - name: Run UI tests (simulator)
+        if: inputs.store_shots == ''
         run: |
           cd ios
           xcodebuild test \
@@ -61,8 +73,54 @@ jobs:
             -only-testing:MiraclesUITests \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: App Store screenshots (6.9-inch and 6.3-inch)
+        if: inputs.store_shots != ''
+        env:
+          TEST_RUNNER_MIRACLES_STORE_SHOTS: ${{ inputs.store_shots }}
+        run: |
+          mkdir -p screens
+          for want in "Pro Max" "Pro"; do
+            UDID=$(xcrun simctl list devices available -j | WANT="$want" python3 -c "
+          import json, os, sys
+          want = os.environ['WANT']
+          data = json.load(sys.stdin)['devices']
+          phones = [d for rt, devs in sorted(data.items(), reverse=True) for d in devs
+                    if d.get('isAvailable') and d['name'].startswith('iPhone')
+                    and d['name'].endswith(want) and 'SE' not in d['name']
+                    and (want == 'Pro Max' or not d['name'].endswith('Pro Max'))]
+          print(phones[0]['udid'] if phones else '')")
+            [ -n "$UDID" ] || { echo "::warning::no iPhone ending in $want"; continue; }
+            NAME=$(xcrun simctl list devices | grep "$UDID" | sed 's/ (.*//; s/^ *//')
+            echo "== $NAME ($UDID)"
+            xcrun simctl boot "$UDID" || true
+            xcrun simctl bootstatus "$UDID" -b
+            xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi \
+              --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 \
+              --batteryState charged --batteryLevel 100 || true
+            SLUG=$(echo "$NAME" | tr ' ' '-')
+            (cd ios && xcodebuild test -project Miracles.xcodeproj -scheme Miracles \
+              -destination "id=$UDID" -resultBundlePath "../Store-$SLUG.xcresult" \
+              -only-testing:MiraclesUITests/MiraclesUITests/testStoreScreenshots \
+              CODE_SIGNING_ALLOWED=NO) || echo "::warning::store screenshots failed on $NAME"
+            mkdir -p "screens/$SLUG"
+            xcrun xcresulttool export attachments --path "Store-$SLUG.xcresult" --output-path "screens/$SLUG" || true
+            python3 - "screens/$SLUG" <<'EOF2' || true
+          import json, os, shutil, sys
+          d = sys.argv[1]; m = os.path.join(d, 'manifest.json')
+          if os.path.exists(m):
+              for item in json.load(open(m)):
+                  for att in item.get('attachments', []):
+                      src = os.path.join(d, att.get('exportedFileName', ''))
+                      name = att.get('suggestedHumanReadableName') or att.get('name') or ''
+                      if src and os.path.exists(src) and name:
+                          shutil.move(src, os.path.join(d, name if name.endswith('.png') else name + '.png'))
+          EOF2
+            xcrun simctl shutdown "$UDID" || true
+          done
+          ls -laR screens || true
+
       - name: Export screenshots from the result bundle
-        if: always()
+        if: always() && inputs.store_shots == ''
         run: |
           mkdir -p screens
           xcrun xcresulttool export attachments --path TestResults.xcresult --output-path screens || true
