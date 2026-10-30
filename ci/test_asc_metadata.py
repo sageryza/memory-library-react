@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 calls = []
 STATE = {"ver_state": "REJECTED", "no_contact": False,
          "ready": False, "boom": False, "shots_429": False,
-         "avail": 403, "paid": False, "emptysched": False, "sched404": False}
+         "avail": 403, "paid": False, "emptysched": False, "sched404": False,
+         "noincl": False}
 
 
 def fake_token():
@@ -70,6 +71,8 @@ def fake_api(method, path, tok, body=None):
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
     if path.startswith("/appPriceSchedules/APP1/manualPrices"):
         return 404, {"errors": [{"code": "NOT_FOUND"}]}
+    if path.startswith("/appPriceSchedules/PS1/manualPrices") and STATE["noincl"]:
+        return 200, {"data": [{"id": "MP1"}]}
     if path.startswith("/appPriceSchedules/PS1/manualPrices") and STATE["emptysched"]:
         return 200, {"data": [], "included": []}
     if path.startswith("/appPriceSchedules/PS1/manualPrices"):
@@ -392,6 +395,15 @@ code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
 check("and gets the free price (what Apple answered for Miracles on 2026-10-30)",
       code == 0 and ("POST", "/appPriceSchedules") in [(c[0], c[1]) for c in calls], out)
 STATE["sched404"] = False
+STATE["ready"], STATE["noincl"] = True, True
+code, out = run(DRY_RUN="false", FIELDS_JSON=json.dumps({"price": "free"}))
+check("prices whose price points Apple did not list are never replaced",
+      code == 1 and "did not list" in out and not [c for c in calls if c[0] != "GET"], out)
+STATE["ready"], STATE["noincl"] = False, False
+code, out = run(DRY_RUN="true", FIELDS_JSON=json.dumps({"availability": "all"}))
+check("a dry run stopped by a refused read still reads the before-submitting block",
+      code == 1 and "FORBIDDEN.REQUIRED_AGREEMENTS" in out and "before submitting" in out
+      and "nothing was written" in out, out)
 for bad, why in (({"contentRightsDeclaration": "MAYBE"}, "contentRightsDeclaration must be"),
                  ({"primaryCategory": "lifestyle"}, "Apple's category id"),
                  ({"ageRating": {"gambling": "no"}}, "takes true or false"),

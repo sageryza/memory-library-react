@@ -5,7 +5,9 @@ name: Miracles Simulator Screens
 # CI screenshots instead of on a real phone. Dispatchable on any branch.
 #
 # store_shots: a url of a JSON array of book pages (the cloud's own page
-# format). With it the run makes App Store screenshots instead: the cover and
+# format). THE URL IS PRINTED IN THIS PUBLIC LOG and the screenshots ride a
+# downloadable artifact, so file the book just before the run and delete it
+# (and the artifact) once the shots are copied off. With it the run makes App Store screenshots instead: the cover and
 # every page of the book, on a 6.9-inch and a 6.3-inch iPhone, with the
 # status bar set to 9:41 and full bars.
 on:
@@ -79,6 +81,7 @@ jobs:
           TEST_RUNNER_MIRACLES_STORE_SHOTS: ${{ inputs.store_shots }}
         run: |
           mkdir -p screens
+          failed=0
           for want in "Pro Max" "Pro"; do
             UDID=$(xcrun simctl list devices available -j | WANT="$want" python3 -c "
           import json, os, sys
@@ -89,7 +92,7 @@ jobs:
                     and d['name'].endswith(want) and 'SE' not in d['name']
                     and (want == 'Pro Max' or not d['name'].endswith('Pro Max'))]
           print(phones[0]['udid'] if phones else '')")
-            [ -n "$UDID" ] || { echo "::warning::no iPhone ending in $want"; continue; }
+            [ -n "$UDID" ] || { echo "::error::no iPhone ending in $want"; failed=1; continue; }
             NAME=$(xcrun simctl list devices | grep "$UDID" | sed 's/ (.*//; s/^ *//')
             echo "== $NAME ($UDID)"
             xcrun simctl boot "$UDID" || true
@@ -101,7 +104,7 @@ jobs:
             (cd ios && xcodebuild test -project Miracles.xcodeproj -scheme Miracles \
               -destination "id=$UDID" -resultBundlePath "../Store-$SLUG.xcresult" \
               -only-testing:MiraclesUITests/MiraclesUITests/testStoreScreenshots \
-              CODE_SIGNING_ALLOWED=NO) || echo "::warning::store screenshots failed on $NAME"
+              CODE_SIGNING_ALLOWED=NO) || { echo "::error::store screenshots failed on $NAME"; failed=1; }
             mkdir -p "screens/$SLUG"
             xcrun xcresulttool export attachments --path "Store-$SLUG.xcresult" --output-path "screens/$SLUG" || true
             python3 - "screens/$SLUG" <<'EOF2' || true
@@ -118,6 +121,7 @@ jobs:
             xcrun simctl shutdown "$UDID" || true
           done
           ls -laR screens || true
+          exit $failed
 
       - name: Export screenshots from the result bundle
         if: always() && inputs.store_shots == ''

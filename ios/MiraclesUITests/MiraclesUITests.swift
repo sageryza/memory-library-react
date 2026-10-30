@@ -167,7 +167,8 @@ final class MiraclesUITests: XCTestCase {
         while true {
             shot(app, String(format: "store-2-page-%02d-from-the-end", n))
             let back = app.buttons["Previous page"].firstMatch
-            guard back.exists, n < 40 else { break }
+            guard back.exists else { break }
+            guard n < 100 else { XCTFail("stopped at 100 pages; the rest are not photographed"); break }
             back.tap()
             sleep(12)
             n += 1
